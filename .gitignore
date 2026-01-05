@@ -8,3 +8,5 @@ node_modules
 .npmrc
 */.npmrc
 **/.npmrc
+
+/launch-site
