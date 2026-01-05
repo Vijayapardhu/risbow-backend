@@ -1,0 +1,327 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  mobile        String   @unique
+  name          String?
+  email         String?  @unique
+  role          UserRole @default(CUSTOMER)
+  coinsBalance  Int      @default(0)
+  referralCode  String   @unique @default(cuid())
+  referredBy    String?
+  gender        String?
+  size          String? // S, M, L, XL
+  footwearSize  Int?
+  stylePrefs    String? // Comma separated tags e.g. "Casual,Party"
+  colors        String? // Comma separated e.g. "Red,Blue"
+  rooms         RoomMember[]
+  orders        Order[]
+  createdRooms  Room[]
+  // New Relations
+  addresses     Address[]
+  cart          Cart?
+  wishlist      Wishlist[]
+  reviews       Review[]
+  notifications Notification[]
+  
+  createdAt     DateTime @default(now())
+}
+
+enum UserRole {
+  CUSTOMER
+  VENDOR
+  WHOLESALER
+  ADMIN
+  SUPER_ADMIN
+}
+
+model Room {
+  id              String       @id @default(cuid())
+  name            String
+  size            Int
+  status          RoomStatus   @default(LOCKED)
+  offerId         String       @default("")
+  startAt         DateTime
+  endAt           DateTime
+  unlockMinOrders Int
+  unlockMinValue  Int
+  members         RoomMember[]
+  createdById     String?      // Nullable for System rooms
+  isSystemRoom    Boolean      @default(false)
+  createdBy       User?        @relation(fields: [createdById], references: [id])
+  createdAt       DateTime     @default(now())
+}
+
+model WeeklyOffer {
+  id          String   @id @default(cuid())
+  name        String
+  startAt     DateTime
+  endAt       DateTime
+  isActive    Boolean  @default(true)
+  rules       Json?    // e.g. { categoryId: "xyz", minDiscount: 10 }
+  createdAt   DateTime @default(now())
+}
+
+enum RoomStatus {
+  LOCKED
+  ACTIVE
+  UNLOCKED
+  EXPIRED
+}
+
+model RoomMember {
+  roomId String
+  userId String
+  status MemberStatus @default(PENDING)
+  room   Room         @relation(fields: [roomId], references: [id])
+  user   User         @relation(fields: [userId], references: [id])
+  
+  @@id([roomId, userId])
+}
+
+enum MemberStatus {
+  PENDING
+  ORDERED
+  CONFIRMED
+  CANCELLED
+}
+
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+
+
+model Category {
+  id       String  @id @default(cuid())
+  name     String
+  nameTE   String?
+  parentId String?
+}
+
+model GiftSKU {
+  id                 String   @id @default(cuid())
+  title              String
+  stock              Int      @default(0)
+  cost               Int      @default(0)
+  eligibleCategories Json?
+  createdAt          DateTime @default(now())
+}
+
+model CoinLedger {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Int
+  source    String
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+}
+
+model Vendor {
+  id        String   @id @default(cuid())
+  name      String
+  mobile    String   @unique
+  email     String?
+  kycStatus String   @default("PENDING")
+  tier      String   @default("BASIC") // BASIC, PRO, PREMIUM
+  gstNumber String?
+  isGstVerified Boolean @default(false)
+  skuLimit  Int      @default(100)
+  
+  // B2B / Advanced Vendor
+  role         VendorRole @default(RETAILER)
+  coinsBalance Int        @default(0)
+  followCount  Int        @default(0)
+  vendorCode   String?    @unique // e.g. BOW-21
+  reviews      Review[]
+
+  createdAt DateTime @default(now())
+}
+
+enum VendorRole {
+  RETAILER
+  WHOLESALER
+}
+
+model Banner {
+  id        String   @id @default(cuid())
+  vendorId  String
+  imageUrl  String
+  slotType  String   // HOME, CATEGORY, SEARCH
+  startDate DateTime
+  endDate   DateTime
+  status    String   @default("PENDING") // PENDING, ACTIVE, EXPIRED
+  createdAt DateTime @default(now())
+}
+
+model RoomPackage {
+  id        String   @id @default(cuid())
+  vendorId  String
+  packageType String // 2_TIME, 3_TIME, 4_TIME
+  remainingCredits Int
+  createdAt DateTime @default(now())
+}
+
+
+// --- User Profile Extensions ---
+
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String?  // "Home", "Work"
+  name      String   // Receiver Name
+  mobile    String
+  street    String
+  city      String
+  state     String
+  pincode   String
+  isDefault Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id])
+  orders    Order[]
+}
+
+// --- Shopping Experience ---
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  items     CartItem[]
+  user      User       @relation(fields: [userId], references: [id])
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  cartId    String
+  productId String
+  variantId String? // Optional link to specific variant
+  quantity  Int
+  cart      Cart    @relation(fields: [cartId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  user      User     @relation(fields: [userId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+}
+
+// --- Social & Feedback ---
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String?
+  vendorId  String?
+  rating    Int      // 1-5
+  comment   String?
+  images    String[] // URLs
+  user      User     @relation(fields: [userId], references: [id])
+  product   Product? @relation(fields: [productId], references: [id])
+  vendor    Vendor?  @relation(fields: [vendorId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+// --- Payments & Logistics ---
+
+model Payment {
+  id              String        @id @default(cuid())
+  orderId         String        @unique
+  amount          Int
+  currency        String        @default("INR")
+  provider        String        // "RAZORPAY", "COD"
+  providerOrderId String?
+  paymentId       String?       // Razorpay Payment ID
+  status          PaymentStatus @default(PENDING)
+  order           Order         @relation(fields: [orderId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  type      String   // "ORDER", "OFFER", "ROOM"
+  isRead    Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+// --- Updates to Existing Models (Relations) ---
+
+model Order {
+  id              String      @id @default(cuid())
+  userId          String
+  roomId          String?
+  addressId       String?     // Link to shipping address
+  items           Json
+  totalAmount     Int
+  status          OrderStatus @default(PENDING)
+  razorpayOrderId String?
+  user            User        @relation(fields: [userId], references: [id])
+  payment         Payment?
+  address         Address?    @relation(fields: [addressId], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  vendorId    String
+  title       String
+  description String?
+  price       Int
+  offerPrice  Int?
+  stock       Int      @default(0)
+  categoryId  String
+  variants    Json?    // Keep strict structured JSON for flexibility or make Model
+  images      String[] // Multiple images
+  
+  // B2B Wholesale Fields
+  isWholesale    Boolean @default(false)
+  wholesalePrice Int?
+  moq            Int     @default(1)
+
+  reviews     Review[]
+  cartItems   CartItem[]
+  wishlists   Wishlist[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// --- Admin ---
+
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String   // Hashed
+  role      String   // "SUPER_ADMIN", "SUPPORT"
+  createdAt DateTime @default(now())
+}

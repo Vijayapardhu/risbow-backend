@@ -1,0 +1,112 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.OrdersService = void 0;
+const common_1 = require("@nestjs/common");
+const prisma_service_1 = require("../prisma/prisma.service");
+const config_1 = require("@nestjs/config");
+const razorpay_1 = __importDefault(require("razorpay"));
+const client_1 = require("@prisma/client");
+const rooms_service_1 = require("../rooms/rooms.service");
+let OrdersService = class OrdersService {
+    constructor(prisma, configService, roomsService) {
+        this.prisma = prisma;
+        this.configService = configService;
+        this.roomsService = roomsService;
+        this.razorpay = new razorpay_1.default({
+            key_id: this.configService.get('RAZORPAY_KEY_ID'),
+            key_secret: this.configService.get('RAZORPAY_KEY_SECRET'),
+        });
+    }
+    async createCheckout(userId, dto) {
+        let totalAmount = 0;
+        totalAmount = dto.items.reduce((acc, item) => acc + (100 * item.quantity), 0);
+        if (dto.useCoins) {
+        }
+        if (totalAmount <= 0)
+            totalAmount = 100;
+        const rzpOrder = await this.razorpay.orders.create({
+            amount: totalAmount * 100,
+            currency: 'INR',
+            receipt: `order_${Date.now()}`,
+        });
+        const order = await this.prisma.order.create({
+            data: {
+                userId,
+                roomId: dto.roomId,
+                items: dto.items,
+                totalAmount,
+                status: client_1.OrderStatus.PENDING,
+                razorpayOrderId: rzpOrder.id,
+            },
+        });
+        return {
+            orderId: order.id,
+            razorpayOrderId: rzpOrder.id,
+            amount: totalAmount,
+            currency: 'INR',
+            key: this.configService.get('RAZORPAY_KEY_ID'),
+        };
+    }
+    async confirmOrder(dto) {
+        const crypto = require('crypto');
+        const expectedSignature = crypto
+            .createHmac('sha256', this.configService.get('RAZORPAY_KEY_SECRET'))
+            .update(dto.razorpayOrderId + '|' + dto.razorpayPaymentId)
+            .digest('hex');
+        if (expectedSignature !== dto.razorpaySignature) {
+            console.log('Signature Mismatch:', expectedSignature, dto.razorpaySignature);
+        }
+        const order = await this.prisma.order.findFirst({
+            where: { razorpayOrderId: dto.razorpayOrderId },
+        });
+        if (!order)
+            throw new common_1.BadRequestException('Order not found');
+        const updatedOrder = await this.prisma.order.update({
+            where: { id: order.id },
+            data: { status: client_1.OrderStatus.CONFIRMED },
+        });
+        if (order.roomId) {
+            await this.prisma.roomMember.updateMany({
+                where: { roomId: order.roomId, userId: order.userId },
+                data: { status: client_1.MemberStatus.ORDERED }
+            });
+            await this.roomsService.checkUnlockStatus(order.roomId);
+        }
+        return { status: 'success', orderId: updatedOrder.id };
+    }
+    async addGiftToOrder(orderId, userId, giftId) {
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId }
+        });
+        if (!order)
+            throw new common_1.NotFoundException('Order not found');
+        if (order.userId !== userId)
+            throw new common_1.ForbiddenException('Order not yours');
+        if (order.totalAmount < 2000)
+            throw new common_1.BadRequestException('Not eligible for gifts');
+        const gift = await this.prisma.giftSKU.findUnique({ where: { id: giftId } });
+        if (!gift || gift.stock <= 0)
+            throw new common_1.BadRequestException('Gift unavailable');
+        return { message: 'Gift added to order' };
+    }
+};
+exports.OrdersService = OrdersService;
+exports.OrdersService = OrdersService = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        config_1.ConfigService,
+        rooms_service_1.RoomsService])
+], OrdersService);
+//# sourceMappingURL=orders.service.js.map

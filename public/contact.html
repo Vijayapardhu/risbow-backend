@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us - RISBOW</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --neon-cyan: #00ffff;
+            --neon-pink: #ff00ff;
+            --neon-green: #00ff88;
+            --dark-bg: #0a0a0f;
+            --dark-card: #12121a;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--dark-bg);
+            color: #ffffff;
+            line-height: 1.8;
+        }
+
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 1.5rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            background: rgba(10, 10, 15, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+        }
+
+        .logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem;
+            font-weight: 900;
+            background: linear-gradient(45deg, var(--neon-cyan), var(--neon-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .back-link {
+            color: var(--neon-cyan);
+            text-decoration: none;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+
+        .back-link:hover {
+            text-shadow: 0 0 20px var(--neon-cyan);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 8rem 2rem 4rem;
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            text-align: center;
+            background: linear-gradient(45deg, var(--neon-cyan), var(--neon-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #b0b0b0;
+            font-size: 1.2rem;
+            margin-bottom: 4rem;
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .contact-card {
+            background: var(--dark-card);
+            padding: 2.5rem;
+            border-radius: 20px;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .contact-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--neon-cyan);
+            box-shadow: 0 20px 60px rgba(0, 255, 255, 0.3);
+        }
+
+        .contact-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            filter: drop-shadow(0 0 10px var(--neon-cyan));
+        }
+
+        .contact-card h3 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--neon-cyan);
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+        }
+
+        .contact-card p {
+            color: #b0b0b0;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .contact-card a {
+            color: var(--neon-pink);
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .contact-card a:hover {
+            text-shadow: 0 0 10px var(--neon-pink);
+        }
+
+        .form-section {
+            max-width: 700px;
+            margin: 4rem auto;
+            background: var(--dark-card);
+            padding: 3rem;
+            border-radius: 20px;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+        }
+
+        .form-section h2 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--neon-cyan);
+            font-size: 2rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--neon-cyan);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 1rem;
+            font-family: 'Rajdhani', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        .form-group textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+            background: rgba(0, 0, 0, 0.7);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 1.2rem;
+            background: transparent;
+            color: var(--neon-cyan);
+            border: 2px solid var(--neon-cyan);
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            font-family: 'Orbitron', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-submit::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--neon-cyan);
+            transition: left 0.3s ease;
+            z-index: -1;
+        }
+
+        .btn-submit:hover::before {
+            left: 0;
+        }
+
+        .btn-submit:hover {
+            color: #000;
+            box-shadow: 0 0 30px var(--neon-cyan);
+        }
+
+        .success-msg, .error-msg {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            display: none;
+        }
+
+        .success-msg {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--neon-green);
+            color: var(--neon-green);
+        }
+
+        .error-msg {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid #ff0000;
+            color: #ff0000;
+        }
+
+        .map-section {
+            margin-top: 4rem;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            margin-top: 4rem;
+            border-top: 1px solid rgba(0, 255, 255, 0.2);
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            .form-section {
+                padding: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="logo">🎯 RISBOW</div>
+        <a href="/neon-launch.html" class="back-link">← Back to Home</a>
+    </nav>
+
+    <div class="container">
+        <h1>Contact Us</h1>
+        <p class="subtitle">We'd love to hear from you! Get in touch with us.</p>
+
+        <div class="contact-grid">
+            <div class="contact-card">
+                <div class="contact-icon">📧</div>
+                <h3>Email Us</h3>
+                <p>General Inquiries:</p>
+                <p><a href="mailto:support@risbow.com">support@risbow.com</a></p>
+                <p style="margin-top: 1rem;">Business Inquiries:</p>
+                <p><a href="mailto:business@risbow.com">business@risbow.com</a></p>
+            </div>
+
+            <div class="contact-card">
+                <div class="contact-icon">📱</div>
+                <h3>Call Us</h3>
+                <p>Customer Support:</p>
+                <p><a href="tel:+919876543210">+91-9876-543-210</a></p>
+                <p style="margin-top: 1rem;">Vendor Support:</p>
+                <p><a href="tel:+919876543211">+91-9876-543-211</a></p>
+                <p style="margin-top: 1rem; color: #888; font-size: 0.95rem;">Mon-Sat: 9 AM - 6 PM IST</p>
+            </div>
+
+            <div class="contact-card">
+                <div class="contact-icon">📍</div>
+                <h3>Visit Us</h3>
+                <p>RISBOW Technologies Pvt. Ltd.</p>
+                <p>Hi-Tech City, Hyderabad</p>
+                <p>Telangana, India - 500081</p>
+                <p style="margin-top: 1rem; color: #888; font-size: 0.95rem;">By appointment only</p>
+            </div>
+
+            <div class="contact-card">
+                <div class="contact-icon">💬</div>
+                <h3>Social Media</h3>
+                <p><a href="#">Twitter/X: @RisbowApp</a></p>
+                <p><a href="#">Instagram: @RisbowOfficial</a></p>
+                <p><a href="#">LinkedIn: RISBOW</a></p>
+                <p><a href="#">YouTube: RISBOW</a></p>
+            </div>
+
+            <div class="contact-card">
+                <div class="contact-icon">🎧</div>
+                <h3>Live Chat</h3>
+                <p>Chat with Bow AI</p>
+                <p style="margin-top: 1rem;">Available 24/7</p>
+                <p style="margin-top: 1rem;"><a href="#" style="color: var(--neon-green);">Start Chat →</a></p>
+            </div>
+
+            <div class="contact-card">
+                <div class="contact-icon">⚠️</div>
+                <h3>Report Issue</h3>
+                <p>Fraud/Abuse:</p>
+                <p><a href="mailto:abuse@risbow.com">abuse@risbow.com</a></p>
+                <p style="margin-top: 1rem;">Grievance Officer:</p>
+                <p><a href="mailto:grievance@risbow.com">grievance@risbow.com</a></p>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2>Send Us a Message</h2>
+            
+            <div id="contact-success" class="success-msg"></div>
+            <div id="contact-error" class="error-msg"></div>
+
+            <form id="contact-form">
+                <div class="form-group">
+                    <label for="contact-name">Full Name *</label>
+                    <input type="text" id="contact-name" name="name" required placeholder="Enter your full name">
+                </div>
+
+                <div class="form-group">
+                    <label for="contact-email">Email *</label>
+                    <input type="email" id="contact-email" name="email" required placeholder="your@email.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="contact-mobile">Mobile Number *</label>
+                    <input type="tel" id="contact-mobile" name="mobile" required placeholder="9999999999" pattern="[0-9]{10}">
+                </div>
+
+                <div class="form-group">
+                    <label for="contact-subject">Subject *</label>
+                    <select id="contact-subject" name="subject" required>
+                        <option value="">Select a subject</option>
+                        <option value="general">General Inquiry</option>
+                        <option value="support">Customer Support</option>
+                        <option value="vendor">Vendor Partnership</option>
+                        <option value="technical">Technical Issue</option>
+                        <option value="feedback">Feedback</option>
+                        <option value="complaint">Complaint</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="contact-message">Message *</label>
+                    <textarea id="contact-message" name="message" required placeholder="Tell us how we can help you..."></textarea>
+                </div>
+
+                <button type="submit" class="btn-submit">
+                    <span id="contact-submit-text">Send Message</span>
+                    <div id="contact-loading" style="display: none;">Sending...</div>
+                </button>
+            </form>
+
+            <p style="text-align: center; margin-top: 1.5rem; color: #888; font-size: 0.95rem;">
+                We typically respond within 24-48 hours on business days.
+            </p>
+        </div>
+
+        <div class="map-section">
+            <iframe 
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3806.336621447964!2d78.3808!3d17.4485!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTfCsDI2JzU0LjYiTiA3OMKwMjInNTAuOSJF!5e0!3m2!1sen!2sin!4v1234567890"
+                width="100%"
+                height="400"
+                style="border:0; display: block;"
+                allowfullscreen=""
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade">
+            </iframe>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 RISBOW. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // Contact Form Submission
+        const contactForm = document.getElementById('contact-form');
+        const contactSuccess = document.getElementById('contact-success');
+        const contactError = document.getElementById('contact-error');
+        const submitText = document.getElementById('contact-submit-text');
+        const loadingText = document.getElementById('contact-loading');
+
+        contactForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            contactSuccess.style.display = 'none';
+            contactError.style.display = 'none';
+            submitText.style.display = 'none';
+            loadingText.style.display = 'block';
+
+            const formData = {
+                name: document.getElementById('contact-name').value,
+                email: document.getElementById('contact-email').value,
+                mobile: document.getElementById('contact-mobile').value,
+                subject: document.getElementById('contact-subject').value,
+                message: document.getElementById('contact-message').value
+            };
+
+            try {
+                const response = await fetch('/api/v1/contact/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to send message. Please try again.');
+                }
+
+                const result = await response.json();
+
+                contactSuccess.innerHTML = `
+                    ✅ <strong>Message Sent!</strong><br>
+                    Thank you for contacting us. We'll get back to you soon at ${formData.email}
+                `;
+                contactSuccess.style.display = 'block';
+
+                contactForm.reset();
+
+            } catch (error) {
+                console.error('Error:', error);
+                contactError.innerHTML = `❌ ${error.message}`;
+                contactError.style.display = 'block';
+            } finally {
+                submitText.style.display = 'inline';
+                loadingText.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
