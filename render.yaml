@@ -7,8 +7,7 @@ services:
     branch: master
     autoDeploy: true
     buildCommand: npm install && npm run build
-    startCommand: npm run start:prod
-    preDeployCommand: npx prisma migrate deploy
+    startCommand: npx prisma migrate deploy && npm run start:prod
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
