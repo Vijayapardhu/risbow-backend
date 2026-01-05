@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: risbow-backend
+    env: node
+    runtime: node 20
+    plan: starter
+    region: oregon
+    branch: master
+    autoDeploy: true
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    preDeployCommand: npx prisma migrate deploy
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromSecret: DATABASE_URL
+      - key: JWT_SECRET
+        fromSecret: JWT_SECRET
+      - key: PORT
+        value: "3000"
+      - key: REDIS_HOST
+        fromSecret: REDIS_HOST
+      - key: REDIS_PORT
+        value: "6379"
+      - key: RAZORPAY_KEY_ID
+        fromSecret: RAZORPAY_KEY_ID
+      - key: RAZORPAY_KEY_SECRET
+        fromSecret: RAZORPAY_KEY_SECRET
+      - key: THROTTLE_TTL
+        value: "60000"
+      - key: THROTTLE_LIMIT
+        value: "100"
+    databases:
+      - name: risbow-postgres
+
+databases:
+  - name: risbow-postgres
+    databaseName: risbow
+    plan: free
+    region: oregon
