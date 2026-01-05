@@ -2,7 +2,8 @@ services:
   - type: web
     name: risbow-backend
     env: node
-    runtime: node 20
+    runtime: node
+    nodeVersion: 20
     plan: starter
     region: oregon
     branch: master
@@ -13,19 +14,19 @@ services:
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
-        fromSecret: DATABASE_URL
+        value: "postgresql://postgres.rxticediycnboewmsfmi:EVMivjrwhqN1somD@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres"
       - key: JWT_SECRET
-        fromSecret: JWT_SECRET
+        value: "set-in-dashboard"
       - key: PORT
         value: "3000"
       - key: REDIS_HOST
-        fromSecret: REDIS_HOST
+        value: "set-in-dashboard"
       - key: REDIS_PORT
         value: "6379"
       - key: RAZORPAY_KEY_ID
-        fromSecret: RAZORPAY_KEY_ID
+        value: "set-in-dashboard"
       - key: RAZORPAY_KEY_SECRET
-        fromSecret: RAZORPAY_KEY_SECRET
+        value: "set-in-dashboard"
       - key: THROTTLE_TTL
         value: "60000"
       - key: THROTTLE_LIMIT
