@@ -30,11 +30,4 @@ services:
         value: "60000"
       - key: THROTTLE_LIMIT
         value: "100"
-    databases:
-      - name: risbow-postgres
 
-databases:
-  - name: risbow-postgres
-    databaseName: risbow
-    plan: free
-    region: oregon
