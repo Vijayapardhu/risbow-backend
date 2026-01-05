@@ -2,8 +2,6 @@ services:
   - type: web
     name: risbow-backend
     env: node
-    runtime: node
-    nodeVersion: 20
     plan: starter
     region: oregon
     branch: master
@@ -23,6 +21,8 @@ services:
         value: "set-in-dashboard"
       - key: REDIS_PORT
         value: "6379"
+      - key: NODE_VERSION
+        value: "20"
       - key: RAZORPAY_KEY_ID
         value: "set-in-dashboard"
       - key: RAZORPAY_KEY_SECRET
