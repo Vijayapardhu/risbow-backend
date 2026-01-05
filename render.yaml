@@ -15,7 +15,7 @@ services:
       - key: JWT_SECRET
         value: "set-in-dashboard"
       - key: PORT
-        value: "3000"
+        sync: false
       - key: REDIS_HOST
         value: "set-in-dashboard"
       - key: REDIS_PORT
