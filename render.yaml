@@ -2,7 +2,7 @@ services:
   - type: web
     name: risbow-backend
     env: node
-    plan: starter
+    plan: free
     region: oregon
     branch: master
     autoDeploy: true
