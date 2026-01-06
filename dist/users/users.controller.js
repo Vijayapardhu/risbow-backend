@@ -73,6 +73,14 @@ let ReferralsController = class ReferralsController {
         const user = await this.usersService.findOne(req.user.id);
         return { referralCode: user.referralCode };
     }
+    async share(req) {
+        const user = await this.usersService.findOne(req.user.id);
+        const linkBase = process.env.APP_BASE_URL || 'https://risbow.app';
+        return {
+            referralCode: user.referralCode,
+            link: `${linkBase}/ref/${user.referralCode}`
+        };
+    }
     async claimReferral(req, dto) {
         return this.usersService.claimReferral(req.user.id, dto.refCode);
     }
@@ -85,6 +93,13 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], ReferralsController.prototype, "getReferralInfo", null);
+__decorate([
+    (0, common_1.Get)('share'),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], ReferralsController.prototype, "share", null);
 __decorate([
     (0, common_1.Post)('claim'),
     __param(0, (0, common_1.Request)()),

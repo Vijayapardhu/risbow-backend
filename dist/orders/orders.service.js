@@ -19,25 +19,27 @@ const config_1 = require("@nestjs/config");
 const razorpay_1 = __importDefault(require("razorpay"));
 const client_1 = require("@prisma/client");
 const rooms_service_1 = require("../rooms/rooms.service");
+const coins_service_1 = require("../coins/coins.service");
+const coin_dto_1 = require("../coins/dto/coin.dto");
 let OrdersService = class OrdersService {
-    constructor(prisma, configService, roomsService) {
+    constructor(prisma, configService, roomsService, coinsService) {
         this.prisma = prisma;
         this.configService = configService;
         this.roomsService = roomsService;
+        this.coinsService = coinsService;
         this.razorpay = new razorpay_1.default({
             key_id: this.configService.get('RAZORPAY_KEY_ID'),
             key_secret: this.configService.get('RAZORPAY_KEY_SECRET'),
         });
     }
     async createCheckout(userId, dto) {
-        let totalAmount = 0;
-        totalAmount = dto.items.reduce((acc, item) => acc + (100 * item.quantity), 0);
-        if (dto.useCoins) {
-        }
-        if (totalAmount <= 0)
-            totalAmount = 100;
+        const totalBeforeCoins = dto.items.reduce((acc, item) => acc + (100 * item.quantity), 0) || 100;
+        const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { coinsBalance: true } });
+        const requestedCoins = Math.max(0, dto.useCoins || 0);
+        const usableCoins = Math.min(requestedCoins, (user === null || user === void 0 ? void 0 : user.coinsBalance) || 0, totalBeforeCoins);
+        const payable = Math.max(1, totalBeforeCoins - usableCoins);
         const rzpOrder = await this.razorpay.orders.create({
-            amount: totalAmount * 100,
+            amount: payable * 100,
             currency: 'INR',
             receipt: `order_${Date.now()}`,
         });
@@ -46,7 +48,8 @@ let OrdersService = class OrdersService {
                 userId,
                 roomId: dto.roomId,
                 items: dto.items,
-                totalAmount,
+                totalAmount: payable,
+                coinsUsed: usableCoins,
                 status: client_1.OrderStatus.PENDING,
                 razorpayOrderId: rzpOrder.id,
             },
@@ -54,9 +57,11 @@ let OrdersService = class OrdersService {
         return {
             orderId: order.id,
             razorpayOrderId: rzpOrder.id,
-            amount: totalAmount,
+            amount: payable,
             currency: 'INR',
             key: this.configService.get('RAZORPAY_KEY_ID'),
+            coinsUsed: usableCoins,
+            totalBeforeCoins,
         };
     }
     async confirmOrder(dto) {
@@ -73,10 +78,33 @@ let OrdersService = class OrdersService {
         });
         if (!order)
             throw new common_1.BadRequestException('Order not found');
+        if (order.status === client_1.OrderStatus.CONFIRMED || order.status === client_1.OrderStatus.DELIVERED) {
+            return { status: 'success', orderId: order.id, message: 'Already confirmed' };
+        }
         const updatedOrder = await this.prisma.order.update({
             where: { id: order.id },
             data: { status: client_1.OrderStatus.CONFIRMED },
         });
+        if (order.coinsUsed > 0 && !order.coinsUsedDebited) {
+            await this.coinsService.debit(order.userId, order.coinsUsed, coin_dto_1.CoinSource.SPEND_ORDER, order.id);
+            await this.prisma.order.update({
+                where: { id: order.id },
+                data: { coinsUsedDebited: true },
+            });
+        }
+        const user = await this.prisma.user.findUnique({ where: { id: order.userId } });
+        if (user === null || user === void 0 ? void 0 : user.referredBy) {
+            const alreadyCredited = await this.prisma.coinLedger.findFirst({
+                where: { referenceId: order.id, source: coin_dto_1.CoinSource.REFERRAL },
+            });
+            if (!alreadyCredited) {
+                const reward = 100;
+                await Promise.all([
+                    this.coinsService.credit(order.userId, reward, coin_dto_1.CoinSource.REFERRAL, order.id),
+                    this.coinsService.credit(user.referredBy, reward, coin_dto_1.CoinSource.REFERRAL, order.id),
+                ]);
+            }
+        }
         if (order.roomId) {
             await this.prisma.roomMember.updateMany({
                 where: { roomId: order.roomId, userId: order.userId },
@@ -107,6 +135,7 @@ exports.OrdersService = OrdersService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         config_1.ConfigService,
-        rooms_service_1.RoomsService])
+        rooms_service_1.RoomsService,
+        coins_service_1.CoinsService])
 ], OrdersService);
 //# sourceMappingURL=orders.service.js.map

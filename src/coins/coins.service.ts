@@ -22,7 +22,7 @@ export class CoinsService {
         });
     }
 
-    async credit(userId: string, amount: number, source: CoinSource) {
+    async credit(userId: string, amount: number, source: CoinSource, referenceId?: string) {
         return this.prisma.$transaction(async (tx) => {
             // Create Ledger Entry
             await tx.coinLedger.create({
@@ -30,6 +30,7 @@ export class CoinsService {
                     userId,
                     amount,
                     source,
+                    referenceId,
                     // Expiry logic: 3 months from now (simplified)
                     expiresAt: new Date(new Date().setMonth(new Date().getMonth() + 3)),
                 },
@@ -45,7 +46,7 @@ export class CoinsService {
         });
     }
 
-    async debit(userId: string, amount: number, source: CoinSource) {
+    async debit(userId: string, amount: number, source: CoinSource, referenceId?: string) {
         return this.prisma.$transaction(async (tx) => {
             const user = await tx.user.findUnique({ where: { id: userId } });
             if (!user || user.coinsBalance < amount) {
@@ -59,6 +60,7 @@ export class CoinsService {
                     userId,
                     amount: -amount,
                     source,
+                    referenceId,
                 },
             });
 

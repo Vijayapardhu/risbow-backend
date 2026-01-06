@@ -30,13 +30,14 @@ let CoinsService = class CoinsService {
             take: 20,
         });
     }
-    async credit(userId, amount, source) {
+    async credit(userId, amount, source, referenceId) {
         return this.prisma.$transaction(async (tx) => {
             await tx.coinLedger.create({
                 data: {
                     userId,
                     amount,
                     source,
+                    referenceId,
                     expiresAt: new Date(new Date().setMonth(new Date().getMonth() + 3)),
                 },
             });
@@ -47,7 +48,7 @@ let CoinsService = class CoinsService {
             return updatedUser;
         });
     }
-    async debit(userId, amount, source) {
+    async debit(userId, amount, source, referenceId) {
         return this.prisma.$transaction(async (tx) => {
             const user = await tx.user.findUnique({ where: { id: userId } });
             if (!user || user.coinsBalance < amount) {
@@ -58,6 +59,7 @@ let CoinsService = class CoinsService {
                     userId,
                     amount: -amount,
                     source,
+                    referenceId,
                 },
             });
             const updatedUser = await tx.user.update({

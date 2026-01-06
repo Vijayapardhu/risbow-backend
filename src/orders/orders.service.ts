@@ -3,8 +3,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CheckoutDto, ConfirmOrderDto } from './dto/order.dto';
 import { ConfigService } from '@nestjs/config';
 import Razorpay from 'razorpay';
-import { OrderStatus, MemberStatus, RoomStatus } from '@prisma/client';
+import { OrderStatus, MemberStatus } from '@prisma/client';
 import { RoomsService } from '../rooms/rooms.service';
+import { CoinsService } from '../coins/coins.service';
+import { CoinSource } from '../coins/dto/coin.dto';
 
 @Injectable()
 export class OrdersService {
@@ -14,6 +16,7 @@ export class OrdersService {
         private prisma: PrismaService,
         private configService: ConfigService,
         private roomsService: RoomsService,
+        private coinsService: CoinsService,
     ) {
         this.razorpay = new Razorpay({
             key_id: this.configService.get('RAZORPAY_KEY_ID'),
@@ -22,38 +25,30 @@ export class OrdersService {
     }
 
     async createCheckout(userId: string, dto: CheckoutDto) {
-        // 1. Calculate Total Amount
-        // Mock: Fetch products from DB to get real price. For now assuming simple logic.
-        // In prod: await this.prisma.product.findMany({ where: { id: { in: ids } } })
+        // 1) Calculate total (placeholder pricing: ₹100 per item)
+        const totalBeforeCoins = dto.items.reduce((acc, item) => acc + (100 * item.quantity), 0) || 100;
 
-        // Simulating fetching prices & stock check
-        let totalAmount = 0;
-        // loop dto.items to sum up functionality
+        // 2) Apply coin redemption safely
+        const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { coinsBalance: true } });
+        const requestedCoins = Math.max(0, dto.useCoins || 0);
+        const usableCoins = Math.min(requestedCoins, user?.coinsBalance || 0, totalBeforeCoins);
+        const payable = Math.max(1, totalBeforeCoins - usableCoins);
 
-        // HARDCODE for testing speed: 100 per item
-        totalAmount = dto.items.reduce((acc, item) => acc + (100 * item.quantity), 0);
-
-        if (dto.useCoins) {
-            // Validate coins balance logic here
-            // totalAmount -= dto.useCoins; 
-        }
-
-        if (totalAmount <= 0) totalAmount = 100; // Minimum 1 rupee
-
-        // 2. Create Razorpay Order
+        // 3) Create Razorpay Order for payable amount
         const rzpOrder = await this.razorpay.orders.create({
-            amount: totalAmount * 100, // paise
+            amount: payable * 100, // paise
             currency: 'INR',
             receipt: `order_${Date.now()}`,
         });
 
-        // 3. Create DB Order (PENDING)
+        // 4) Persist order with coinsUsed for idempotent debit on confirmation
         const order = await this.prisma.order.create({
             data: {
                 userId,
                 roomId: dto.roomId,
                 items: dto.items as any,
-                totalAmount,
+                totalAmount: payable,
+                coinsUsed: usableCoins,
                 status: OrderStatus.PENDING,
                 razorpayOrderId: rzpOrder.id,
             },
@@ -62,9 +57,11 @@ export class OrdersService {
         return {
             orderId: order.id,
             razorpayOrderId: rzpOrder.id,
-            amount: totalAmount,
+            amount: payable,
             currency: 'INR',
             key: this.configService.get('RAZORPAY_KEY_ID'),
+            coinsUsed: usableCoins,
+            totalBeforeCoins,
         };
     }
 
@@ -83,27 +80,53 @@ export class OrdersService {
             console.log('Signature Mismatch:', expectedSignature, dto.razorpaySignature);
         }
 
-        // 2. Update Order Status
+        // 2. Fetch order with coin usage details
         const order = await this.prisma.order.findFirst({
             where: { razorpayOrderId: dto.razorpayOrderId },
         });
 
         if (!order) throw new BadRequestException('Order not found');
 
+        // Idempotency: if already confirmed/delivered skip side effects
+        if (order.status === OrderStatus.CONFIRMED || order.status === OrderStatus.DELIVERED) {
+            return { status: 'success', orderId: order.id, message: 'Already confirmed' };
+        }
+
         const updatedOrder = await this.prisma.order.update({
             where: { id: order.id },
             data: { status: OrderStatus.CONFIRMED },
         });
 
-        // 3. Room Logic: If order belongs to a room
+        // 3. Debit coins if used and not yet debited
+        if (order.coinsUsed > 0 && !order.coinsUsedDebited) {
+            await this.coinsService.debit(order.userId, order.coinsUsed, CoinSource.SPEND_ORDER, order.id);
+            await this.prisma.order.update({
+                where: { id: order.id },
+                data: { coinsUsedDebited: true },
+            });
+        }
+
+        // 4. Referral credit on first successful order
+        const user = await this.prisma.user.findUnique({ where: { id: order.userId } });
+        if (user?.referredBy) {
+            const alreadyCredited = await this.prisma.coinLedger.findFirst({
+                where: { referenceId: order.id, source: CoinSource.REFERRAL },
+            });
+            if (!alreadyCredited) {
+                const reward = 100;
+                await Promise.all([
+                    this.coinsService.credit(order.userId, reward, CoinSource.REFERRAL, order.id),
+                    this.coinsService.credit(user.referredBy, reward, CoinSource.REFERRAL, order.id),
+                ]);
+            }
+        }
+
+        // 5. Room Logic: If order belongs to a room
         if (order.roomId) {
-            // Update Member status to ORDERED
             await this.prisma.roomMember.updateMany({
                 where: { roomId: order.roomId, userId: order.userId },
                 data: { status: MemberStatus.ORDERED }
             });
-
-            // Trigger Unlock Check
             await this.roomsService.checkUnlockStatus(order.roomId);
         }
 

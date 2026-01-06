@@ -14,7 +14,7 @@ export declare class CoinsService {
         source: string;
         expiresAt: Date | null;
     }[]>;
-    credit(userId: string, amount: number, source: CoinSource): Promise<{
+    credit(userId: string, amount: number, source: CoinSource, referenceId?: string): Promise<{
         id: string;
         mobile: string;
         email: string | null;
@@ -30,7 +30,7 @@ export declare class CoinsService {
         colors: string | null;
         createdAt: Date;
     }>;
-    debit(userId: string, amount: number, source: CoinSource): Promise<{
+    debit(userId: string, amount: number, source: CoinSource, referenceId?: string): Promise<{
         id: string;
         mobile: string;
         email: string | null;

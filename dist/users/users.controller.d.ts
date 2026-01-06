@@ -55,6 +55,10 @@ export declare class ReferralsController {
     getReferralInfo(req: any): Promise<{
         referralCode: string;
     }>;
+    share(req: any): Promise<{
+        referralCode: string;
+        link: string;
+    }>;
     claimReferral(req: any, dto: ReferralClaimDto): Promise<{
         id: string;
         mobile: string;

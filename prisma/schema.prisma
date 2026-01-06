@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -125,6 +126,7 @@ model CoinLedger {
   userId    String
   amount    Int
   source    String
+  referenceId String?
   expiresAt DateTime?
   createdAt DateTime @default(now())
 }
@@ -282,6 +284,8 @@ model Order {
   addressId       String?     // Link to shipping address
   items           Json
   totalAmount     Int
+  coinsUsed       Int         @default(0)
+  coinsUsedDebited Boolean    @default(false)
   status          OrderStatus @default(PENDING)
   razorpayOrderId String?
   user            User        @relation(fields: [userId], references: [id])

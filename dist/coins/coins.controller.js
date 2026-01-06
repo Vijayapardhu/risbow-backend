@@ -27,6 +27,12 @@ let CoinsController = class CoinsController {
     async debit(dto) {
         return this.coinsService.debit(dto.userId, dto.amount, dto.source);
     }
+    async redeem(req, amount) {
+        if (amount <= 0) {
+            throw new common_1.BadRequestException('Amount must be positive');
+        }
+        return this.coinsService.debit(req.user.id, amount, coin_dto_1.CoinSource.SPEND_ORDER);
+    }
 };
 exports.CoinsController = CoinsController;
 __decorate([
@@ -43,6 +49,14 @@ __decorate([
     __metadata("design:paramtypes", [coin_dto_1.DebitCoinDto]),
     __metadata("design:returntype", Promise)
 ], CoinsController.prototype, "debit", null);
+__decorate([
+    (0, common_1.Post)('redeem'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Body)('amount', common_1.ParseIntPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Number]),
+    __metadata("design:returntype", Promise)
+], CoinsController.prototype, "redeem", null);
 exports.CoinsController = CoinsController = __decorate([
     (0, common_1.Controller)('coins'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

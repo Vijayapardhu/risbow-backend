@@ -45,6 +45,16 @@ export class ReferralsController {
         return { referralCode: user.referralCode };
     }
 
+    @Get('share')
+    async share(@Request() req) {
+        const user = await this.usersService.findOne(req.user.id);
+        const linkBase = process.env.APP_BASE_URL || 'https://risbow.app';
+        return {
+            referralCode: user.referralCode,
+            link: `${linkBase}/ref/${user.referralCode}`
+        };
+    }
+
     @Post('claim')
     async claimReferral(@Request() req, @Body() dto: ReferralClaimDto) {
         return this.usersService.claimReferral(req.user.id, dto.refCode);

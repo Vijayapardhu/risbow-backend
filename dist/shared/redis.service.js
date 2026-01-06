@@ -5,33 +5,85 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var RedisService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RedisService = void 0;
 const common_1 = require("@nestjs/common");
 const ioredis_1 = require("ioredis");
-let RedisService = class RedisService {
-    onModuleInit() {
-        this.client = new ioredis_1.Redis({
-            host: process.env.REDIS_HOST || 'localhost',
-            port: parseInt(process.env.REDIS_PORT) || 6379,
-            lazyConnect: true
-        });
+let RedisService = RedisService_1 = class RedisService {
+    constructor() {
+        this.logger = new common_1.Logger(RedisService_1.name);
+        this.inMemoryStore = new Map();
+        this.useMemory = false;
     }
-    onModuleDestroy() {
-        this.client.disconnect();
+    async onModuleInit() {
+        const host = process.env.REDIS_HOST;
+        const port = parseInt(process.env.REDIS_PORT) || 6379;
+        if (!host) {
+            this.useMemory = true;
+            this.logger.warn('REDIS_HOST not set; falling back to in-memory OTP store');
+            return;
+        }
+        this.client = new ioredis_1.Redis({
+            host,
+            port,
+            lazyConnect: true,
+            maxRetriesPerRequest: 1,
+            retryStrategy: () => null,
+            enableOfflineQueue: false,
+        });
+        this.client.on('error', (err) => {
+            if (!this.useMemory) {
+                this.logger.warn(`Redis unavailable, using in-memory store. Error: ${err.message}`);
+                this.useMemory = true;
+            }
+        });
+        try {
+            await this.client.connect();
+            this.logger.log(`Connected to Redis at ${host}:${port}`);
+        }
+        catch (err) {
+            this.logger.warn(`Redis connect failed, switching to in-memory store: ${err.message}`);
+            this.useMemory = true;
+            await this.client.quit().catch(() => undefined);
+            this.client = undefined;
+        }
+    }
+    async onModuleDestroy() {
+        if (this.client) {
+            await this.client.quit().catch(() => undefined);
+        }
     }
     async setOtp(mobile, otp) {
+        if (this.useMemory) {
+            this.inMemoryStore.set(mobile, { value: otp, expiresAt: Date.now() + 300000 });
+            return;
+        }
         await this.client.set(`otp:${mobile}`, otp, 'EX', 300);
     }
     async getOtp(mobile) {
+        if (this.useMemory) {
+            const entry = this.inMemoryStore.get(mobile);
+            if (!entry)
+                return null;
+            if (entry.expiresAt < Date.now()) {
+                this.inMemoryStore.delete(mobile);
+                return null;
+            }
+            return entry.value;
+        }
         return this.client.get(`otp:${mobile}`);
     }
     async delOtp(mobile) {
+        if (this.useMemory) {
+            this.inMemoryStore.delete(mobile);
+            return;
+        }
         await this.client.del(`otp:${mobile}`);
     }
 };
 exports.RedisService = RedisService;
-exports.RedisService = RedisService = __decorate([
+exports.RedisService = RedisService = RedisService_1 = __decorate([
     (0, common_1.Injectable)()
 ], RedisService);
 //# sourceMappingURL=redis.service.js.map

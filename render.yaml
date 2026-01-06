@@ -6,18 +6,19 @@ services:
     region: oregon
     branch: master
     autoDeploy: true
-    buildCommand: npm install && npm run build
-    startCommand: npx prisma migrate deploy && npm run start:prod
-    healthCheckPath: /health
+    buildCommand: npm ci && npm run build
+    preDeployCommand: npx prisma migrate deploy
+    startCommand: npm run start:prod
+    healthCheckPath: /api/v1/health
     envVars:
       - key: DATABASE_URL
         value: "postgresql://postgres.rxticediycnboewmsfmi:EVMivjrwhqN1somD@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres"
       - key: JWT_SECRET
         value: "set-in-dashboard"
       - key: PORT
-        sync: false
+        value: "3000"
       - key: REDIS_HOST
-        value: "set-in-dashboard"
+        sync: false
       - key: REDIS_PORT
         value: "6379"
       - key: NODE_VERSION

@@ -9,10 +9,17 @@ export declare class OrdersController {
         amount: number;
         currency: string;
         key: any;
+        coinsUsed: number;
+        totalBeforeCoins: number;
     }>;
     confirm(dto: ConfirmOrderDto): Promise<{
         status: string;
         orderId: string;
+        message: string;
+    } | {
+        status: string;
+        orderId: string;
+        message?: undefined;
     }>;
     addGift(orderId: string, giftId: string, req: any): Promise<{
         message: string;

@@ -9,17 +9,17 @@ export declare class BowService {
             createdAt: Date;
             description: string | null;
             updatedAt: Date;
-            vendorId: string;
             title: string;
             price: number;
             offerPrice: number | null;
-            stock: number;
             categoryId: string;
-            variants: import("@prisma/client/runtime/library").JsonValue | null;
-            images: string[];
+            stock: number;
+            vendorId: string;
             isWholesale: boolean;
             wholesalePrice: number | null;
             moq: number;
+            variants: import("@prisma/client/runtime/library").JsonValue | null;
+            images: string[];
         }[];
     } | {
         text: string;
