@@ -12,11 +12,21 @@ services:
     healthCheckPath: /api/v1/health
     envVars:
       - key: DATABASE_URL
+        value: "postgresql://postgres.rxticediycnboewmsfmi:EVMivjrwhqN1somD@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+      - key: DIRECT_URL
         value: "postgresql://postgres.rxticediycnboewmsfmi:EVMivjrwhqN1somD@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres"
       - key: JWT_SECRET
         value: "set-in-dashboard"
+      - key: JWT_EXPIRY
+        value: "7d"
       - key: PORT
         value: "3000"
+      - key: NODE_ENV
+        value: "production"
+      - key: APP_BASE_URL
+        value: "https://risbow-backend.onrender.com"
+      - key: LOG_LEVEL
+        value: "info"
       - key: REDIS_HOST
         sync: false
       - key: REDIS_PORT
