@@ -10,11 +10,11 @@ services:
     startCommand: npm run start:prod
     healthCheckPath: /api/v1/health
     envVars:
-      # Database: Pooled for runtime, Direct for migrations
+      # Database: Use pooler for Render (direct host has IP restrictions)
       - key: DATABASE_URL
         value: "postgresql://postgres.rxticediycnboewmsfmi:hd873cN3WcU0CR54@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
       - key: DIRECT_URL
-        value: "postgresql://postgres:hd873cN3WcU0CR54@db.rxticediycnboewmsfmi.supabase.co:5432/postgres"
+        value: "postgresql://postgres.rxticediycnboewmsfmi:hd873cN3WcU0CR54@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres"
 
       # Server Config
       - key: PORT
