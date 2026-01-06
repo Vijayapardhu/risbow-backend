@@ -7,40 +7,54 @@ services:
     branch: master
     autoDeploy: true
     buildCommand: npm ci --include=dev && npm run build
-    preDeployCommand: npx prisma migrate deploy
     startCommand: npm run start:prod
     healthCheckPath: /api/v1/health
     envVars:
+      # Database: Pooled for runtime, Direct for migrations
       - key: DATABASE_URL
-        value: "postgresql://postgres.rxticediycnboewmsfmi:EVMivjrwhqN1somD@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+        value: "postgresql://postgres.rxticediycnboewmsfmi:hd873cN3WcU0CR54@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
       - key: DIRECT_URL
-        value: "postgresql://postgres.rxticediycnboewmsfmi:EVMivjrwhqN1somD@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres"
-      - key: JWT_SECRET
-        value: "set-in-dashboard"
-      - key: JWT_EXPIRY
-        value: "7d"
+        value: "postgresql://postgres:hd873cN3WcU0CR54@db.rxticediycnboewmsfmi.supabase.co:5432/postgres"
+
+      # Server Config
       - key: PORT
         value: "3000"
       - key: NODE_ENV
         value: "production"
+      - key: NODE_VERSION
+        value: "20"
       - key: NPM_CONFIG_PRODUCTION
         value: "false"
+
+      # Application URLs & Base
       - key: APP_BASE_URL
         value: "https://risbow-backend.onrender.com"
-      - key: LOG_LEVEL
-        value: "info"
+
+      # JWT & Authentication
+      - key: JWT_SECRET
+        value: "set-in-dashboard"
+      - key: JWT_EXPIRY
+        value: "7d"
+
+      # Redis (Optional - falls back to in-memory)
       - key: REDIS_HOST
         sync: false
       - key: REDIS_PORT
         value: "6379"
-      - key: NODE_VERSION
-        value: "20"
+
+      # Razorpay Payments (Use test keys locally, live keys in prod)
       - key: RAZORPAY_KEY_ID
         value: "set-in-dashboard"
       - key: RAZORPAY_KEY_SECRET
         value: "set-in-dashboard"
+
+      # Rate Limiting
       - key: THROTTLE_TTL
         value: "60000"
       - key: THROTTLE_LIMIT
         value: "100"
+
+      # Logging
+      - key: LOG_LEVEL
+        value: "info"
 
