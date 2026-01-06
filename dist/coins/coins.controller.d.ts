@@ -9,9 +9,11 @@ export declare class CoinsController {
         email: string | null;
         referralCode: string;
         name: string | null;
+        password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         coinsBalance: number;
         referredBy: string | null;
+        dateOfBirth: Date | null;
         gender: string | null;
         size: string | null;
         footwearSize: number | null;
@@ -25,9 +27,11 @@ export declare class CoinsController {
         email: string | null;
         referralCode: string;
         name: string | null;
+        password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         coinsBalance: number;
         referredBy: string | null;
+        dateOfBirth: Date | null;
         gender: string | null;
         size: string | null;
         footwearSize: number | null;
@@ -41,9 +45,11 @@ export declare class CoinsController {
         email: string | null;
         referralCode: string;
         name: string | null;
+        password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         coinsBalance: number;
         referredBy: string | null;
+        dateOfBirth: Date | null;
         gender: string | null;
         size: string | null;
         footwearSize: number | null;

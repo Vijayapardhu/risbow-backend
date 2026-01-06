@@ -13,10 +13,12 @@ model User {
   mobile        String   @unique
   name          String?
   email         String?  @unique
+  password      String?  // Hashed password for email/password auth
   role          UserRole @default(CUSTOMER)
   coinsBalance  Int      @default(0)
   referralCode  String   @unique @default(cuid())
   referredBy    String?
+  dateOfBirth   DateTime? // User's date of birth
   gender        String?
   size          String? // S, M, L, XL
   footwearSize  Int?

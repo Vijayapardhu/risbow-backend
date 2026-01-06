@@ -26,6 +26,15 @@ let AuthController = class AuthController {
     async verifyOtp(verifyOtpDto) {
         return this.authService.verifyOtp(verifyOtpDto.mobile, verifyOtpDto.otp);
     }
+    async register(registerDto) {
+        return this.authService.registerWithEmail(registerDto);
+    }
+    async login(loginDto) {
+        return this.authService.loginWithEmail(loginDto.email, loginDto.password);
+    }
+    async forgotPassword(email) {
+        return this.authService.forgotPassword(email);
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -42,6 +51,27 @@ __decorate([
     __metadata("design:paramtypes", [auth_dto_1.VerifyOtpDto]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "verifyOtp", null);
+__decorate([
+    (0, common_1.Post)('register'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_dto_1.RegisterDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "register", null);
+__decorate([
+    (0, common_1.Post)('login'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_dto_1.LoginDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "login", null);
+__decorate([
+    (0, common_1.Post)('forgot-password'),
+    __param(0, (0, common_1.Body)('email')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "forgotPassword", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])

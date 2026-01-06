@@ -7,9 +7,9 @@ export declare class BowService {
         products: {
             id: string;
             createdAt: Date;
-            description: string | null;
             updatedAt: Date;
             title: string;
+            description: string | null;
             price: number;
             offerPrice: number | null;
             categoryId: string;

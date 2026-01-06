@@ -12,9 +12,9 @@ services:
     envVars:
       # Database: Use pooler for Render (direct host has IP restrictions)
       - key: DATABASE_URL
-        value: "postgresql://postgres.rxticediycnboewmsfmi:hd873cN3WcU0CR54@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+        value: "postgresql://postgres.rxticediycnboewmsfmi:hd873cN3WcU0CR54@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require"
       - key: DIRECT_URL
-        value: "postgresql://postgres.rxticediycnboewmsfmi:hd873cN3WcU0CR54@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres"
+        value: "postgresql://postgres.rxticediycnboewmsfmi:hd873cN3WcU0CR54@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require"
 
       # Server Config
       - key: PORT

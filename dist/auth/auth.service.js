@@ -1,12 +1,56 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
@@ -14,46 +58,164 @@ const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const prisma_service_1 = require("../prisma/prisma.service");
 const redis_service_1 = require("../shared/redis.service");
+const bcrypt = __importStar(require("bcrypt"));
 let AuthService = class AuthService {
     constructor(prisma, jwtService, redisService) {
         this.prisma = prisma;
         this.jwtService = jwtService;
         this.redisService = redisService;
+        const { createClient } = require('@supabase/supabase-js');
+        this.supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
     }
     async sendOtp(mobile) {
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        await this.redisService.setOtp(mobile, otp);
-        if (process.env.MSG91_AUTHKEY) {
+        try {
+            const { data, error } = await this.supabase.auth.signInWithOtp({
+                phone: mobile,
+            });
+            if (error) {
+                console.error('Supabase OTP send error:', error);
+                throw new Error(`Failed to send OTP: ${error.message}`);
+            }
+            console.log(`[Supabase] OTP sent to ${mobile}`);
+            return { message: 'OTP sent successfully' };
         }
-        console.log(`[DEV] OTP for ${mobile}: ${otp}`);
-        return { message: 'OTP sent successfully' };
+        catch (error) {
+            console.error('Error sending OTP:', error);
+            throw new Error('Failed to send OTP');
+        }
     }
     async verifyOtp(mobile, otp) {
-        const storedOtp = await this.redisService.getOtp(mobile);
-        if (!storedOtp || storedOtp !== otp) {
-            if (mobile === '9999999999' && otp === '123456') {
-            }
-            else {
+        try {
+            const { data, error } = await this.supabase.auth.verifyOtp({
+                phone: mobile,
+                token: otp,
+                type: 'sms',
+            });
+            if (error) {
+                console.error('Supabase OTP verification error:', error);
                 throw new common_1.UnauthorizedException('Invalid or Expired OTP');
             }
-        }
-        await this.redisService.delOtp(mobile);
-        let user = await this.prisma.user.findUnique({
-            where: { mobile },
-        });
-        if (!user) {
-            user = await this.prisma.user.create({
-                data: {
-                    mobile,
-                    referralCode: Math.random().toString(36).substring(7).toUpperCase(),
-                },
+            if (!data.user) {
+                throw new common_1.UnauthorizedException('Verification failed');
+            }
+            console.log(`[Supabase] OTP verified for ${mobile}, user ID: ${data.user.id}`);
+            const user = await this.prisma.user.findUnique({
+                where: { mobile },
             });
+            if (!user) {
+                throw new common_1.NotFoundException('User not found');
+            }
+            console.log(`[Database] Found existing user: ${user.id}`);
+            const payload = { sub: user.id, mobile: user.mobile };
+            return {
+                access_token: this.jwtService.sign(payload),
+                user,
+            };
         }
-        const payload = { sub: user.id, mobile: user.mobile };
+        catch (error) {
+            if (error instanceof common_1.UnauthorizedException || error instanceof common_1.NotFoundException) {
+                throw error;
+            }
+            console.error('Error verifying OTP:', error);
+            throw new common_1.UnauthorizedException('Failed to verify OTP');
+        }
+    }
+    async registerWithEmail(registerDto) {
+        var _a;
+        const existingUser = await this.prisma.user.findUnique({
+            where: { email: registerDto.email },
+        });
+        if (existingUser) {
+            throw new common_1.ConflictException('Email already registered');
+        }
+        const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+        try {
+            const { createClient } = require('@supabase/supabase-js');
+            const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+            const { data: authUser, error } = await supabase.auth.admin.createUser({
+                email: registerDto.email,
+                password: registerDto.password,
+                email_confirm: true,
+            });
+            if (error) {
+                console.error('Supabase auth creation failed:', error.message);
+            }
+            else {
+                console.log('Created Supabase auth user:', (_a = authUser.user) === null || _a === void 0 ? void 0 : _a.id);
+            }
+        }
+        catch (error) {
+            console.error('Failed to create Supabase auth user:', error);
+        }
+        const user = await this.prisma.user.create({
+            data: {
+                name: registerDto.name,
+                email: registerDto.email,
+                password: hashedPassword,
+                mobile: registerDto.phone,
+                dateOfBirth: new Date(registerDto.dateOfBirth),
+                gender: registerDto.gender,
+                referralCode: Math.random().toString(36).substring(7).toUpperCase(),
+            },
+        });
+        await this.prisma.cart.create({
+            data: { userId: user.id },
+        });
+        await this.prisma.address.create({
+            data: {
+                userId: user.id,
+                name: registerDto.name,
+                mobile: registerDto.phone,
+                street: registerDto.address.street,
+                city: registerDto.address.city,
+                state: registerDto.address.state,
+                pincode: registerDto.address.postalCode,
+                isDefault: true,
+            },
+        });
+        const payload = { sub: user.id, email: user.email };
+        const { password } = user, userWithoutPassword = __rest(user, ["password"]);
         return {
             access_token: this.jwtService.sign(payload),
-            user,
+            user: userWithoutPassword,
         };
+    }
+    async loginWithEmail(email, password) {
+        const user = await this.prisma.user.findUnique({
+            where: { email },
+        });
+        if (!user || !user.password) {
+            throw new common_1.UnauthorizedException('Invalid email or password');
+        }
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            throw new common_1.UnauthorizedException('Invalid email or password');
+        }
+        const payload = { sub: user.id, email: user.email };
+        const { password: _ } = user, userWithoutPassword = __rest(user, ["password"]);
+        return {
+            access_token: this.jwtService.sign(payload),
+            user: userWithoutPassword,
+        };
+    }
+    async forgotPassword(email) {
+        try {
+            const { error } = await this.supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${process.env.APP_BASE_URL || 'http://localhost:3000'}/auth/reset-password`,
+            });
+            if (error) {
+                console.error('Supabase password reset error:', error);
+                throw new common_1.ConflictException(error.message);
+            }
+            return { message: 'Password reset email sent successfully' };
+        }
+        catch (error) {
+            if (error instanceof common_1.ConflictException) {
+                throw error;
+            }
+            console.error('Error sending password reset email:', error);
+            throw new common_1.ConflictException('Failed to send password reset email');
+        }
     }
 };
 exports.AuthService = AuthService;

@@ -1,5 +1,5 @@
 import { AuthService } from './auth.service';
-import { SendOtpDto, VerifyOtpDto } from './dto/auth.dto';
+import { SendOtpDto, VerifyOtpDto, RegisterDto, LoginDto } from './dto/auth.dto';
 export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
@@ -14,9 +14,11 @@ export declare class AuthController {
             email: string | null;
             referralCode: string;
             name: string | null;
+            password: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             coinsBalance: number;
             referredBy: string | null;
+            dateOfBirth: Date | null;
             gender: string | null;
             size: string | null;
             footwearSize: number | null;
@@ -24,5 +26,16 @@ export declare class AuthController {
             colors: string | null;
             createdAt: Date;
         };
+    }>;
+    register(registerDto: RegisterDto): Promise<{
+        access_token: string;
+        user: any;
+    }>;
+    login(loginDto: LoginDto): Promise<{
+        access_token: string;
+        user: any;
+    }>;
+    forgotPassword(email: string): Promise<{
+        message: string;
     }>;
 }

@@ -12,6 +12,7 @@ export declare class CoinsService {
         userId: string;
         amount: number;
         source: string;
+        referenceId: string | null;
         expiresAt: Date | null;
     }[]>;
     credit(userId: string, amount: number, source: CoinSource, referenceId?: string): Promise<{
@@ -20,9 +21,11 @@ export declare class CoinsService {
         email: string | null;
         referralCode: string;
         name: string | null;
+        password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         coinsBalance: number;
         referredBy: string | null;
+        dateOfBirth: Date | null;
         gender: string | null;
         size: string | null;
         footwearSize: number | null;
@@ -36,9 +39,11 @@ export declare class CoinsService {
         email: string | null;
         referralCode: string;
         name: string | null;
+        password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         coinsBalance: number;
         referredBy: string | null;
+        dateOfBirth: Date | null;
         gender: string | null;
         size: string | null;
         footwearSize: number | null;

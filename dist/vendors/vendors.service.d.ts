@@ -13,13 +13,13 @@ export declare class VendorsService {
         role: import(".prisma/client").$Enums.VendorRole;
         coinsBalance: number;
         createdAt: Date;
+        vendorCode: string | null;
         kycStatus: string;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
         followCount: number;
-        vendorCode: string | null;
     }>;
     purchaseBannerSlot(userId: string, image: string): Promise<{
         message: string;
@@ -33,12 +33,12 @@ export declare class VendorsService {
         role: import(".prisma/client").$Enums.VendorRole;
         coinsBalance: number;
         createdAt: Date;
+        vendorCode: string | null;
         kycStatus: string;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
         followCount: number;
-        vendorCode: string | null;
     }[]>;
 }

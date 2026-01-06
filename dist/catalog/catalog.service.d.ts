@@ -7,9 +7,9 @@ export declare class CatalogService {
     createProduct(dto: CreateProductDto): Promise<{
         id: string;
         createdAt: Date;
-        description: string | null;
         updatedAt: Date;
         title: string;
+        description: string | null;
         price: number;
         offerPrice: number | null;
         categoryId: string;
@@ -24,9 +24,9 @@ export declare class CatalogService {
     findAll(filters: ProductFilterDto): Promise<{
         id: string;
         createdAt: Date;
-        description: string | null;
         updatedAt: Date;
         title: string;
+        description: string | null;
         price: number;
         offerPrice: number | null;
         categoryId: string;

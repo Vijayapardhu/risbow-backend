@@ -5,9 +5,9 @@ export declare class WholesaleController {
     getWholesaleProducts(req: any): Promise<{
         id: string;
         createdAt: Date;
-        description: string | null;
         updatedAt: Date;
         title: string;
+        description: string | null;
         price: number;
         offerPrice: number | null;
         categoryId: string;
