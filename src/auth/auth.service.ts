@@ -23,6 +23,15 @@ export class AuthService {
 
     async sendOtp(mobile: string) {
         try {
+            // Check rate limiting - prevent sending OTP more than once per minute
+            const rateLimitKey = `otp:ratelimit:${mobile}`;
+            const lastSent = await this.redisService.get(rateLimitKey);
+            
+            if (lastSent) {
+                const remainingTime = Math.ceil((60000 - (Date.now() - parseInt(lastSent))) / 1000);
+                throw new Error(`Please wait ${remainingTime} seconds before requesting a new OTP`);
+            }
+
             // Use Supabase to send OTP via SMS
             const { data, error } = await this.supabase.auth.signInWithOtp({
                 phone: mobile,
@@ -34,15 +43,28 @@ export class AuthService {
             }
 
             console.log(`[Supabase] OTP sent to ${mobile}`);
+            
+            // Set rate limit - OTP can be resent after 60 seconds
+            await this.redisService.set(rateLimitKey, Date.now().toString(), 60);
+            
             return { message: 'OTP sent successfully' };
         } catch (error) {
             console.error('Error sending OTP:', error);
-            throw new Error('Failed to send OTP');
+            throw new Error(error.message || 'Failed to send OTP');
         }
     }
 
     async verifyOtp(mobile: string, otp: string) {
         try {
+            // Check if there's a recent successful verification in Redis to prevent duplicates
+            const recentVerificationKey = `otp:verified:${mobile}:${otp}`;
+            const recentVerification = await this.redisService.get(recentVerificationKey);
+            
+            if (recentVerification) {
+                console.log(`[Cache] Found recent verification for ${mobile}, returning cached result`);
+                return JSON.parse(recentVerification);
+            }
+
             // Verify OTP with Supabase
             const { data, error } = await this.supabase.auth.verifyOtp({
                 phone: mobile,
@@ -52,7 +74,15 @@ export class AuthService {
 
             if (error) {
                 console.error('Supabase OTP verification error:', error);
-                throw new UnauthorizedException('Invalid or Expired OTP');
+                
+                // Provide more specific error messages
+                if (error.code === 'otp_expired') {
+                    throw new UnauthorizedException('OTP has expired. Please request a new OTP.');
+                } else if (error.code === 'otp_disabled') {
+                    throw new UnauthorizedException('OTP verification is currently disabled.');
+                } else {
+                    throw new UnauthorizedException('Invalid OTP. Please check and try again.');
+                }
             }
 
             if (!data.user) {
@@ -72,14 +102,19 @@ export class AuthService {
                 throw new NotFoundException('User not found');
             }
 
-            console.log(`[Database] Found existing user: ${user.id}`);
+            console.log(`[Database] Found existing user: ${user.id}, role: ${user.role}`);
 
             // Generate JWT token
-            const payload = { sub: user.id, mobile: user.mobile };
-            return {
+            const payload = { sub: user.id, mobile: user.mobile, role: user.role };
+            const result = {
                 access_token: this.jwtService.sign(payload),
                 user,
             };
+
+            // Cache the successful verification for 30 seconds to prevent duplicate calls
+            await this.redisService.set(recentVerificationKey, JSON.stringify(result), 30);
+
+            return result;
         } catch (error) {
             if (error instanceof UnauthorizedException || error instanceof NotFoundException) {
                 throw error;

@@ -331,3 +331,13 @@ model Admin {
   role      String   // "SUPER_ADMIN", "SUPPORT"
   createdAt DateTime @default(now())
 }
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  adminId   String   // User ID of the admin performed the action
+  targetId  String   // ID of the entity changed (User, Vendor, Room, etc.)
+  entity    String   // "USER", "VENDOR", "ROOM", "ORDER"
+  action    String   // "APPROVE", "REJECT", "UPDATE_COINS", "SUSPEND"
+  details   Json?    // { "reason": "Fraud detection", "oldValue": ..., "newValue": ... }
+  createdAt DateTime @default(now())
+}
