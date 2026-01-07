@@ -7,7 +7,6 @@ export class AdminService {
     constructor(private prisma: PrismaService) { }
 
     async getAnalytics() {
-        // Parallel queries
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -20,7 +19,10 @@ export class AdminService {
             ordersSum,
             lowStockProducts,
             recentOrders,
-            categoryStats
+            categoryStats,
+            topProducts,
+            recentAuditLogs,
+            newVendors
         ] = await Promise.all([
             this.prisma.order.count(),
             this.prisma.room.count(),
@@ -31,11 +33,27 @@ export class AdminService {
             this.prisma.product.count({ where: { stock: { lte: 10 } } }),
             this.prisma.order.findMany({
                 where: { createdAt: { gte: sevenDaysAgo } },
-                select: { createdAt: true, totalAmount: true }
+                select: { id: true, createdAt: true, totalAmount: true, user: { select: { name: true } }, status: true },
+                orderBy: { createdAt: 'desc' }
             }),
             this.prisma.product.groupBy({
                 by: ['categoryId'],
                 _count: { id: true }
+            }),
+            this.prisma.product.findMany({
+                take: 5,
+                orderBy: { price: 'desc' }, // Placeholder for 'Top Selling' due to Json structure limits
+                select: { id: true, title: true, stock: true, price: true, isActive: true }
+            }),
+            this.prisma.auditLog.findMany({
+                take: 5,
+                orderBy: { createdAt: 'desc' },
+                include: { admin: { select: { email: true } } }
+            }),
+            this.prisma.vendor.findMany({
+                take: 5,
+                orderBy: { createdAt: 'desc' },
+                select: { name: true, createdAt: true }
             })
         ]);
 
@@ -53,15 +71,42 @@ export class AdminService {
             .map(([date, amount]) => ({ date, amount }))
             .sort((a, b) => a.date.localeCompare(b.date));
 
-        // Process Category Data
-        // Need category names, so assume we can fetch them or return IDs if lazy. 
-        // For "fully working", let's try to fetch names.
+        // Process Categories
+        // Fetch category names
         const categoryIds = categoryStats.map(c => c.categoryId);
         const categories = await this.prisma.category.findMany({ where: { id: { in: categoryIds } } });
         const categoriesChart = categoryStats.map(c => ({
             category: categories.find(cat => cat.id === c.categoryId)?.name || 'Unknown',
             count: c._count.id
         }));
+
+        // Aggregated Recent Activity
+        const activity = [
+            ...recentOrders.slice(0, 5).map(o => ({
+                id: o.id,
+                title: `Order #${o.id.substring(0, 6)}`,
+                subtitle: `${o.user?.name || 'User'} · ${o.totalAmount}`,
+                type: 'ORDER',
+                status: o.status,
+                time: o.createdAt
+            })),
+            ...newVendors.map(v => ({
+                id: v.name,
+                title: 'New Vendor',
+                subtitle: v.name,
+                type: 'VENDOR',
+                status: 'PENDING',
+                time: v.createdAt
+            })),
+            ...recentAuditLogs.map(l => ({
+                id: l.id,
+                title: `Admin Action: ${l.action}`,
+                subtitle: `${l.admin.email} · ${l.entity}`,
+                type: 'SYSTEM',
+                status: 'LOG',
+                time: l.createdAt
+            }))
+        ].sort((a, b) => b.time.getTime() - a.time.getTime()).slice(0, 5);
 
         return {
             totalRevenue,
@@ -70,17 +115,20 @@ export class AdminService {
             newVendors: activeVendors,
             dau: registredUsers,
             aov,
-            revenue: revenueChart, // Real daily revenue
-            users: [], // Real user growth could be similar query
+            revenue: revenueChart,
             categories: categoriesChart,
-            alerts: [
-                { type: 'CRITICAL', message: `${lowStockProducts} products have low stock`, time: 'Now' },
-            ],
+            topProducts: topProducts.map(p => ({
+                name: p.title,
+                stock: p.stock.toString(),
+                price: p.price,
+                status: p.isActive ? 'Active' : 'Inactive',
+                earnings: '-' // Calculation requires deep order scanning
+            })),
+            activity,
             trends: {
-                revenue: '+12.5%', // Needs complex comparison logic, keeping static for now to avoid complexity explosion
-                rooms: '+5%',
-                orders: '+8.2%',
-                vendors: '+2'
+                revenue: '+0%', // Placeholder
+                orders: '+0%',
+                vendors: '+0%'
             }
         };
     }
@@ -454,6 +502,8 @@ export class AdminService {
     // --- COUPONS ---
 
     async getCoupons() {
+        // Prisma model name is 'Coupon' (capital C), client usually maps it to 'coupon' (lowercase) or 'Coupon' depending on generation.
+        // Checking schema: `model Coupon` -> `this.prisma.coupon`
         return this.prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } });
     }
 
