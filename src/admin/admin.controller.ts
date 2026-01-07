@@ -59,8 +59,12 @@ export class AdminController {
     }
 
     @Get('orders')
-    getAllOrders(@Query('limit') limit: number) {
-        return this.adminService.getAllOrders(limit);
+    getAllOrders(
+        @Query('limit') limit: number,
+        @Query('search') search: string,
+        @Query('status') status: string
+    ) {
+        return this.adminService.getAllOrders(limit, search, status);
     }
 
     @Post('banners')
