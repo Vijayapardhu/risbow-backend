@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, NotFoundException, BadRequestException, HttpException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../shared/redis.service';
@@ -39,7 +39,8 @@ export class AuthService {
 
             if (error) {
                 console.error('Supabase OTP send error:', error);
-                throw new ConflictException(`Failed to send OTP: ${error.message}`);
+                const status = (error as any)?.status ?? HttpStatus.CONFLICT;
+                throw new HttpException(`Failed to send OTP: ${error.message}`, status);
             }
 
             console.log(`[Supabase] OTP sent to ${mobile}`);
@@ -53,7 +54,7 @@ export class AuthService {
             if (error instanceof HttpException) {
                 throw error;
             }
-            throw new ConflictException(error?.message || 'Failed to send OTP');
+            throw new HttpException(error?.message || 'Failed to send OTP', HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
