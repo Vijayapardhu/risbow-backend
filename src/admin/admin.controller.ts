@@ -67,6 +67,24 @@ export class AdminController {
         return this.adminService.getAllOrders(limit, search, status);
     }
 
+    @Get('products')
+    getProducts(
+        @Query('categoryId') categoryId: string,
+        @Query('search') search: string
+    ) {
+        return this.adminService.getProducts(categoryId, search);
+    }
+
+    @Get('categories')
+    getCategories() {
+        return this.adminService.getCategories();
+    }
+
+    @Post('products/:id/toggle')
+    toggleProduct(@Param('id') id: string, @Body('isActive') isActive: boolean) {
+        return this.adminService.toggleProductStatus(id, isActive);
+    }
+
     @Post('banners')
     addBanner(@Body() body: any) {
         return this.adminService.addBanner(body);

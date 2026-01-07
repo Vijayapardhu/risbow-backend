@@ -9,4 +9,7 @@ export declare class RedisService implements OnModuleInit, OnModuleDestroy {
     setOtp(mobile: string, otp: string): Promise<void>;
     getOtp(mobile: string): Promise<string | null>;
     delOtp(mobile: string): Promise<void>;
+    get(key: string): Promise<string | null>;
+    set(key: string, value: string, ttlSeconds: number): Promise<void>;
+    del(key: string): Promise<void>;
 }

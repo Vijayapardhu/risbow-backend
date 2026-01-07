@@ -15,66 +15,134 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminController = void 0;
 const common_1 = require("@nestjs/common");
 const admin_service_1 = require("./admin.service");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
+const roles_guard_1 = require("../common/guards/roles.guard");
+const roles_decorator_1 = require("../common/decorators/roles.decorator");
 let AdminController = class AdminController {
     constructor(adminService) {
         this.adminService = adminService;
     }
-    checkAdmin(secret) {
-        if (secret !== 'admin-secret-123') {
-            throw new common_1.UnauthorizedException('Not Admin');
-        }
-    }
-    async getAnalytics(secret) {
-        this.checkAdmin(secret);
+    getStats() {
         return this.adminService.getAnalytics();
     }
-    async createBulkRooms(secret, count) {
-        this.checkAdmin(secret);
-        return this.adminService.createBulkRooms(count || 5);
+    getUsers(page, search) {
+        return this.adminService.getUsers(Number(page) || 1, search);
     }
-    async approveBanner(secret, id) {
-        this.checkAdmin(secret);
-        return this.adminService.approveBanner(id);
+    updateCoins(req, userId, body) {
+        return this.adminService.updateUserCoins(req.user.id, userId, body.amount, body.reason);
     }
-    async verifyVendor(secret, id) {
-        this.checkAdmin(secret);
-        return this.adminService.verifyVendor(id);
+    getVendors(status) {
+        return this.adminService.getVendors(status);
+    }
+    approveVendor(req, id, approved) {
+        return this.adminService.approveVendor(req.user.id, id, approved);
+    }
+    getAllRooms() {
+        return this.adminService.getAllRooms();
+    }
+    createRoom(req, body) {
+        return this.adminService.createRoom(req.user.id, body);
+    }
+    getBanners() {
+        return this.adminService.getBanners();
+    }
+    getAllOrders(limit, search, status) {
+        return this.adminService.getAllOrders(limit, search, status);
+    }
+    addBanner(body) {
+        return this.adminService.addBanner(body);
+    }
+    deleteBanner(id) {
+        return this.adminService.deleteBanner(id);
     }
 };
 exports.AdminController = AdminController;
 __decorate([
-    (0, common_1.Get)('analytics'),
-    __param(0, (0, common_1.Headers)('x-admin-secret')),
+    (0, common_1.Get)('stats'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "getStats", null);
+__decorate([
+    (0, common_1.Get)('users'),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('search')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, String]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "getUsers", null);
+__decorate([
+    (0, common_1.Post)('users/:id/coins'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "updateCoins", null);
+__decorate([
+    (0, common_1.Get)('vendors'),
+    __param(0, (0, common_1.Query)('status')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], AdminController.prototype, "getAnalytics", null);
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "getVendors", null);
+__decorate([
+    (0, common_1.Post)('vendors/:id/approve'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)('approved')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Boolean]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "approveVendor", null);
+__decorate([
+    (0, common_1.Get)('rooms'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "getAllRooms", null);
 __decorate([
     (0, common_1.Post)('rooms'),
-    __param(0, (0, common_1.Headers)('x-admin-secret')),
-    __param(1, (0, common_1.Body)('count')),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Number]),
-    __metadata("design:returntype", Promise)
-], AdminController.prototype, "createBulkRooms", null);
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "createRoom", null);
 __decorate([
-    (0, common_1.Patch)('banner/:id/approve'),
-    __param(0, (0, common_1.Headers)('x-admin-secret')),
-    __param(1, (0, common_1.Param)('id')),
+    (0, common_1.Get)('banners'),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
-    __metadata("design:returntype", Promise)
-], AdminController.prototype, "approveBanner", null);
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "getBanners", null);
 __decorate([
-    (0, common_1.Patch)('vendor/:id/verify'),
-    __param(0, (0, common_1.Headers)('x-admin-secret')),
-    __param(1, (0, common_1.Param)('id')),
+    (0, common_1.Get)('orders'),
+    __param(0, (0, common_1.Query)('limit')),
+    __param(1, (0, common_1.Query)('search')),
+    __param(2, (0, common_1.Query)('status')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
-    __metadata("design:returntype", Promise)
-], AdminController.prototype, "verifyVendor", null);
+    __metadata("design:paramtypes", [Number, String, String]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "getAllOrders", null);
+__decorate([
+    (0, common_1.Post)('banners'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "addBanner", null);
+__decorate([
+    (0, common_1.Delete)('banners/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "deleteBanner", null);
 exports.AdminController = AdminController = __decorate([
     (0, common_1.Controller)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
     __metadata("design:paramtypes", [admin_service_1.AdminService])
 ], AdminController);
 //# sourceMappingURL=admin.controller.js.map

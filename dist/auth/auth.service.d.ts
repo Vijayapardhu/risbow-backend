@@ -10,27 +10,7 @@ export declare class AuthService {
     sendOtp(mobile: string): Promise<{
         message: string;
     }>;
-    verifyOtp(mobile: string, otp: string): Promise<{
-        access_token: string;
-        user: {
-            id: string;
-            mobile: string;
-            email: string | null;
-            referralCode: string;
-            name: string | null;
-            password: string | null;
-            role: import(".prisma/client").$Enums.UserRole;
-            coinsBalance: number;
-            referredBy: string | null;
-            dateOfBirth: Date | null;
-            gender: string | null;
-            size: string | null;
-            footwearSize: number | null;
-            stylePrefs: string | null;
-            colors: string | null;
-            createdAt: Date;
-        };
-    }>;
+    verifyOtp(mobile: string, otp: string): Promise<any>;
     registerWithEmail(registerDto: any): Promise<{
         access_token: string;
         user: any;

@@ -81,6 +81,36 @@ let RedisService = RedisService_1 = class RedisService {
         }
         await this.client.del(`otp:${mobile}`);
     }
+    async get(key) {
+        if (this.useMemory) {
+            const entry = this.inMemoryStore.get(key);
+            if (!entry)
+                return null;
+            if (entry.expiresAt < Date.now()) {
+                this.inMemoryStore.delete(key);
+                return null;
+            }
+            return entry.value;
+        }
+        return this.client.get(key);
+    }
+    async set(key, value, ttlSeconds) {
+        if (this.useMemory) {
+            this.inMemoryStore.set(key, {
+                value,
+                expiresAt: Date.now() + (ttlSeconds * 1000)
+            });
+            return;
+        }
+        await this.client.set(key, value, 'EX', ttlSeconds);
+    }
+    async del(key) {
+        if (this.useMemory) {
+            this.inMemoryStore.delete(key);
+            return;
+        }
+        await this.client.del(key);
+    }
 };
 exports.RedisService = RedisService;
 exports.RedisService = RedisService = RedisService_1 = __decorate([

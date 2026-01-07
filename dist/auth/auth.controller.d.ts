@@ -6,27 +6,7 @@ export declare class AuthController {
     sendOtp(sendOtpDto: SendOtpDto): Promise<{
         message: string;
     }>;
-    verifyOtp(verifyOtpDto: VerifyOtpDto): Promise<{
-        access_token: string;
-        user: {
-            id: string;
-            mobile: string;
-            email: string | null;
-            referralCode: string;
-            name: string | null;
-            password: string | null;
-            role: import(".prisma/client").$Enums.UserRole;
-            coinsBalance: number;
-            referredBy: string | null;
-            dateOfBirth: Date | null;
-            gender: string | null;
-            size: string | null;
-            footwearSize: number | null;
-            stylePrefs: string | null;
-            colors: string | null;
-            createdAt: Date;
-        };
-    }>;
+    verifyOtp(verifyOtpDto: VerifyOtpDto): Promise<any>;
     register(registerDto: RegisterDto): Promise<{
         access_token: string;
         user: any;

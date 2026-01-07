@@ -69,6 +69,12 @@ let AuthService = class AuthService {
     }
     async sendOtp(mobile) {
         try {
+            const rateLimitKey = `otp:ratelimit:${mobile}`;
+            const lastSent = await this.redisService.get(rateLimitKey);
+            if (lastSent) {
+                const remainingTime = Math.ceil((60000 - (Date.now() - parseInt(lastSent))) / 1000);
+                throw new Error(`Please wait ${remainingTime} seconds before requesting a new OTP`);
+            }
             const { data, error } = await this.supabase.auth.signInWithOtp({
                 phone: mobile,
             });
@@ -77,15 +83,22 @@ let AuthService = class AuthService {
                 throw new Error(`Failed to send OTP: ${error.message}`);
             }
             console.log(`[Supabase] OTP sent to ${mobile}`);
+            await this.redisService.set(rateLimitKey, Date.now().toString(), 60);
             return { message: 'OTP sent successfully' };
         }
         catch (error) {
             console.error('Error sending OTP:', error);
-            throw new Error('Failed to send OTP');
+            throw new Error(error.message || 'Failed to send OTP');
         }
     }
     async verifyOtp(mobile, otp) {
         try {
+            const recentVerificationKey = `otp:verified:${mobile}:${otp}`;
+            const recentVerification = await this.redisService.get(recentVerificationKey);
+            if (recentVerification) {
+                console.log(`[Cache] Found recent verification for ${mobile}, returning cached result`);
+                return JSON.parse(recentVerification);
+            }
             const { data, error } = await this.supabase.auth.verifyOtp({
                 phone: mobile,
                 token: otp,
@@ -93,7 +106,15 @@ let AuthService = class AuthService {
             });
             if (error) {
                 console.error('Supabase OTP verification error:', error);
-                throw new common_1.UnauthorizedException('Invalid or Expired OTP');
+                if (error.code === 'otp_expired') {
+                    throw new common_1.UnauthorizedException('OTP has expired. Please request a new OTP.');
+                }
+                else if (error.code === 'otp_disabled') {
+                    throw new common_1.UnauthorizedException('OTP verification is currently disabled.');
+                }
+                else {
+                    throw new common_1.UnauthorizedException('Invalid OTP. Please check and try again.');
+                }
             }
             if (!data.user) {
                 throw new common_1.UnauthorizedException('Verification failed');
@@ -105,12 +126,14 @@ let AuthService = class AuthService {
             if (!user) {
                 throw new common_1.NotFoundException('User not found');
             }
-            console.log(`[Database] Found existing user: ${user.id}`);
-            const payload = { sub: user.id, mobile: user.mobile };
-            return {
+            console.log(`[Database] Found existing user: ${user.id}, role: ${user.role}`);
+            const payload = { sub: user.id, mobile: user.mobile, role: user.role };
+            const result = {
                 access_token: this.jwtService.sign(payload),
                 user,
             };
+            await this.redisService.set(recentVerificationKey, JSON.stringify(result), 30);
+            return result;
         }
         catch (error) {
             if (error instanceof common_1.UnauthorizedException || error instanceof common_1.NotFoundException) {
