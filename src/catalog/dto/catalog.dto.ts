@@ -54,6 +54,20 @@ export class ProductFilterDto {
     price_lt?: number;
 
     @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    price_min?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    price_max?: number;
+
+    @IsOptional()
     @IsString()
     search?: string;
+
+    @IsOptional()
+    @IsString()
+    sort?: string; // 'price_asc', 'price_desc', 'newest'
 }

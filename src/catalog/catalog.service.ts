@@ -43,19 +43,36 @@ export class CatalogService {
     async findAll(filters: ProductFilterDto) {
         const where: Prisma.ProductWhereInput = {};
 
-        if (filters.category) {
+        if (filters.category && filters.category !== 'All') { // Handle 'All'
             where.categoryId = filters.category;
         }
-        if (filters.price_lt) {
-            where.price = { lt: filters.price_lt };
+
+        // Price Range
+        if (filters.price_min !== undefined || filters.price_max !== undefined || filters.price_lt !== undefined) {
+            where.price = {};
+            if (filters.price_min !== undefined) where.price.gte = filters.price_min;
+            if (filters.price_max !== undefined) where.price.lte = filters.price_max;
+            if (filters.price_lt !== undefined) where.price.lt = filters.price_lt;
         }
+
         if (filters.search) {
             where.title = { contains: filters.search, mode: 'insensitive' };
         }
 
+        // Sorting
+        let orderBy: Prisma.ProductOrderByWithRelationInput = { createdAt: 'desc' };
+        if (filters.sort) {
+            switch (filters.sort) {
+                case 'price_asc': orderBy = { price: 'asc' }; break;
+                case 'price_desc': orderBy = { price: 'desc' }; break;
+                case 'newest': orderBy = { createdAt: 'desc' }; break;
+                default: orderBy = { createdAt: 'desc' };
+            }
+        }
+
         return this.prisma.product.findMany({
             where,
-            orderBy: { createdAt: 'desc' },
+            orderBy,
             take: 50,
         });
     }
