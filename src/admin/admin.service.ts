@@ -84,6 +84,34 @@ export class AdminService {
         return { users, total, pages: Math.ceil(total / take) };
     }
 
+    // --- USERS MANAGEMENT: Coins ---
+
+    async updateUserCoins(adminId: string, userId: string, amount: number, reason: string) {
+        return this.prisma.$transaction(async (tx) => {
+            const user = await tx.user.findUnique({ where: { id: userId } });
+            if (!user) throw new NotFoundException('User not found');
+
+            const newBalance = (user.coinsBalance || 0) + amount;
+
+            const updatedUser = await tx.user.update({
+                where: { id: userId },
+                data: { coinsBalance: newBalance }
+            });
+
+            await tx.auditLog.create({
+                data: {
+                    adminId,
+                    entity: 'USER',
+                    targetId: userId,
+                    action: 'UPDATE_COINS',
+                    details: { amount, reason, oldBalance: user.coinsBalance || 0, newBalance }
+                }
+            });
+
+            return updatedUser;
+        });
+    }
+
     // --- ORDERS MANAGEMENT ---
 
     async getAllOrders(limit: number = 50, search?: string, status?: string) {
@@ -107,6 +135,43 @@ export class AdminService {
             orderBy: { createdAt: 'desc' },
             include: { user: { select: { name: true, email: true, mobile: true } } }
         });
+    }
+
+    // --- VENDORS MANAGEMENT ---
+
+    async getVendors(status: string = 'ALL') {
+        const where: any = {};
+        if (status && status !== 'ALL') {
+            where.kycStatus = status;
+        }
+        return this.prisma.vendor.findMany({
+            where,
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+
+    async approveVendor(adminId: string, id: string, approved: boolean) {
+        const newStatus = approved ? 'APPROVED' : 'REJECTED';
+
+        const vendor = await this.prisma.vendor.findUnique({ where: { id } });
+        if (!vendor) throw new NotFoundException('Vendor not found');
+
+        const updated = await this.prisma.vendor.update({
+            where: { id },
+            data: { kycStatus: newStatus }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'VENDOR',
+                targetId: id,
+                action: approved ? 'APPROVE' : 'REJECT',
+                details: { previousStatus: vendor.kycStatus, newStatus }
+            }
+        });
+
+        return updated;
     }
 
     async getAllRooms() {
