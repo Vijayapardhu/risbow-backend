@@ -33,6 +33,7 @@ model User {
   wishlist      Wishlist[]
   reviews       Review[]
   notifications Notification[]
+  reports       Report[]
   
   createdAt     DateTime @default(now())
 }
@@ -100,6 +101,7 @@ enum MemberStatus {
 enum OrderStatus {
   PENDING
   CONFIRMED
+  PACKED
   SHIPPED
   DELIVERED
   CANCELLED
@@ -142,6 +144,7 @@ model Vendor {
   tier      String   @default("BASIC") // BASIC, PRO, PREMIUM
   gstNumber String?
   isGstVerified Boolean @default(false)
+  kycDocuments Json?   // { "pan": "url", "aadhaar": "url", "gst": "url" }
   skuLimit  Int      @default(100)
   
   // B2B / Advanced Vendor
@@ -159,16 +162,7 @@ enum VendorRole {
   WHOLESALER
 }
 
-model Banner {
-  id        String   @id @default(cuid())
-  vendorId  String
-  imageUrl  String
-  slotType  String   // HOME, CATEGORY, SEARCH
-  startDate DateTime
-  endDate   DateTime
-  status    String   @default("PENDING") // PENDING, ACTIVE, EXPIRED
-  createdAt DateTime @default(now())
-}
+
 
 model RoomPackage {
   id        String   @id @default(cuid())
@@ -266,16 +260,35 @@ enum PaymentStatus {
   REFUNDED
 }
 
-model Notification {
+model Banner {
   id        String   @id @default(cuid())
-  userId    String
-  title     String
-  body      String
-  type      String   // "ORDER", "OFFER", "ROOM"
-  isRead    Boolean  @default(false)
-  user      User     @relation(fields: [userId], references: [id])
+  vendorId  String?  // Optional, can be system banner
+  imageUrl  String
+  redirectUrl String? // Deep link or web link
+  slotType  String   // HOME, CATEGORY, SEARCH
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 }
+
+// ... existing RoomPackage ...
+
+// ...
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?  // Optional for Broadcasts
+  title     String
+  body      String
+  type      String   // "ORDER", "OFFER", "ROOM", "BROADCAST"
+  targetAudience String? // "ALL", "CUSTOMERS", "VENDORS" (if Broadcast)
+  isRead    Boolean  @default(false)
+  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+
 
 // --- Updates to Existing Models (Relations) ---
 
@@ -290,12 +303,16 @@ model Order {
   coinsUsedDebited Boolean    @default(false)
   status          OrderStatus @default(PENDING)
   razorpayOrderId String?
+  awbNumber       String?
+  courierPartner  String?
   user            User        @relation(fields: [userId], references: [id])
   payment         Payment?
   address         Address?    @relation(fields: [addressId], references: [id])
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 }
+
+
 
 model Product {
   id          String   @id @default(cuid())
@@ -330,6 +347,7 @@ model Admin {
   password  String   // Hashed
   role      String   // "SUPER_ADMIN", "SUPPORT"
   createdAt DateTime @default(now())
+  auditLogs AuditLog[]
 }
 
 model AuditLog {
@@ -340,4 +358,45 @@ model AuditLog {
   action    String   // "APPROVE", "REJECT", "UPDATE_COINS", "SUSPEND"
   details   Json?    // { "reason": "Fraud detection", "oldValue": ..., "newValue": ... }
   createdAt DateTime @default(now())
+  admin     Admin    @relation(fields: [adminId], references: [id])
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  reporterId  String
+  targetType  String   // "USER", "PRODUCT", "REVIEW"
+  targetId    String
+  reason      String
+  description String?
+  status      String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  reporter    User     @relation(fields: [reporterId], references: [id])
+}
+
+model PlatformConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g., "PLATFORM_FEE", "GSTIN"
+  value       String   // e.g., "10", "29AAAAA0000A1Z5"
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model Coupon {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  description   String?
+  discountType  String   // "PERCENTAGE", "FLAT"
+  discountValue Int
+  minOrderAmount Int?    @default(0)
+  maxDiscount   Int?     // For percentage based
+  validFrom     DateTime @default(now())
+  validUntil    DateTime?
+  usageLimit    Int?     // Max times globally
+  usedCount     Int      @default(0)
+  isActive      Boolean  @default(true)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

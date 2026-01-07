@@ -49,6 +49,21 @@ let AdminController = class AdminController {
     getAllOrders(limit, search, status) {
         return this.adminService.getAllOrders(limit, search, status);
     }
+    getProducts(categoryId, search) {
+        return this.adminService.getProducts(categoryId, search);
+    }
+    getCategories() {
+        return this.adminService.getCategories();
+    }
+    createCategory(body) {
+        return this.adminService.createCategory(body);
+    }
+    createProduct(body) {
+        return this.adminService.createProduct(body);
+    }
+    toggleProduct(id, isActive) {
+        return this.adminService.toggleProductStatus(id, isActive);
+    }
     addBanner(body) {
         return this.adminService.addBanner(body);
     }
@@ -125,6 +140,42 @@ __decorate([
     __metadata("design:paramtypes", [Number, String, String]),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "getAllOrders", null);
+__decorate([
+    (0, common_1.Get)('products'),
+    __param(0, (0, common_1.Query)('categoryId')),
+    __param(1, (0, common_1.Query)('search')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "getProducts", null);
+__decorate([
+    (0, common_1.Get)('categories'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "getCategories", null);
+__decorate([
+    (0, common_1.Post)('categories'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "createCategory", null);
+__decorate([
+    (0, common_1.Post)('products'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "createProduct", null);
+__decorate([
+    (0, common_1.Post)('products/:id/toggle'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)('isActive')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Boolean]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "toggleProduct", null);
 __decorate([
     (0, common_1.Post)('banners'),
     __param(0, (0, common_1.Body)()),

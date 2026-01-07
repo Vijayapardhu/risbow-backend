@@ -145,6 +145,72 @@ export declare class AdminService {
         isSystemRoom: boolean;
         createdById: string | null;
     }>;
+    getProducts(categoryId?: string, search?: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        title: string;
+        description: string | null;
+        price: number;
+        offerPrice: number | null;
+        categoryId: string;
+        stock: number;
+        vendorId: string;
+        isWholesale: boolean;
+        wholesalePrice: number | null;
+        moq: number;
+        variants: import("@prisma/client/runtime/library").JsonValue | null;
+        images: string[];
+    }[]>;
+    getCategories(): Promise<{
+        id: string;
+        name: string;
+        nameTE: string | null;
+        parentId: string | null;
+    }[]>;
+    createCategory(data: {
+        name: string;
+        parentId?: string;
+    }): Promise<{
+        id: string;
+        name: string;
+        nameTE: string | null;
+        parentId: string | null;
+    }>;
+    createProduct(data: any): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        title: string;
+        description: string | null;
+        price: number;
+        offerPrice: number | null;
+        categoryId: string;
+        stock: number;
+        vendorId: string;
+        isWholesale: boolean;
+        wholesalePrice: number | null;
+        moq: number;
+        variants: import("@prisma/client/runtime/library").JsonValue | null;
+        images: string[];
+    }>;
+    toggleProductStatus(id: string, isActive: boolean): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        title: string;
+        description: string | null;
+        price: number;
+        offerPrice: number | null;
+        categoryId: string;
+        stock: number;
+        vendorId: string;
+        isWholesale: boolean;
+        wholesalePrice: number | null;
+        moq: number;
+        variants: import("@prisma/client/runtime/library").JsonValue | null;
+        images: string[];
+    }>;
     getBanners(): Promise<{
         id: string;
         createdAt: Date;

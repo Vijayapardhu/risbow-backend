@@ -157,6 +157,37 @@ let AdminService = class AdminService {
             data: Object.assign(Object.assign({}, data), { createdById: adminId })
         });
     }
+    async getProducts(categoryId, search) {
+        const where = {};
+        if (categoryId)
+            where.categoryId = categoryId;
+        if (search)
+            where.title = { contains: search, mode: 'insensitive' };
+        return this.prisma.product.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            take: 50
+        });
+    }
+    async getCategories() {
+        return this.prisma.category.findMany();
+    }
+    async createCategory(data) {
+        return this.prisma.category.create({ data });
+    }
+    async createProduct(data) {
+        if (data.stock)
+            data.stock = Number(data.stock);
+        if (data.price)
+            data.price = Number(data.price);
+        return this.prisma.product.create({ data });
+    }
+    async toggleProductStatus(id, isActive) {
+        return this.prisma.product.update({
+            where: { id },
+            data: { stock: isActive ? 10 : 0 }
+        });
+    }
     async getBanners() {
         return this.prisma.banner.findMany({ orderBy: { createdAt: 'desc' } });
     }

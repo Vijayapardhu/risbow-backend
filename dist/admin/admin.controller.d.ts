@@ -158,6 +158,72 @@ export declare class AdminController {
         coinsUsedDebited: boolean;
         razorpayOrderId: string | null;
     })[]>;
+    getProducts(categoryId: string, search: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        title: string;
+        description: string | null;
+        price: number;
+        offerPrice: number | null;
+        categoryId: string;
+        stock: number;
+        vendorId: string;
+        isWholesale: boolean;
+        wholesalePrice: number | null;
+        moq: number;
+        variants: import("@prisma/client/runtime/library").JsonValue | null;
+        images: string[];
+    }[]>;
+    getCategories(): Promise<{
+        id: string;
+        name: string;
+        nameTE: string | null;
+        parentId: string | null;
+    }[]>;
+    createCategory(body: {
+        name: string;
+        parentId?: string;
+    }): Promise<{
+        id: string;
+        name: string;
+        nameTE: string | null;
+        parentId: string | null;
+    }>;
+    createProduct(body: any): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        title: string;
+        description: string | null;
+        price: number;
+        offerPrice: number | null;
+        categoryId: string;
+        stock: number;
+        vendorId: string;
+        isWholesale: boolean;
+        wholesalePrice: number | null;
+        moq: number;
+        variants: import("@prisma/client/runtime/library").JsonValue | null;
+        images: string[];
+    }>;
+    toggleProduct(id: string, isActive: boolean): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        title: string;
+        description: string | null;
+        price: number;
+        offerPrice: number | null;
+        categoryId: string;
+        stock: number;
+        vendorId: string;
+        isWholesale: boolean;
+        wholesalePrice: number | null;
+        moq: number;
+        variants: import("@prisma/client/runtime/library").JsonValue | null;
+        images: string[];
+    }>;
     addBanner(body: any): Promise<{
         id: string;
         createdAt: Date;

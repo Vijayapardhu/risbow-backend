@@ -68,19 +68,21 @@ let AuthService = class AuthService {
         this.supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
     }
     async sendOtp(mobile) {
+        var _a;
         try {
             const rateLimitKey = `otp:ratelimit:${mobile}`;
             const lastSent = await this.redisService.get(rateLimitKey);
             if (lastSent) {
                 const remainingTime = Math.ceil((60000 - (Date.now() - parseInt(lastSent))) / 1000);
-                throw new Error(`Please wait ${remainingTime} seconds before requesting a new OTP`);
+                throw new common_1.BadRequestException(`Please wait ${remainingTime} seconds before requesting a new OTP`);
             }
             const { data, error } = await this.supabase.auth.signInWithOtp({
                 phone: mobile,
             });
             if (error) {
                 console.error('Supabase OTP send error:', error);
-                throw new Error(`Failed to send OTP: ${error.message}`);
+                const status = (_a = error === null || error === void 0 ? void 0 : error.status) !== null && _a !== void 0 ? _a : common_1.HttpStatus.CONFLICT;
+                throw new common_1.HttpException(`Failed to send OTP: ${error.message}`, status);
             }
             console.log(`[Supabase] OTP sent to ${mobile}`);
             await this.redisService.set(rateLimitKey, Date.now().toString(), 60);
@@ -88,7 +90,10 @@ let AuthService = class AuthService {
         }
         catch (error) {
             console.error('Error sending OTP:', error);
-            throw new Error(error.message || 'Failed to send OTP');
+            if (error instanceof common_1.HttpException) {
+                throw error;
+            }
+            throw new common_1.HttpException((error === null || error === void 0 ? void 0 : error.message) || 'Failed to send OTP', common_1.HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
     async verifyOtp(mobile, otp) {
