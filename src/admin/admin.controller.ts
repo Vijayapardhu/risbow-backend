@@ -58,6 +58,11 @@ export class AdminController {
         return this.adminService.getBanners();
     }
 
+    @Get('orders')
+    getAllOrders(@Query('limit') limit: number) {
+        return this.adminService.getAllOrders(limit);
+    }
+
     @Post('banners')
     addBanner(@Body() body: any) {
         return this.adminService.addBanner(body);

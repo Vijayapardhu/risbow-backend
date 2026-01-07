@@ -127,6 +127,14 @@ export class AdminService {
 
     // --- ROOMS & CATALOG ---
 
+    async getAllOrders(limit: number = 50) {
+        return this.prisma.order.findMany({
+            take: Number(limit) || 50,
+            orderBy: { createdAt: 'desc' },
+            include: { user: { select: { name: true, email: true, mobile: true } } }
+        });
+    }
+
     async getAllRooms() {
         return this.prisma.room.findMany({ orderBy: { startAt: 'desc' } }); // Removed invalid include
     }
