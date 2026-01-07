@@ -134,8 +134,19 @@ export class AdminController {
     }
 
     @Post('categories')
-    createCategory(@Body() body: { name: string, parentId?: string }) {
+    createCategory(@Body() body: { name: string, parentId?: string, image?: string }) {
         return this.adminService.createCategory(body);
+    }
+
+    @Delete('categories/:id')
+    deleteCategory(@Param('id') id: string) {
+        return this.adminService.deleteCategory(id);
+    }
+
+    @Post('vendors/:id/commission')
+    @Roles('SUPER_ADMIN')
+    updateCommission(@Request() req, @Param('id') id: string, @Body('rate') rate: number) {
+        return this.adminService.updateVendorCommission(req.user.id, id, rate);
     }
 
     @Post('products')
@@ -181,9 +192,15 @@ export class AdminController {
     }
 
     @Post('coupons')
-    @Roles('SUPER_ADMIN')
+    @Roles('ADMIN', 'SUPER_ADMIN')
     createCoupon(@Body() body: any) {
         return this.adminService.createCoupon(body);
+    }
+
+    @Patch('coupons/:id')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    updateCoupon(@Param('id') id: string, @Body() body: any) {
+        return this.adminService.updateCoupon(id, body);
     }
 
     @Delete('coupons/:id')

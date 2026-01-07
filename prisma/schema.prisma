@@ -112,6 +112,7 @@ enum OrderStatus {
 model Category {
   id       String  @id @default(cuid())
   name     String
+  image    String? // URL to PNG image
   nameTE   String?
   parentId String?
 }
@@ -152,6 +153,7 @@ model Vendor {
   coinsBalance Int        @default(0)
   followCount  Int        @default(0)
   vendorCode   String?    @unique // e.g. BOW-21
+  commissionRate Float    @default(0.0) // Platform commission percentage
   reviews      Review[]
 
   createdAt DateTime @default(now())
@@ -330,6 +332,9 @@ model Product {
   isWholesale    Boolean @default(false)
   wholesalePrice Int?
   moq            Int     @default(1)
+  
+  // Moderation
+  isActive       Boolean @default(false) // Default to false for moderation queue
 
   reviews     Review[]
   cartItems   CartItem[]

@@ -264,6 +264,24 @@ export class AdminService {
         return updated;
     }
 
+    async updateVendorCommission(adminId: string, id: string, rate: number) {
+        const vendor = await this.prisma.vendor.update({
+            where: { id },
+            data: { commissionRate: rate }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'VENDOR',
+                targetId: id,
+                action: 'UPDATE_COMMISSION',
+                details: { newRate: rate }
+            }
+        });
+        return vendor;
+    }
+
     async getAllRooms() {
         return this.prisma.room.findMany({ orderBy: { startAt: 'desc' } }); // Removed invalid include
     }
@@ -299,7 +317,7 @@ export class AdminService {
         return this.prisma.category.findMany();
     }
 
-    async createCategory(data: { name: string, parentId?: string }) {
+    async createCategory(data: { name: string, parentId?: string, image?: string }) {
         return this.prisma.category.create({ data });
     }
 
@@ -335,19 +353,22 @@ export class AdminService {
         return results;
     }
 
+    async deleteCategory(id: string) {
+        // 1. Check for sub-categories
+        const children = await this.prisma.category.count({ where: { parentId: id } });
+        if (children > 0) throw new Error("Cannot delete category with sub-categories");
+
+        // 2. Check for products
+        const products = await this.prisma.product.count({ where: { categoryId: id } });
+        if (products > 0) throw new Error("Cannot delete category containing products");
+
+        return this.prisma.category.delete({ where: { id } });
+    }
+
     async toggleProductStatus(id: string, isActive: boolean) {
-        // Since we don't have an explicit 'isActive' field in schema based on previous read, 
-        // we might use stock=0 to simulate inactive or if there is a status field.
-        // Waiting for schema check, but assuming 'stock' manipulation or adding field. 
-        // For now, let's assume we toggle stock between 0 and previous value, or if 'isActive' exists.
-        // Actually, the schema had 'stock'. Let's check schema again.
-        // Re-reading schema revealed no 'isActive'. I'll skip implementation details until schema verification or just use stock > 0 check.
-        // User wants visual toggle. I will assume we manipulate 'stock' to 0 for off, or 100 for on? 
-        // No, that destroys data. 
-        // Let's check schema one more time or just add the logic.
         return this.prisma.product.update({
             where: { id },
-            data: { stock: isActive ? 10 : 0 } // Mock behavior: Toggle stock to simulate active/inactive
+            data: { isActive: isActive }
         });
     }
 
@@ -437,8 +458,29 @@ export class AdminService {
     }
 
     async createCoupon(data: any) {
-        // Validation could go here
+        // Ensure numbers are numbers
+        if (data.discountValue) data.discountValue = Number(data.discountValue);
+        if (data.minOrderAmount) data.minOrderAmount = Number(data.minOrderAmount);
+        if (data.maxDiscount) data.maxDiscount = Number(data.maxDiscount);
+        if (data.usageLimit) data.usageLimit = Number(data.usageLimit);
+
+        // Ensure dates
+        if (typeof data.validFrom === 'string') data.validFrom = new Date(data.validFrom);
+        if (typeof data.validUntil === 'string') data.validUntil = new Date(data.validUntil);
+
         return this.prisma.coupon.create({ data });
+    }
+
+    async updateCoupon(id: string, data: any) {
+        // Validations
+        if (data.discountValue) data.discountValue = Number(data.discountValue);
+        if (data.minOrderAmount) data.minOrderAmount = Number(data.minOrderAmount);
+        if (data.maxDiscount) data.maxDiscount = Number(data.maxDiscount);
+        if (data.usageLimit) data.usageLimit = Number(data.usageLimit);
+        if (typeof data.validFrom === 'string') data.validFrom = new Date(data.validFrom);
+        if (typeof data.validUntil === 'string') data.validUntil = new Date(data.validUntil);
+
+        return this.prisma.coupon.update({ where: { id }, data });
     }
 
     async deleteCoupon(id: string) {
