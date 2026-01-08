@@ -22,18 +22,24 @@ async function bootstrap() {
     // Global Config
     app.setGlobalPrefix('api/v1');
     
-    // CORS configuration - restrict origins in production
-    const allowedOrigins = process.env.NODE_ENV === 'production'
-        ? [
-            'https://risbow.com',
-            'https://www.risbow.com',
-            'https://admin.risbow.com',
-            process.env.FRONTEND_URL,
-        ].filter(Boolean)
-        : true; // Allow all origins in development
-    
+    // CORS configuration - allow localhost for Flutter web development
     app.enableCors({
-        origin: allowedOrigins,
+        origin: (origin, callback) => {
+            const allowedOrigins = [
+                'https://risbow.com',
+                'https://www.risbow.com',
+                'https://admin.risbow.com',
+                process.env.FRONTEND_URL,
+            ].filter(Boolean);
+            
+            // Allow requests with no origin (mobile apps, Postman, etc.)
+            // Also allow localhost for development
+            if (!origin || origin.startsWith('http://localhost') || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(null, false);
+            }
+        },
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
