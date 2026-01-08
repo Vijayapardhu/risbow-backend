@@ -83,6 +83,7 @@ enum UserRole {
   WHOLESALER
   ADMIN
   SUPER_ADMIN
+  TELECALLER
 }
 
 model Room {
