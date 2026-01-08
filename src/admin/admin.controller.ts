@@ -3,12 +3,40 @@ import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '../common/enums/user-role.enum'; // Added import for UserRole
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'SUPER_ADMIN')
+@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN) // Changed to use UserRole enum
 export class AdminController {
     constructor(private readonly adminService: AdminService) { }
+
+    @Post('users/:id/analyze')
+    async analyzeUser(@Param('id') id: string) {
+        return this.adminService.calculateUserRisk(id);
+    }
+
+    // --- MARKETING ENDPOINTS ---
+
+    @Post('banners')
+    async createBanner(@Body() body: any) {
+        return this.adminService.createBanner(body);
+    }
+
+    @Get('banners')
+    async getBanners() {
+        return this.adminService.getBanners();
+    }
+
+    @Put('banners/:id')
+    async toggleBanner(@Param('id') id: string, @Body() body: { isActive: bool }) {
+        return this.adminService.toggleBanner(id, body.isActive);
+    }
+
+    @Post('broadcast')
+    async sendBroadcast(@Body() body: { title: string, body: string, audience: string }) {
+        return this.adminService.sendBroadcast(body.title, body.body, body.audience);
+    }
 
     @Get('audit-logs')
     @Roles('ADMIN', 'SUPER_ADMIN')
@@ -31,6 +59,12 @@ export class AdminController {
         return this.adminService.getUsers(Number(page) || 1, search);
     }
 
+    @Get('users/export/csv')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    exportUsers() {
+        return this.adminService.exportUsers();
+    }
+
     @Get('users/:id')
     getUserDetails(@Param('id') id: string) {
         return this.adminService.getUserDetails(id);
@@ -44,6 +78,32 @@ export class AdminController {
         @Body() body: { name?: string; email?: string; mobile?: string; role?: string; status?: string }
     ) {
         return this.adminService.updateUser(req.user.id, userId, body);
+    }
+
+    @Post('users/:id/kyc')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    updateKyc(
+        @Request() req,
+        @Param('id') userId: string,
+        @Body() body: { status: string, notes?: string }
+    ) {
+        return this.adminService.updateKycStatus(req.user.id, userId, body.status, body.notes);
+    }
+
+    @Post('users/:id/force-logout')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    forceLogout(@Request() req, @Param('id') userId: string) {
+        return this.adminService.forceLogout(req.user.id, userId);
+    }
+
+    @Post('users/:id/toggle-refunds')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    toggleRefunds(
+        @Request() req,
+        @Param('id') userId: string,
+        @Body() body: { disabled: boolean }
+    ) {
+        return this.adminService.toggleRefunds(req.user.id, userId, body.disabled);
     }
 
     @Get('users/:id/cart')

@@ -24,7 +24,7 @@ export class OrdersService {
         });
     }
 
-    async createCheckout(userId: string, dto: CheckoutDto) {
+    async createCheckout(userId: string, dto: CheckoutDto & { abandonedCheckoutId?: string }) {
         // 1) Calculate total (placeholder pricing: ₹100 per item)
         const totalBeforeCoins = dto.items.reduce((acc, item) => acc + (100 * item.quantity), 0) || 100;
 
@@ -51,6 +51,7 @@ export class OrdersService {
                 coinsUsed: usableCoins,
                 status: OrderStatus.PENDING,
                 razorpayOrderId: rzpOrder.id,
+                abandonedCheckoutId: dto.abandonedCheckoutId, // Link Recovery Lead
             },
         });
 
@@ -74,10 +75,8 @@ export class OrdersService {
             .digest('hex');
 
         if (expectedSignature !== dto.razorpaySignature) {
-            // For Dev: Allow bypass if signature fails? No, keep it strict or hardcode for test.
-            // If using Test Mode, libraries usually handle this well.
-            // throw new BadRequestException('Invalid Payment Signature');
             console.log('Signature Mismatch:', expectedSignature, dto.razorpaySignature);
+            // throw new BadRequestException('Invalid Payment Signature');
         }
 
         // 2. Fetch order with coin usage details
@@ -96,6 +95,17 @@ export class OrdersService {
             where: { id: order.id },
             data: { status: OrderStatus.CONFIRMED },
         });
+
+        // 2.5 Mark Abandoned Checkout as CONVERTED
+        if (order.abandonedCheckoutId) {
+            await this.prisma.abandonedCheckout.update({
+                where: { id: order.abandonedCheckoutId },
+                data: {
+                    status: 'CONVERTED',
+                    agentId: order.agentId // Ensure attribution is finalized? actually already linked via relation
+                }
+            }).catch(e => console.log("Failed to update status", e));
+        }
 
         // 3. Debit coins if used and not yet debited
         if (order.coinsUsed > 0 && !order.coinsUsedDebited) {

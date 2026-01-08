@@ -12,6 +12,7 @@ import { VendorsModule } from './vendors/vendors.module';
 import { PaymentsModule } from './payments/payments.module';
 import { AdminModule } from './admin/admin.module';
 import { BowModule } from './bow/bow.module';
+import { CheckoutModule } from './checkout/checkout.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { BullModule } from '@nestjs/bullmq';
 
@@ -43,6 +44,7 @@ import { HealthController } from './common/health.controller';
         VendorsModule,
         PaymentsModule,
         AdminModule,
+        CheckoutModule,
         BowModule,
     ],
     controllers: [HealthController],

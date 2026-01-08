@@ -36,12 +36,19 @@ model User {
   notifications Notification[]
   reports       Report[]
   adminNotes    AdminNote[]
+  abandonedCheckouts AbandonedCheckout[]
   
   // Enterprise Fields
   riskTag           RiskTag    @default(LOW)
   valueTag          ValueTag   @default(NORMAL)
   isCodDisabled     Boolean    @default(false)
   isRefundsDisabled Boolean    @default(false)
+  
+  // KYC & Security
+  kycStatus         String     @default("NOT_SUBMITTED") // PENDING, VERIFIED, REJECTED
+  kycDocuments      Json?      // { "aadhaar": "url", "pan": "url" }
+  miscDocuments     Json?      // Generic docs
+  forceLogoutAt     DateTime?  // Tokens issued before this time are invalid
   
   createdAt     DateTime @default(now())
 }
@@ -322,6 +329,13 @@ model Order {
   razorpayOrderId String?
   awbNumber       String?
   courierPartner  String?
+  
+  // Recovery Fields
+  abandonedCheckoutId String?
+  agentId             String? // Telecaller who converted this order
+  
+  checkout   AbandonedCheckout? @relation(fields: [abandonedCheckoutId], references: [id])
+
   user            User        @relation(fields: [userId], references: [id])
   payment         Payment?
   address         Address?    @relation(fields: [addressId], references: [id])
@@ -369,6 +383,8 @@ model Admin {
   createdAt DateTime @default(now())
   auditLogs AuditLog[]
   adminNotes AdminNote[]
+  assignedCheckouts AbandonedCheckout[]
+  checkoutFollowups CheckoutFollowup[]
 }
 
 model AuditLog {
@@ -485,6 +501,7 @@ model AbandonedCheckout {
   user            User?             @relation(fields: [userId], references: [id])
   agent           Admin?            @relation(fields: [agentId], references: [id])
   followups       CheckoutFollowup[]
+  orders          Order[]
 }
 
 model CheckoutFollowup {

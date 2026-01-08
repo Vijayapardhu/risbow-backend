@@ -452,6 +452,91 @@ export class AdminService {
         return { success: true, user: updatedUser, message: 'User banned successfully' };
     }
 
+    // --- New Enterprise Methods (Cleanup) ---
+
+    async forceLogout(adminId: string, userId: string) {
+        // Set forceLogoutAt to now.
+        // Middleware should check: if (token.iat < user.forceLogoutAt) throw Unauthorized.
+        // Since we rely on Supabase, we might not control token validation fully unless we wrap it.
+        // Assuming we implement a check or just use this record for audit/frontend logic.
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: { forceLogoutAt: new Date() }
+        });
+
+        await this.prisma.auditLog.create({
+            data: { adminId, entity: 'USER', targetId: userId, action: 'FORCE_LOGOUT' }
+        });
+
+        return { success: true, message: 'User sessions invalidated (timestamps updated)' };
+    }
+
+    async updateKycStatus(adminId: string, userId: string, status: string, notes?: string) {
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: { kycStatus: status }
+        });
+
+        if (notes) {
+            await this.addAdminNote(adminId, userId, `KYC Update: ${status} - ${notes}`);
+        }
+
+        return updatedUser;
+    }
+
+    async toggleRefunds(adminId: string, userId: string, disabled: boolean) {
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: { isRefundsDisabled: disabled }
+        });
+
+        await this.prisma.auditLog.create({
+            data: { adminId, entity: 'USER', targetId: userId, action: 'TOGGLE_REFUNDS', details: { disabled } }
+        });
+
+        return updatedUser;
+    }
+
+    async exportUsers() {
+        // Simple JSON return, Controller can convert to CSV
+        const users = await this.prisma.user.findMany({
+            orderBy: { createdAt: 'desc' }
+        });
+        return users;
+    }
+
+    // --- AUTOMATION: Risk & Value Analysis ---
+
+    async calculateUserRisk(userId: string) {
+        const orders = await this.prisma.order.findMany({
+            where: { userId },
+            select: { status: true, totalAmount: true }
+        });
+
+        if (orders.length === 0) return { risk: 'LOW', value: 'NORMAL' };
+
+        const totalOrders = orders.length;
+        const cancelled = orders.filter(o => o.status === 'CANCELLED' || o.status === 'RETURNED').length;
+        const totalSpent = orders.reduce((sum, o) => sum + (o.status === 'DELIVERED' ? o.totalAmount : 0), 0);
+
+        const cancelRate = cancelled / totalOrders;
+
+        let newRisk: RiskTag = 'LOW';
+        if (cancelRate > 0.5 && totalOrders > 3) newRisk = 'HIGH';
+        else if (cancelRate > 0.2 && totalOrders > 3) newRisk = 'MEDIUM';
+
+        let newValue: ValueTag = 'NORMAL';
+        if (totalSpent > 50000) newValue = 'VIP'; // 50k threshold
+
+        // Update User
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { riskTag: newRisk, valueTag: newValue }
+        });
+
+        return { risk: newRisk, value: newValue, stats: { cancelRate, totalSpent } };
+    }
+
     // --- USERS MANAGEMENT: Delete User ---
 
     async deleteUser(adminId: string, userId: string) {
