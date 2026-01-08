@@ -36,7 +36,15 @@ model User {
   notifications Notification[]
   reports       Report[]
   adminNotes    AdminNote[]
-  abandonedCheckouts AbandonedCheckout[]
+  abandonedCheckouts AbandonedCheckout[] // Cart history? Or active assigned leads?
+  // Wait, User has 'abandonedCheckouts' relation? 
+  // Line 39 says: abandonedCheckouts AbandonedCheckout[]
+  // That one maps to `userId`.
+  // I need NEW fields for `agentId`.
+  // Prisma requires unique relation names if multiple point to same model.
+  // Let's name them clearly.
+  assignedLeads     AbandonedCheckout[] @relation("AgentCheckouts")
+  leadFollowups     CheckoutFollowup[]
   
   // Enterprise Fields
   riskTag           RiskTag    @default(LOW)
@@ -381,21 +389,18 @@ model Admin {
   password  String   // Hashed
   role      String   // "SUPER_ADMIN", "SUPPORT"
   createdAt DateTime @default(now())
-  auditLogs AuditLog[]
   adminNotes AdminNote[]
-  assignedCheckouts AbandonedCheckout[]
-  checkoutFollowups CheckoutFollowup[]
 }
 
 model AuditLog {
   id        String   @id @default(cuid())
-  adminId   String   // User ID of the admin performed the action
+  adminId   String   // User ID of the admin who performed the action
   targetId  String   // ID of the entity changed (User, Vendor, Room, etc.)
   entity    String   // "USER", "VENDOR", "ROOM", "ORDER"
   action    String   // "APPROVE", "REJECT", "UPDATE_COINS", "SUSPEND"
   details   Json?    // { "reason": "Fraud detection", "oldValue": ..., "newValue": ... }
   createdAt DateTime @default(now())
-  admin     Admin    @relation(fields: [adminId], references: [id])
+  // Removed Admin relation - adminId now stores User.id of admin users
 }
 
 model Report {
@@ -499,7 +504,7 @@ model AbandonedCheckout {
   updatedAt       DateTime @updatedAt
   
   user            User?             @relation(fields: [userId], references: [id])
-  agent           Admin?            @relation(fields: [agentId], references: [id])
+  agent           User?             @relation("AgentCheckouts", fields: [agentId], references: [id])
   followups       CheckoutFollowup[]
   orders          Order[]
 }
@@ -513,5 +518,5 @@ model CheckoutFollowup {
   createdAt   DateTime    @default(now())
   
   checkout    AbandonedCheckout @relation(fields: [checkoutId], references: [id])
-  agent       Admin             @relation(fields: [agentId], references: [id])
+  agent       User              @relation(fields: [agentId], references: [id])
 }

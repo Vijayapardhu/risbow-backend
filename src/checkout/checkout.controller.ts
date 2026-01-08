@@ -68,29 +68,42 @@ export class CheckoutController {
     }
 
     @UseGuards(JwtAuthGuard)
+
     @Post('admin/assign')
     async assignLead(@Request() req, @Body() body: { checkoutId: string, agentId: string }) {
-        // Only Admins/SuperAdmin can assign? Or Telecaller can "Assign to Me"?
-        // Prompt says "Assign lead to agent... Lock lead".
-        // Let's allow self-assignment if not assigned.
         const user = req.user;
+        let targetAgentId = body.agentId;
+
+        // Handle placeholder or missing ID by defaulting to current user
+        if (!targetAgentId || targetAgentId === 'CURRENT_ADMIN_ID') {
+            targetAgentId = user.id;
+        }
+
         // If telecaller assigns to someone else, forbid.
-        if (user.role === 'TELECALLER' && body.agentId !== user.id) {
+        if (user.role === 'TELECALLER' && targetAgentId !== user.id) {
             throw new ForbiddenException('Telecallers can only assign leads to themselves');
         }
-        return this.checkoutService.assignLead(body.checkoutId, body.agentId);
+        return this.checkoutService.assignLead(body.checkoutId, targetAgentId);
     }
 
     @UseGuards(JwtAuthGuard)
     @Post('admin/followup')
     async addFollowup(@Request() req, @Body() body: { checkoutId: string, agentId: string, note: string, outcome: string }) {
         const user = req.user;
-        if (user.role === 'TELECALLER' && body.agentId !== user.id) {
+        let agentId = body.agentId;
+
+        // Auto-resolve ID if placeholder
+        if (!agentId || agentId === 'CURRENT_ADMIN_ID') {
+            agentId = user.id;
+        }
+
+        if (user.role === 'TELECALLER' && agentId !== user.id) {
             throw new ForbiddenException('Cannot log followup for another agent');
         }
+
         return this.checkoutService.addFollowup({
             checkoutId: body.checkoutId,
-            agentId: body.agentId,
+            agentId: agentId,
             note: body.note,
             outcome: body.outcome as any
         });

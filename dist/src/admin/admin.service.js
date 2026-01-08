@@ -1,32 +1,29 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { RoomStatus, RiskTag, ValueTag, UserRole, UserStatus } from '@prisma/client';
-
-@Injectable()
-export class AdminService {
-    constructor(private prisma: PrismaService) { }
-
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AdminService = void 0;
+const common_1 = require("@nestjs/common");
+const prisma_service_1 = require("../prisma/prisma.service");
+const client_1 = require("@prisma/client");
+let AdminService = class AdminService {
+    constructor(prisma) {
+        this.prisma = prisma;
+    }
     async getAnalytics() {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-        const [
-            totalOrders,
-            totalRooms,
-            unlockedRooms,
-            registredUsers,
-            activeVendors,
-            ordersSum,
-            lowStockProducts,
-            recentOrders,
-            categoryStats,
-            topProducts,
-            recentAuditLogs,
-            newVendors
-        ] = await Promise.all([
+        const [totalOrders, totalRooms, unlockedRooms, registredUsers, activeVendors, ordersSum, lowStockProducts, recentOrders, categoryStats, topProducts, recentAuditLogs, newVendors] = await Promise.all([
             this.prisma.order.count(),
             this.prisma.room.count(),
-            this.prisma.room.count({ where: { status: RoomStatus.UNLOCKED } }),
+            this.prisma.room.count({ where: { status: client_1.RoomStatus.UNLOCKED } }),
             this.prisma.user.count(),
             this.prisma.vendor.count({ where: { kycStatus: 'APPROVED' } }),
             this.prisma.order.aggregate({ _sum: { totalAmount: true } }),
@@ -42,7 +39,7 @@ export class AdminService {
             }),
             this.prisma.product.findMany({
                 take: 5,
-                orderBy: { price: 'desc' }, // Placeholder for 'Top Selling' due to Json structure limits
+                orderBy: { price: 'desc' },
                 select: { id: true, title: true, stock: true, price: true, isActive: true }
             }),
             this.prisma.auditLog.findMany({
@@ -55,40 +52,37 @@ export class AdminService {
                 select: { name: true, createdAt: true }
             })
         ]);
-
         const totalRevenue = ordersSum._sum.totalAmount || 0;
         const aov = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-
-        // Process Revenue Data (Last 7 Days)
-        const revenueMap = new Map<string, number>();
+        const revenueMap = new Map();
         recentOrders.forEach(o => {
             const date = o.createdAt.toISOString().split('T')[0];
             revenueMap.set(date, (revenueMap.get(date) || 0) + o.totalAmount);
         });
-
         const revenueChart = Array.from(revenueMap.entries())
             .map(([date, amount]) => ({ date, amount }))
             .sort((a, b) => a.date.localeCompare(b.date));
-
-        // Process Categories
-        // Fetch category names
         const categoryIds = categoryStats.map(c => c.categoryId);
         const categories = await this.prisma.category.findMany({ where: { id: { in: categoryIds } } });
-        const categoriesChart = categoryStats.map(c => ({
-            category: categories.find(cat => cat.id === c.categoryId)?.name || 'Unknown',
-            count: c._count.id
-        }));
-
-        // Aggregated Recent Activity
+        const categoriesChart = categoryStats.map(c => {
+            var _a;
+            return ({
+                category: ((_a = categories.find(cat => cat.id === c.categoryId)) === null || _a === void 0 ? void 0 : _a.name) || 'Unknown',
+                count: c._count.id
+            });
+        });
         const activity = [
-            ...recentOrders.slice(0, 5).map(o => ({
-                id: o.id,
-                title: `Order #${o.id.substring(0, 6)}`,
-                subtitle: `${o.user?.name || 'User'} · ${o.totalAmount}`,
-                type: 'ORDER',
-                status: o.status,
-                time: o.createdAt
-            })),
+            ...recentOrders.slice(0, 5).map(o => {
+                var _a;
+                return ({
+                    id: o.id,
+                    title: `Order #${o.id.substring(0, 6)}`,
+                    subtitle: `${((_a = o.user) === null || _a === void 0 ? void 0 : _a.name) || 'User'} · ${o.totalAmount}`,
+                    type: 'ORDER',
+                    status: o.status,
+                    time: o.createdAt
+                });
+            }),
             ...newVendors.map(v => ({
                 id: v.name,
                 title: 'New Vendor',
@@ -106,7 +100,6 @@ export class AdminService {
                 time: l.createdAt
             }))
         ].sort((a, b) => b.time.getTime() - a.time.getTime()).slice(0, 5);
-
         return {
             totalRevenue,
             totalOrders,
@@ -121,24 +114,20 @@ export class AdminService {
                 stock: p.stock.toString(),
                 price: p.price,
                 status: p.isActive ? 'Active' : 'Inactive',
-                earnings: '-' // Calculation requires deep order scanning
+                earnings: '-'
             })),
             activity,
             trends: {
-                revenue: '+0%', // Placeholder
+                revenue: '+0%',
                 orders: '+0%',
                 vendors: '+0%'
             }
         };
     }
-
-    // --- USERS MANAGEMENT ---
-
-    async getUsers(page: number = 1, search?: string, filters?: { role?: UserRole, status?: UserStatus, riskTag?: RiskTag, valueTag?: ValueTag }) {
-        const take = 50; // Increased page size for admin
+    async getUsers(page = 1, search, filters) {
+        const take = 50;
         const skip = (page - 1) * take;
-        const where: any = {};
-
+        const where = {};
         if (search) {
             where.OR = [
                 { name: { contains: search, mode: 'insensitive' } },
@@ -147,14 +136,16 @@ export class AdminService {
                 { id: { equals: search } }
             ];
         }
-
         if (filters) {
-            if (filters.role) where.role = filters.role;
-            if (filters.status) where.status = filters.status;
-            if (filters.riskTag) where.riskTag = filters.riskTag;
-            if (filters.valueTag) where.valueTag = filters.valueTag;
+            if (filters.role)
+                where.role = filters.role;
+            if (filters.status)
+                where.status = filters.status;
+            if (filters.riskTag)
+                where.riskTag = filters.riskTag;
+            if (filters.valueTag)
+                where.valueTag = filters.valueTag;
         }
-
         const [users, total] = await Promise.all([
             this.prisma.user.findMany({
                 where,
@@ -176,13 +167,10 @@ export class AdminService {
             }),
             this.prisma.user.count({ where })
         ]);
-
         return { users, total, pages: Math.ceil(total / take) };
     }
-
-    // --- USERS MANAGEMENT: Details ---
-
-    async getUserDetails(id: string) {
+    async getUserDetails(id) {
+        var _a;
         try {
             const user = await this.prisma.user.findUnique({
                 where: { id },
@@ -200,59 +188,59 @@ export class AdminService {
                     reviews: { take: 5, orderBy: { createdAt: 'desc' } },
                 }
             });
-
-            if (!user) throw new NotFoundException('User not found');
-
+            if (!user)
+                throw new common_1.NotFoundException('User not found');
             let coinLedger = [];
             try {
-                // Manual fetch for CoinLedger 
                 coinLedger = await this.prisma.coinLedger.findMany({
                     where: { userId: id },
                     take: 20,
                     orderBy: { createdAt: 'desc' }
                 });
-            } catch (ledgerError) {
+            }
+            catch (ledgerError) {
                 console.warn('Failed to fetch CoinLedger:', ledgerError.message);
             }
-
-            // Enhanced Risk Calculation
-            const totalOrders = user.orders?.length || 0;
+            const totalOrders = ((_a = user.orders) === null || _a === void 0 ? void 0 : _a.length) || 0;
             const cancelledOrders = user.orders ? user.orders.filter(o => o.status === 'CANCELLED').length : 0;
             const cancellationRate = totalOrders > 0 ? (cancelledOrders / totalOrders) * 100 : 0;
-
-            // Auto Update Risk if necessary (Logic can be moved to a private method)
             let derivedRiskTag = user.riskTag;
-            if (cancellationRate > 50 && totalOrders > 3) derivedRiskTag = RiskTag.HIGH;
-            else if (cancellationRate > 20 && totalOrders > 3) derivedRiskTag = RiskTag.MEDIUM;
-
-            return { ...user, coinLedger, riskStats: { totalOrders, cancellationRate, derivedRiskTag } };
-        } catch (error) {
+            if (cancellationRate > 50 && totalOrders > 3)
+                derivedRiskTag = client_1.RiskTag.HIGH;
+            else if (cancellationRate > 20 && totalOrders > 3)
+                derivedRiskTag = client_1.RiskTag.MEDIUM;
+            return Object.assign(Object.assign({}, user), { coinLedger, riskStats: { totalOrders, cancellationRate, derivedRiskTag } });
+        }
+        catch (error) {
             console.error(`Error in getUserDetails for id ${id}:`, error);
-            if (error instanceof NotFoundException) throw error;
+            if (error instanceof common_1.NotFoundException)
+                throw error;
             throw new Error(`Failed to fetch user details: ${error.message}`);
         }
     }
-
-    // --- USERS MANAGEMENT: Update User ---
-
-    async updateUser(adminId: string, userId: string, data: { name?: string; email?: string; mobile?: string; role?: UserRole; status?: UserStatus; riskTag?: RiskTag; valueTag?: ValueTag }) {
+    async updateUser(adminId, userId, data) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        if (!user) throw new NotFoundException('User not found');
-
-        const updateData: any = {};
-        if (data.name !== undefined) updateData.name = data.name;
-        if (data.email !== undefined) updateData.email = data.email;
-        if (data.mobile !== undefined) updateData.mobile = data.mobile;
-        if (data.role !== undefined) updateData.role = data.role;
-        if (data.riskTag !== undefined) updateData.riskTag = data.riskTag;
-        if (data.valueTag !== undefined) updateData.valueTag = data.valueTag;
-        if (data.status !== undefined) updateData.status = data.status;
-
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const updateData = {};
+        if (data.name !== undefined)
+            updateData.name = data.name;
+        if (data.email !== undefined)
+            updateData.email = data.email;
+        if (data.mobile !== undefined)
+            updateData.mobile = data.mobile;
+        if (data.role !== undefined)
+            updateData.role = data.role;
+        if (data.riskTag !== undefined)
+            updateData.riskTag = data.riskTag;
+        if (data.valueTag !== undefined)
+            updateData.valueTag = data.valueTag;
+        if (data.status !== undefined)
+            updateData.status = data.status;
         const updatedUser = await this.prisma.user.update({
             where: { id: userId },
             data: updateData
         });
-
         await this.prisma.auditLog.create({
             data: {
                 adminId,
@@ -262,11 +250,9 @@ export class AdminService {
                 details: { previousData: { risk: user.riskTag, value: user.valueTag, status: user.status }, newData: updateData }
             }
         });
-
         return updatedUser;
     }
-
-    async addAdminNote(adminId: string, userId: string, note: string) {
+    async addAdminNote(adminId, userId, note) {
         return this.prisma.adminNote.create({
             data: {
                 adminId,
@@ -275,13 +261,11 @@ export class AdminService {
             }
         });
     }
-
-    async toggleCod(adminId: string, userId: string, disabled: boolean) {
+    async toggleCod(adminId, userId, disabled) {
         const updated = await this.prisma.user.update({
             where: { id: userId },
             data: { isCodDisabled: disabled }
         });
-
         await this.prisma.auditLog.create({
             data: {
                 adminId,
@@ -293,13 +277,10 @@ export class AdminService {
         });
         return updated;
     }
-
-    // --- USERS MANAGEMENT: Get User Cart ---
-
-    async getUserCart(userId: string) {
+    async getUserCart(userId) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        if (!user) throw new NotFoundException('User not found');
-
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
         const cart = await this.prisma.cart.findUnique({
             where: { userId },
             include: {
@@ -319,14 +300,11 @@ export class AdminService {
                 }
             }
         });
-
         if (!cart) {
             return { items: [], totalItems: 0, totalValue: 0 };
         }
-
         const totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0);
         const totalValue = cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-
         return {
             id: cart.id,
             items: cart.items.map(item => ({
@@ -340,22 +318,16 @@ export class AdminService {
             totalValue
         };
     }
-
-    // --- USERS MANAGEMENT: Coins ---
-
-    async updateUserCoins(adminId: string, userId: string, amount: number, reason: string) {
+    async updateUserCoins(adminId, userId, amount, reason) {
         return this.prisma.$transaction(async (tx) => {
             const user = await tx.user.findUnique({ where: { id: userId } });
-            if (!user) throw new NotFoundException('User not found');
-
+            if (!user)
+                throw new common_1.NotFoundException('User not found');
             const newBalance = (user.coinsBalance || 0) + amount;
-
             const updatedUser = await tx.user.update({
                 where: { id: userId },
                 data: { coinsBalance: newBalance }
             });
-
-            // Also create a ledger entry for tracking
             await tx.coinLedger.create({
                 data: {
                     userId,
@@ -364,7 +336,6 @@ export class AdminService {
                     referenceId: adminId
                 }
             });
-
             await tx.auditLog.create({
                 data: {
                     adminId,
@@ -374,22 +345,17 @@ export class AdminService {
                     details: { amount, reason, oldBalance: user.coinsBalance || 0, newBalance }
                 }
             });
-
             return updatedUser;
         });
     }
-
-    // --- USERS MANAGEMENT: Suspend User ---
-
-    async suspendUser(adminId: string, userId: string, reason?: string) {
+    async suspendUser(adminId, userId, reason) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        if (!user) throw new NotFoundException('User not found');
-
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
         const updatedUser = await this.prisma.user.update({
             where: { id: userId },
             data: { status: 'SUSPENDED' }
         });
-
         await this.prisma.auditLog.create({
             data: {
                 adminId,
@@ -399,21 +365,16 @@ export class AdminService {
                 details: { reason, previousStatus: user.status || 'ACTIVE' }
             }
         });
-
         return { success: true, user: updatedUser, message: 'User suspended successfully' };
     }
-
-    // --- USERS MANAGEMENT: Activate User ---
-
-    async activateUser(adminId: string, userId: string) {
+    async activateUser(adminId, userId) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        if (!user) throw new NotFoundException('User not found');
-
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
         const updatedUser = await this.prisma.user.update({
             where: { id: userId },
             data: { status: 'ACTIVE' }
         });
-
         await this.prisma.auditLog.create({
             data: {
                 adminId,
@@ -423,21 +384,16 @@ export class AdminService {
                 details: { previousStatus: user.status || 'SUSPENDED' }
             }
         });
-
         return { success: true, user: updatedUser, message: 'User activated successfully' };
     }
-
-    // --- USERS MANAGEMENT: Ban User ---
-
-    async banUser(adminId: string, userId: string, reason: string) {
+    async banUser(adminId, userId, reason) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        if (!user) throw new NotFoundException('User not found');
-
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
         const updatedUser = await this.prisma.user.update({
             where: { id: userId },
             data: { status: 'BANNED' }
         });
-
         await this.prisma.auditLog.create({
             data: {
                 adminId,
@@ -447,103 +403,73 @@ export class AdminService {
                 details: { reason, previousStatus: user.status || 'ACTIVE' }
             }
         });
-
         return { success: true, user: updatedUser, message: 'User banned successfully' };
     }
-
-    // --- New Enterprise Methods (Cleanup) ---
-
-    async forceLogout(adminId: string, userId: string) {
-        // Set forceLogoutAt to now.
-        // Middleware should check: if (token.iat < user.forceLogoutAt) throw Unauthorized.
-        // Since we rely on Supabase, we might not control token validation fully unless we wrap it.
-        // Assuming we implement a check or just use this record for audit/frontend logic.
+    async forceLogout(adminId, userId) {
         const updatedUser = await this.prisma.user.update({
             where: { id: userId },
             data: { forceLogoutAt: new Date() }
         });
-
         await this.prisma.auditLog.create({
             data: { adminId, entity: 'USER', targetId: userId, action: 'FORCE_LOGOUT' }
         });
-
         return { success: true, message: 'User sessions invalidated (timestamps updated)' };
     }
-
-    async updateKycStatus(adminId: string, userId: string, status: string, notes?: string) {
+    async updateKycStatus(adminId, userId, status, notes) {
         const updatedUser = await this.prisma.user.update({
             where: { id: userId },
             data: { kycStatus: status }
         });
-
         if (notes) {
             await this.addAdminNote(adminId, userId, `KYC Update: ${status} - ${notes}`);
         }
-
         return updatedUser;
     }
-
-    async toggleRefunds(adminId: string, userId: string, disabled: boolean) {
+    async toggleRefunds(adminId, userId, disabled) {
         const updatedUser = await this.prisma.user.update({
             where: { id: userId },
             data: { isRefundsDisabled: disabled }
         });
-
         await this.prisma.auditLog.create({
             data: { adminId, entity: 'USER', targetId: userId, action: 'TOGGLE_REFUNDS', details: { disabled } }
         });
-
         return updatedUser;
     }
-
     async exportUsers() {
-        // Simple JSON return, Controller can convert to CSV
         const users = await this.prisma.user.findMany({
             orderBy: { createdAt: 'desc' }
         });
         return users;
     }
-
-    // --- AUTOMATION: Risk & Value Analysis ---
-
-    async calculateUserRisk(userId: string) {
+    async calculateUserRisk(userId) {
         const orders = await this.prisma.order.findMany({
             where: { userId },
             select: { status: true, totalAmount: true }
         });
-
-        if (orders.length === 0) return { risk: 'LOW', value: 'NORMAL' };
-
+        if (orders.length === 0)
+            return { risk: 'LOW', value: 'NORMAL' };
         const totalOrders = orders.length;
         const cancelled = orders.filter(o => o.status === 'CANCELLED').length;
         const totalSpent = orders.reduce((sum, o) => sum + (o.status === 'DELIVERED' ? o.totalAmount : 0), 0);
-
         const cancelRate = cancelled / totalOrders;
-
-        let newRisk: RiskTag = 'LOW';
-        if (cancelRate > 0.5 && totalOrders > 3) newRisk = 'HIGH';
-        else if (cancelRate > 0.2 && totalOrders > 3) newRisk = 'MEDIUM';
-
-        let newValue: ValueTag = 'NORMAL';
-        if (totalSpent > 50000) newValue = 'VIP'; // 50k threshold
-
-        // Update User
+        let newRisk = 'LOW';
+        if (cancelRate > 0.5 && totalOrders > 3)
+            newRisk = 'HIGH';
+        else if (cancelRate > 0.2 && totalOrders > 3)
+            newRisk = 'MEDIUM';
+        let newValue = 'NORMAL';
+        if (totalSpent > 50000)
+            newValue = 'VIP';
         await this.prisma.user.update({
             where: { id: userId },
             data: { riskTag: newRisk, valueTag: newValue }
         });
-
         return { risk: newRisk, value: newValue, stats: { cancelRate, totalSpent } };
     }
-
-    // --- USERS MANAGEMENT: Delete User ---
-
-    async deleteUser(adminId: string, userId: string) {
+    async deleteUser(adminId, userId) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        if (!user) throw new NotFoundException('User not found');
-
-        // Soft delete by marking as banned and clearing sensitive data, or hard delete
-        // For now, doing a soft delete approach
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
         await this.prisma.user.update({
             where: { id: userId },
             data: {
@@ -552,7 +478,6 @@ export class AdminService {
                 name: `Deleted User ${userId.substring(0, 6)}`
             }
         });
-
         await this.prisma.auditLog.create({
             data: {
                 adminId,
@@ -562,16 +487,12 @@ export class AdminService {
                 details: { deletedEmail: user.email, deletedName: user.name }
             }
         });
-
         return { success: true, message: 'User deleted successfully' };
     }
-
-    // --- USERS MANAGEMENT: Get User Orders ---
-
-    async getUserOrders(userId: string, limit: number = 20) {
+    async getUserOrders(userId, limit = 20) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        if (!user) throw new NotFoundException('User not found');
-
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
         const orders = await this.prisma.order.findMany({
             where: { userId },
             take: limit,
@@ -581,23 +502,18 @@ export class AdminService {
                 address: true
             }
         });
-
         const stats = {
             totalOrders: orders.length,
             totalSpent: orders.reduce((sum, o) => sum + o.totalAmount, 0),
             completedOrders: orders.filter(o => o.status === 'DELIVERED').length,
             cancelledOrders: orders.filter(o => o.status === 'CANCELLED').length
         };
-
         return { orders, stats };
     }
-
-    // --- USERS MANAGEMENT: Get User Wishlist ---
-
-    async getUserWishlist(userId: string) {
+    async getUserWishlist(userId) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        if (!user) throw new NotFoundException('User not found');
-
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
         const wishlist = await this.prisma.wishlist.findMany({
             where: { userId },
             include: {
@@ -614,33 +530,25 @@ export class AdminService {
             },
             orderBy: { createdAt: 'desc' }
         });
-
         return {
             items: wishlist,
             totalItems: wishlist.length
         };
     }
-
-    // --- USERS MANAGEMENT: Get User Addresses ---
-
-    async getUserAddresses(userId: string) {
+    async getUserAddresses(userId) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        if (!user) throw new NotFoundException('User not found');
-
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
         const addresses = await this.prisma.address.findMany({
             where: { userId },
             orderBy: { isDefault: 'desc' }
         });
-
         return { addresses, total: addresses.length };
     }
-
-    // --- USERS MANAGEMENT: Send User Notification ---
-
-    async sendUserNotification(userId: string, title: string, message: string) {
+    async sendUserNotification(userId, title, message) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        if (!user) throw new NotFoundException('User not found');
-
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
         const notification = await this.prisma.notification.create({
             data: {
                 userId,
@@ -649,23 +557,16 @@ export class AdminService {
                 type: 'ADMIN'
             }
         });
-
         return { success: true, notification, message: 'Notification sent successfully' };
     }
-
-    // --- USERS MANAGEMENT: Reset User Password ---
-
-    async resetUserPassword(adminId: string, userId: string) {
+    async resetUserPassword(adminId, userId) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        if (!user) throw new NotFoundException('User not found');
-
-        // Generate a temporary password or send reset link
-        // For now, just clear the password so user must reset
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
         await this.prisma.user.update({
             where: { id: userId },
             data: { password: null }
         });
-
         await this.prisma.auditLog.create({
             data: {
                 adminId,
@@ -675,16 +576,12 @@ export class AdminService {
                 details: { userEmail: user.email }
             }
         });
-
         return { success: true, message: 'Password reset successfully. User will need to set a new password on next login.' };
     }
-
-    // --- USERS MANAGEMENT: Get User Activity ---
-
-    async getUserActivity(userId: string) {
+    async getUserActivity(userId) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        if (!user) throw new NotFoundException('User not found');
-
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
         const [orders, reviews, coinTransactions] = await Promise.all([
             this.prisma.order.findMany({
                 where: { userId },
@@ -704,8 +601,6 @@ export class AdminService {
                 orderBy: { createdAt: 'desc' }
             })
         ]);
-
-        // Combine and sort all activities
         const activities = [
             ...orders.map(o => ({
                 type: 'ORDER',
@@ -726,20 +621,13 @@ export class AdminService {
                 timestamp: c.createdAt
             }))
         ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 20);
-
         return { activities, user: { id: user.id, name: user.name, email: user.email } };
     }
-
-    // --- ORDERS MANAGEMENT ---
-
-    async getAllOrders(limit: number = 50, search?: string, status?: string) {
-        const where: any = {};
-
+    async getAllOrders(limit = 50, search, status) {
+        const where = {};
         if (status && status !== 'ALL') {
-            // Prisma enum matching 
             where.status = status;
         }
-
         if (search) {
             where.OR = [
                 { id: { contains: search, mode: 'insensitive' } },
@@ -748,7 +636,6 @@ export class AdminService {
                 { awbNumber: { contains: search, mode: 'insensitive' } },
             ];
         }
-
         return this.prisma.order.findMany({
             where,
             take: Number(limit) || 50,
@@ -759,21 +646,18 @@ export class AdminService {
             }
         });
     }
-
-    async updateOrderStatus(adminId: string, orderId: string, status: any, logistics?: { awb?: string, courier?: string }) {
+    async updateOrderStatus(adminId, orderId, status, logistics) {
         const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-        if (!order) throw new NotFoundException("Order not found");
-
+        if (!order)
+            throw new common_1.NotFoundException("Order not found");
         const updated = await this.prisma.order.update({
             where: { id: orderId },
             data: {
-                status: status, // Ensure status matches Enum
-                awbNumber: logistics?.awb,
-                courierPartner: logistics?.courier
+                status: status,
+                awbNumber: logistics === null || logistics === void 0 ? void 0 : logistics.awb,
+                courierPartner: logistics === null || logistics === void 0 ? void 0 : logistics.courier
             }
         });
-
-        // Audit Log
         await this.prisma.auditLog.create({
             data: {
                 adminId,
@@ -783,14 +667,10 @@ export class AdminService {
                 details: { oldStatus: order.status, newStatus: status, logistics }
             }
         });
-
         return updated;
     }
-
-    // --- VENDORS MANAGEMENT ---
-
-    async getVendors(status: string = 'ALL') {
-        const where: any = {};
+    async getVendors(status = 'ALL') {
+        const where = {};
         if (status && status !== 'ALL') {
             where.kycStatus = status;
         }
@@ -799,18 +679,15 @@ export class AdminService {
             orderBy: { createdAt: 'desc' }
         });
     }
-
-    async approveVendor(adminId: string, id: string, approved: boolean, reason?: string) {
+    async approveVendor(adminId, id, approved, reason) {
         const newStatus = approved ? 'APPROVED' : 'REJECTED';
-
         const vendor = await this.prisma.vendor.findUnique({ where: { id } });
-        if (!vendor) throw new NotFoundException('Vendor not found');
-
+        if (!vendor)
+            throw new common_1.NotFoundException('Vendor not found');
         const updated = await this.prisma.vendor.update({
             where: { id },
             data: { kycStatus: newStatus }
         });
-
         await this.prisma.auditLog.create({
             data: {
                 adminId,
@@ -820,16 +697,13 @@ export class AdminService {
                 details: { previousStatus: vendor.kycStatus, newStatus, reason }
             }
         });
-
         return updated;
     }
-
-    async updateVendorCommission(adminId: string, id: string, rate: number) {
+    async updateVendorCommission(adminId, id, rate) {
         const vendor = await this.prisma.vendor.update({
             where: { id },
             data: { commissionRate: rate }
         });
-
         await this.prisma.auditLog.create({
             data: {
                 adminId,
@@ -841,125 +715,100 @@ export class AdminService {
         });
         return vendor;
     }
-
     async getAllRooms() {
-        return this.prisma.room.findMany({ orderBy: { startAt: 'desc' } }); // Removed invalid include
+        return this.prisma.room.findMany({ orderBy: { startAt: 'desc' } });
     }
-
-    async createRoom(adminId: string, data: any) {
-        // Validate dates if string
-        if (typeof data.startAt === 'string') data.startAt = new Date(data.startAt);
-        if (typeof data.endAt === 'string') data.endAt = new Date(data.endAt);
-
+    async createRoom(adminId, data) {
+        if (typeof data.startAt === 'string')
+            data.startAt = new Date(data.startAt);
+        if (typeof data.endAt === 'string')
+            data.endAt = new Date(data.endAt);
         return this.prisma.room.create({
-            data: {
-                ...data,
-                createdById: adminId,
-            }
+            data: Object.assign(Object.assign({}, data), { createdById: adminId })
         });
     }
-
-    // --- PRODUCTS & CATALOG ---
-
-    async getProducts(categoryId?: string, search?: string) {
-        const where: any = {};
-        if (categoryId) where.categoryId = categoryId;
-        if (search) where.title = { contains: search, mode: 'insensitive' };
-
+    async getProducts(categoryId, search) {
+        const where = {};
+        if (categoryId)
+            where.categoryId = categoryId;
+        if (search)
+            where.title = { contains: search, mode: 'insensitive' };
         return this.prisma.product.findMany({
             where,
             orderBy: { createdAt: 'desc' },
             take: 50
         });
     }
-
     async getCategories() {
         return this.prisma.category.findMany();
     }
-
-    async createCategory(data: { name: string, parentId?: string, image?: string }) {
+    async createCategory(data) {
         return this.prisma.category.create({ data });
     }
-
-    async createProduct(data: any) {
-        if (data.stock) data.stock = Number(data.stock);
-        if (data.price) data.price = Number(data.price);
+    async createProduct(data) {
+        if (data.stock)
+            data.stock = Number(data.stock);
+        if (data.price)
+            data.price = Number(data.price);
         return this.prisma.product.create({ data });
     }
-
-    async bulkCreateProducts(products: any[]) {
+    async bulkCreateProducts(products) {
         const results = {
             success: 0,
             failed: 0,
-            errors: [] as any[]
+            errors: []
         };
-
         for (const p of products) {
             try {
-                if (p.stock) p.stock = Number(p.stock);
-                if (p.price) p.price = Number(p.price);
-                // Ensure required fields
+                if (p.stock)
+                    p.stock = Number(p.stock);
+                if (p.price)
+                    p.price = Number(p.price);
                 if (!p.title || !p.price || !p.categoryId) {
                     throw new Error("Missing required fields (title, price, categoryId)");
                 }
-
                 await this.prisma.product.create({ data: p });
                 results.success++;
-            } catch (e) {
+            }
+            catch (e) {
                 results.failed++;
                 results.errors.push({ title: p.title, error: e.message });
             }
         }
         return results;
     }
-
-    async deleteCategory(id: string) {
-        // 1. Check for sub-categories
+    async deleteCategory(id) {
         const children = await this.prisma.category.count({ where: { parentId: id } });
-        if (children > 0) throw new Error("Cannot delete category with sub-categories");
-
-        // 2. Check for products
+        if (children > 0)
+            throw new Error("Cannot delete category with sub-categories");
         const products = await this.prisma.product.count({ where: { categoryId: id } });
-        if (products > 0) throw new Error("Cannot delete category containing products");
-
+        if (products > 0)
+            throw new Error("Cannot delete category containing products");
         return this.prisma.category.delete({ where: { id } });
     }
-
-    async toggleProductStatus(id: string, isActive: boolean) {
+    async toggleProductStatus(id, isActive) {
         return this.prisma.product.update({
             where: { id },
             data: { isActive: isActive }
         });
     }
-
-    // --- MARKETING: Banners ---
-
     async getBanners() {
         return this.prisma.banner.findMany({
             orderBy: { createdAt: 'desc' }
         });
     }
-
-    async createBanner(adminId: string, data: any) {
+    async createBanner(adminId, data) {
         return this.prisma.banner.create({
-            data: {
-                ...data,
-                startDate: new Date(data.startDate),
-                endDate: new Date(data.endDate)
-            }
+            data: Object.assign(Object.assign({}, data), { startDate: new Date(data.startDate), endDate: new Date(data.endDate) })
         });
     }
-
-    async toggleBannerStatus(id: string, isActive: boolean) {
+    async toggleBannerStatus(id, isActive) {
         return this.prisma.banner.update({
             where: { id },
             data: { isActive }
         });
     }
-
-    // --- MARKETING: Notifications ---
-
-    async sendBroadcast(adminId: string, title: string, body: string, audience: string) {
+    async sendBroadcast(adminId, title, body, audience) {
         const broadcast = await this.prisma.notification.create({
             data: {
                 title,
@@ -969,7 +818,6 @@ export class AdminService {
                 userId: null
             }
         });
-
         await this.prisma.auditLog.create({
             data: {
                 adminId,
@@ -979,102 +827,77 @@ export class AdminService {
                 details: { title, audience }
             }
         });
-
         return broadcast;
     }
-
-    async deleteBanner(id: string) {
+    async deleteBanner(id) {
         return this.prisma.banner.delete({ where: { id } });
     }
-
-    // --- AUDIT LOGS ---
-
-    async getAuditLogs(limit: number = 50) {
+    async getAuditLogs(limit = 50) {
         return this.prisma.auditLog.findMany({
             take: Number(limit),
             orderBy: { createdAt: 'desc' }
         });
     }
-
-    // --- SETTINGS (Platform Config) ---
-
     async getPlatformConfig() {
         return this.prisma.platformConfig.findMany();
     }
-
-    async updatePlatformConfig(key: string, value: string) {
+    async updatePlatformConfig(key, value) {
         return this.prisma.platformConfig.upsert({
             where: { key },
             update: { value },
             create: { key, value }
         });
     }
-
-    // --- COUPONS ---
-
     async getCoupons() {
-        // Prisma model name is 'Coupon' (capital C), client usually maps it to 'coupon' (lowercase) or 'Coupon' depending on generation.
-        // Checking schema: `model Coupon` -> `this.prisma.coupon`
         return this.prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } });
     }
-
-    async createCoupon(data: any) {
-        // Ensure numbers are numbers
-        if (data.discountValue) data.discountValue = Number(data.discountValue);
-        if (data.minOrderAmount) data.minOrderAmount = Number(data.minOrderAmount);
-        if (data.maxDiscount) data.maxDiscount = Number(data.maxDiscount);
-        if (data.usageLimit) data.usageLimit = Number(data.usageLimit);
-
-        // Ensure dates
-        if (typeof data.validFrom === 'string') data.validFrom = new Date(data.validFrom);
-        if (typeof data.validUntil === 'string') data.validUntil = new Date(data.validUntil);
-
+    async createCoupon(data) {
+        if (data.discountValue)
+            data.discountValue = Number(data.discountValue);
+        if (data.minOrderAmount)
+            data.minOrderAmount = Number(data.minOrderAmount);
+        if (data.maxDiscount)
+            data.maxDiscount = Number(data.maxDiscount);
+        if (data.usageLimit)
+            data.usageLimit = Number(data.usageLimit);
+        if (typeof data.validFrom === 'string')
+            data.validFrom = new Date(data.validFrom);
+        if (typeof data.validUntil === 'string')
+            data.validUntil = new Date(data.validUntil);
         return this.prisma.coupon.create({ data });
     }
-
-    async updateCoupon(id: string, data: any) {
-        // Validations
-        if (data.discountValue) data.discountValue = Number(data.discountValue);
-        if (data.minOrderAmount) data.minOrderAmount = Number(data.minOrderAmount);
-        if (data.maxDiscount) data.maxDiscount = Number(data.maxDiscount);
-        if (data.usageLimit) data.usageLimit = Number(data.usageLimit);
-        if (typeof data.validFrom === 'string') data.validFrom = new Date(data.validFrom);
-        if (typeof data.validUntil === 'string') data.validUntil = new Date(data.validUntil);
-
+    async updateCoupon(id, data) {
+        if (data.discountValue)
+            data.discountValue = Number(data.discountValue);
+        if (data.minOrderAmount)
+            data.minOrderAmount = Number(data.minOrderAmount);
+        if (data.maxDiscount)
+            data.maxDiscount = Number(data.maxDiscount);
+        if (data.usageLimit)
+            data.usageLimit = Number(data.usageLimit);
+        if (typeof data.validFrom === 'string')
+            data.validFrom = new Date(data.validFrom);
+        if (typeof data.validUntil === 'string')
+            data.validUntil = new Date(data.validUntil);
         return this.prisma.coupon.update({ where: { id }, data });
     }
-
-    async deleteCoupon(id: string) {
+    async deleteCoupon(id) {
         return this.prisma.coupon.delete({ where: { id } });
     }
-
-    // --- COINS ---
-
-    async getAllCoinTransactions(limit: number = 20) {
+    async getAllCoinTransactions(limit = 20) {
         return this.prisma.coinLedger.findMany({
             take: Number(limit),
             orderBy: { createdAt: 'desc' },
-            // Need user name if possible, but CoinLedger schema only has userId. 
-            // Ideally fetching user info is done via separate query or if Relation existed.
-            // Schema has 'userId' string but no Relation defined in 'CoinLedger'.
-            // I will fetch user mapping manually.
         });
-        // Actually without relation in schema, I can't include. 
-        // I will return raw ledger for now, or update schema later if user insists on names in table.
-        // Wait, I can try to fetch users.
     }
-
     async getCoinStats() {
         const totalIssued = await this.prisma.user.aggregate({ _sum: { coinsBalance: true } });
-        const liability = (totalIssued._sum.coinsBalance || 0) * 1; // Assuming 1 Coin = 1 INR liability roughly
+        const liability = (totalIssued._sum.coinsBalance || 0) * 1;
         return {
             circulation: totalIssued._sum.coinsBalance || 0,
             liability
         };
     }
-
-    // --- MODERATION ---
-
     async getPendingReviews() {
         return this.prisma.review.findMany({
             take: 20,
@@ -1082,45 +905,36 @@ export class AdminService {
             include: { user: { select: { name: true } }, product: { select: { title: true } } }
         });
     }
-
-    async deleteReview(id: string) {
+    async deleteReview(id) {
         return this.prisma.review.delete({ where: { id } });
     }
-
-    async getReports(status: string = 'PENDING') {
+    async getReports(status = 'PENDING') {
         return this.prisma.report.findMany({
             where: { status },
             include: { reporter: { select: { name: true, email: true } } },
             orderBy: { createdAt: 'desc' }
         });
     }
-
-    async resolveReport(id: string, action: string) {
-        // action: RESOLVE, DISMISS
+    async resolveReport(id, action) {
         return this.prisma.report.update({
             where: { id },
             data: { status: action === 'RESOLVE' ? 'RESOLVED' : 'DISMISSED' }
         });
     }
-
-
     async getSystemHealth() {
         const start = Date.now();
         let dbStatus = 'UNKNOWN';
         let dbLatency = 0;
-
         try {
-            // Check DB
-            await this.prisma.$queryRaw`SELECT 1`;
+            await this.prisma.$queryRaw `SELECT 1`;
             dbStatus = 'UP';
             dbLatency = Date.now() - start;
-        } catch (e) {
+        }
+        catch (e) {
             dbStatus = 'DOWN';
             console.error('Health Check Failed:', e);
         }
-
         const memoryUsage = process.memoryUsage();
-
         return {
             status: dbStatus === 'UP' ? 'HEALTHY' : 'UNHEALTHY',
             timestamp: new Date().toISOString(),
@@ -1136,4 +950,10 @@ export class AdminService {
             }
         };
     }
-}
+};
+exports.AdminService = AdminService;
+exports.AdminService = AdminService = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+], AdminService);
+//# sourceMappingURL=admin.service.js.map

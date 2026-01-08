@@ -22,7 +22,7 @@ export class CatalogController {
     @Post('bulk')
     @UseGuards(JwtAuthGuard)
     @UseInterceptors(FileInterceptor('file'))
-    async bulkUpload(@UploadedFile() file: Express.Multer.File) {
+    async bulkUpload(@UploadedFile() file: any) {
         // In real app, validating Vendor role here is crucial
         if (!file) throw new Error('File not present');
         const content = file.buffer.toString('utf-8');
