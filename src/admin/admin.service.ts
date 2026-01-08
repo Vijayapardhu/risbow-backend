@@ -159,35 +159,47 @@ export class AdminService {
     // --- USERS MANAGEMENT: Details ---
 
     async getUserDetails(id: string) {
-        const user = await this.prisma.user.findUnique({
-            where: { id },
-            include: {
-                addresses: true,
-                orders: {
-                    take: 10,
-                    orderBy: { createdAt: 'desc' },
-                    include: { payment: true }
-                },
-                reviews: { take: 5, orderBy: { createdAt: 'desc' } },
-                // ledger: { take: 10, orderBy: { createdAt: 'desc' } } // Assuming CoinLedger relation exists or is manual query
+        try {
+            const user = await this.prisma.user.findUnique({
+                where: { id },
+                include: {
+                    addresses: true,
+                    orders: {
+                        take: 10,
+                        orderBy: { createdAt: 'desc' },
+                        include: { payment: true }
+                    },
+                    reviews: { take: 5, orderBy: { createdAt: 'desc' } },
+                    // ledger: { take: 10, orderBy: { createdAt: 'desc' } } // Assuming CoinLedger relation exists or is manual query
+                }
+            });
+
+            if (!user) throw new NotFoundException('User not found');
+
+            let coinLedger = [];
+            try {
+                // Manual fetch for CoinLedger if relation not strict or to limit
+                coinLedger = await this.prisma.coinLedger.findMany({
+                    where: { userId: id },
+                    take: 20,
+                    orderBy: { createdAt: 'desc' }
+                });
+            } catch (ledgerError) {
+                console.warn('Failed to fetch CoinLedger:', ledgerError.message);
+                // Return empty ledger to avoid crashing the whole request
             }
-        });
 
-        if (!user) throw new NotFoundException('User not found');
+            // Compute Risk Score Mock
+            // e.g. High cancellations or returns = High Risk
+            const cancelledOrders = user.orders ? user.orders.filter(o => o.status === 'CANCELLED').length : 0;
+            const riskScore = Math.min(100, (cancelledOrders * 10));
 
-        // Manual fetch for CoinLedger if relation not strict or to limit
-        const coinLedger = await this.prisma.coinLedger.findMany({
-            where: { userId: id },
-            take: 20,
-            orderBy: { createdAt: 'desc' }
-        });
-
-        // Compute Risk Score Mock
-        // e.g. High cancellations or returns = High Risk
-        const cancelledOrders = user.orders.filter(o => o.status === 'CANCELLED').length;
-        const riskScore = Math.min(100, (cancelledOrders * 10));
-
-        return { ...user, coinLedger, riskScore };
+            return { ...user, coinLedger, riskScore };
+        } catch (error) {
+            console.error(`Error in getUserDetails for id ${id}:`, error);
+            if (error instanceof NotFoundException) throw error;
+            throw new Error(`Failed to fetch user details: ${error.message}`);
+        }
     }
 
     // --- USERS MANAGEMENT: Coins ---
