@@ -21,6 +21,7 @@ const vendors_module_1 = require("./vendors/vendors.module");
 const payments_module_1 = require("./payments/payments.module");
 const admin_module_1 = require("./admin/admin.module");
 const bow_module_1 = require("./bow/bow.module");
+const checkout_module_1 = require("./checkout/checkout.module");
 const schedule_1 = require("@nestjs/schedule");
 const bullmq_1 = require("@nestjs/bullmq");
 const shared_module_1 = require("./shared/shared.module");
@@ -54,6 +55,7 @@ exports.AppModule = AppModule = __decorate([
             vendors_module_1.VendorsModule,
             payments_module_1.PaymentsModule,
             admin_module_1.AdminModule,
+            checkout_module_1.CheckoutModule,
             bow_module_1.BowModule,
         ],
         controllers: [health_controller_1.HealthController],

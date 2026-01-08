@@ -10,7 +10,9 @@ export declare class OrdersService {
     private coinsService;
     private razorpay;
     constructor(prisma: PrismaService, configService: ConfigService, roomsService: RoomsService, coinsService: CoinsService);
-    createCheckout(userId: string, dto: CheckoutDto): Promise<{
+    createCheckout(userId: string, dto: CheckoutDto & {
+        abandonedCheckoutId?: string;
+    }): Promise<{
         orderId: string;
         razorpayOrderId: string;
         amount: number;

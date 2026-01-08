@@ -10,14 +10,16 @@ export declare class VendorsController {
         name: string;
         role: import(".prisma/client").$Enums.VendorRole;
         coinsBalance: number;
+        kycStatus: string;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
         vendorCode: string | null;
-        kycStatus: string;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
         followCount: number;
+        commissionRate: number;
     }>;
     purchaseBanner(image: string, req: any): Promise<{
         message: string;
@@ -30,13 +32,15 @@ export declare class VendorsController {
         name: string;
         role: import(".prisma/client").$Enums.VendorRole;
         coinsBalance: number;
+        kycStatus: string;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
         vendorCode: string | null;
-        kycStatus: string;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
         followCount: number;
+        commissionRate: number;
     }[]>;
 }

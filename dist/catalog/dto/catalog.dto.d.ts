@@ -13,5 +13,8 @@ export declare class CreateProductDto {
 export declare class ProductFilterDto {
     category?: string;
     price_lt?: number;
+    price_min?: number;
+    price_max?: number;
     search?: string;
+    sort?: string;
 }

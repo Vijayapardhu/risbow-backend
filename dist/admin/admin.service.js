@@ -18,25 +18,89 @@ let AdminService = class AdminService {
         this.prisma = prisma;
     }
     async getAnalytics() {
-        const [totalOrders, totalRooms, unlockedRooms, registredUsers, activeVendors, ordersSum, lowStockProducts] = await Promise.all([
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const [totalOrders, totalRooms, unlockedRooms, registredUsers, activeVendors, ordersSum, lowStockProducts, recentOrders, categoryStats, topProducts, recentAuditLogs, newVendors] = await Promise.all([
             this.prisma.order.count(),
             this.prisma.room.count(),
             this.prisma.room.count({ where: { status: client_1.RoomStatus.UNLOCKED } }),
             this.prisma.user.count(),
             this.prisma.vendor.count({ where: { kycStatus: 'APPROVED' } }),
             this.prisma.order.aggregate({ _sum: { totalAmount: true } }),
-            this.prisma.product.count({ where: { stock: { lte: 10 } } })
+            this.prisma.product.count({ where: { stock: { lte: 10 } } }),
+            this.prisma.order.findMany({
+                where: { createdAt: { gte: sevenDaysAgo } },
+                select: { id: true, createdAt: true, totalAmount: true, user: { select: { name: true } }, status: true },
+                orderBy: { createdAt: 'desc' }
+            }),
+            this.prisma.product.groupBy({
+                by: ['categoryId'],
+                _count: { id: true }
+            }),
+            this.prisma.product.findMany({
+                take: 5,
+                orderBy: { price: 'desc' },
+                select: { id: true, title: true, stock: true, price: true, isActive: true }
+            }),
+            this.prisma.auditLog.findMany({
+                take: 5,
+                orderBy: { createdAt: 'desc' },
+                include: { admin: { select: { email: true } } }
+            }),
+            this.prisma.vendor.findMany({
+                take: 5,
+                orderBy: { createdAt: 'desc' },
+                select: { name: true, createdAt: true }
+            })
         ]);
         const totalRevenue = ordersSum._sum.totalAmount || 0;
         const aov = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-        const monthlyRevenue = [
-            { month: 'Jan', amount: totalRevenue * 0.1 },
-            { month: 'Feb', amount: totalRevenue * 0.12 },
-            { month: 'Mar', amount: totalRevenue * 0.15 },
-            { month: 'Apr', amount: totalRevenue * 0.2 },
-            { month: 'May', amount: totalRevenue * 0.18 },
-            { month: 'Jun', amount: totalRevenue * 0.25 },
-        ];
+        const revenueMap = new Map();
+        recentOrders.forEach(o => {
+            const date = o.createdAt.toISOString().split('T')[0];
+            revenueMap.set(date, (revenueMap.get(date) || 0) + o.totalAmount);
+        });
+        const revenueChart = Array.from(revenueMap.entries())
+            .map(([date, amount]) => ({ date, amount }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+        const categoryIds = categoryStats.map(c => c.categoryId);
+        const categories = await this.prisma.category.findMany({ where: { id: { in: categoryIds } } });
+        const categoriesChart = categoryStats.map(c => {
+            var _a;
+            return ({
+                category: ((_a = categories.find(cat => cat.id === c.categoryId)) === null || _a === void 0 ? void 0 : _a.name) || 'Unknown',
+                count: c._count.id
+            });
+        });
+        const activity = [
+            ...recentOrders.slice(0, 5).map(o => {
+                var _a;
+                return ({
+                    id: o.id,
+                    title: `Order #${o.id.substring(0, 6)}`,
+                    subtitle: `${((_a = o.user) === null || _a === void 0 ? void 0 : _a.name) || 'User'} · ${o.totalAmount}`,
+                    type: 'ORDER',
+                    status: o.status,
+                    time: o.createdAt
+                });
+            }),
+            ...newVendors.map(v => ({
+                id: v.name,
+                title: 'New Vendor',
+                subtitle: v.name,
+                type: 'VENDOR',
+                status: 'PENDING',
+                time: v.createdAt
+            })),
+            ...recentAuditLogs.map(l => ({
+                id: l.id,
+                title: `Admin Action: ${l.action}`,
+                subtitle: `${l.admin.email} · ${l.entity}`,
+                type: 'SYSTEM',
+                status: 'LOG',
+                time: l.createdAt
+            }))
+        ].sort((a, b) => b.time.getTime() - a.time.getTime()).slice(0, 5);
         return {
             totalRevenue,
             totalOrders,
@@ -44,21 +108,25 @@ let AdminService = class AdminService {
             newVendors: activeVendors,
             dau: registredUsers,
             aov,
-            monthlyRevenue,
-            alerts: [
-                { type: 'CRITICAL', message: `${lowStockProducts} products have low stock`, time: 'Now' },
-                { type: 'INFO', message: `${unlockedRooms} rooms unlocked this week`, time: '2h ago' }
-            ],
+            revenue: revenueChart,
+            categories: categoriesChart,
+            topProducts: topProducts.map(p => ({
+                name: p.title,
+                stock: p.stock.toString(),
+                price: p.price,
+                status: p.isActive ? 'Active' : 'Inactive',
+                earnings: '-'
+            })),
+            activity,
             trends: {
-                revenue: '+12.5%',
-                rooms: '+5%',
-                orders: '+8.2%',
-                vendors: '+2'
+                revenue: '+0%',
+                orders: '+0%',
+                vendors: '+0%'
             }
         };
     }
-    async getUsers(page = 1, search) {
-        const take = 20;
+    async getUsers(page = 1, search, filters) {
+        const take = 50;
         const skip = (page - 1) * take;
         const where = {};
         if (search) {
@@ -66,13 +134,190 @@ let AdminService = class AdminService {
                 { name: { contains: search, mode: 'insensitive' } },
                 { mobile: { contains: search, mode: 'insensitive' } },
                 { email: { contains: search, mode: 'insensitive' } },
+                { id: { equals: search } }
             ];
         }
+        if (filters) {
+            if (filters.role)
+                where.role = filters.role;
+            if (filters.status)
+                where.status = filters.status;
+            if (filters.riskTag)
+                where.riskTag = filters.riskTag;
+            if (filters.valueTag)
+                where.valueTag = filters.valueTag;
+        }
         const [users, total] = await Promise.all([
-            this.prisma.user.findMany({ where, take, skip, orderBy: { createdAt: 'desc' } }),
+            this.prisma.user.findMany({
+                where,
+                take,
+                skip,
+                orderBy: { createdAt: 'desc' },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    mobile: true,
+                    role: true,
+                    status: true,
+                    coinsBalance: true,
+                    riskTag: true,
+                    valueTag: true,
+                    createdAt: true
+                }
+            }),
             this.prisma.user.count({ where })
         ]);
         return { users, total, pages: Math.ceil(total / take) };
+    }
+    async getUserDetails(id) {
+        var _a;
+        try {
+            const user = await this.prisma.user.findUnique({
+                where: { id },
+                include: {
+                    addresses: true,
+                    adminNotes: {
+                        include: { admin: { select: { email: true } } },
+                        orderBy: { createdAt: 'desc' }
+                    },
+                    orders: {
+                        take: 20,
+                        orderBy: { createdAt: 'desc' },
+                        include: { payment: true }
+                    },
+                    reviews: { take: 5, orderBy: { createdAt: 'desc' } },
+                }
+            });
+            if (!user)
+                throw new common_1.NotFoundException('User not found');
+            let coinLedger = [];
+            try {
+                coinLedger = await this.prisma.coinLedger.findMany({
+                    where: { userId: id },
+                    take: 20,
+                    orderBy: { createdAt: 'desc' }
+                });
+            }
+            catch (ledgerError) {
+                console.warn('Failed to fetch CoinLedger:', ledgerError.message);
+            }
+            const totalOrders = ((_a = user.orders) === null || _a === void 0 ? void 0 : _a.length) || 0;
+            const cancelledOrders = user.orders ? user.orders.filter(o => o.status === 'CANCELLED').length : 0;
+            const cancellationRate = totalOrders > 0 ? (cancelledOrders / totalOrders) * 100 : 0;
+            let derivedRiskTag = user.riskTag;
+            if (cancellationRate > 50 && totalOrders > 3)
+                derivedRiskTag = client_1.RiskTag.HIGH;
+            else if (cancellationRate > 20 && totalOrders > 3)
+                derivedRiskTag = client_1.RiskTag.MEDIUM;
+            return Object.assign(Object.assign({}, user), { coinLedger, riskStats: { totalOrders, cancellationRate, derivedRiskTag } });
+        }
+        catch (error) {
+            console.error(`Error in getUserDetails for id ${id}:`, error);
+            if (error instanceof common_1.NotFoundException)
+                throw error;
+            throw new Error(`Failed to fetch user details: ${error.message}`);
+        }
+    }
+    async updateUser(adminId, userId, data) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const updateData = {};
+        if (data.name !== undefined)
+            updateData.name = data.name;
+        if (data.email !== undefined)
+            updateData.email = data.email;
+        if (data.mobile !== undefined)
+            updateData.mobile = data.mobile;
+        if (data.role !== undefined)
+            updateData.role = data.role;
+        if (data.riskTag !== undefined)
+            updateData.riskTag = data.riskTag;
+        if (data.valueTag !== undefined)
+            updateData.valueTag = data.valueTag;
+        if (data.status !== undefined)
+            updateData.status = data.status;
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: updateData
+        });
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'UPDATE_USER',
+                details: { previousData: { risk: user.riskTag, value: user.valueTag, status: user.status }, newData: updateData }
+            }
+        });
+        return updatedUser;
+    }
+    async addAdminNote(adminId, userId, note) {
+        return this.prisma.adminNote.create({
+            data: {
+                adminId,
+                userId,
+                note
+            }
+        });
+    }
+    async toggleCod(adminId, userId, disabled) {
+        const updated = await this.prisma.user.update({
+            where: { id: userId },
+            data: { isCodDisabled: disabled }
+        });
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: disabled ? 'DISABLE_COD' : 'ENABLE_COD',
+                details: {}
+            }
+        });
+        return updated;
+    }
+    async getUserCart(userId) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const cart = await this.prisma.cart.findUnique({
+            where: { userId },
+            include: {
+                items: {
+                    include: {
+                        product: {
+                            select: {
+                                id: true,
+                                title: true,
+                                price: true,
+                                images: true,
+                                stock: true,
+                                isActive: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        if (!cart) {
+            return { items: [], totalItems: 0, totalValue: 0 };
+        }
+        const totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+        const totalValue = cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+        return {
+            id: cart.id,
+            items: cart.items.map(item => ({
+                id: item.id,
+                productId: item.productId,
+                variantId: item.variantId,
+                quantity: item.quantity,
+                product: item.product
+            })),
+            totalItems,
+            totalValue
+        };
     }
     async updateUserCoins(adminId, userId, amount, reason) {
         return this.prisma.$transaction(async (tx) => {
@@ -83,6 +328,14 @@ let AdminService = class AdminService {
             const updatedUser = await tx.user.update({
                 where: { id: userId },
                 data: { coinsBalance: newBalance }
+            });
+            await tx.coinLedger.create({
+                data: {
+                    userId,
+                    amount,
+                    source: `ADMIN_${reason.toUpperCase().replace(/\s+/g, '_')}`,
+                    referenceId: adminId
+                }
             });
             await tx.auditLog.create({
                 data: {
@@ -96,6 +349,281 @@ let AdminService = class AdminService {
             return updatedUser;
         });
     }
+    async suspendUser(adminId, userId, reason) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: { status: 'SUSPENDED' }
+        });
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'SUSPEND_USER',
+                details: { reason, previousStatus: user.status || 'ACTIVE' }
+            }
+        });
+        return { success: true, user: updatedUser, message: 'User suspended successfully' };
+    }
+    async activateUser(adminId, userId) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: { status: 'ACTIVE' }
+        });
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'ACTIVATE_USER',
+                details: { previousStatus: user.status || 'SUSPENDED' }
+            }
+        });
+        return { success: true, user: updatedUser, message: 'User activated successfully' };
+    }
+    async banUser(adminId, userId, reason) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: { status: 'BANNED' }
+        });
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'BAN_USER',
+                details: { reason, previousStatus: user.status || 'ACTIVE' }
+            }
+        });
+        return { success: true, user: updatedUser, message: 'User banned successfully' };
+    }
+    async forceLogout(adminId, userId) {
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: { forceLogoutAt: new Date() }
+        });
+        await this.prisma.auditLog.create({
+            data: { adminId, entity: 'USER', targetId: userId, action: 'FORCE_LOGOUT' }
+        });
+        return { success: true, message: 'User sessions invalidated (timestamps updated)' };
+    }
+    async updateKycStatus(adminId, userId, status, notes) {
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: { kycStatus: status }
+        });
+        if (notes) {
+            await this.addAdminNote(adminId, userId, `KYC Update: ${status} - ${notes}`);
+        }
+        return updatedUser;
+    }
+    async toggleRefunds(adminId, userId, disabled) {
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: { isRefundsDisabled: disabled }
+        });
+        await this.prisma.auditLog.create({
+            data: { adminId, entity: 'USER', targetId: userId, action: 'TOGGLE_REFUNDS', details: { disabled } }
+        });
+        return updatedUser;
+    }
+    async exportUsers() {
+        const users = await this.prisma.user.findMany({
+            orderBy: { createdAt: 'desc' }
+        });
+        return users;
+    }
+    async calculateUserRisk(userId) {
+        const orders = await this.prisma.order.findMany({
+            where: { userId },
+            select: { status: true, totalAmount: true }
+        });
+        if (orders.length === 0)
+            return { risk: 'LOW', value: 'NORMAL' };
+        const totalOrders = orders.length;
+        const cancelled = orders.filter(o => o.status === 'CANCELLED').length;
+        const totalSpent = orders.reduce((sum, o) => sum + (o.status === 'DELIVERED' ? o.totalAmount : 0), 0);
+        const cancelRate = cancelled / totalOrders;
+        let newRisk = 'LOW';
+        if (cancelRate > 0.5 && totalOrders > 3)
+            newRisk = 'HIGH';
+        else if (cancelRate > 0.2 && totalOrders > 3)
+            newRisk = 'MEDIUM';
+        let newValue = 'NORMAL';
+        if (totalSpent > 50000)
+            newValue = 'VIP';
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { riskTag: newRisk, valueTag: newValue }
+        });
+        return { risk: newRisk, value: newValue, stats: { cancelRate, totalSpent } };
+    }
+    async deleteUser(adminId, userId) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: {
+                status: 'BANNED',
+                email: null,
+                name: `Deleted User ${userId.substring(0, 6)}`
+            }
+        });
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'DELETE_USER',
+                details: { deletedEmail: user.email, deletedName: user.name }
+            }
+        });
+        return { success: true, message: 'User deleted successfully' };
+    }
+    async getUserOrders(userId, limit = 20) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const orders = await this.prisma.order.findMany({
+            where: { userId },
+            take: limit,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                payment: true,
+                address: true
+            }
+        });
+        const stats = {
+            totalOrders: orders.length,
+            totalSpent: orders.reduce((sum, o) => sum + o.totalAmount, 0),
+            completedOrders: orders.filter(o => o.status === 'DELIVERED').length,
+            cancelledOrders: orders.filter(o => o.status === 'CANCELLED').length
+        };
+        return { orders, stats };
+    }
+    async getUserWishlist(userId) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const wishlist = await this.prisma.wishlist.findMany({
+            where: { userId },
+            include: {
+                product: {
+                    select: {
+                        id: true,
+                        title: true,
+                        price: true,
+                        images: true,
+                        stock: true,
+                        isActive: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        return {
+            items: wishlist,
+            totalItems: wishlist.length
+        };
+    }
+    async getUserAddresses(userId) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const addresses = await this.prisma.address.findMany({
+            where: { userId },
+            orderBy: { isDefault: 'desc' }
+        });
+        return { addresses, total: addresses.length };
+    }
+    async sendUserNotification(userId, title, message) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const notification = await this.prisma.notification.create({
+            data: {
+                userId,
+                title,
+                body: message,
+                type: 'ADMIN'
+            }
+        });
+        return { success: true, notification, message: 'Notification sent successfully' };
+    }
+    async resetUserPassword(adminId, userId) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { password: null }
+        });
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'RESET_PASSWORD',
+                details: { userEmail: user.email }
+            }
+        });
+        return { success: true, message: 'Password reset successfully. User will need to set a new password on next login.' };
+    }
+    async getUserActivity(userId) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const [orders, reviews, coinTransactions] = await Promise.all([
+            this.prisma.order.findMany({
+                where: { userId },
+                take: 10,
+                orderBy: { createdAt: 'desc' },
+                select: { id: true, status: true, totalAmount: true, createdAt: true }
+            }),
+            this.prisma.review.findMany({
+                where: { userId },
+                take: 10,
+                orderBy: { createdAt: 'desc' },
+                select: { id: true, rating: true, comment: true, createdAt: true }
+            }),
+            this.prisma.coinLedger.findMany({
+                where: { userId },
+                take: 10,
+                orderBy: { createdAt: 'desc' }
+            })
+        ]);
+        const activities = [
+            ...orders.map(o => ({
+                type: 'ORDER',
+                description: `Order #${o.id.substring(0, 8)} - ${o.status}`,
+                amount: o.totalAmount,
+                timestamp: o.createdAt
+            })),
+            ...reviews.map(r => ({
+                type: 'REVIEW',
+                description: `Reviewed product - ${r.rating} stars`,
+                amount: null,
+                timestamp: r.createdAt
+            })),
+            ...coinTransactions.map(c => ({
+                type: 'COINS',
+                description: `${c.amount > 0 ? 'Earned' : 'Spent'} ${Math.abs(c.amount)} coins - ${c.source}`,
+                amount: c.amount,
+                timestamp: c.createdAt
+            }))
+        ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 20);
+        return { activities, user: { id: user.id, name: user.name, email: user.email } };
+    }
     async getAllOrders(limit = 50, search, status) {
         const where = {};
         if (status && status !== 'ALL') {
@@ -106,14 +634,41 @@ let AdminService = class AdminService {
                 { id: { contains: search, mode: 'insensitive' } },
                 { user: { name: { contains: search, mode: 'insensitive' } } },
                 { user: { mobile: { contains: search, mode: 'insensitive' } } },
+                { awbNumber: { contains: search, mode: 'insensitive' } },
             ];
         }
         return this.prisma.order.findMany({
             where,
             take: Number(limit) || 50,
             orderBy: { createdAt: 'desc' },
-            include: { user: { select: { name: true, email: true, mobile: true } } }
+            include: {
+                user: { select: { name: true, email: true, mobile: true } },
+                address: true
+            }
         });
+    }
+    async updateOrderStatus(adminId, orderId, status, logistics) {
+        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+        if (!order)
+            throw new common_1.NotFoundException("Order not found");
+        const updated = await this.prisma.order.update({
+            where: { id: orderId },
+            data: {
+                status: status,
+                awbNumber: logistics === null || logistics === void 0 ? void 0 : logistics.awb,
+                courierPartner: logistics === null || logistics === void 0 ? void 0 : logistics.courier
+            }
+        });
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'ORDER',
+                targetId: orderId,
+                action: 'UPDATE_STATUS',
+                details: { oldStatus: order.status, newStatus: status, logistics }
+            }
+        });
+        return updated;
     }
     async getVendors(status = 'ALL') {
         const where = {};
@@ -125,7 +680,7 @@ let AdminService = class AdminService {
             orderBy: { createdAt: 'desc' }
         });
     }
-    async approveVendor(adminId, id, approved) {
+    async approveVendor(adminId, id, approved, reason) {
         const newStatus = approved ? 'APPROVED' : 'REJECTED';
         const vendor = await this.prisma.vendor.findUnique({ where: { id } });
         if (!vendor)
@@ -140,10 +695,26 @@ let AdminService = class AdminService {
                 entity: 'VENDOR',
                 targetId: id,
                 action: approved ? 'APPROVE' : 'REJECT',
-                details: { previousStatus: vendor.kycStatus, newStatus }
+                details: { previousStatus: vendor.kycStatus, newStatus, reason }
             }
         });
         return updated;
+    }
+    async updateVendorCommission(adminId, id, rate) {
+        const vendor = await this.prisma.vendor.update({
+            where: { id },
+            data: { commissionRate: rate }
+        });
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'VENDOR',
+                targetId: id,
+                action: 'UPDATE_COMMISSION',
+                details: { newRate: rate }
+            }
+        });
+        return vendor;
     }
     async getAllRooms() {
         return this.prisma.room.findMany({ orderBy: { startAt: 'desc' } });
@@ -182,20 +753,204 @@ let AdminService = class AdminService {
             data.price = Number(data.price);
         return this.prisma.product.create({ data });
     }
+    async bulkCreateProducts(products) {
+        const results = {
+            success: 0,
+            failed: 0,
+            errors: []
+        };
+        for (const p of products) {
+            try {
+                if (p.stock)
+                    p.stock = Number(p.stock);
+                if (p.price)
+                    p.price = Number(p.price);
+                if (!p.title || !p.price || !p.categoryId) {
+                    throw new Error("Missing required fields (title, price, categoryId)");
+                }
+                await this.prisma.product.create({ data: p });
+                results.success++;
+            }
+            catch (e) {
+                results.failed++;
+                results.errors.push({ title: p.title, error: e.message });
+            }
+        }
+        return results;
+    }
+    async deleteCategory(id) {
+        const children = await this.prisma.category.count({ where: { parentId: id } });
+        if (children > 0)
+            throw new Error("Cannot delete category with sub-categories");
+        const products = await this.prisma.product.count({ where: { categoryId: id } });
+        if (products > 0)
+            throw new Error("Cannot delete category containing products");
+        return this.prisma.category.delete({ where: { id } });
+    }
     async toggleProductStatus(id, isActive) {
         return this.prisma.product.update({
             where: { id },
-            data: { stock: isActive ? 10 : 0 }
+            data: { isActive: isActive }
         });
     }
     async getBanners() {
-        return this.prisma.banner.findMany({ orderBy: { createdAt: 'desc' } });
+        return this.prisma.banner.findMany({
+            orderBy: { createdAt: 'desc' }
+        });
     }
-    async addBanner(data) {
-        return this.prisma.banner.create({ data });
+    async createBanner(adminId, data) {
+        return this.prisma.banner.create({
+            data: Object.assign(Object.assign({}, data), { startDate: new Date(data.startDate), endDate: new Date(data.endDate) })
+        });
+    }
+    async toggleBannerStatus(id, isActive) {
+        return this.prisma.banner.update({
+            where: { id },
+            data: { isActive }
+        });
+    }
+    async sendBroadcast(adminId, title, body, audience) {
+        const broadcast = await this.prisma.notification.create({
+            data: {
+                title,
+                body,
+                type: 'BROADCAST',
+                targetAudience: audience,
+                userId: null
+            }
+        });
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'MARKETING',
+                targetId: broadcast.id,
+                action: 'SEND_BROADCAST',
+                details: { title, audience }
+            }
+        });
+        return broadcast;
     }
     async deleteBanner(id) {
         return this.prisma.banner.delete({ where: { id } });
+    }
+    async getAuditLogs(limit = 50) {
+        return this.prisma.auditLog.findMany({
+            take: Number(limit),
+            orderBy: { createdAt: 'desc' },
+            include: { admin: { select: { email: true, role: true } } }
+        });
+    }
+    async getPlatformConfig() {
+        return this.prisma.platformConfig.findMany();
+    }
+    async updatePlatformConfig(key, value) {
+        return this.prisma.platformConfig.upsert({
+            where: { key },
+            update: { value },
+            create: { key, value }
+        });
+    }
+    async getCoupons() {
+        return this.prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } });
+    }
+    async createCoupon(data) {
+        if (data.discountValue)
+            data.discountValue = Number(data.discountValue);
+        if (data.minOrderAmount)
+            data.minOrderAmount = Number(data.minOrderAmount);
+        if (data.maxDiscount)
+            data.maxDiscount = Number(data.maxDiscount);
+        if (data.usageLimit)
+            data.usageLimit = Number(data.usageLimit);
+        if (typeof data.validFrom === 'string')
+            data.validFrom = new Date(data.validFrom);
+        if (typeof data.validUntil === 'string')
+            data.validUntil = new Date(data.validUntil);
+        return this.prisma.coupon.create({ data });
+    }
+    async updateCoupon(id, data) {
+        if (data.discountValue)
+            data.discountValue = Number(data.discountValue);
+        if (data.minOrderAmount)
+            data.minOrderAmount = Number(data.minOrderAmount);
+        if (data.maxDiscount)
+            data.maxDiscount = Number(data.maxDiscount);
+        if (data.usageLimit)
+            data.usageLimit = Number(data.usageLimit);
+        if (typeof data.validFrom === 'string')
+            data.validFrom = new Date(data.validFrom);
+        if (typeof data.validUntil === 'string')
+            data.validUntil = new Date(data.validUntil);
+        return this.prisma.coupon.update({ where: { id }, data });
+    }
+    async deleteCoupon(id) {
+        return this.prisma.coupon.delete({ where: { id } });
+    }
+    async getAllCoinTransactions(limit = 20) {
+        return this.prisma.coinLedger.findMany({
+            take: Number(limit),
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+    async getCoinStats() {
+        const totalIssued = await this.prisma.user.aggregate({ _sum: { coinsBalance: true } });
+        const liability = (totalIssued._sum.coinsBalance || 0) * 1;
+        return {
+            circulation: totalIssued._sum.coinsBalance || 0,
+            liability
+        };
+    }
+    async getPendingReviews() {
+        return this.prisma.review.findMany({
+            take: 20,
+            orderBy: { createdAt: 'desc' },
+            include: { user: { select: { name: true } }, product: { select: { title: true } } }
+        });
+    }
+    async deleteReview(id) {
+        return this.prisma.review.delete({ where: { id } });
+    }
+    async getReports(status = 'PENDING') {
+        return this.prisma.report.findMany({
+            where: { status },
+            include: { reporter: { select: { name: true, email: true } } },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+    async resolveReport(id, action) {
+        return this.prisma.report.update({
+            where: { id },
+            data: { status: action === 'RESOLVE' ? 'RESOLVED' : 'DISMISSED' }
+        });
+    }
+    async getSystemHealth() {
+        const start = Date.now();
+        let dbStatus = 'UNKNOWN';
+        let dbLatency = 0;
+        try {
+            await this.prisma.$queryRaw `SELECT 1`;
+            dbStatus = 'UP';
+            dbLatency = Date.now() - start;
+        }
+        catch (e) {
+            dbStatus = 'DOWN';
+            console.error('Health Check Failed:', e);
+        }
+        const memoryUsage = process.memoryUsage();
+        return {
+            status: dbStatus === 'UP' ? 'HEALTHY' : 'UNHEALTHY',
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+            database: {
+                status: dbStatus,
+                latency: `${dbLatency}ms`
+            },
+            system: {
+                memoryMsg: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)}MB / ${Math.round(memoryUsage.heapTotal / 1024 / 1024)}MB`,
+                platform: process.platform,
+                nodeVersion: process.version
+            }
+        };
     }
 };
 exports.AdminService = AdminService;

@@ -7,33 +7,33 @@ export declare class RoomsService {
     constructor(prisma: PrismaService, roomsGateway: RoomsGateway);
     create(userId: string, dto: CreateRoomDto): Promise<{
         members: {
-            userId: string;
             status: import(".prisma/client").$Enums.MemberStatus;
+            userId: string;
             roomId: string;
         }[];
     } & {
         id: string;
         name: string;
+        status: import(".prisma/client").$Enums.RoomStatus;
         size: number;
         createdAt: Date;
         unlockMinOrders: number;
         unlockMinValue: number;
         offerId: string;
-        status: import(".prisma/client").$Enums.RoomStatus;
         startAt: Date;
         endAt: Date;
         isSystemRoom: boolean;
         createdById: string | null;
     }>;
     join(roomId: string, userId: string): Promise<{
-        userId: string;
         status: import(".prisma/client").$Enums.MemberStatus;
+        userId: string;
         roomId: string;
     } | {
         message: string;
         member: {
-            userId: string;
             status: import(".prisma/client").$Enums.MemberStatus;
+            userId: string;
             roomId: string;
         };
     }>;

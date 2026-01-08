@@ -20,6 +20,7 @@ export declare class CatalogService {
         moq: number;
         variants: Prisma.JsonValue | null;
         images: string[];
+        isActive: boolean;
     }>;
     findAll(filters: ProductFilterDto): Promise<{
         id: string;
@@ -37,6 +38,7 @@ export declare class CatalogService {
         moq: number;
         variants: Prisma.JsonValue | null;
         images: string[];
+        isActive: boolean;
     }[]>;
     getEligibleGifts(cartValue: number): Promise<{
         id: string;

@@ -1,41 +1,18 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Put, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { UserRole } from '../common/enums/user-role.enum'; // Added import for UserRole
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN) // Changed to use UserRole enum
+@Roles('ADMIN', 'SUPER_ADMIN')
 export class AdminController {
     constructor(private readonly adminService: AdminService) { }
 
     @Post('users/:id/analyze')
     async analyzeUser(@Param('id') id: string) {
         return this.adminService.calculateUserRisk(id);
-    }
-
-    // --- MARKETING ENDPOINTS ---
-
-    @Post('banners')
-    async createBanner(@Body() body: any) {
-        return this.adminService.createBanner(body);
-    }
-
-    @Get('banners')
-    async getBanners() {
-        return this.adminService.getBanners();
-    }
-
-    @Put('banners/:id')
-    async toggleBanner(@Param('id') id: string, @Body() body: { isActive: bool }) {
-        return this.adminService.toggleBanner(id, body.isActive);
-    }
-
-    @Post('broadcast')
-    async sendBroadcast(@Body() body: { title: string, body: string, audience: string }) {
-        return this.adminService.sendBroadcast(body.title, body.body, body.audience);
     }
 
     @Get('audit-logs')
@@ -75,7 +52,7 @@ export class AdminController {
     updateUser(
         @Request() req,
         @Param('id') userId: string,
-        @Body() body: { name?: string; email?: string; mobile?: string; role?: string; status?: string }
+        @Body() body: any
     ) {
         return this.adminService.updateUser(req.user.id, userId, body);
     }

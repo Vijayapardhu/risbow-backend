@@ -19,6 +19,7 @@ export declare class CatalogController {
         moq: number;
         variants: import("@prisma/client/runtime/library").JsonValue | null;
         images: string[];
+        isActive: boolean;
     }[]>;
     create(createProductDto: CreateProductDto): Promise<{
         id: string;
@@ -36,6 +37,7 @@ export declare class CatalogController {
         moq: number;
         variants: import("@prisma/client/runtime/library").JsonValue | null;
         images: string[];
+        isActive: boolean;
     }>;
     bulkUpload(file: Express.Multer.File): Promise<{
         uploaded: number;

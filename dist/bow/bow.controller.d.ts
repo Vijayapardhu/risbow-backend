@@ -20,6 +20,7 @@ export declare class BowController {
             moq: number;
             variants: import("@prisma/client/runtime/library").JsonValue | null;
             images: string[];
+            isActive: boolean;
         }[];
     } | {
         text: string;

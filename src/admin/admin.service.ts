@@ -516,7 +516,7 @@ export class AdminService {
         if (orders.length === 0) return { risk: 'LOW', value: 'NORMAL' };
 
         const totalOrders = orders.length;
-        const cancelled = orders.filter(o => o.status === 'CANCELLED' || o.status === 'RETURNED').length;
+        const cancelled = orders.filter(o => o.status === 'CANCELLED').length;
         const totalSpent = orders.reduce((sum, o) => sum + (o.status === 'DELIVERED' ? o.totalAmount : 0), 0);
 
         const cancelRate = cancelled / totalOrders;

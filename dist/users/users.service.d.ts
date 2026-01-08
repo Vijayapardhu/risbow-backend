@@ -11,6 +11,7 @@ export declare class UsersService {
         name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
+        status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
         referredBy: string | null;
         dateOfBirth: Date | null;
@@ -19,6 +20,14 @@ export declare class UsersService {
         footwearSize: number | null;
         stylePrefs: string | null;
         colors: string | null;
+        riskTag: import(".prisma/client").$Enums.RiskTag;
+        valueTag: import(".prisma/client").$Enums.ValueTag;
+        isCodDisabled: boolean;
+        isRefundsDisabled: boolean;
+        kycStatus: string;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        forceLogoutAt: Date | null;
         createdAt: Date;
     }>;
     update(id: string, updateUserDto: UpdateUserDto): Promise<{
@@ -29,6 +38,7 @@ export declare class UsersService {
         name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
+        status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
         referredBy: string | null;
         dateOfBirth: Date | null;
@@ -37,6 +47,14 @@ export declare class UsersService {
         footwearSize: number | null;
         stylePrefs: string | null;
         colors: string | null;
+        riskTag: import(".prisma/client").$Enums.RiskTag;
+        valueTag: import(".prisma/client").$Enums.ValueTag;
+        isCodDisabled: boolean;
+        isRefundsDisabled: boolean;
+        kycStatus: string;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        forceLogoutAt: Date | null;
         createdAt: Date;
     }>;
     claimReferral(userId: string, refCode: string): Promise<{
@@ -47,6 +65,7 @@ export declare class UsersService {
         name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
+        status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
         referredBy: string | null;
         dateOfBirth: Date | null;
@@ -55,6 +74,14 @@ export declare class UsersService {
         footwearSize: number | null;
         stylePrefs: string | null;
         colors: string | null;
+        riskTag: import(".prisma/client").$Enums.RiskTag;
+        valueTag: import(".prisma/client").$Enums.ValueTag;
+        isCodDisabled: boolean;
+        isRefundsDisabled: boolean;
+        kycStatus: string;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        forceLogoutAt: Date | null;
         createdAt: Date;
     }>;
 }

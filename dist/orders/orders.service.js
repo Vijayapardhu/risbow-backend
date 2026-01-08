@@ -52,6 +52,7 @@ let OrdersService = class OrdersService {
                 coinsUsed: usableCoins,
                 status: client_1.OrderStatus.PENDING,
                 razorpayOrderId: rzpOrder.id,
+                abandonedCheckoutId: dto.abandonedCheckoutId,
             },
         });
         return {
@@ -85,6 +86,15 @@ let OrdersService = class OrdersService {
             where: { id: order.id },
             data: { status: client_1.OrderStatus.CONFIRMED },
         });
+        if (order.abandonedCheckoutId) {
+            await this.prisma.abandonedCheckout.update({
+                where: { id: order.abandonedCheckoutId },
+                data: {
+                    status: 'CONVERTED',
+                    agentId: order.agentId
+                }
+            }).catch(e => console.log("Failed to update status", e));
+        }
         if (order.coinsUsed > 0 && !order.coinsUsedDebited) {
             await this.coinsService.debit(order.userId, order.coinsUsed, coin_dto_1.CoinSource.SPEND_ORDER, order.id);
             await this.prisma.order.update({

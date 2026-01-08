@@ -8,33 +8,33 @@ export declare class RoomsController {
     constructor(roomsService: RoomsService, prisma: PrismaService);
     create(req: any, createRoomDto: CreateRoomDto): Promise<{
         members: {
-            userId: string;
             status: import(".prisma/client").$Enums.MemberStatus;
+            userId: string;
             roomId: string;
         }[];
     } & {
         id: string;
         name: string;
+        status: import(".prisma/client").$Enums.RoomStatus;
         size: number;
         createdAt: Date;
         unlockMinOrders: number;
         unlockMinValue: number;
         offerId: string;
-        status: import(".prisma/client").$Enums.RoomStatus;
         startAt: Date;
         endAt: Date;
         isSystemRoom: boolean;
         createdById: string | null;
     }>;
     join(req: any, id: string): Promise<{
-        userId: string;
         status: import(".prisma/client").$Enums.MemberStatus;
+        userId: string;
         roomId: string;
     } | {
         message: string;
         member: {
-            userId: string;
             status: import(".prisma/client").$Enums.MemberStatus;
+            userId: string;
             roomId: string;
         };
     }>;
@@ -43,8 +43,8 @@ export declare class RoomsController {
     }>;
     findAll(status: RoomStatus): import(".prisma/client").Prisma.PrismaPromise<({
         members: {
-            userId: string;
             status: import(".prisma/client").$Enums.MemberStatus;
+            userId: string;
             roomId: string;
         }[];
         createdBy: {
@@ -53,12 +53,12 @@ export declare class RoomsController {
     } & {
         id: string;
         name: string;
+        status: import(".prisma/client").$Enums.RoomStatus;
         size: number;
         createdAt: Date;
         unlockMinOrders: number;
         unlockMinValue: number;
         offerId: string;
-        status: import(".prisma/client").$Enums.RoomStatus;
         startAt: Date;
         endAt: Date;
         isSystemRoom: boolean;
@@ -66,19 +66,19 @@ export declare class RoomsController {
     })[]>;
     findOne(id: string): Promise<{
         members: {
-            userId: string;
             status: import(".prisma/client").$Enums.MemberStatus;
+            userId: string;
             roomId: string;
         }[];
     } & {
         id: string;
         name: string;
+        status: import(".prisma/client").$Enums.RoomStatus;
         size: number;
         createdAt: Date;
         unlockMinOrders: number;
         unlockMinValue: number;
         offerId: string;
-        status: import(".prisma/client").$Enums.RoomStatus;
         startAt: Date;
         endAt: Date;
         isSystemRoom: boolean;
