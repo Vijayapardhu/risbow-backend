@@ -35,7 +35,6 @@ model User {
   reviews       Review[]
   notifications Notification[]
   reports       Report[]
-  adminNotes    AdminNote[]
   abandonedCheckouts AbandonedCheckout[] // Cart history? Or active assigned leads?
   // Wait, User has 'abandonedCheckouts' relation? 
   // Line 39 says: abandonedCheckouts AbandonedCheckout[]
@@ -45,6 +44,10 @@ model User {
   // Let's name them clearly.
   assignedLeads     AbandonedCheckout[] @relation("AgentCheckouts")
   leadFollowups     CheckoutFollowup[]
+  
+  // Admin Notes
+  receivedNotes     AdminNote[] @relation("UserNotes") // Notes on this user
+  authoredNotes     AdminNote[] @relation("AdminAuthor") // Notes written by this user (as admin)
   
   // Enterprise Fields
   riskTag           RiskTag    @default(LOW)
@@ -389,7 +392,7 @@ model Admin {
   password  String   // Hashed
   role      String   // "SUPER_ADMIN", "SUPPORT"
   createdAt DateTime @default(now())
-  adminNotes AdminNote[]
+  // adminNotes AdminNote[] // Removed relation as AdminNote now points to User
 }
 
 model AuditLog {
@@ -465,8 +468,9 @@ model AdminNote {
   note      String
   createdAt DateTime @default(now())
   
-  user      User     @relation(fields: [userId], references: [id])
-  admin     Admin    @relation(fields: [adminId], references: [id])
+  
+  user      User     @relation("UserNotes", fields: [userId], references: [id])
+  admin     User     @relation("AdminAuthor", fields: [adminId], references: [id])
 }
 
 // --- Abandoned Checkout Recovery ---
