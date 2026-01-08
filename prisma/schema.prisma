@@ -15,6 +15,7 @@ model User {
   email         String?  @unique
   password      String?  // Hashed password for email/password auth
   role          UserRole @default(CUSTOMER)
+  status        UserStatus @default(ACTIVE)
   coinsBalance  Int      @default(0)
   referralCode  String   @unique @default(cuid())
   referredBy    String?
@@ -34,8 +35,22 @@ model User {
   reviews       Review[]
   notifications Notification[]
   reports       Report[]
+  adminNotes    AdminNote[]
+  
+  // Enterprise Fields
+  riskTag           RiskTag    @default(LOW)
+  valueTag          ValueTag   @default(NORMAL)
+  isCodDisabled     Boolean    @default(false)
+  isRefundsDisabled Boolean    @default(false)
   
   createdAt     DateTime @default(now())
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+  BANNED
 }
 
 enum UserRole {
@@ -353,6 +368,7 @@ model Admin {
   role      String   // "SUPER_ADMIN", "SUPPORT"
   createdAt DateTime @default(now())
   auditLogs AuditLog[]
+  adminNotes AdminNote[]
 }
 
 model AuditLog {
@@ -404,4 +420,81 @@ model Coupon {
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+// --- New Enums for User Management ---
+
+enum RiskTag {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ValueTag {
+  NORMAL
+  VIP
+}
+
+// --- Admin Notes ---
+
+model AdminNote {
+  id        String   @id @default(cuid())
+  userId    String
+  adminId   String
+  note      String
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id])
+  admin     Admin    @relation(fields: [adminId], references: [id])
+}
+
+// --- Abandoned Checkout Recovery ---
+
+enum CheckoutRecoveryStatus {
+  NEW
+  ASSIGNED
+  FOLLOW_UP
+  CONVERTED
+  DROPPED
+}
+
+enum CallOutcome {
+  NOT_REACHABLE
+  FOLLOW_UP_SCHEDULED
+  CONVERTED
+  DROPPED
+  WRONG_NUMBER
+}
+
+model AbandonedCheckout {
+  id              String   @id @default(cuid())
+  userId          String?
+  guestInfo       Json?    // { name, phone, email }
+  cartSnapshot    Json     // Immutable items, prices
+  financeSnapshot Json     // subtotal, discount, final_amount, payment_method
+  metadata        Json?    // stock_status, urgency_reason, active_offers
+  
+  status          CheckoutRecoveryStatus @default(NEW)
+  agentId         String?  // Admin ID (Telecaller)
+  lockedUntil     DateTime?
+  
+  createdAt       DateTime @default(now())
+  abandonedAt     DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User?             @relation(fields: [userId], references: [id])
+  agent           Admin?            @relation(fields: [agentId], references: [id])
+  followups       CheckoutFollowup[]
+}
+
+model CheckoutFollowup {
+  id          String      @id @default(cuid())
+  checkoutId  String
+  agentId     String
+  note        String
+  outcome     CallOutcome?
+  createdAt   DateTime    @default(now())
+  
+  checkout    AbandonedCheckout @relation(fields: [checkoutId], references: [id])
+  agent       Admin             @relation(fields: [agentId], references: [id])
 }

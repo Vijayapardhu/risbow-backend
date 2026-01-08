@@ -11,7 +11,7 @@ export class AdminController {
     constructor(private readonly adminService: AdminService) { }
 
     @Get('audit-logs')
-    @Roles('SUPER_ADMIN')
+    @Roles('ADMIN', 'SUPER_ADMIN')
     getAuditLogs(@Query('limit') limit: number) {
         return this.adminService.getAuditLogs(limit);
     }
@@ -36,8 +36,24 @@ export class AdminController {
         return this.adminService.getUserDetails(id);
     }
 
+    @Patch('users/:id')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    updateUser(
+        @Request() req,
+        @Param('id') userId: string,
+        @Body() body: { name?: string; email?: string; mobile?: string; role?: string; status?: string }
+    ) {
+        return this.adminService.updateUser(req.user.id, userId, body);
+    }
+
+    @Get('users/:id/cart')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    getUserCart(@Param('id') userId: string) {
+        return this.adminService.getUserCart(userId);
+    }
+
     @Post('users/:id/coins')
-    @Roles('SUPER_ADMIN')
+    @Roles('ADMIN', 'SUPER_ADMIN')
     updateCoins(
         @Request() req,
         @Param('id') userId: string,
@@ -46,13 +62,96 @@ export class AdminController {
         return this.adminService.updateUserCoins(req.user.id, userId, body.amount, body.reason);
     }
 
+    @Post('users/:id/suspend')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    suspendUser(
+        @Request() req,
+        @Param('id') userId: string,
+        @Body() body: { reason?: string }
+    ) {
+        return this.adminService.suspendUser(req.user.id, userId, body.reason);
+    }
+
+    @Post('users/:id/activate')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    activateUser(
+        @Request() req,
+        @Param('id') userId: string
+    ) {
+        return this.adminService.activateUser(req.user.id, userId);
+    }
+
+    @Post('users/:id/ban')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    banUser(
+        @Request() req,
+        @Param('id') userId: string,
+        @Body() body: { reason: string }
+    ) {
+        return this.adminService.banUser(req.user.id, userId, body.reason);
+    }
+
+    @Delete('users/:id')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    deleteUser(
+        @Request() req,
+        @Param('id') userId: string
+    ) {
+        return this.adminService.deleteUser(req.user.id, userId);
+    }
+
+    @Get('users/:id/orders')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    getUserOrders(
+        @Param('id') userId: string,
+        @Query('limit') limit: number
+    ) {
+        return this.adminService.getUserOrders(userId, Number(limit) || 20);
+    }
+
+    @Get('users/:id/wishlist')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    getUserWishlist(@Param('id') userId: string) {
+        return this.adminService.getUserWishlist(userId);
+    }
+
+    @Get('users/:id/addresses')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    getUserAddresses(@Param('id') userId: string) {
+        return this.adminService.getUserAddresses(userId);
+    }
+
+    @Post('users/:id/notify')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    sendUserNotification(
+        @Param('id') userId: string,
+        @Body() body: { title: string, message: string }
+    ) {
+        return this.adminService.sendUserNotification(userId, body.title, body.message);
+    }
+
+    @Post('users/:id/reset-password')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    resetUserPassword(
+        @Request() req,
+        @Param('id') userId: string
+    ) {
+        return this.adminService.resetUserPassword(req.user.id, userId);
+    }
+
+    @Get('users/:id/activity')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    getUserActivity(@Param('id') userId: string) {
+        return this.adminService.getUserActivity(userId);
+    }
+
     @Get('vendors')
     getVendors(@Query('status') status: string) {
         return this.adminService.getVendors(status);
     }
 
     @Post('vendors/:id/approve')
-    @Roles('SUPER_ADMIN')
+    @Roles('ADMIN', 'SUPER_ADMIN')
     approveVendor(
         @Request() req,
         @Param('id') id: string,
@@ -108,7 +207,7 @@ export class AdminController {
     }
 
     @Post('notifications/broadcast')
-    @Roles('SUPER_ADMIN')
+    @Roles('ADMIN', 'SUPER_ADMIN')
     sendBroadcast(@Request() req, @Body() body: { title: string, body: string, audience: string }) {
         return this.adminService.sendBroadcast(req.user.id, body.title, body.body, body.audience);
     }
@@ -144,7 +243,7 @@ export class AdminController {
     }
 
     @Post('vendors/:id/commission')
-    @Roles('SUPER_ADMIN')
+    @Roles('ADMIN', 'SUPER_ADMIN')
     updateCommission(@Request() req, @Param('id') id: string, @Body('rate') rate: number) {
         return this.adminService.updateVendorCommission(req.user.id, id, rate);
     }
@@ -165,7 +264,7 @@ export class AdminController {
     }
 
     @Delete('banners/:id')
-    @Roles('SUPER_ADMIN')
+    @Roles('ADMIN', 'SUPER_ADMIN')
     deleteBanner(@Param('id') id: string) {
         // Assume deleteBanner exists in service or needs to be added back if I removed it erroneously
         return this.adminService.deleteBanner(id);
@@ -179,7 +278,7 @@ export class AdminController {
     }
 
     @Post('settings')
-    @Roles('SUPER_ADMIN')
+    @Roles('ADMIN', 'SUPER_ADMIN')
     updateSetting(@Body() body: { key: string, value: string }) {
         return this.adminService.updatePlatformConfig(body.key, body.value);
     }
@@ -204,7 +303,7 @@ export class AdminController {
     }
 
     @Delete('coupons/:id')
-    @Roles('SUPER_ADMIN')
+    @Roles('ADMIN', 'SUPER_ADMIN')
     deleteCoupon(@Param('id') id: string) {
         return this.adminService.deleteCoupon(id);
     }

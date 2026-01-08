@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { RoomStatus } from '@prisma/client';
+import { RoomStatus, RiskTag, ValueTag, UserRole, UserStatus } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
@@ -135,8 +135,8 @@ export class AdminService {
 
     // --- USERS MANAGEMENT ---
 
-    async getUsers(page: number = 1, search?: string) {
-        const take = 20;
+    async getUsers(page: number = 1, search?: string, filters?: { role?: UserRole, status?: UserStatus, riskTag?: RiskTag, valueTag?: ValueTag }) {
+        const take = 50; // Increased page size for admin
         const skip = (page - 1) * take;
         const where: any = {};
 
@@ -145,11 +145,36 @@ export class AdminService {
                 { name: { contains: search, mode: 'insensitive' } },
                 { mobile: { contains: search, mode: 'insensitive' } },
                 { email: { contains: search, mode: 'insensitive' } },
+                { id: { equals: search } }
             ];
         }
 
+        if (filters) {
+            if (filters.role) where.role = filters.role;
+            if (filters.status) where.status = filters.status;
+            if (filters.riskTag) where.riskTag = filters.riskTag;
+            if (filters.valueTag) where.valueTag = filters.valueTag;
+        }
+
         const [users, total] = await Promise.all([
-            this.prisma.user.findMany({ where, take, skip, orderBy: { createdAt: 'desc' } }),
+            this.prisma.user.findMany({
+                where,
+                take,
+                skip,
+                orderBy: { createdAt: 'desc' },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    mobile: true,
+                    role: true,
+                    status: true,
+                    coinsBalance: true,
+                    riskTag: true,
+                    valueTag: true,
+                    createdAt: true
+                }
+            }),
             this.prisma.user.count({ where })
         ]);
 
@@ -164,13 +189,16 @@ export class AdminService {
                 where: { id },
                 include: {
                     addresses: true,
+                    adminNotes: {
+                        include: { admin: { select: { email: true } } },
+                        orderBy: { createdAt: 'desc' }
+                    },
                     orders: {
-                        take: 10,
+                        take: 20,
                         orderBy: { createdAt: 'desc' },
                         include: { payment: true }
                     },
                     reviews: { take: 5, orderBy: { createdAt: 'desc' } },
-                    // ledger: { take: 10, orderBy: { createdAt: 'desc' } } // Assuming CoinLedger relation exists or is manual query
                 }
             });
 
@@ -178,7 +206,7 @@ export class AdminService {
 
             let coinLedger = [];
             try {
-                // Manual fetch for CoinLedger if relation not strict or to limit
+                // Manual fetch for CoinLedger 
                 coinLedger = await this.prisma.coinLedger.findMany({
                     where: { userId: id },
                     take: 20,
@@ -186,20 +214,132 @@ export class AdminService {
                 });
             } catch (ledgerError) {
                 console.warn('Failed to fetch CoinLedger:', ledgerError.message);
-                // Return empty ledger to avoid crashing the whole request
             }
 
-            // Compute Risk Score Mock
-            // e.g. High cancellations or returns = High Risk
+            // Enhanced Risk Calculation
+            const totalOrders = user.orders?.length || 0;
             const cancelledOrders = user.orders ? user.orders.filter(o => o.status === 'CANCELLED').length : 0;
-            const riskScore = Math.min(100, (cancelledOrders * 10));
+            const cancellationRate = totalOrders > 0 ? (cancelledOrders / totalOrders) * 100 : 0;
 
-            return { ...user, coinLedger, riskScore };
+            // Auto Update Risk if necessary (Logic can be moved to a private method)
+            let derivedRiskTag = user.riskTag;
+            if (cancellationRate > 50 && totalOrders > 3) derivedRiskTag = RiskTag.HIGH;
+            else if (cancellationRate > 20 && totalOrders > 3) derivedRiskTag = RiskTag.MEDIUM;
+
+            return { ...user, coinLedger, riskStats: { totalOrders, cancellationRate, derivedRiskTag } };
         } catch (error) {
             console.error(`Error in getUserDetails for id ${id}:`, error);
             if (error instanceof NotFoundException) throw error;
             throw new Error(`Failed to fetch user details: ${error.message}`);
         }
+    }
+
+    // --- USERS MANAGEMENT: Update User ---
+
+    async updateUser(adminId: string, userId: string, data: { name?: string; email?: string; mobile?: string; role?: UserRole; status?: UserStatus; riskTag?: RiskTag; valueTag?: ValueTag }) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const updateData: any = {};
+        if (data.name !== undefined) updateData.name = data.name;
+        if (data.email !== undefined) updateData.email = data.email;
+        if (data.mobile !== undefined) updateData.mobile = data.mobile;
+        if (data.role !== undefined) updateData.role = data.role;
+        if (data.riskTag !== undefined) updateData.riskTag = data.riskTag;
+        if (data.valueTag !== undefined) updateData.valueTag = data.valueTag;
+        if (data.status !== undefined) updateData.status = data.status;
+
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: updateData
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'UPDATE_USER',
+                details: { previousData: { risk: user.riskTag, value: user.valueTag, status: user.status }, newData: updateData }
+            }
+        });
+
+        return updatedUser;
+    }
+
+    async addAdminNote(adminId: string, userId: string, note: string) {
+        return this.prisma.adminNote.create({
+            data: {
+                adminId,
+                userId,
+                note
+            }
+        });
+    }
+
+    async toggleCod(adminId: string, userId: string, disabled: boolean) {
+        const updated = await this.prisma.user.update({
+            where: { id: userId },
+            data: { isCodDisabled: disabled }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: disabled ? 'DISABLE_COD' : 'ENABLE_COD',
+                details: {}
+            }
+        });
+        return updated;
+    }
+
+    // --- USERS MANAGEMENT: Get User Cart ---
+
+    async getUserCart(userId: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const cart = await this.prisma.cart.findUnique({
+            where: { userId },
+            include: {
+                items: {
+                    include: {
+                        product: {
+                            select: {
+                                id: true,
+                                title: true,
+                                price: true,
+                                images: true,
+                                stock: true,
+                                isActive: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!cart) {
+            return { items: [], totalItems: 0, totalValue: 0 };
+        }
+
+        const totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+        const totalValue = cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+
+        return {
+            id: cart.id,
+            items: cart.items.map(item => ({
+                id: item.id,
+                productId: item.productId,
+                variantId: item.variantId,
+                quantity: item.quantity,
+                product: item.product
+            })),
+            totalItems,
+            totalValue
+        };
     }
 
     // --- USERS MANAGEMENT: Coins ---
@@ -216,6 +356,16 @@ export class AdminService {
                 data: { coinsBalance: newBalance }
             });
 
+            // Also create a ledger entry for tracking
+            await tx.coinLedger.create({
+                data: {
+                    userId,
+                    amount,
+                    source: `ADMIN_${reason.toUpperCase().replace(/\s+/g, '_')}`,
+                    referenceId: adminId
+                }
+            });
+
             await tx.auditLog.create({
                 data: {
                     adminId,
@@ -228,6 +378,272 @@ export class AdminService {
 
             return updatedUser;
         });
+    }
+
+    // --- USERS MANAGEMENT: Suspend User ---
+
+    async suspendUser(adminId: string, userId: string, reason?: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: { status: 'SUSPENDED' }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'SUSPEND_USER',
+                details: { reason, previousStatus: user.status || 'ACTIVE' }
+            }
+        });
+
+        return { success: true, user: updatedUser, message: 'User suspended successfully' };
+    }
+
+    // --- USERS MANAGEMENT: Activate User ---
+
+    async activateUser(adminId: string, userId: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: { status: 'ACTIVE' }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'ACTIVATE_USER',
+                details: { previousStatus: user.status || 'SUSPENDED' }
+            }
+        });
+
+        return { success: true, user: updatedUser, message: 'User activated successfully' };
+    }
+
+    // --- USERS MANAGEMENT: Ban User ---
+
+    async banUser(adminId: string, userId: string, reason: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: { status: 'BANNED' }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'BAN_USER',
+                details: { reason, previousStatus: user.status || 'ACTIVE' }
+            }
+        });
+
+        return { success: true, user: updatedUser, message: 'User banned successfully' };
+    }
+
+    // --- USERS MANAGEMENT: Delete User ---
+
+    async deleteUser(adminId: string, userId: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        // Soft delete by marking as banned and clearing sensitive data, or hard delete
+        // For now, doing a soft delete approach
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: {
+                status: 'BANNED',
+                email: null,
+                name: `Deleted User ${userId.substring(0, 6)}`
+            }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'DELETE_USER',
+                details: { deletedEmail: user.email, deletedName: user.name }
+            }
+        });
+
+        return { success: true, message: 'User deleted successfully' };
+    }
+
+    // --- USERS MANAGEMENT: Get User Orders ---
+
+    async getUserOrders(userId: string, limit: number = 20) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const orders = await this.prisma.order.findMany({
+            where: { userId },
+            take: limit,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                payment: true,
+                address: true
+            }
+        });
+
+        const stats = {
+            totalOrders: orders.length,
+            totalSpent: orders.reduce((sum, o) => sum + o.totalAmount, 0),
+            completedOrders: orders.filter(o => o.status === 'DELIVERED').length,
+            cancelledOrders: orders.filter(o => o.status === 'CANCELLED').length
+        };
+
+        return { orders, stats };
+    }
+
+    // --- USERS MANAGEMENT: Get User Wishlist ---
+
+    async getUserWishlist(userId: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const wishlist = await this.prisma.wishlist.findMany({
+            where: { userId },
+            include: {
+                product: {
+                    select: {
+                        id: true,
+                        title: true,
+                        price: true,
+                        images: true,
+                        stock: true,
+                        isActive: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        return {
+            items: wishlist,
+            totalItems: wishlist.length
+        };
+    }
+
+    // --- USERS MANAGEMENT: Get User Addresses ---
+
+    async getUserAddresses(userId: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const addresses = await this.prisma.address.findMany({
+            where: { userId },
+            orderBy: { isDefault: 'desc' }
+        });
+
+        return { addresses, total: addresses.length };
+    }
+
+    // --- USERS MANAGEMENT: Send User Notification ---
+
+    async sendUserNotification(userId: string, title: string, message: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const notification = await this.prisma.notification.create({
+            data: {
+                userId,
+                title,
+                body: message,
+                type: 'ADMIN'
+            }
+        });
+
+        return { success: true, notification, message: 'Notification sent successfully' };
+    }
+
+    // --- USERS MANAGEMENT: Reset User Password ---
+
+    async resetUserPassword(adminId: string, userId: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        // Generate a temporary password or send reset link
+        // For now, just clear the password so user must reset
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { password: null }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'RESET_PASSWORD',
+                details: { userEmail: user.email }
+            }
+        });
+
+        return { success: true, message: 'Password reset successfully. User will need to set a new password on next login.' };
+    }
+
+    // --- USERS MANAGEMENT: Get User Activity ---
+
+    async getUserActivity(userId: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const [orders, reviews, coinTransactions] = await Promise.all([
+            this.prisma.order.findMany({
+                where: { userId },
+                take: 10,
+                orderBy: { createdAt: 'desc' },
+                select: { id: true, status: true, totalAmount: true, createdAt: true }
+            }),
+            this.prisma.review.findMany({
+                where: { userId },
+                take: 10,
+                orderBy: { createdAt: 'desc' },
+                select: { id: true, rating: true, comment: true, createdAt: true }
+            }),
+            this.prisma.coinLedger.findMany({
+                where: { userId },
+                take: 10,
+                orderBy: { createdAt: 'desc' }
+            })
+        ]);
+
+        // Combine and sort all activities
+        const activities = [
+            ...orders.map(o => ({
+                type: 'ORDER',
+                description: `Order #${o.id.substring(0, 8)} - ${o.status}`,
+                amount: o.totalAmount,
+                timestamp: o.createdAt
+            })),
+            ...reviews.map(r => ({
+                type: 'REVIEW',
+                description: `Reviewed product - ${r.rating} stars`,
+                amount: null,
+                timestamp: r.createdAt
+            })),
+            ...coinTransactions.map(c => ({
+                type: 'COINS',
+                description: `${c.amount > 0 ? 'Earned' : 'Spent'} ${Math.abs(c.amount)} coins - ${c.source}`,
+                amount: c.amount,
+                timestamp: c.createdAt
+            }))
+        ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 20);
+
+        return { activities, user: { id: user.id, name: user.name, email: user.email } };
     }
 
     // --- ORDERS MANAGEMENT ---
