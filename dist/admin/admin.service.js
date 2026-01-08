@@ -176,7 +176,7 @@ let AdminService = class AdminService {
                 where: { id },
                 include: {
                     addresses: true,
-                    adminNotes: {
+                    receivedNotes: {
                         include: { admin: { select: { email: true } } },
                         orderBy: { createdAt: 'desc' }
                     },
@@ -209,7 +209,7 @@ let AdminService = class AdminService {
                 derivedRiskTag = client_1.RiskTag.HIGH;
             else if (cancellationRate > 20 && totalOrders > 3)
                 derivedRiskTag = client_1.RiskTag.MEDIUM;
-            return Object.assign(Object.assign({}, user), { coinLedger, riskStats: { totalOrders, cancellationRate, derivedRiskTag } });
+            return Object.assign(Object.assign({}, user), { adminNotes: user.receivedNotes, coinLedger, riskStats: { totalOrders, cancellationRate, derivedRiskTag } });
         }
         catch (error) {
             console.error(`Error in getUserDetails for id ${id}:`, error);
@@ -252,15 +252,6 @@ let AdminService = class AdminService {
         });
         return updatedUser;
     }
-    async addAdminNote(adminId, userId, note) {
-        return this.prisma.adminNote.create({
-            data: {
-                adminId,
-                userId,
-                note
-            }
-        });
-    }
     async toggleCod(adminId, userId, disabled) {
         const updated = await this.prisma.user.update({
             where: { id: userId },
@@ -276,6 +267,76 @@ let AdminService = class AdminService {
             }
         });
         return updated;
+    }
+    async updateRiskTag(adminId, userId, tag) {
+        const validTags = ['LOW', 'MEDIUM', 'HIGH'];
+        if (!validTags.includes(tag)) {
+            throw new common_1.BadRequestException(`Invalid risk tag. Must be one of: ${validTags.join(', ')}`);
+        }
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const oldTag = user.riskTag;
+        const updated = await this.prisma.user.update({
+            where: { id: userId },
+            data: { riskTag: tag }
+        });
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'UPDATE_RISK_TAG',
+                details: { oldTag, newTag: tag }
+            }
+        });
+        return updated;
+    }
+    async updateValueTag(adminId, userId, tag) {
+        const validTags = ['NORMAL', 'VIP'];
+        if (!validTags.includes(tag)) {
+            throw new common_1.BadRequestException(`Invalid value tag. Must be one of: ${validTags.join(', ')}`);
+        }
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const oldTag = user.valueTag;
+        const updated = await this.prisma.user.update({
+            where: { id: userId },
+            data: { valueTag: tag }
+        });
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'UPDATE_VALUE_TAG',
+                details: { oldTag, newTag: tag }
+            }
+        });
+        return updated;
+    }
+    async addAdminNote(adminId, userId, note) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const adminNote = await this.prisma.adminNote.create({
+            data: {
+                userId,
+                adminId,
+                note
+            }
+        });
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'ADD_NOTE',
+                details: { noteId: adminNote.id }
+            }
+        });
+        return adminNote;
     }
     async getUserCart(userId) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -347,6 +408,30 @@ let AdminService = class AdminService {
             });
             return updatedUser;
         });
+    }
+    async updateUserStatus(adminId, userId, status, reason) {
+        const validStatuses = ['ACTIVE', 'SUSPENDED', 'BANNED', 'PENDING'];
+        if (!validStatuses.includes(status)) {
+            throw new common_1.BadRequestException(`Invalid status: ${status}. Valid statuses are: ${validStatuses.join(', ')}`);
+        }
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const previousStatus = user.status || 'ACTIVE';
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: { status: status }
+        });
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: `UPDATE_STATUS_TO_${status}`,
+                details: { reason, previousStatus, newStatus: status }
+            }
+        });
+        return { success: true, user: updatedUser, message: `User status updated to ${status}` };
     }
     async suspendUser(adminId, userId, reason) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -646,6 +731,18 @@ let AdminService = class AdminService {
             }
         });
     }
+    async getOrderById(orderId) {
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+                user: { select: { id: true, name: true, email: true, mobile: true } },
+                address: true
+            }
+        });
+        if (!order)
+            throw new common_1.NotFoundException('Order not found');
+        return order;
+    }
     async updateOrderStatus(adminId, orderId, status, logistics) {
         const order = await this.prisma.order.findUnique({ where: { id: orderId } });
         if (!order)
@@ -847,6 +944,33 @@ let AdminService = class AdminService {
             update: { value },
             create: { key, value }
         });
+    }
+    async getAppConfig() {
+        var _a, _b, _c, _d, _e;
+        const configs = await this.prisma.platformConfig.findMany();
+        const configMap = {};
+        for (const config of configs) {
+            try {
+                configMap[config.key] = JSON.parse(config.value);
+            }
+            catch (_f) {
+                configMap[config.key] = config.value;
+            }
+        }
+        return Object.assign({ maintenance_mode: (_a = configMap['MAINTENANCE_MODE']) !== null && _a !== void 0 ? _a : false, tagline: (_b = configMap['TAGLINE']) !== null && _b !== void 0 ? _b : 'Your Super Shopping App', min_app_version: (_c = configMap['MIN_APP_VERSION']) !== null && _c !== void 0 ? _c : '1.0.0', force_update: (_d = configMap['FORCE_UPDATE']) !== null && _d !== void 0 ? _d : false, announcement: (_e = configMap['ANNOUNCEMENT']) !== null && _e !== void 0 ? _e : null }, configMap);
+    }
+    async updateAppConfig(data) {
+        const updates = [];
+        for (const [key, value] of Object.entries(data)) {
+            const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+            updates.push(this.prisma.platformConfig.upsert({
+                where: { key: key.toUpperCase() },
+                update: { value: stringValue },
+                create: { key: key.toUpperCase(), value: stringValue }
+            }));
+        }
+        await Promise.all(updates);
+        return { success: true, message: 'Config updated' };
     }
     async getCoupons() {
         return this.prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } });

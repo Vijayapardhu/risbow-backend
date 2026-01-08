@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Body, Query, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Param, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { CatalogService } from './catalog.service';
 import { CreateProductDto, ProductFilterDto } from './dto/catalog.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('products')
@@ -13,21 +15,36 @@ export class CatalogController {
         return this.catalogService.findAll(filters);
     }
 
+    @Get(':id')
+    async findOne(@Param('id') id: string) {
+        return this.catalogService.findOne(id);
+    }
+
     @Post()
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('VENDOR', 'ADMIN', 'SUPER_ADMIN')
     async create(@Body() createProductDto: CreateProductDto) {
         return this.catalogService.createProduct(createProductDto);
     }
 
     @Post('bulk')
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('VENDOR', 'ADMIN', 'SUPER_ADMIN')
     @UseInterceptors(FileInterceptor('file'))
     async bulkUpload(@UploadedFile() file: any) {
-        // In real app, validating Vendor role here is crucial
         if (!file) throw new Error('File not present');
         const content = file.buffer.toString('utf-8');
-        // Basic CSV mock: Title,Price,Rest...
         return this.catalogService.processBulkUpload(content);
+    }
+}
+
+@Controller('categories')
+export class CategoriesController {
+    constructor(private readonly catalogService: CatalogService) { }
+
+    @Get()
+    async getAll() {
+        return this.catalogService.getCategories();
     }
 }
 

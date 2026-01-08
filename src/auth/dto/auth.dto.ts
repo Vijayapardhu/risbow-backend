@@ -1,5 +1,5 @@
 
-import { IsNotEmpty, IsPhoneNumber, IsString, IsOptional, IsEmail, MinLength, IsObject, IsDateString } from 'class-validator';
+import { IsNotEmpty, IsPhoneNumber, IsString, IsOptional, IsEmail, MinLength, IsObject, IsDateString, IsStrongPassword, Matches } from 'class-validator';
 
 export class SendOtpDto {
     @IsNotEmpty()
@@ -14,12 +14,14 @@ export class VerifyOtpDto {
 
     @IsNotEmpty()
     @IsString()
+    @Matches(/^\d{6}$/, { message: 'OTP must be a 6-digit number' })
     otp: string;
 }
 
 export class RegisterDto {
     @IsNotEmpty()
     @IsString()
+    @MinLength(2, { message: 'Name must be at least 2 characters' })
     name: string;
 
     @IsNotEmpty()
@@ -27,8 +29,13 @@ export class RegisterDto {
     email: string;
 
     @IsNotEmpty()
-    @IsString()
-    @MinLength(6)
+    @IsStrongPassword({
+        minLength: 8,
+        minLowercase: 1,
+        minUppercase: 1,
+        minNumbers: 1,
+        minSymbols: 0, // Optional for better UX
+    }, { message: 'Password must be at least 8 characters with 1 uppercase, 1 lowercase, and 1 number' })
     password: string;
 
     @IsNotEmpty()

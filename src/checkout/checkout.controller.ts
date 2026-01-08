@@ -1,19 +1,23 @@
 import { Controller, Get, Post, Body, Param, Query, Put, UseGuards, Request, ForbiddenException } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { CheckoutService } from './checkout.service';
 import { Prisma } from '@prisma/client';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard'; // Ensure this path is correct
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('checkout')
 export class CheckoutController {
     constructor(private readonly checkoutService: CheckoutService) { }
 
     @Post('capture')
+    @Throttle({ default: { limit: 10, ttl: 60000 } }) // Rate limit: 10 per minute to prevent spam
     async captureCheckout(@Body() body: {
         userId?: string;
         guestInfo?: any;
         cartItems: any[];
         financeDetails: any;
     }) {
+        // Public endpoint for abandoned cart capture (guest or authenticated)
+        // Rate limited to prevent spam attacks
         return this.checkoutService.captureCheckout(body);
     }
 

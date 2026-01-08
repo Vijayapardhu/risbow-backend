@@ -30,6 +30,9 @@ let VendorsController = class VendorsController {
     async findAll() {
         return this.vendorsService.findAll();
     }
+    async getVendorStats(req) {
+        return this.vendorsService.getVendorStats(req.user.id);
+    }
 };
 exports.VendorsController = VendorsController;
 __decorate([
@@ -54,6 +57,14 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], VendorsController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('stats'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], VendorsController.prototype, "getVendorStats", null);
 exports.VendorsController = VendorsController = __decorate([
     (0, common_1.Controller)('vendors'),
     __metadata("design:paramtypes", [vendors_service_1.VendorsService])

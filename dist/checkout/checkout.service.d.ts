@@ -57,6 +57,7 @@ export declare class CheckoutService {
             miscDocuments: Prisma.JsonValue | null;
             forceLogoutAt: Date | null;
             createdAt: Date;
+            updatedAt: Date;
         };
         agent: {
             id: string;
@@ -84,6 +85,7 @@ export declare class CheckoutService {
             miscDocuments: Prisma.JsonValue | null;
             forceLogoutAt: Date | null;
             createdAt: Date;
+            updatedAt: Date;
         };
         followups: {
             id: string;
@@ -134,6 +136,7 @@ export declare class CheckoutService {
             miscDocuments: Prisma.JsonValue | null;
             forceLogoutAt: Date | null;
             createdAt: Date;
+            updatedAt: Date;
         };
         agent: {
             id: string;
@@ -161,6 +164,7 @@ export declare class CheckoutService {
             miscDocuments: Prisma.JsonValue | null;
             forceLogoutAt: Date | null;
             createdAt: Date;
+            updatedAt: Date;
         };
         followups: ({
             agent: {
@@ -189,6 +193,7 @@ export declare class CheckoutService {
                 miscDocuments: Prisma.JsonValue | null;
                 forceLogoutAt: Date | null;
                 createdAt: Date;
+                updatedAt: Date;
             };
         } & {
             id: string;
@@ -239,6 +244,7 @@ export declare class CheckoutService {
             miscDocuments: Prisma.JsonValue | null;
             forceLogoutAt: Date | null;
             createdAt: Date;
+            updatedAt: Date;
         };
     } & {
         id: string;

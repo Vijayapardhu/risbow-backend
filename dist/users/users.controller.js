@@ -35,6 +35,42 @@ let UsersController = class UsersController {
         const ledger = await this.coinsService.getLedger(req.user.id);
         return Object.assign(Object.assign({}, balance), { ledger });
     }
+    async getOrders(req, limit) {
+        return this.usersService.getUserOrders(req.user.id, Number(limit) || 50);
+    }
+    async getOrderDetails(req, orderId) {
+        return this.usersService.getOrderById(req.user.id, orderId);
+    }
+    async getWishlist(req) {
+        return this.usersService.getWishlist(req.user.id);
+    }
+    async addToWishlist(req, productId) {
+        return this.usersService.addToWishlist(req.user.id, productId);
+    }
+    async removeFromWishlist(req, productId) {
+        return this.usersService.removeFromWishlist(req.user.id, productId);
+    }
+    async getNotifications(req, limit) {
+        return this.usersService.getNotifications(req.user.id, Number(limit) || 50);
+    }
+    async markNotificationRead(req, notificationId) {
+        return this.usersService.markNotificationRead(req.user.id, notificationId);
+    }
+    async getAddresses(req) {
+        return this.usersService.getAddresses(req.user.id);
+    }
+    async createAddress(req, addressData) {
+        return this.usersService.createAddress(req.user.id, addressData);
+    }
+    async updateAddress(req, id, addressData) {
+        return this.usersService.updateAddress(req.user.id, id, addressData);
+    }
+    async updateAddressAlt(req, id, addressData) {
+        return this.usersService.updateAddress(req.user.id, id, addressData);
+    }
+    async deleteAddress(req, id) {
+        return this.usersService.deleteAddress(req.user.id, id);
+    }
 };
 exports.UsersController = UsersController;
 __decorate([
@@ -59,6 +95,102 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "getCoins", null);
+__decorate([
+    (0, common_1.Get)('me/orders'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "getOrders", null);
+__decorate([
+    (0, common_1.Get)('me/orders/:id'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "getOrderDetails", null);
+__decorate([
+    (0, common_1.Get)('me/wishlist'),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "getWishlist", null);
+__decorate([
+    (0, common_1.Post)('me/wishlist/:productId'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('productId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "addToWishlist", null);
+__decorate([
+    (0, common_1.Delete)('me/wishlist/:productId'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('productId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "removeFromWishlist", null);
+__decorate([
+    (0, common_1.Get)('me/notifications'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "getNotifications", null);
+__decorate([
+    (0, common_1.Post)('me/notifications/:id/read'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "markNotificationRead", null);
+__decorate([
+    (0, common_1.Get)('me/addresses'),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "getAddresses", null);
+__decorate([
+    (0, common_1.Post)('me/addresses'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "createAddress", null);
+__decorate([
+    (0, common_1.Patch)('me/addresses/:id'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "updateAddress", null);
+__decorate([
+    (0, common_1.Post)('me/addresses/:id'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "updateAddressAlt", null);
+__decorate([
+    (0, common_1.Post)('me/addresses/:id/delete'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "deleteAddress", null);
 exports.UsersController = UsersController = __decorate([
     (0, common_1.Controller)('users'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

@@ -10,6 +10,19 @@ import { Roles } from '../common/decorators/roles.decorator';
 export class AdminController {
     constructor(private readonly adminService: AdminService) { }
 
+    // --- APP CONFIG ---
+
+    @Get('config')
+    getAppConfig() {
+        return this.adminService.getAppConfig();
+    }
+
+    @Post('config')
+    @Roles('SUPER_ADMIN')
+    updateAppConfig(@Body() body: Record<string, any>) {
+        return this.adminService.updateAppConfig(body);
+    }
+
     @Post('users/:id/analyze')
     async analyzeUser(@Param('id') id: string) {
         return this.adminService.calculateUserRisk(id);
@@ -83,6 +96,46 @@ export class AdminController {
         return this.adminService.toggleRefunds(req.user.id, userId, body.disabled);
     }
 
+    @Post('users/:id/toggle-cod')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    toggleCod(
+        @Request() req,
+        @Param('id') userId: string,
+        @Body() body: { disabled: boolean }
+    ) {
+        return this.adminService.toggleCod(req.user.id, userId, body.disabled);
+    }
+
+    @Post('users/:id/risk-tag')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    updateRiskTag(
+        @Request() req,
+        @Param('id') userId: string,
+        @Body() body: { tag: string }
+    ) {
+        return this.adminService.updateRiskTag(req.user.id, userId, body.tag);
+    }
+
+    @Post('users/:id/value-tag')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    updateValueTag(
+        @Request() req,
+        @Param('id') userId: string,
+        @Body() body: { tag: string }
+    ) {
+        return this.adminService.updateValueTag(req.user.id, userId, body.tag);
+    }
+
+    @Post('users/:id/notes')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    addAdminNote(
+        @Request() req,
+        @Param('id') userId: string,
+        @Body() body: { note: string }
+    ) {
+        return this.adminService.addAdminNote(req.user.id, userId, body.note);
+    }
+
     @Get('users/:id/cart')
     @Roles('ADMIN', 'SUPER_ADMIN')
     getUserCart(@Param('id') userId: string) {
@@ -97,6 +150,16 @@ export class AdminController {
         @Body() body: { amount: number, reason: string }
     ) {
         return this.adminService.updateUserCoins(req.user.id, userId, body.amount, body.reason);
+    }
+
+    @Post('users/:id/status')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    updateUserStatus(
+        @Request() req,
+        @Param('id') userId: string,
+        @Body() body: { status: string; reason?: string }
+    ) {
+        return this.adminService.updateUserStatus(req.user.id, userId, body.status, body.reason);
     }
 
     @Post('users/:id/suspend')
@@ -215,6 +278,11 @@ export class AdminController {
         @Query('status') status: string
     ) {
         return this.adminService.getAllOrders(limit, search, status);
+    }
+
+    @Get('orders/:id')
+    getOrderById(@Param('id') id: string) {
+        return this.adminService.getOrderById(id);
     }
 
     @Post('orders/:id/status')

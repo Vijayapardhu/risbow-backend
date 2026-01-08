@@ -162,5 +162,77 @@ export class OrdersService {
         // For now, we stub the success message as schema might need 'isGift' field
         return { message: 'Gift added to order' };
     }
-}
 
+    // --- USER ORDER LISTING ---
+
+    async getUserOrders(userId: string, page: number = 1, limit: number = 10) {
+        const skip = (page - 1) * limit;
+
+        const [orders, total] = await Promise.all([
+            this.prisma.order.findMany({
+                where: { userId },
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    address: true,
+                    payment: true
+                }
+            }),
+            this.prisma.order.count({ where: { userId } })
+        ]);
+
+        return orders;
+    }
+
+    async getOrderDetails(userId: string, orderId: string) {
+        const order = await this.prisma.order.findFirst({
+            where: { id: orderId, userId },
+            include: {
+                address: true,
+                payment: true
+            }
+        });
+
+        if (!order) throw new NotFoundException('Order not found');
+
+        return order;
+    }
+
+    // Simple order creation for COD (Cash on Delivery)
+    // TODO: Replace with actual implementation
+    async createOrder(userId: string, orderData: any) {
+        const {
+            addressId,
+            paymentMethod = 'COD',
+            subtotal,
+            deliveryFee = 0,
+        } = orderData;
+
+        // Basic validation
+        if (!addressId) {
+            throw new BadRequestException('Address is required');
+        }
+
+        const totalAmount = subtotal + deliveryFee;
+
+        // Generate a mock order ID
+        const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Return mock success response
+        return {
+            success: true,
+            orderId: orderId,
+            order: {
+                id: orderId,
+                userId,
+                addressId,
+                totalAmount: Math.round(totalAmount),
+                status: 'CONFIRMED',
+                paymentMethod,
+                createdAt: new Date().toISOString()
+            },
+            message: 'Order placed successfully (TEST MODE)'
+        };
+    }
+}

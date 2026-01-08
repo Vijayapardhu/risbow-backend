@@ -139,6 +139,57 @@ let OrdersService = class OrdersService {
             throw new common_1.BadRequestException('Gift unavailable');
         return { message: 'Gift added to order' };
     }
+    async getUserOrders(userId, page = 1, limit = 10) {
+        const skip = (page - 1) * limit;
+        const [orders, total] = await Promise.all([
+            this.prisma.order.findMany({
+                where: { userId },
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    address: true,
+                    payment: true
+                }
+            }),
+            this.prisma.order.count({ where: { userId } })
+        ]);
+        return orders;
+    }
+    async getOrderDetails(userId, orderId) {
+        const order = await this.prisma.order.findFirst({
+            where: { id: orderId, userId },
+            include: {
+                address: true,
+                payment: true
+            }
+        });
+        if (!order)
+            throw new common_1.NotFoundException('Order not found');
+        return order;
+    }
+    async createOrder(userId, orderData) {
+        const { addressId, paymentMethod = 'COD', subtotal, deliveryFee = 0, } = orderData;
+        if (!addressId) {
+            throw new common_1.BadRequestException('Address is required');
+        }
+        const totalAmount = subtotal + deliveryFee;
+        const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        return {
+            success: true,
+            orderId: orderId,
+            order: {
+                id: orderId,
+                userId,
+                addressId,
+                totalAmount: Math.round(totalAmount),
+                status: 'CONFIRMED',
+                paymentMethod,
+                createdAt: new Date().toISOString()
+            },
+            message: 'Order placed successfully (TEST MODE)'
+        };
+    }
 };
 exports.OrdersService = OrdersService;
 exports.OrdersService = OrdersService = __decorate([

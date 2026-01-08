@@ -189,18 +189,22 @@ let AuthService = class AuthService {
         await this.prisma.cart.create({
             data: { userId: user.id },
         });
-        await this.prisma.address.create({
-            data: {
-                userId: user.id,
-                name: registerDto.name,
-                mobile: registerDto.phone,
-                street: registerDto.address.street,
-                city: registerDto.address.city,
-                state: registerDto.address.state,
-                pincode: registerDto.address.postalCode,
-                isDefault: true,
-            },
-        });
+        if (registerDto.address) {
+            await this.prisma.address.create({
+                data: {
+                    userId: user.id,
+                    name: registerDto.name || '',
+                    phone: registerDto.phone || '',
+                    addressLine1: registerDto.address.street || registerDto.address.addressLine1 || '',
+                    addressLine2: registerDto.address.addressLine2 || null,
+                    city: registerDto.address.city || '',
+                    state: registerDto.address.state || '',
+                    pincode: registerDto.address.postalCode || registerDto.address.pincode || '',
+                    label: 'Home',
+                    isDefault: true,
+                },
+            });
+        }
         const payload = { sub: user.id, email: user.email };
         const { password } = user, userWithoutPassword = __rest(user, ["password"]);
         return {

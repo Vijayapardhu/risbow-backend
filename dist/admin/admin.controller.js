@@ -22,6 +22,12 @@ let AdminController = class AdminController {
     constructor(adminService) {
         this.adminService = adminService;
     }
+    getAppConfig() {
+        return this.adminService.getAppConfig();
+    }
+    updateAppConfig(body) {
+        return this.adminService.updateAppConfig(body);
+    }
     async analyzeUser(id) {
         return this.adminService.calculateUserRisk(id);
     }
@@ -55,11 +61,26 @@ let AdminController = class AdminController {
     toggleRefunds(req, userId, body) {
         return this.adminService.toggleRefunds(req.user.id, userId, body.disabled);
     }
+    toggleCod(req, userId, body) {
+        return this.adminService.toggleCod(req.user.id, userId, body.disabled);
+    }
+    updateRiskTag(req, userId, body) {
+        return this.adminService.updateRiskTag(req.user.id, userId, body.tag);
+    }
+    updateValueTag(req, userId, body) {
+        return this.adminService.updateValueTag(req.user.id, userId, body.tag);
+    }
+    addAdminNote(req, userId, body) {
+        return this.adminService.addAdminNote(req.user.id, userId, body.note);
+    }
     getUserCart(userId) {
         return this.adminService.getUserCart(userId);
     }
     updateCoins(req, userId, body) {
         return this.adminService.updateUserCoins(req.user.id, userId, body.amount, body.reason);
+    }
+    updateUserStatus(req, userId, body) {
+        return this.adminService.updateUserStatus(req.user.id, userId, body.status, body.reason);
     }
     suspendUser(req, userId, body) {
         return this.adminService.suspendUser(req.user.id, userId, body.reason);
@@ -105,6 +126,9 @@ let AdminController = class AdminController {
     }
     getAllOrders(limit, search, status) {
         return this.adminService.getAllOrders(limit, search, status);
+    }
+    getOrderById(id) {
+        return this.adminService.getOrderById(id);
     }
     updateOrderStatus(req, id, body) {
         return this.adminService.updateOrderStatus(req.user.id, id, body.status, body.logistics);
@@ -189,6 +213,20 @@ let AdminController = class AdminController {
     }
 };
 exports.AdminController = AdminController;
+__decorate([
+    (0, common_1.Get)('config'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "getAppConfig", null);
+__decorate([
+    (0, common_1.Post)('config'),
+    (0, roles_decorator_1.Roles)('SUPER_ADMIN'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "updateAppConfig", null);
 __decorate([
     (0, common_1.Post)('users/:id/analyze'),
     __param(0, (0, common_1.Param)('id')),
@@ -278,6 +316,46 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "toggleRefunds", null);
 __decorate([
+    (0, common_1.Post)('users/:id/toggle-cod'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "toggleCod", null);
+__decorate([
+    (0, common_1.Post)('users/:id/risk-tag'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "updateRiskTag", null);
+__decorate([
+    (0, common_1.Post)('users/:id/value-tag'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "updateValueTag", null);
+__decorate([
+    (0, common_1.Post)('users/:id/notes'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "addAdminNote", null);
+__decorate([
     (0, common_1.Get)('users/:id/cart'),
     (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
     __param(0, (0, common_1.Param)('id')),
@@ -295,6 +373,16 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, Object]),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "updateCoins", null);
+__decorate([
+    (0, common_1.Post)('users/:id/status'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "updateUserStatus", null);
 __decorate([
     (0, common_1.Post)('users/:id/suspend'),
     (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
@@ -424,6 +512,13 @@ __decorate([
     __metadata("design:paramtypes", [Number, String, String]),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "getAllOrders", null);
+__decorate([
+    (0, common_1.Get)('orders/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "getOrderById", null);
 __decorate([
     (0, common_1.Post)('orders/:id/status'),
     __param(0, (0, common_1.Request)()),

@@ -9,17 +9,17 @@ export declare class BowController {
             createdAt: Date;
             updatedAt: Date;
             title: string;
+            vendorId: string;
             description: string | null;
             price: number;
             offerPrice: number | null;
-            categoryId: string;
             stock: number;
-            vendorId: string;
+            categoryId: string;
+            variants: import("@prisma/client/runtime/library").JsonValue | null;
+            images: string[];
             isWholesale: boolean;
             wholesalePrice: number | null;
             moq: number;
-            variants: import("@prisma/client/runtime/library").JsonValue | null;
-            images: string[];
             isActive: boolean;
         }[];
     } | {

@@ -15,6 +15,7 @@ export declare class VendorsService {
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
+        updatedAt: Date;
         vendorCode: string | null;
         tier: string;
         gstNumber: string | null;
@@ -37,6 +38,7 @@ export declare class VendorsService {
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
+        updatedAt: Date;
         vendorCode: string | null;
         tier: string;
         gstNumber: string | null;
@@ -45,4 +47,25 @@ export declare class VendorsService {
         followCount: number;
         commissionRate: number;
     }[]>;
+    getVendorStats(userId: string): Promise<{
+        totalProducts: number;
+        totalOrders: number;
+        totalRevenue: number;
+        pendingOrders: number;
+        message: string;
+        vendorId?: undefined;
+        vendorName?: undefined;
+        tier?: undefined;
+        kycStatus?: undefined;
+    } | {
+        totalProducts: number;
+        totalOrders: number;
+        totalRevenue: any;
+        pendingOrders: number;
+        vendorId: string;
+        vendorName: string;
+        tier: string;
+        kycStatus: string;
+        message?: undefined;
+    }>;
 }

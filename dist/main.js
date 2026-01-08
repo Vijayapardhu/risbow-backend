@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const core_1 = require("@nestjs/core");
 const app_module_1 = require("./app.module");
@@ -6,12 +9,34 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const http_exception_filter_1 = require("./common/filters/http-exception.filter");
 const path_1 = require("path");
+const helmet_1 = __importDefault(require("helmet"));
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    app.use((0, helmet_1.default)({
+        crossOriginEmbedderPolicy: false,
+        contentSecurityPolicy: false,
+    }));
     app.useStaticAssets((0, path_1.join)(__dirname, '..', 'public'));
     app.setGlobalPrefix('api/v1');
-    app.enableCors();
-    app.useGlobalPipes(new common_1.ValidationPipe({ whitelist: true }));
+    const allowedOrigins = process.env.NODE_ENV === 'production'
+        ? [
+            'https://risbow.com',
+            'https://www.risbow.com',
+            'https://admin.risbow.com',
+            process.env.FRONTEND_URL,
+        ].filter(Boolean)
+        : true;
+    app.enableCors({
+        origin: allowedOrigins,
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    });
+    app.useGlobalPipes(new common_1.ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+    }));
     app.useGlobalFilters(new http_exception_filter_1.GlobalExceptionsFilter());
     const config = new swagger_1.DocumentBuilder()
         .setTitle('RISBOW API')

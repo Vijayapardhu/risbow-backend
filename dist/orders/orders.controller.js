@@ -21,6 +21,12 @@ let OrdersController = class OrdersController {
     constructor(ordersService) {
         this.ordersService = ordersService;
     }
+    async getMyOrders(req, page, limit) {
+        return this.ordersService.getUserOrders(req.user.id, Number(page) || 1, Number(limit) || 10);
+    }
+    async getOrderDetails(req, orderId) {
+        return this.ordersService.getOrderDetails(req.user.id, orderId);
+    }
     async checkout(req, dto) {
         return this.ordersService.createCheckout(req.user.id, dto);
     }
@@ -30,8 +36,30 @@ let OrdersController = class OrdersController {
     async addGift(orderId, giftId, req) {
         return this.ordersService.addGiftToOrder(orderId, req.user.id, giftId);
     }
+    async createOrder(req, orderData) {
+        return this.ordersService.createOrder(req.user.id, orderData);
+    }
 };
 exports.OrdersController = OrdersController;
+__decorate([
+    (0, common_1.Get)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Query)('page')),
+    __param(2, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "getMyOrders", null);
+__decorate([
+    (0, common_1.Get)(':id'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "getOrderDetails", null);
 __decorate([
     (0, common_1.Post)('checkout'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
@@ -58,6 +86,15 @@ __decorate([
     __metadata("design:paramtypes", [String, String, Object]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "addGift", null);
+__decorate([
+    (0, common_1.Post)('create'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "createOrder", null);
 exports.OrdersController = OrdersController = __decorate([
     (0, common_1.Controller)('orders'),
     __metadata("design:paramtypes", [orders_service_1.OrdersService])

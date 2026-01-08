@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RoomStatus, RiskTag, ValueTag, UserRole, UserStatus } from '@prisma/client';
 
@@ -188,7 +188,7 @@ export class AdminService {
                 where: { id },
                 include: {
                     addresses: true,
-                    adminNotes: {
+                    receivedNotes: {
                         include: { admin: { select: { email: true } } },
                         orderBy: { createdAt: 'desc' }
                     },
@@ -225,7 +225,12 @@ export class AdminService {
             if (cancellationRate > 50 && totalOrders > 3) derivedRiskTag = RiskTag.HIGH;
             else if (cancellationRate > 20 && totalOrders > 3) derivedRiskTag = RiskTag.MEDIUM;
 
-            return { ...user, coinLedger, riskStats: { totalOrders, cancellationRate, derivedRiskTag } };
+            return {
+                ...user,
+                adminNotes: user.receivedNotes, // Map for frontend compatibility
+                coinLedger,
+                riskStats: { totalOrders, cancellationRate, derivedRiskTag }
+            };
         } catch (error) {
             console.error(`Error in getUserDetails for id ${id}:`, error);
             if (error instanceof NotFoundException) throw error;
@@ -266,16 +271,6 @@ export class AdminService {
         return updatedUser;
     }
 
-    async addAdminNote(adminId: string, userId: string, note: string) {
-        return this.prisma.adminNote.create({
-            data: {
-                adminId,
-                userId,
-                note
-            }
-        });
-    }
-
     async toggleCod(adminId: string, userId: string, disabled: boolean) {
         const updated = await this.prisma.user.update({
             where: { id: userId },
@@ -292,6 +287,91 @@ export class AdminService {
             }
         });
         return updated;
+    }
+
+    // --- USERS MANAGEMENT: Risk & Value Tags ---
+
+    async updateRiskTag(adminId: string, userId: string, tag: string) {
+        const validTags = ['LOW', 'MEDIUM', 'HIGH'];
+        if (!validTags.includes(tag)) {
+            throw new BadRequestException(`Invalid risk tag. Must be one of: ${validTags.join(', ')}`);
+        }
+
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const oldTag = user.riskTag;
+        const updated = await this.prisma.user.update({
+            where: { id: userId },
+            data: { riskTag: tag as any }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'UPDATE_RISK_TAG',
+                details: { oldTag, newTag: tag }
+            }
+        });
+
+        return updated;
+    }
+
+    async updateValueTag(adminId: string, userId: string, tag: string) {
+        const validTags = ['NORMAL', 'VIP'];
+        if (!validTags.includes(tag)) {
+            throw new BadRequestException(`Invalid value tag. Must be one of: ${validTags.join(', ')}`);
+        }
+
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const oldTag = user.valueTag;
+        const updated = await this.prisma.user.update({
+            where: { id: userId },
+            data: { valueTag: tag as any }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'UPDATE_VALUE_TAG',
+                details: { oldTag, newTag: tag }
+            }
+        });
+
+        return updated;
+    }
+
+    // --- USERS MANAGEMENT: Admin Notes ---
+
+    async addAdminNote(adminId: string, userId: string, note: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const adminNote = await this.prisma.adminNote.create({
+            data: {
+                userId,
+                adminId,
+                note
+            }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: 'ADD_NOTE',
+                details: { noteId: adminNote.id }
+            }
+        });
+
+        return adminNote;
     }
 
     // --- USERS MANAGEMENT: Get User Cart ---
@@ -377,6 +457,37 @@ export class AdminService {
 
             return updatedUser;
         });
+    }
+
+    // --- USERS MANAGEMENT: Update User Status (Generic) ---
+
+    async updateUserStatus(adminId: string, userId: string, status: string, reason?: string) {
+        const validStatuses = ['ACTIVE', 'SUSPENDED', 'BANNED', 'PENDING'];
+        if (!validStatuses.includes(status)) {
+            throw new BadRequestException(`Invalid status: ${status}. Valid statuses are: ${validStatuses.join(', ')}`);
+        }
+
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const previousStatus = user.status || 'ACTIVE';
+
+        const updatedUser = await this.prisma.user.update({
+            where: { id: userId },
+            data: { status: status as any }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                targetId: userId,
+                action: `UPDATE_STATUS_TO_${status}`,
+                details: { reason, previousStatus, newStatus: status }
+            }
+        });
+
+        return { success: true, user: updatedUser, message: `User status updated to ${status}` };
     }
 
     // --- USERS MANAGEMENT: Suspend User ---
@@ -760,6 +871,18 @@ export class AdminService {
         });
     }
 
+    async getOrderById(orderId: string) {
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+                user: { select: { id: true, name: true, email: true, mobile: true } },
+                address: true
+            }
+        });
+        if (!order) throw new NotFoundException('Order not found');
+        return order;
+    }
+
     async updateOrderStatus(adminId: string, orderId: string, status: any, logistics?: { awb?: string, courier?: string }) {
         const order = await this.prisma.order.findUnique({ where: { id: orderId } });
         if (!order) throw new NotFoundException("Order not found");
@@ -1008,6 +1131,50 @@ export class AdminService {
             update: { value },
             create: { key, value }
         });
+    }
+
+    // --- APP CONFIG (Dynamic Frontend Configuration) ---
+
+    async getAppConfig() {
+        const configs = await this.prisma.platformConfig.findMany();
+        const configMap: Record<string, any> = {};
+        
+        for (const config of configs) {
+            // Try to parse JSON values, otherwise use string
+            try {
+                configMap[config.key] = JSON.parse(config.value);
+            } catch {
+                configMap[config.key] = config.value;
+            }
+        }
+
+        // Add defaults for essential app config
+        return {
+            maintenance_mode: configMap['MAINTENANCE_MODE'] ?? false,
+            tagline: configMap['TAGLINE'] ?? 'Your Super Shopping App',
+            min_app_version: configMap['MIN_APP_VERSION'] ?? '1.0.0',
+            force_update: configMap['FORCE_UPDATE'] ?? false,
+            announcement: configMap['ANNOUNCEMENT'] ?? null,
+            ...configMap
+        };
+    }
+
+    async updateAppConfig(data: Record<string, any>) {
+        const updates = [];
+        
+        for (const [key, value] of Object.entries(data)) {
+            const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+            updates.push(
+                this.prisma.platformConfig.upsert({
+                    where: { key: key.toUpperCase() },
+                    update: { value: stringValue },
+                    create: { key: key.toUpperCase(), value: stringValue }
+                })
+            );
+        }
+        
+        await Promise.all(updates);
+        return { success: true, message: 'Config updated' };
     }
 
     // --- COUPONS ---

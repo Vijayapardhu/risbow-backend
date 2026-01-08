@@ -41,6 +41,7 @@ export declare class CoinsService {
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
         createdAt: Date;
+        updatedAt: Date;
     }>;
     debit(userId: string, amount: number, source: CoinSource, referenceId?: string): Promise<{
         id: string;
@@ -68,5 +69,6 @@ export declare class CoinsService {
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
         createdAt: Date;
+        updatedAt: Date;
     }>;
 }

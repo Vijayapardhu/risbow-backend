@@ -44,6 +44,7 @@ model User {
   // Let's name them clearly.
   assignedLeads     AbandonedCheckout[] @relation("AgentCheckouts")
   leadFollowups     CheckoutFollowup[]
+  coinLedger        CoinLedger[]
   
   // Admin Notes
   receivedNotes     AdminNote[] @relation("UserNotes") // Notes on this user
@@ -62,6 +63,11 @@ model User {
   forceLogoutAt     DateTime?  // Tokens issued before this time are invalid
   
   createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([role])
+  @@index([status])
+  @@index([referredBy])
 }
 
 enum UserStatus {
@@ -143,11 +149,18 @@ enum OrderStatus {
 
 
 model Category {
-  id       String  @id @default(cuid())
-  name     String
-  image    String? // URL to PNG image
-  nameTE   String?
-  parentId String?
+  id        String    @id @default(cuid())
+  name      String
+  image     String?   // URL to PNG image
+  nameTE    String?
+  parentId  String?
+  parent    Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryHierarchy")
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  @@index([parentId])
 }
 
 model GiftSKU {
@@ -167,6 +180,10 @@ model CoinLedger {
   referenceId String?
   expiresAt DateTime?
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model Vendor {
@@ -188,8 +205,13 @@ model Vendor {
   vendorCode   String?    @unique // e.g. BOW-21
   commissionRate Float    @default(0.0) // Platform commission percentage
   reviews      Review[]
+  products     Product[]
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([kycStatus])
+  @@index([tier])
 }
 
 enum VendorRole {
@@ -211,18 +233,26 @@ model RoomPackage {
 // --- User Profile Extensions ---
 
 model Address {
-  id        String   @id @default(cuid())
-  userId    String
-  title     String?  // "Home", "Work"
-  name      String   // Receiver Name
-  mobile    String
-  street    String
-  city      String
-  state     String
-  pincode   String
-  isDefault Boolean  @default(false)
-  user      User     @relation(fields: [userId], references: [id])
-  orders    Order[]
+  id           String   @id @default(cuid())
+  userId       String
+  title        String?  // Deprecated, use 'label' instead
+  name         String   // Receiver Name
+  phone        String   // Contact number (was 'mobile')
+  mobile       String?  // Deprecated, use 'phone'
+  street       String?  // Deprecated, use addressLine1
+  addressLine1 String   @default("") // Street address
+  addressLine2 String?  // Apartment, suite, etc.
+  city         String
+  state        String
+  pincode      String
+  label        String   @default("Home") // Home, Work, Other
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders       Order[]
+
+  @@index([userId])
 }
 
 // --- Shopping Experience ---
@@ -243,6 +273,9 @@ model CartItem {
   quantity  Int
   cart      Cart    @relation(fields: [cartId], references: [id])
   product   Product @relation(fields: [productId], references: [id])
+  
+  @@index([productId])
+  @@index([cartId])
 }
 
 model Wishlist {
@@ -270,6 +303,11 @@ model Review {
   product   Product? @relation(fields: [productId], references: [id])
   vendor    Vendor?  @relation(fields: [vendorId], references: [id])
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([productId])
+  @@index([vendorId])
+  @@index([userId])
 }
 
 // --- Payments & Logistics ---
@@ -305,6 +343,9 @@ model Banner {
   endDate   DateTime
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
+  
+  @@index([slotType, isActive])
+  @@index([startDate, endDate])
 }
 
 // ... existing RoomPackage ...
@@ -321,6 +362,9 @@ model Notification {
   isRead    Boolean  @default(false)
   user      User?    @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
+  
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
 }
 
 
@@ -352,6 +396,14 @@ model Order {
   address         Address?    @relation(fields: [addressId], references: [id])
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([razorpayOrderId])
+  @@index([awbNumber])
+  @@index([userId, status])
+  @@index([status, createdAt])
 }
 
 
@@ -376,12 +428,20 @@ model Product {
   // Moderation
   isActive       Boolean @default(false) // Default to false for moderation queue
 
+  vendor      Vendor   @relation(fields: [vendorId], references: [id])
+  category    Category @relation(fields: [categoryId], references: [id])
   reviews     Review[]
   cartItems   CartItem[]
   wishlists   Wishlist[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  
+  @@index([vendorId])
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([vendorId, isActive])
+  @@index([categoryId, isActive])
 }
 
 // --- Admin ---
@@ -404,6 +464,11 @@ model AuditLog {
   details   Json?    // { "reason": "Fraud detection", "oldValue": ..., "newValue": ... }
   createdAt DateTime @default(now())
   // Removed Admin relation - adminId now stores User.id of admin users
+  
+  @@index([adminId])
+  @@index([targetId])
+  @@index([entity])
+  @@index([createdAt])
 }
 
 model Report {
@@ -418,6 +483,10 @@ model Report {
   updatedAt   DateTime @updatedAt
   
   reporter    User     @relation(fields: [reporterId], references: [id])
+  
+  @@index([status])
+  @@index([targetType])
+  @@index([reporterId])
 }
 
 model PlatformConfig {
@@ -511,6 +580,11 @@ model AbandonedCheckout {
   agent           User?             @relation("AgentCheckouts", fields: [agentId], references: [id])
   followups       CheckoutFollowup[]
   orders          Order[]
+  
+  @@index([status])
+  @@index([agentId])
+  @@index([abandonedAt])
+  @@index([status, agentId])
 }
 
 model CheckoutFollowup {

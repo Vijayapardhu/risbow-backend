@@ -9,17 +9,17 @@ export declare class CatalogService {
         createdAt: Date;
         updatedAt: Date;
         title: string;
+        vendorId: string;
         description: string | null;
         price: number;
         offerPrice: number | null;
-        categoryId: string;
         stock: number;
-        vendorId: string;
+        categoryId: string;
+        variants: Prisma.JsonValue | null;
+        images: string[];
         isWholesale: boolean;
         wholesalePrice: number | null;
         moq: number;
-        variants: Prisma.JsonValue | null;
-        images: string[];
         isActive: boolean;
     }>;
     findAll(filters: ProductFilterDto): Promise<{
@@ -27,17 +27,17 @@ export declare class CatalogService {
         createdAt: Date;
         updatedAt: Date;
         title: string;
+        vendorId: string;
         description: string | null;
         price: number;
         offerPrice: number | null;
-        categoryId: string;
         stock: number;
-        vendorId: string;
+        categoryId: string;
+        variants: Prisma.JsonValue | null;
+        images: string[];
         isWholesale: boolean;
         wholesalePrice: number | null;
         moq: number;
-        variants: Prisma.JsonValue | null;
-        images: string[];
         isActive: boolean;
     }[]>;
     getEligibleGifts(cartValue: number): Promise<{
@@ -47,6 +47,51 @@ export declare class CatalogService {
         stock: number;
         cost: number;
         eligibleCategories: Prisma.JsonValue | null;
+    }[]>;
+    findOne(id: string): Promise<{
+        averageRating: number;
+        reviewCount: number;
+        reviews: ({
+            user: {
+                id: string;
+                name: string;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            userId: string;
+            productId: string | null;
+            vendorId: string | null;
+            images: string[];
+            rating: number;
+            comment: string | null;
+        })[];
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        title: string;
+        vendorId: string;
+        description: string | null;
+        price: number;
+        offerPrice: number | null;
+        stock: number;
+        categoryId: string;
+        variants: Prisma.JsonValue | null;
+        images: string[];
+        isWholesale: boolean;
+        wholesalePrice: number | null;
+        moq: number;
+        isActive: boolean;
+    }>;
+    getCategories(): Promise<{
+        id: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        image: string | null;
+        nameTE: string | null;
+        parentId: string | null;
     }[]>;
     processBulkUpload(csvContent: string): Promise<{
         uploaded: number;

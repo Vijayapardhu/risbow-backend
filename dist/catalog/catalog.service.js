@@ -86,6 +86,34 @@ let CatalogService = class CatalogService {
             where: { stock: { gt: 0 } },
         });
     }
+    async findOne(id) {
+        const product = await this.prisma.product.findUnique({
+            where: { id },
+            include: {
+                reviews: {
+                    take: 10,
+                    orderBy: { createdAt: 'desc' },
+                    include: {
+                        user: {
+                            select: { id: true, name: true }
+                        }
+                    }
+                }
+            }
+        });
+        if (!product) {
+            throw new common_1.BadRequestException('Product not found');
+        }
+        const avgRating = product.reviews.length > 0
+            ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / product.reviews.length
+            : 0;
+        return Object.assign(Object.assign({}, product), { averageRating: Math.round(avgRating * 10) / 10, reviewCount: product.reviews.length });
+    }
+    async getCategories() {
+        return this.prisma.category.findMany({
+            orderBy: { name: 'asc' }
+        });
+    }
     async processBulkUpload(csvContent) {
         const lines = csvContent.split('\n').filter(Boolean);
         let count = 0;

@@ -29,6 +29,7 @@ export declare class CoinsController {
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
         createdAt: Date;
+        updatedAt: Date;
     }>;
     debit(dto: DebitCoinDto): Promise<{
         id: string;
@@ -56,6 +57,7 @@ export declare class CoinsController {
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
         createdAt: Date;
+        updatedAt: Date;
     }>;
     redeem(req: any, amount: number): Promise<{
         id: string;
@@ -83,5 +85,6 @@ export declare class CoinsController {
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
         createdAt: Date;
+        updatedAt: Date;
     }>;
 }

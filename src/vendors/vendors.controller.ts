@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Get, UseGuards, Request } from '@nestjs/common';
 import { VendorsService } from './vendors.service';
 import { RegisterVendorDto } from './dto/vendor.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard'; // Admin only?
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('vendors')
 export class VendorsController {
@@ -21,5 +21,11 @@ export class VendorsController {
     @Get()
     async findAll() {
         return this.vendorsService.findAll();
+    }
+
+    @Get('stats')
+    @UseGuards(JwtAuthGuard)
+    async getVendorStats(@Request() req) {
+        return this.vendorsService.getVendorStats(req.user.id);
     }
 }

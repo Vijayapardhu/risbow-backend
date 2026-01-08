@@ -12,11 +12,13 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GiftsController = exports.CatalogController = void 0;
+exports.GiftsController = exports.CategoriesController = exports.CatalogController = void 0;
 const common_1 = require("@nestjs/common");
 const catalog_service_1 = require("./catalog.service");
 const catalog_dto_1 = require("./dto/catalog.dto");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
+const roles_guard_1 = require("../common/guards/roles.guard");
+const roles_decorator_1 = require("../common/decorators/roles.decorator");
 const platform_express_1 = require("@nestjs/platform-express");
 let CatalogController = class CatalogController {
     constructor(catalogService) {
@@ -24,6 +26,9 @@ let CatalogController = class CatalogController {
     }
     async findAll(filters) {
         return this.catalogService.findAll(filters);
+    }
+    async findOne(id) {
+        return this.catalogService.findOne(id);
     }
     async create(createProductDto) {
         return this.catalogService.createProduct(createProductDto);
@@ -44,8 +49,16 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], CatalogController.prototype, "findAll", null);
 __decorate([
+    (0, common_1.Get)(':id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], CatalogController.prototype, "findOne", null);
+__decorate([
     (0, common_1.Post)(),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('VENDOR', 'ADMIN', 'SUPER_ADMIN'),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [catalog_dto_1.CreateProductDto]),
@@ -53,7 +66,8 @@ __decorate([
 ], CatalogController.prototype, "create", null);
 __decorate([
     (0, common_1.Post)('bulk'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('VENDOR', 'ADMIN', 'SUPER_ADMIN'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     __param(0, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
@@ -64,6 +78,25 @@ exports.CatalogController = CatalogController = __decorate([
     (0, common_1.Controller)('products'),
     __metadata("design:paramtypes", [catalog_service_1.CatalogService])
 ], CatalogController);
+let CategoriesController = class CategoriesController {
+    constructor(catalogService) {
+        this.catalogService = catalogService;
+    }
+    async getAll() {
+        return this.catalogService.getCategories();
+    }
+};
+exports.CategoriesController = CategoriesController;
+__decorate([
+    (0, common_1.Get)(),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], CategoriesController.prototype, "getAll", null);
+exports.CategoriesController = CategoriesController = __decorate([
+    (0, common_1.Controller)('categories'),
+    __metadata("design:paramtypes", [catalog_service_1.CatalogService])
+], CategoriesController);
 let GiftsController = class GiftsController {
     constructor(catalogService) {
         this.catalogService = catalogService;

@@ -32,6 +32,7 @@ export declare class JwtStrategy extends JwtStrategy_base {
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
         createdAt: Date;
+        updatedAt: Date;
     }>;
 }
 export {};

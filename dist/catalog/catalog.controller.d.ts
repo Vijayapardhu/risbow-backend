@@ -8,41 +8,90 @@ export declare class CatalogController {
         createdAt: Date;
         updatedAt: Date;
         title: string;
+        vendorId: string;
         description: string | null;
         price: number;
         offerPrice: number | null;
-        categoryId: string;
         stock: number;
-        vendorId: string;
+        categoryId: string;
+        variants: import("@prisma/client/runtime/library").JsonValue | null;
+        images: string[];
         isWholesale: boolean;
         wholesalePrice: number | null;
         moq: number;
-        variants: import("@prisma/client/runtime/library").JsonValue | null;
-        images: string[];
         isActive: boolean;
     }[]>;
+    findOne(id: string): Promise<{
+        averageRating: number;
+        reviewCount: number;
+        reviews: ({
+            user: {
+                id: string;
+                name: string;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            userId: string;
+            productId: string | null;
+            vendorId: string | null;
+            images: string[];
+            rating: number;
+            comment: string | null;
+        })[];
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        title: string;
+        vendorId: string;
+        description: string | null;
+        price: number;
+        offerPrice: number | null;
+        stock: number;
+        categoryId: string;
+        variants: import("@prisma/client/runtime/library").JsonValue | null;
+        images: string[];
+        isWholesale: boolean;
+        wholesalePrice: number | null;
+        moq: number;
+        isActive: boolean;
+    }>;
     create(createProductDto: CreateProductDto): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         title: string;
+        vendorId: string;
         description: string | null;
         price: number;
         offerPrice: number | null;
-        categoryId: string;
         stock: number;
-        vendorId: string;
+        categoryId: string;
+        variants: import("@prisma/client/runtime/library").JsonValue | null;
+        images: string[];
         isWholesale: boolean;
         wholesalePrice: number | null;
         moq: number;
-        variants: import("@prisma/client/runtime/library").JsonValue | null;
-        images: string[];
         isActive: boolean;
     }>;
     bulkUpload(file: any): Promise<{
         uploaded: number;
         message: string;
     }>;
+}
+export declare class CategoriesController {
+    private readonly catalogService;
+    constructor(catalogService: CatalogService);
+    getAll(): Promise<{
+        id: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        image: string | null;
+        nameTE: string | null;
+        parentId: string | null;
+    }[]>;
 }
 export declare class GiftsController {
     private readonly catalogService;

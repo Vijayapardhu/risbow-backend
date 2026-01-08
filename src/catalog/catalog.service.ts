@@ -89,6 +89,44 @@ export class CatalogService {
         });
     }
 
+    async findOne(id: string) {
+        const product = await this.prisma.product.findUnique({
+            where: { id },
+            include: {
+                reviews: {
+                    take: 10,
+                    orderBy: { createdAt: 'desc' },
+                    include: {
+                        user: {
+                            select: { id: true, name: true }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!product) {
+            throw new BadRequestException('Product not found');
+        }
+
+        // Calculate average rating
+        const avgRating = product.reviews.length > 0
+            ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / product.reviews.length
+            : 0;
+
+        return {
+            ...product,
+            averageRating: Math.round(avgRating * 10) / 10,
+            reviewCount: product.reviews.length
+        };
+    }
+
+    async getCategories() {
+        return this.prisma.category.findMany({
+            orderBy: { name: 'asc' }
+        });
+    }
+
     async processBulkUpload(csvContent: string) {
         // Stub for CSV parsing logic
         // e.g. CSV: Title,Price,Category
