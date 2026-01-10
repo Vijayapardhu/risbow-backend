@@ -39,6 +39,16 @@ export class AdminController {
         return this.adminService.getAnalytics();
     }
 
+    @Get('dashboard/kpis')
+    getDashboardKPIs(@Query('period') period: string) {
+        return this.adminService.getDashboardKPIs(period);
+    }
+
+    @Get('dashboard/stats')
+    getDashboardStats(@Query('period') period: string) {
+        return this.adminService.getDashboardAnalytics(period);
+    }
+
     @Get('health')
     getHealth() {
         return this.adminService.getSystemHealth();
