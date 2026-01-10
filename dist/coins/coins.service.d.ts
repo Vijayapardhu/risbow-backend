@@ -1,0 +1,74 @@
+import { PrismaService } from '../prisma/prisma.service';
+import { CoinSource } from './dto/coin.dto';
+export declare class CoinsService {
+    private prisma;
+    constructor(prisma: PrismaService);
+    getBalance(userId: string): Promise<{
+        balance: number;
+    }>;
+    getLedger(userId: string): Promise<{
+        id: string;
+        createdAt: Date;
+        userId: string;
+        amount: number;
+        source: string;
+        referenceId: string | null;
+        expiresAt: Date | null;
+    }[]>;
+    credit(userId: string, amount: number, source: CoinSource, referenceId?: string): Promise<{
+        id: string;
+        name: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        mobile: string;
+        email: string | null;
+        password: string | null;
+        role: import(".prisma/client").$Enums.UserRole;
+        status: import(".prisma/client").$Enums.UserStatus;
+        coinsBalance: number;
+        referralCode: string;
+        referredBy: string | null;
+        dateOfBirth: Date | null;
+        gender: string | null;
+        size: string | null;
+        footwearSize: number | null;
+        stylePrefs: string | null;
+        colors: string | null;
+        riskTag: import(".prisma/client").$Enums.RiskTag;
+        valueTag: import(".prisma/client").$Enums.ValueTag;
+        isCodDisabled: boolean;
+        isRefundsDisabled: boolean;
+        kycStatus: string;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        forceLogoutAt: Date | null;
+    }>;
+    debit(userId: string, amount: number, source: CoinSource, referenceId?: string): Promise<{
+        id: string;
+        name: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        mobile: string;
+        email: string | null;
+        password: string | null;
+        role: import(".prisma/client").$Enums.UserRole;
+        status: import(".prisma/client").$Enums.UserStatus;
+        coinsBalance: number;
+        referralCode: string;
+        referredBy: string | null;
+        dateOfBirth: Date | null;
+        gender: string | null;
+        size: string | null;
+        footwearSize: number | null;
+        stylePrefs: string | null;
+        colors: string | null;
+        riskTag: import(".prisma/client").$Enums.RiskTag;
+        valueTag: import(".prisma/client").$Enums.ValueTag;
+        isCodDisabled: boolean;
+        isRefundsDisabled: boolean;
+        kycStatus: string;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        forceLogoutAt: Date | null;
+    }>;
+}

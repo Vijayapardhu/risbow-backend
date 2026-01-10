@@ -1,13 +1,22 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateProductDto, ProductFilterDto } from './dto/catalog.dto';
-import { Prisma } from '@prisma/client';
-
-@Injectable()
-export class CatalogService {
-    constructor(private prisma: PrismaService) { }
-
-    async createCategory(data: { name: string; parentId?: string; image?: string; attributeSchema?: any }) {
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CatalogService = void 0;
+const common_1 = require("@nestjs/common");
+const prisma_service_1 = require("../prisma/prisma.service");
+let CatalogService = class CatalogService {
+    constructor(prisma) {
+        this.prisma = prisma;
+    }
+    async createCategory(data) {
         return this.prisma.category.create({
             data: {
                 name: data.name,
@@ -17,14 +26,12 @@ export class CatalogService {
             },
         });
     }
-
-    async getCategory(id: string) {
+    async getCategory(id) {
         return this.prisma.category.findUnique({
             where: { id }
         });
     }
-
-    async updateCategory(id: string, data: { name?: string; parentId?: string; image?: string; attributeSchema?: any }) {
+    async updateCategory(id, data) {
         return this.prisma.category.update({
             where: { id },
             data: {
@@ -35,22 +42,15 @@ export class CatalogService {
             },
         });
     }
-
-    async createProduct(dto: CreateProductDto) {
-        // Enforce Vendor SKU Limit (SRS 5.2)
+    async createProduct(dto) {
         const vendorId = dto.vendorId || 'msg_vendor_placeholder';
-
-        // Find Vendor
         const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
-        // If no vendor linked yet (MVP stub), skip check or assume Basic
-
         if (vendor) {
             const currentCount = await this.prisma.product.count({ where: { vendorId } });
             if (currentCount >= vendor.skuLimit) {
-                throw new BadRequestException(`Upgrade to PRO! You reached your limit of ${vendor.skuLimit} items.`);
+                throw new common_1.BadRequestException(`Upgrade to PRO! You reached your limit of ${vendor.skuLimit} items.`);
             }
         }
-
         return this.prisma.product.create({
             data: {
                 title: dto.title,
@@ -60,56 +60,51 @@ export class CatalogService {
                 stock: dto.stock || 0,
                 categoryId: dto.categoryId,
                 vendorId: vendorId,
-
-                // B2B Wholesale Fields
                 isWholesale: dto.isWholesale || false,
                 wholesalePrice: dto.wholesalePrice,
                 moq: dto.moq || 1,
             },
         });
     }
-
-    async findAll(filters: ProductFilterDto) {
-        const where: Prisma.ProductWhereInput = {};
-
-        if (filters.category && filters.category !== 'All') { // Handle 'All'
+    async findAll(filters) {
+        const where = {};
+        if (filters.category && filters.category !== 'All') {
             where.categoryId = filters.category;
         }
-
-        // Price Range
         if (filters.price_min !== undefined || filters.price_max !== undefined || filters.price_lt !== undefined) {
             where.price = {};
-            if (filters.price_min !== undefined) where.price.gte = filters.price_min;
-            if (filters.price_max !== undefined) where.price.lte = filters.price_max;
-            if (filters.price_lt !== undefined) where.price.lt = filters.price_lt;
+            if (filters.price_min !== undefined)
+                where.price.gte = filters.price_min;
+            if (filters.price_max !== undefined)
+                where.price.lte = filters.price_max;
+            if (filters.price_lt !== undefined)
+                where.price.lt = filters.price_lt;
         }
-
         if (filters.search) {
             where.title = { contains: filters.search, mode: 'insensitive' };
         }
-
-        // Sorting
-        let orderBy: Prisma.ProductOrderByWithRelationInput = { createdAt: 'desc' };
+        let orderBy = { createdAt: 'desc' };
         if (filters.sort) {
             switch (filters.sort) {
-                case 'price_asc': orderBy = { price: 'asc' }; break;
-                case 'price_desc': orderBy = { price: 'desc' }; break;
-                case 'newest': orderBy = { createdAt: 'desc' }; break;
+                case 'price_asc':
+                    orderBy = { price: 'asc' };
+                    break;
+                case 'price_desc':
+                    orderBy = { price: 'desc' };
+                    break;
+                case 'newest':
+                    orderBy = { createdAt: 'desc' };
+                    break;
                 default: orderBy = { createdAt: 'desc' };
             }
         }
-
         return this.prisma.product.findMany({
             where,
             orderBy,
             take: 50,
         });
     }
-
-    async getEligibleGifts(cartValue: number) {
-        // SRS: Cart >= 2k -> choose gift @0.
-        // Logic: if cartValue >= 2500 (example threshold in SRS 3.2), return gifts.
-        // For now we just return all gifts if value > 2000
+    async getEligibleGifts(cartValue) {
         if (cartValue < 2000) {
             return [];
         }
@@ -117,8 +112,7 @@ export class CatalogService {
             where: { stock: { gt: 0 } },
         });
     }
-
-    async findOne(id: string) {
+    async findOne(id) {
         const product = await this.prisma.product.findUnique({
             where: { id },
             include: {
@@ -133,36 +127,23 @@ export class CatalogService {
                 }
             }
         });
-
         if (!product) {
-            throw new BadRequestException('Product not found');
+            throw new common_1.BadRequestException('Product not found');
         }
-
-        // Calculate average rating
         const avgRating = product.reviews.length > 0
             ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / product.reviews.length
             : 0;
-
-        return {
-            ...product,
-            averageRating: Math.round(avgRating * 10) / 10,
-            reviewCount: product.reviews.length
-        };
+        return Object.assign(Object.assign({}, product), { averageRating: Math.round(avgRating * 10) / 10, reviewCount: product.reviews.length });
     }
-
     async getCategories() {
         return this.prisma.category.findMany({
             orderBy: { name: 'asc' }
         });
     }
-
-    async processBulkUpload(csvContent: string) {
-        // Stub for CSV parsing logic
-        // e.g. CSV: Title,Price,Category
+    async processBulkUpload(csvContent) {
         const lines = csvContent.split('\n').filter(Boolean);
         let count = 0;
         for (const line of lines) {
-            // Skipping header check for brevity
             const [title, price, category] = line.split(',');
             if (title && price && category) {
                 await this.prisma.product.create({
@@ -179,4 +160,10 @@ export class CatalogService {
         }
         return { uploaded: count, message: 'Bulk upload processed' };
     }
-}
+};
+exports.CatalogService = CatalogService;
+exports.CatalogService = CatalogService = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+], CatalogService);
+//# sourceMappingURL=catalog.service.js.map

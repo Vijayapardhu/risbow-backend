@@ -46,6 +46,25 @@ export class CategoriesController {
     async getAll() {
         return this.catalogService.getCategories();
     }
+
+    @Get(':id')
+    async findOne(@Param('id') id: string) {
+        return this.catalogService.getCategory(id);
+    }
+
+    @Post()
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async create(@Body() body: any) {
+        return this.catalogService.createCategory(body);
+    }
+
+    @Post(':id') // Using Post for update as simpler alternative or Patch
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async update(@Param('id') id: string, @Body() body: any) {
+        return this.catalogService.updateCategory(id, body);
+    }
 }
 
 @Controller('gifts')
