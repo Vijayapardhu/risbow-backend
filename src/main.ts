@@ -7,6 +7,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import helmet from 'helmet';
 
+// Trigger deployment update
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
@@ -21,7 +22,7 @@ async function bootstrap() {
 
     // Global Config
     app.setGlobalPrefix('api/v1');
-    
+
     // CORS configuration - allow localhost for Flutter web development
     app.enableCors({
         origin: (origin, callback) => {
@@ -31,7 +32,7 @@ async function bootstrap() {
                 'https://admin.risbow.com',
                 process.env.FRONTEND_URL,
             ].filter(Boolean);
-            
+
             // Allow requests with no origin (mobile apps, Postman, etc.)
             // Also allow localhost for development
             if (!origin || origin.startsWith('http://localhost') || allowedOrigins.includes(origin)) {
@@ -44,8 +45,8 @@ async function bootstrap() {
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     });
-    
-    app.useGlobalPipes(new ValidationPipe({ 
+
+    app.useGlobalPipes(new ValidationPipe({
         whitelist: true,
         forbidNonWhitelisted: true, // Reject requests with unknown properties
         transform: true, // Auto-transform payloads to DTO instances
