@@ -342,9 +342,24 @@ export class AdminController {
         return this.adminService.createCategory(body);
     }
 
+    @Get('categories/:id')
+    getCategory(@Param('id') id: string) {
+        return this.adminService.getCategoryById(id);
+    }
+
     @Delete('categories/:id')
     deleteCategory(@Param('id') id: string) {
         return this.adminService.deleteCategory(id);
+    }
+
+    @Post('categories/:id')
+    updateCategory(@Param('id') id: string, @Body() body: any) {
+        return this.adminService.updateCategory(id, body);
+    }
+
+    @Patch('categories/:id')
+    updateCategoryPatch(@Param('id') id: string, @Body() body: any) {
+        return this.adminService.updateCategory(id, body);
     }
 
     @Post('vendors/:id/commission')
