@@ -350,42 +350,42 @@ async function main() {
     // Create Addresses for customers
     const address1 = await prisma.address.create({
         data: {
-            userId: customer1.id,
-            title: 'Home',
+            user: { connect: { id: customer1.id } },
             name: 'John Doe',
-            mobile: '9876543210',
-            street: '123 Main Street, Apartment 4B',
+            phone: '9876543210',
+            addressLine1: '123 Main Street, Apartment 4B',
             city: 'Mumbai',
             state: 'Maharashtra',
             pincode: '400001',
+            label: 'Home',
             isDefault: true,
         }
     });
 
     await prisma.address.create({
         data: {
-            userId: customer1.id,
-            title: 'Office',
+            user: { connect: { id: customer1.id } },
             name: 'John Doe',
-            mobile: '9876543210',
-            street: 'Tech Park, Building A',
+            phone: '9876543210',
+            addressLine1: 'Tech Park, Building A',
             city: 'Mumbai',
             state: 'Maharashtra',
             pincode: '400051',
+            label: 'Office',
             isDefault: false,
         }
     });
 
     const address2 = await prisma.address.create({
         data: {
-            userId: customer2.id,
-            title: 'Home',
+            user: { connect: { id: customer2.id } },
             name: 'Jane Smith',
-            mobile: '9876543211',
-            street: '456 Park Avenue',
+            phone: '9876543211',
+            addressLine1: '456 Park Avenue',
             city: 'Delhi',
             state: 'Delhi',
             pincode: '110001',
+            label: 'Home',
             isDefault: true,
         }
     });
@@ -672,7 +672,7 @@ async function main() {
                     activeOffers: ['FLAT100']
                 },
                 status: 'NEW',
-                agentId: admin.id,
+                agentId: adminUser.id,
                 abandonedAt: new Date(Date.now() - 30 * 60 * 1000), // 30 mins ago
             }
         });
@@ -699,7 +699,7 @@ async function main() {
                     activeOffers: []
                 },
                 status: 'FOLLOW_UP',
-                agentId: admin.id,
+                agentId: adminUser.id,
                 abandonedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
             }
         });

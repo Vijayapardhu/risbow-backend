@@ -26,7 +26,7 @@ export class AuthService {
             // Check rate limiting - prevent sending OTP more than once per minute
             const rateLimitKey = `otp:ratelimit:${mobile}`;
             const lastSent = await this.redisService.get(rateLimitKey);
-            
+
             if (lastSent) {
                 const remainingTime = Math.ceil((60000 - (Date.now() - parseInt(lastSent))) / 1000);
                 throw new BadRequestException(`Please wait ${remainingTime} seconds before requesting a new OTP`);
@@ -44,10 +44,10 @@ export class AuthService {
             }
 
             console.log(`[Supabase] OTP sent to ${mobile}`);
-            
+
             // Set rate limit - OTP can be resent after 60 seconds
             await this.redisService.set(rateLimitKey, Date.now().toString(), 60);
-            
+
             return { message: 'OTP sent successfully' };
         } catch (error) {
             console.error('Error sending OTP:', error);
@@ -63,7 +63,7 @@ export class AuthService {
             // Check if there's a recent successful verification in Redis to prevent duplicates
             const recentVerificationKey = `otp:verified:${mobile}:${otp}`;
             const recentVerification = await this.redisService.get(recentVerificationKey);
-            
+
             if (recentVerification) {
                 console.log(`[Cache] Found recent verification for ${mobile}, returning cached result`);
                 return JSON.parse(recentVerification);
@@ -78,7 +78,7 @@ export class AuthService {
 
             if (error) {
                 console.error('Supabase OTP verification error:', error);
-                
+
                 // Provide more specific error messages
                 if (error.code === 'otp_expired') {
                     throw new UnauthorizedException('OTP has expired. Please request a new OTP.');
@@ -230,7 +230,7 @@ export class AuthService {
         }
 
         // Generate JWT token
-        const payload = { sub: user.id, email: user.email };
+        const payload = { sub: user.id, email: user.email, role: user.role };
 
         // Remove password from response
         const { password: _, ...userWithoutPassword } = user;
