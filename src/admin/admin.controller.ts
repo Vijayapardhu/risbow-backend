@@ -334,14 +334,6 @@ export class AdminController {
         return this.adminService.getAnalytics();
     }
 
-    @Get('products')
-    getProducts(
-        @Query('categoryId') categoryId: string,
-        @Query('search') search: string
-    ) {
-        return this.adminService.getProducts(categoryId, search);
-    }
-
     @Get('categories')
     getCategories() {
         return this.adminService.getCategories();

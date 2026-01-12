@@ -154,9 +154,6 @@ let AdminController = class AdminController {
     getChartData() {
         return this.adminService.getAnalytics();
     }
-    getProducts(categoryId, search) {
-        return this.adminService.getProducts(categoryId, search);
-    }
     getCategories() {
         return this.adminService.getCategories();
     }
@@ -594,14 +591,6 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "getChartData", null);
-__decorate([
-    (0, common_1.Get)('products'),
-    __param(0, (0, common_1.Query)('categoryId')),
-    __param(1, (0, common_1.Query)('search')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "getProducts", null);
 __decorate([
     (0, common_1.Get)('categories'),
     __metadata("design:type", Function),
