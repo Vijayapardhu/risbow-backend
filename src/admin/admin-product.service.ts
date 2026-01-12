@@ -45,24 +45,37 @@ export class AdminProductService {
             where: { isActive: true },
         });
 
-        // Transform products with intelligence
+        // Transform products with intelligence and GST calculation
         const transformedProducts = products.map(product => {
             const avgRating = product.reviews.length > 0
                 ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / product.reviews.length
                 : 0;
 
+            // Calculate prices with 18% GST
+            const basePrice = product.price;
+            const basePriceWithGST = basePrice * 1.18;
+            const offerPriceWithGST = product.offerPrice ? (product.offerPrice * 1.18) : null;
+
             return {
                 id: product.id,
                 title: product.title,
+                description: product.description,
                 image: product.images[0] || null,
+                images: product.images || [],
                 category: product.category?.name || 'Uncategorized',
+                categoryId: product.categoryId,
                 vendorCount: 1, // Single vendor in current schema
                 recommendedVendor: {
+                    id: product.vendor.id,
                     name: product.vendor.name,
+                    email: product.vendor.email,
                     reason: 'Primary vendor',
                 },
-                lowestPrice: product.offerPrice || product.price,
-                highestPrice: product.price,
+                lowestPrice: offerPriceWithGST || basePriceWithGST,
+                highestPrice: basePriceWithGST,
+                basePrice: basePrice, // Without GST for reference
+                gstAmount: basePrice * 0.18,
+                gstPercentage: 18,
                 priceVariance: 0,
                 priceAnomaly: false,
                 totalStock: product.stock,
@@ -76,6 +89,18 @@ export class AdminProductService {
                 revenue: 0, // Mock
                 commission: 0, // Mock
                 status: product.isActive ? 'active' : 'inactive',
+                sku: product.sku,
+                vendorId: product.vendorId,
+                vendor: {
+                    id: product.vendor.id,
+                    name: product.vendor.name,
+                    email: product.vendor.email,
+                    mobile: product.vendor.mobile,
+                    role: product.vendor.role,
+                    kycStatus: product.vendor.kycStatus,
+                },
+                createdAt: product.createdAt,
+                updatedAt: product.updatedAt,
             };
         });
 
@@ -121,7 +146,19 @@ export class AdminProductService {
             throw new Error('Product not found');
         }
 
-        return product;
+        // Calculate prices with 18% GST
+        const basePrice = product.price;
+        const priceWithGST = basePrice * 1.18;
+        const offerPriceWithGST = product.offerPrice ? (product.offerPrice * 1.18) : null;
+
+        return {
+            ...product,
+            basePrice: basePrice,
+            priceWithGST: priceWithGST,
+            offerPriceWithGST: offerPriceWithGST,
+            gstAmount: basePrice * 0.18,
+            gstPercentage: 18,
+        };
     }
 
     async createProduct(productData: any) {

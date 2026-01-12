@@ -13,15 +13,23 @@ export declare class AdminProductController {
         products: {
             id: string;
             title: string;
+            description: string;
             image: string;
+            images: string[];
             category: string;
+            categoryId: string;
             vendorCount: number;
             recommendedVendor: {
+                id: string;
                 name: string;
+                email: string;
                 reason: string;
             };
             lowestPrice: number;
             highestPrice: number;
+            basePrice: number;
+            gstAmount: number;
+            gstPercentage: number;
             priceVariance: number;
             priceAnomaly: boolean;
             totalStock: number;
@@ -35,6 +43,18 @@ export declare class AdminProductController {
             revenue: number;
             commission: number;
             status: string;
+            sku: string;
+            vendorId: string;
+            vendor: {
+                id: string;
+                name: string;
+                email: string;
+                mobile: string;
+                role: import(".prisma/client").$Enums.VendorRole;
+                kycStatus: string;
+            };
+            createdAt: Date;
+            updatedAt: Date;
         }[];
         pagination: {
             page: number;
@@ -43,34 +63,39 @@ export declare class AdminProductController {
         };
     }>;
     getProductDetail(id: string): Promise<{
-        category: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            image: string | null;
-            nameTE: string | null;
-            attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
-            parentId: string | null;
-        };
+        basePrice: number;
+        priceWithGST: number;
+        offerPriceWithGST: number;
+        gstAmount: number;
+        gstPercentage: number;
         vendor: {
             id: string;
-            mobile: string;
-            email: string | null;
-            name: string;
-            role: import(".prisma/client").$Enums.VendorRole;
-            coinsBalance: number;
-            kycStatus: string;
-            kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             createdAt: Date;
             updatedAt: Date;
-            vendorCode: string | null;
+            name: string;
+            mobile: string;
+            email: string | null;
+            kycStatus: string;
             tier: string;
             gstNumber: string | null;
             isGstVerified: boolean;
+            kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             skuLimit: number;
+            role: import(".prisma/client").$Enums.VendorRole;
+            coinsBalance: number;
             followCount: number;
+            vendorCode: string | null;
             commissionRate: number;
+        };
+        category: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            image: string | null;
+            nameTE: string | null;
+            parentId: string | null;
+            attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
         };
         reviews: ({
             user: {
@@ -79,21 +104,21 @@ export declare class AdminProductController {
             };
         } & {
             id: string;
+            vendorId: string | null;
+            images: string[];
             createdAt: Date;
             updatedAt: Date;
             userId: string;
             productId: string | null;
-            vendorId: string | null;
-            images: string[];
             rating: number;
             comment: string | null;
         })[];
         cartItems: {
             id: string;
             productId: string;
-            quantity: number;
             cartId: string;
             variantId: string | null;
+            quantity: number;
         }[];
         wishlists: {
             id: string;
@@ -101,13 +126,9 @@ export declare class AdminProductController {
             userId: string;
             productId: string;
         }[];
-    } & {
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        title: string;
-        length: number | null;
         vendorId: string;
+        title: string;
         description: string | null;
         price: number;
         offerPrice: number | null;
@@ -124,6 +145,7 @@ export declare class AdminProductController {
         tags: string[];
         weight: number | null;
         weightUnit: string | null;
+        length: number | null;
         width: number | null;
         height: number | null;
         dimensionUnit: string | null;
@@ -131,14 +153,13 @@ export declare class AdminProductController {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     createProduct(productData: any): Promise<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        title: string;
-        length: number | null;
         vendorId: string;
+        title: string;
         description: string | null;
         price: number;
         offerPrice: number | null;
@@ -155,6 +176,7 @@ export declare class AdminProductController {
         tags: string[];
         weight: number | null;
         weightUnit: string | null;
+        length: number | null;
         width: number | null;
         height: number | null;
         dimensionUnit: string | null;
@@ -162,14 +184,13 @@ export declare class AdminProductController {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     updateProduct(id: string, productData: any): Promise<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        title: string;
-        length: number | null;
         vendorId: string;
+        title: string;
         description: string | null;
         price: number;
         offerPrice: number | null;
@@ -186,6 +207,7 @@ export declare class AdminProductController {
         tags: string[];
         weight: number | null;
         weightUnit: string | null;
+        length: number | null;
         width: number | null;
         height: number | null;
         dimensionUnit: string | null;
@@ -193,14 +215,13 @@ export declare class AdminProductController {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     deleteProduct(id: string): Promise<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        title: string;
-        length: number | null;
         vendorId: string;
+        title: string;
         description: string | null;
         price: number;
         offerPrice: number | null;
@@ -217,6 +238,7 @@ export declare class AdminProductController {
         tags: string[];
         weight: number | null;
         weightUnit: string | null;
+        length: number | null;
         width: number | null;
         height: number | null;
         dimensionUnit: string | null;
@@ -224,6 +246,8 @@ export declare class AdminProductController {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     getVendorOffers(id: string): Promise<{
         vendorId: string;

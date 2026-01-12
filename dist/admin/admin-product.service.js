@@ -48,18 +48,29 @@ let AdminProductService = class AdminProductService {
             const avgRating = product.reviews.length > 0
                 ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / product.reviews.length
                 : 0;
+            const basePrice = product.price;
+            const basePriceWithGST = basePrice * 1.18;
+            const offerPriceWithGST = product.offerPrice ? (product.offerPrice * 1.18) : null;
             return {
                 id: product.id,
                 title: product.title,
+                description: product.description,
                 image: product.images[0] || null,
+                images: product.images || [],
                 category: product.category?.name || 'Uncategorized',
+                categoryId: product.categoryId,
                 vendorCount: 1,
                 recommendedVendor: {
+                    id: product.vendor.id,
                     name: product.vendor.name,
+                    email: product.vendor.email,
                     reason: 'Primary vendor',
                 },
-                lowestPrice: product.offerPrice || product.price,
-                highestPrice: product.price,
+                lowestPrice: offerPriceWithGST || basePriceWithGST,
+                highestPrice: basePriceWithGST,
+                basePrice: basePrice,
+                gstAmount: basePrice * 0.18,
+                gstPercentage: 18,
                 priceVariance: 0,
                 priceAnomaly: false,
                 totalStock: product.stock,
@@ -73,6 +84,18 @@ let AdminProductService = class AdminProductService {
                 revenue: 0,
                 commission: 0,
                 status: product.isActive ? 'active' : 'inactive',
+                sku: product.sku,
+                vendorId: product.vendorId,
+                vendor: {
+                    id: product.vendor.id,
+                    name: product.vendor.name,
+                    email: product.vendor.email,
+                    mobile: product.vendor.mobile,
+                    role: product.vendor.role,
+                    kycStatus: product.vendor.kycStatus,
+                },
+                createdAt: product.createdAt,
+                updatedAt: product.updatedAt,
             };
         });
         return {
@@ -114,7 +137,17 @@ let AdminProductService = class AdminProductService {
         if (!product) {
             throw new Error('Product not found');
         }
-        return product;
+        const basePrice = product.price;
+        const priceWithGST = basePrice * 1.18;
+        const offerPriceWithGST = product.offerPrice ? (product.offerPrice * 1.18) : null;
+        return {
+            ...product,
+            basePrice: basePrice,
+            priceWithGST: priceWithGST,
+            offerPriceWithGST: offerPriceWithGST,
+            gstAmount: basePrice * 0.18,
+            gstPercentage: 18,
+        };
     }
     async createProduct(productData) {
         return this.prisma.product.create({
