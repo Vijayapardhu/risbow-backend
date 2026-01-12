@@ -47,63 +47,68 @@ export class AdminProductService {
         });
 
         // Transform products with intelligence and GST calculation
-        const transformedProducts = products.map(product => {
-            const avgRating = product.reviews.length > 0
-                ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / product.reviews.length
-                : 0;
+            const transformedProducts = products.map(product => {
+                // Defensive defaults in case legacy rows have nulls
+                const reviews = Array.isArray(product.reviews) ? product.reviews : [];
+                const images = Array.isArray(product.images) ? product.images : [];
+                const vendor = product.vendor || null;
 
-            // Calculate prices with 18% GST
-            const basePrice = product.price;
-            const basePriceWithGST = basePrice * 1.18;
-            const offerPriceWithGST = product.offerPrice ? (product.offerPrice * 1.18) : null;
+                const avgRating = reviews.length > 0
+                    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+                    : 0;
 
-            return {
-                id: product.id,
-                title: product.title,
-                description: product.description,
-                image: product.images[0] || null,
-                images: product.images || [],
-                category: product.category?.name || 'Uncategorized',
-                categoryId: product.categoryId,
-                vendorCount: 1, // Single vendor in current schema
-                recommendedVendor: product.vendor ? {
-                    id: product.vendor.id,
-                    name: product.vendor.name,
-                    email: product.vendor.email,
-                    reason: 'Primary vendor',
-                } : null,
-                lowestPrice: offerPriceWithGST || basePriceWithGST,
-                highestPrice: basePriceWithGST,
-                basePrice: basePrice, // Without GST for reference
-                gstAmount: basePrice * 0.18,
-                gstPercentage: 18,
-                priceVariance: 0,
-                priceAnomaly: false,
-                totalStock: product.stock,
-                stockRisk: product.stock < 10,
-                views: 0, // Mock - implement with analytics
-                cartRate: 0,
-                conversion: 0,
-                rating: Math.round(avgRating * 10) / 10,
-                reviewCount: product.reviews.length,
-                returnRate: 0, // Mock
-                revenue: 0, // Mock
-                commission: 0, // Mock
-                status: product.isActive ? 'active' : 'inactive',
-                sku: product.sku,
-                vendorId: product.vendorId,
-                vendor: product.vendor ? {
-                    id: product.vendor.id,
-                    name: product.vendor.name,
-                    email: product.vendor.email,
-                    mobile: product.vendor.mobile,
-                    role: product.vendor.role,
-                    kycStatus: product.vendor.kycStatus,
-                } : null,
-                createdAt: product.createdAt,
-                updatedAt: product.updatedAt,
-            };
-        });
+                // Calculate prices with 18% GST, guard against null
+                const basePrice = product.price ?? 0;
+                const basePriceWithGST = basePrice * 1.18;
+                const offerPriceWithGST = product.offerPrice ? (product.offerPrice * 1.18) : null;
+
+                return {
+                    id: product.id,
+                    title: product.title,
+                    description: product.description,
+                    image: images[0] || null,
+                    images,
+                    category: product.category?.name || 'Uncategorized',
+                    categoryId: product.categoryId,
+                    vendorCount: 1, // Single vendor in current schema
+                    recommendedVendor: vendor ? {
+                        id: vendor.id,
+                        name: vendor.name,
+                        email: vendor.email,
+                        reason: 'Primary vendor',
+                    } : null,
+                    lowestPrice: offerPriceWithGST || basePriceWithGST,
+                    highestPrice: basePriceWithGST,
+                    basePrice: basePrice, // Without GST for reference
+                    gstAmount: basePrice * 0.18,
+                    gstPercentage: 18,
+                    priceVariance: 0,
+                    priceAnomaly: false,
+                    totalStock: product.stock ?? 0,
+                    stockRisk: (product.stock ?? 0) < 10,
+                    views: 0, // Mock - implement with analytics
+                    cartRate: 0,
+                    conversion: 0,
+                    rating: Math.round(avgRating * 10) / 10,
+                    reviewCount: reviews.length,
+                    returnRate: 0, // Mock
+                    revenue: 0, // Mock
+                    commission: 0, // Mock
+                    status: product.isActive ? 'active' : 'inactive',
+                    sku: product.sku,
+                    vendorId: product.vendorId,
+                    vendor: vendor ? {
+                        id: vendor.id,
+                        name: vendor.name,
+                        email: vendor.email,
+                        mobile: vendor.mobile,
+                        role: vendor.role,
+                        kycStatus: vendor.kycStatus,
+                    } : null,
+                    createdAt: product.createdAt,
+                    updatedAt: product.updatedAt,
+                };
+            });
 
         return {
             insights: {
