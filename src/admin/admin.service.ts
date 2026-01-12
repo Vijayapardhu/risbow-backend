@@ -317,7 +317,7 @@ export class AdminService {
             data: {
                 adminId,
                 entity: 'USER',
-                targetId: userId,
+                entityId: userId,
                 action: 'UPDATE_USER',
                 details: { previousData: { risk: user.riskTag, value: user.valueTag, status: user.status }, newData: updateData }
             }
@@ -336,7 +336,7 @@ export class AdminService {
             data: {
                 adminId,
                 entity: 'USER',
-                targetId: userId,
+                entityId: userId,
                 action: disabled ? 'DISABLE_COD' : 'ENABLE_COD',
                 details: {}
             }
@@ -365,7 +365,7 @@ export class AdminService {
             data: {
                 adminId,
                 entity: 'USER',
-                targetId: userId,
+                entityId: userId,
                 action: 'UPDATE_RISK_TAG',
                 details: { oldTag, newTag: tag }
             }
@@ -393,7 +393,7 @@ export class AdminService {
             data: {
                 adminId,
                 entity: 'USER',
-                targetId: userId,
+                entityId: userId,
                 action: 'UPDATE_VALUE_TAG',
                 details: { oldTag, newTag: tag }
             }
@@ -420,7 +420,7 @@ export class AdminService {
             data: {
                 adminId,
                 entity: 'USER',
-                targetId: userId,
+                entityId: userId,
                 action: 'ADD_NOTE',
                 details: { noteId: adminNote.id }
             }
@@ -504,7 +504,7 @@ export class AdminService {
                 data: {
                     adminId,
                     entity: 'USER',
-                    targetId: userId,
+                    entityId: userId,
                     action: 'UPDATE_COINS',
                     details: { amount, reason, oldBalance: user.coinsBalance || 0, newBalance }
                 }
@@ -536,7 +536,7 @@ export class AdminService {
             data: {
                 adminId,
                 entity: 'USER',
-                targetId: userId,
+                entityId: userId,
                 action: `UPDATE_STATUS_TO_${status}`,
                 details: { reason, previousStatus, newStatus: status }
             }
@@ -560,7 +560,7 @@ export class AdminService {
             data: {
                 adminId,
                 entity: 'USER',
-                targetId: userId,
+                entityId: userId,
                 action: 'SUSPEND_USER',
                 details: { reason, previousStatus: user.status || 'ACTIVE' }
             }
@@ -584,7 +584,7 @@ export class AdminService {
             data: {
                 adminId,
                 entity: 'USER',
-                targetId: userId,
+                entityId: userId,
                 action: 'ACTIVATE_USER',
                 details: { previousStatus: user.status || 'SUSPENDED' }
             }
@@ -608,7 +608,7 @@ export class AdminService {
             data: {
                 adminId,
                 entity: 'USER',
-                targetId: userId,
+                entityId: userId,
                 action: 'BAN_USER',
                 details: { reason, previousStatus: user.status || 'ACTIVE' }
             }
@@ -630,7 +630,7 @@ export class AdminService {
         });
 
         await this.prisma.auditLog.create({
-            data: { adminId, entity: 'USER', targetId: userId, action: 'FORCE_LOGOUT' }
+            data: { adminId, entity: 'USER', entityId: userId, action: 'FORCE_LOGOUT' }
         });
 
         return { success: true, message: 'User sessions invalidated (timestamps updated)' };
@@ -656,7 +656,7 @@ export class AdminService {
         });
 
         await this.prisma.auditLog.create({
-            data: { adminId, entity: 'USER', targetId: userId, action: 'TOGGLE_REFUNDS', details: { disabled } }
+            data: { adminId, entity: 'USER', entityId: userId, action: 'TOGGLE_REFUNDS', details: { disabled } }
         });
 
         return updatedUser;
@@ -723,7 +723,7 @@ export class AdminService {
             data: {
                 adminId,
                 entity: 'USER',
-                targetId: userId,
+                entityId: userId,
                 action: 'DELETE_USER',
                 details: { deletedEmail: user.email, deletedName: user.name }
             }
@@ -836,7 +836,7 @@ export class AdminService {
             data: {
                 adminId,
                 entity: 'USER',
-                targetId: userId,
+                entityId: userId,
                 action: 'RESET_PASSWORD',
                 details: { userEmail: user.email }
             }
@@ -956,7 +956,7 @@ export class AdminService {
             data: {
                 adminId,
                 entity: 'ORDER',
-                targetId: orderId,
+                entityId: orderId,
                 action: 'UPDATE_STATUS',
                 details: { oldStatus: order.status, newStatus: status, logistics }
             }
@@ -993,7 +993,7 @@ export class AdminService {
             data: {
                 adminId,
                 entity: 'VENDOR',
-                targetId: id,
+                entityId: id,
                 action: approved ? 'APPROVE' : 'REJECT',
                 details: { previousStatus: vendor.kycStatus, newStatus, reason }
             }
@@ -1012,7 +1012,7 @@ export class AdminService {
             data: {
                 adminId,
                 entity: 'VENDOR',
-                targetId: id,
+                entityId: id,
                 action: 'UPDATE_COMMISSION',
                 details: { newRate: rate }
             }
@@ -1152,7 +1152,7 @@ export class AdminService {
             data: {
                 adminId,
                 entity: 'MARKETING',
-                targetId: broadcast.id,
+                entityId: broadcast.id,
                 action: 'SEND_BROADCAST',
                 details: { title, audience }
             }

@@ -9,32 +9,32 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  mobile        String   @unique
-  name          String?
-  email         String?  @unique
-  password      String?  // Hashed password for email/password auth
-  role          UserRole @default(CUSTOMER)
-  status        UserStatus @default(ACTIVE)
-  coinsBalance  Int      @default(0)
-  referralCode  String   @unique @default(cuid())
-  referredBy    String?
-  dateOfBirth   DateTime? // User's date of birth
-  gender        String?
-  size          String? // S, M, L, XL
-  footwearSize  Int?
-  stylePrefs    String? // Comma separated tags e.g. "Casual,Party"
-  colors        String? // Comma separated e.g. "Red,Blue"
-  rooms         RoomMember[]
-  orders        Order[]
-  createdRooms  Room[]
+  id                 String              @id @default(cuid())
+  mobile             String              @unique
+  name               String?
+  email              String?             @unique
+  password           String? // Hashed password for email/password auth
+  role               UserRole            @default(CUSTOMER)
+  status             UserStatus          @default(ACTIVE)
+  coinsBalance       Int                 @default(0)
+  referralCode       String              @unique @default(cuid())
+  referredBy         String?
+  dateOfBirth        DateTime? // User's date of birth
+  gender             String?
+  size               String? // S, M, L, XL
+  footwearSize       Int?
+  stylePrefs         String? // Comma separated tags e.g. "Casual,Party"
+  colors             String? // Comma separated e.g. "Red,Blue"
+  rooms              RoomMember[]
+  orders             Order[]
+  createdRooms       Room[]
   // New Relations
-  addresses     Address[]
-  cart          Cart?
-  wishlist      Wishlist[]
-  reviews       Review[]
-  notifications Notification[]
-  reports       Report[]
+  addresses          Address[]
+  cart               Cart?
+  wishlist           Wishlist[]
+  reviews            Review[]
+  notifications      Notification[]
+  reports            Report[]
   abandonedCheckouts AbandonedCheckout[] // Cart history? Or active assigned leads?
   // Wait, User has 'abandonedCheckouts' relation? 
   // Line 39 says: abandonedCheckouts AbandonedCheckout[]
@@ -42,29 +42,31 @@ model User {
   // I need NEW fields for `agentId`.
   // Prisma requires unique relation names if multiple point to same model.
   // Let's name them clearly.
-  assignedLeads     AbandonedCheckout[] @relation("AgentCheckouts")
-  leadFollowups     CheckoutFollowup[]
-  coinLedger        CoinLedger[]
-  
+  assignedLeads      AbandonedCheckout[] @relation("AgentCheckouts")
+  leadFollowups      CheckoutFollowup[]
+  coinLedger         CoinLedger[]
+  auditLogs          AuditLog[]
+  refunds            Refund[]
+
   // Admin Notes
-  receivedNotes     AdminNote[] @relation("UserNotes") // Notes on this user
-  authoredNotes     AdminNote[] @relation("AdminAuthor") // Notes written by this user (as admin)
-  
+  receivedNotes AdminNote[] @relation("UserNotes") // Notes on this user
+  authoredNotes AdminNote[] @relation("AdminAuthor") // Notes written by this user (as admin)
+
   // Enterprise Fields
-  riskTag           RiskTag    @default(LOW)
-  valueTag          ValueTag   @default(NORMAL)
-  isCodDisabled     Boolean    @default(false)
-  isRefundsDisabled Boolean    @default(false)
-  
+  riskTag           RiskTag  @default(LOW)
+  valueTag          ValueTag @default(NORMAL)
+  isCodDisabled     Boolean  @default(false)
+  isRefundsDisabled Boolean  @default(false)
+
   // KYC & Security
-  kycStatus         String     @default("NOT_SUBMITTED") // PENDING, VERIFIED, REJECTED
-  kycDocuments      Json?      // { "aadhaar": "url", "pan": "url" }
-  miscDocuments     Json?      // Generic docs
-  forceLogoutAt     DateTime?  // Tokens issued before this time are invalid
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  kycStatus     String    @default("NOT_SUBMITTED") // PENDING, VERIFIED, REJECTED
+  kycDocuments  Json? // { "aadhaar": "url", "pan": "url" }
+  miscDocuments Json? // Generic docs
+  forceLogoutAt DateTime? // Tokens issued before this time are invalid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([role])
   @@index([status])
   @@index([referredBy])
@@ -97,20 +99,20 @@ model Room {
   unlockMinOrders Int
   unlockMinValue  Int
   members         RoomMember[]
-  createdById     String?      // Nullable for System rooms
+  createdById     String? // Nullable for System rooms
   isSystemRoom    Boolean      @default(false)
   createdBy       User?        @relation(fields: [createdById], references: [id])
   createdAt       DateTime     @default(now())
 }
 
 model WeeklyOffer {
-  id          String   @id @default(cuid())
-  name        String
-  startAt     DateTime
-  endAt       DateTime
-  isActive    Boolean  @default(true)
-  rules       Json?    // e.g. { categoryId: "xyz", minDiscount: 10 }
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  name      String
+  startAt   DateTime
+  endAt     DateTime
+  isActive  Boolean  @default(true)
+  rules     Json? // e.g. { categoryId: "xyz", minDiscount: 10 }
+  createdAt DateTime @default(now())
 }
 
 enum RoomStatus {
@@ -126,7 +128,7 @@ model RoomMember {
   status MemberStatus @default(PENDING)
   room   Room         @relation(fields: [roomId], references: [id])
   user   User         @relation(fields: [userId], references: [id])
-  
+
   @@id([roomId, userId])
 }
 
@@ -137,7 +139,6 @@ enum MemberStatus {
   CANCELLED
 }
 
-
 enum OrderStatus {
   PENDING
   CONFIRMED
@@ -147,21 +148,19 @@ enum OrderStatus {
   CANCELLED
 }
 
-
-
 model Category {
-  id        String    @id @default(cuid())
-  name      String
-  image     String?   // URL to PNG image
-  nameTE    String?
-  parentId  String?
-  parent    Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children  Category[] @relation("CategoryHierarchy")
-  products  Product[]
-  attributeSchema Json?   // [{ name: "Size", type: "select", options: ["S", "M"] }]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  
+  id              String     @id @default(cuid())
+  name            String
+  image           String? // URL to PNG image
+  nameTE          String?
+  parentId        String?
+  parent          Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children        Category[] @relation("CategoryHierarchy")
+  products        Product[]
+  attributeSchema Json? // [{ name: "Size", type: "select", options: ["S", "M"] }]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
   @@index([parentId])
 }
 
@@ -175,43 +174,43 @@ model GiftSKU {
 }
 
 model CoinLedger {
-  id        String   @id @default(cuid())
-  userId    String
-  amount    Int
-  source    String
+  id          String    @id @default(cuid())
+  userId      String
+  amount      Int
+  source      String
   referenceId String?
-  expiresAt DateTime?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id])
+
   @@index([userId])
   @@index([createdAt])
 }
 
 model Vendor {
-  id        String   @id @default(cuid())
-  name      String
-  mobile    String   @unique
-  email     String?
-  kycStatus String   @default("PENDING")
-  tier      String   @default("BASIC") // BASIC, PRO, PREMIUM
-  gstNumber String?
+  id            String  @id @default(cuid())
+  name          String
+  mobile        String  @unique
+  email         String?
+  kycStatus     String  @default("PENDING")
+  tier          String  @default("BASIC") // BASIC, PRO, PREMIUM
+  gstNumber     String?
   isGstVerified Boolean @default(false)
-  kycDocuments Json?   // { "pan": "url", "aadhaar": "url", "gst": "url" }
-  skuLimit  Int      @default(100)
-  
+  kycDocuments  Json? // { "pan": "url", "aadhaar": "url", "gst": "url" }
+  skuLimit      Int     @default(100)
+
   // B2B / Advanced Vendor
-  role         VendorRole @default(RETAILER)
-  coinsBalance Int        @default(0)
-  followCount  Int        @default(0)
-  vendorCode   String?    @unique // e.g. BOW-21
-  commissionRate Float    @default(0.0) // Platform commission percentage
-  reviews      Review[]
-  products     Product[]
+  role           VendorRole @default(RETAILER)
+  coinsBalance   Int        @default(0)
+  followCount    Int        @default(0)
+  vendorCode     String?    @unique // e.g. BOW-21
+  commissionRate Float      @default(0.0) // Platform commission percentage
+  reviews        Review[]
+  products       Product[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@index([kycStatus])
   @@index([tier])
 }
@@ -221,29 +220,26 @@ enum VendorRole {
   WHOLESALER
 }
 
-
-
 model RoomPackage {
-  id        String   @id @default(cuid())
-  vendorId  String
-  packageType String // 2_TIME, 3_TIME, 4_TIME
+  id               String   @id @default(cuid())
+  vendorId         String
+  packageType      String // 2_TIME, 3_TIME, 4_TIME
   remainingCredits Int
-  createdAt DateTime @default(now())
+  createdAt        DateTime @default(now())
 }
-
 
 // --- User Profile Extensions ---
 
 model Address {
   id           String   @id @default(cuid())
   userId       String
-  title        String?  // Deprecated, use 'label' instead
-  name         String   // Receiver Name
-  phone        String   // Contact number (was 'mobile')
-  mobile       String?  // Deprecated, use 'phone'
-  street       String?  // Deprecated, use addressLine1
+  title        String? // Deprecated, use 'label' instead
+  name         String // Receiver Name
+  phone        String // Contact number (was 'mobile')
+  mobile       String? // Deprecated, use 'phone'
+  street       String? // Deprecated, use addressLine1
   addressLine1 String   @default("") // Street address
-  addressLine2 String?  // Apartment, suite, etc.
+  addressLine2 String? // Apartment, suite, etc.
   city         String
   state        String
   pincode      String
@@ -275,7 +271,7 @@ model CartItem {
   quantity  Int
   cart      Cart    @relation(fields: [cartId], references: [id])
   product   Product @relation(fields: [productId], references: [id])
-  
+
   @@index([productId])
   @@index([cartId])
 }
@@ -298,7 +294,7 @@ model Review {
   userId    String
   productId String?
   vendorId  String?
-  rating    Int      // 1-5
+  rating    Int // 1-5
   comment   String?
   images    String[] // URLs
   user      User     @relation(fields: [userId], references: [id])
@@ -306,7 +302,7 @@ model Review {
   vendor    Vendor?  @relation(fields: [vendorId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@index([productId])
   @@index([vendorId])
   @@index([userId])
@@ -319,9 +315,9 @@ model Payment {
   orderId         String        @unique
   amount          Int
   currency        String        @default("INR")
-  provider        String        // "RAZORPAY", "COD"
+  provider        String // "RAZORPAY", "COD"
   providerOrderId String?
-  paymentId       String?       // Razorpay Payment ID
+  paymentId       String? // Razorpay Payment ID
   status          PaymentStatus @default(PENDING)
   order           Order         @relation(fields: [orderId], references: [id])
   createdAt       DateTime      @default(now())
@@ -336,16 +332,16 @@ enum PaymentStatus {
 }
 
 model Banner {
-  id        String   @id @default(cuid())
-  vendorId  String?  // Optional, can be system banner
-  imageUrl  String
+  id          String   @id @default(cuid())
+  vendorId    String? // Optional, can be system banner
+  imageUrl    String
   redirectUrl String? // Deep link or web link
-  slotType  String   // HOME, CATEGORY, SEARCH
-  startDate DateTime
-  endDate   DateTime
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  
+  slotType    String // HOME, CATEGORY, SEARCH
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
   @@index([slotType, isActive])
   @@index([startDate, endDate])
 }
@@ -355,50 +351,49 @@ model Banner {
 // ...
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String?  // Optional for Broadcasts
-  title     String
-  body      String
-  type      String   // "ORDER", "OFFER", "ROOM", "BROADCAST"
+  id             String   @id @default(cuid())
+  userId         String? // Optional for Broadcasts
+  title          String
+  body           String
+  type           String // "ORDER", "OFFER", "ROOM", "BROADCAST"
   targetAudience String? // "ALL", "CUSTOMERS", "VENDORS" (if Broadcast)
-  isRead    Boolean  @default(false)
-  user      User?    @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-  
+  isRead         Boolean  @default(false)
+  user           User?    @relation(fields: [userId], references: [id])
+  createdAt      DateTime @default(now())
+
   @@index([userId, isRead])
   @@index([userId, createdAt])
 }
 
-
-
 // --- Updates to Existing Models (Relations) ---
 
 model Order {
-  id              String      @id @default(cuid())
-  userId          String
-  roomId          String?
-  addressId       String?     // Link to shipping address
-  items           Json
-  totalAmount     Int
-  coinsUsed       Int         @default(0)
-  coinsUsedDebited Boolean    @default(false)
-  status          OrderStatus @default(PENDING)
-  razorpayOrderId String?
-  awbNumber       String?
-  courierPartner  String?
-  
+  id               String      @id @default(cuid())
+  userId           String
+  roomId           String?
+  addressId        String? // Link to shipping address
+  items            Json
+  totalAmount      Int
+  coinsUsed        Int         @default(0)
+  coinsUsedDebited Boolean     @default(false)
+  status           OrderStatus @default(PENDING)
+  razorpayOrderId  String?
+  awbNumber        String?
+  courierPartner   String?
+
   // Recovery Fields
   abandonedCheckoutId String?
   agentId             String? // Telecaller who converted this order
-  
-  checkout   AbandonedCheckout? @relation(fields: [abandonedCheckoutId], references: [id])
 
-  user            User        @relation(fields: [userId], references: [id])
-  payment         Payment?
-  address         Address?    @relation(fields: [addressId], references: [id])
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  
+  checkout AbandonedCheckout? @relation(fields: [abandonedCheckoutId], references: [id])
+
+  user      User     @relation(fields: [userId], references: [id])
+  payment   Payment?
+  address   Address? @relation(fields: [addressId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Refund    Refund[]
+
   @@index([userId])
   @@index([status])
   @@index([createdAt])
@@ -407,8 +402,6 @@ model Order {
   @@index([userId, status])
   @@index([status, createdAt])
 }
-
-
 
 model Product {
   id          String   @id @default(cuid())
@@ -419,26 +412,26 @@ model Product {
   offerPrice  Int?
   stock       Int      @default(0)
   categoryId  String
-  variants    Json?    // Keep strict structured JSON for flexibility or make Model
+  variants    Json? // Keep strict structured JSON for flexibility or make Model
   images      String[] // Multiple images
-  
+
   // B2B Wholesale Fields
   isWholesale    Boolean @default(false)
   wholesalePrice Int?
   moq            Int     @default(1)
-  
+
   // Moderation
-  isActive       Boolean @default(false) // Default to false for moderation queue
+  isActive Boolean @default(false) // Default to false for moderation queue
 
-  vendor      Vendor   @relation(fields: [vendorId], references: [id])
-  category    Category @relation(fields: [categoryId], references: [id])
-  reviews     Review[]
-  cartItems   CartItem[]
-  wishlists   Wishlist[]
+  vendor    Vendor     @relation(fields: [vendorId], references: [id])
+  category  Category   @relation(fields: [categoryId], references: [id])
+  reviews   Review[]
+  cartItems CartItem[]
+  wishlists Wishlist[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([vendorId])
   @@index([categoryId])
   @@index([isActive])
@@ -451,41 +444,25 @@ model Product {
 model Admin {
   id        String   @id @default(cuid())
   email     String   @unique
-  password  String   // Hashed
-  role      String   // "SUPER_ADMIN", "SUPPORT"
+  password  String // Hashed
+  role      String // "SUPER_ADMIN", "SUPPORT"
   createdAt DateTime @default(now())
   // adminNotes AdminNote[] // Removed relation as AdminNote now points to User
-}
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  adminId   String   // User ID of the admin who performed the action
-  targetId  String   // ID of the entity changed (User, Vendor, Room, etc.)
-  entity    String   // "USER", "VENDOR", "ROOM", "ORDER"
-  action    String   // "APPROVE", "REJECT", "UPDATE_COINS", "SUSPEND"
-  details   Json?    // { "reason": "Fraud detection", "oldValue": ..., "newValue": ... }
-  createdAt DateTime @default(now())
-  // Removed Admin relation - adminId now stores User.id of admin users
-  
-  @@index([adminId])
-  @@index([targetId])
-  @@index([entity])
-  @@index([createdAt])
 }
 
 model Report {
   id          String   @id @default(cuid())
   reporterId  String
-  targetType  String   // "USER", "PRODUCT", "REVIEW"
+  targetType  String // "USER", "PRODUCT", "REVIEW"
   targetId    String
   reason      String
   description String?
   status      String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
-  reporter    User     @relation(fields: [reporterId], references: [id])
-  
+
+  reporter User @relation(fields: [reporterId], references: [id])
+
   @@index([status])
   @@index([targetType])
   @@index([reporterId])
@@ -494,27 +471,27 @@ model Report {
 model PlatformConfig {
   id          String   @id @default(cuid())
   key         String   @unique // e.g., "PLATFORM_FEE", "GSTIN"
-  value       String   // e.g., "10", "29AAAAA0000A1Z5"
+  value       String // e.g., "10", "29AAAAA0000A1Z5"
   description String?
   updatedAt   DateTime @updatedAt
 }
 
 model Coupon {
-  id            String   @id @default(cuid())
-  code          String   @unique
-  description   String?
-  discountType  String   // "PERCENTAGE", "FLAT"
-  discountValue Int
-  minOrderAmount Int?    @default(0)
-  maxDiscount   Int?     // For percentage based
-  validFrom     DateTime @default(now())
-  validUntil    DateTime?
-  usageLimit    Int?     // Max times globally
-  usedCount     Int      @default(0)
-  isActive      Boolean  @default(true)
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String    @id @default(cuid())
+  code           String    @unique
+  description    String?
+  discountType   String // "PERCENTAGE", "FLAT"
+  discountValue  Int
+  minOrderAmount Int?      @default(0)
+  maxDiscount    Int? // For percentage based
+  validFrom      DateTime  @default(now())
+  validUntil     DateTime?
+  usageLimit     Int? // Max times globally
+  usedCount      Int       @default(0)
+  isActive       Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // --- New Enums for User Management ---
@@ -538,10 +515,9 @@ model AdminNote {
   adminId   String
   note      String
   createdAt DateTime @default(now())
-  
-  
-  user      User     @relation("UserNotes", fields: [userId], references: [id])
-  admin     User     @relation("AdminAuthor", fields: [adminId], references: [id])
+
+  user  User @relation("UserNotes", fields: [userId], references: [id])
+  admin User @relation("AdminAuthor", fields: [adminId], references: [id])
 }
 
 // --- Abandoned Checkout Recovery ---
@@ -563,26 +539,26 @@ enum CallOutcome {
 }
 
 model AbandonedCheckout {
-  id              String   @id @default(cuid())
+  id              String  @id @default(cuid())
   userId          String?
-  guestInfo       Json?    // { name, phone, email }
-  cartSnapshot    Json     // Immutable items, prices
-  financeSnapshot Json     // subtotal, discount, final_amount, payment_method
-  metadata        Json?    // stock_status, urgency_reason, active_offers
-  
-  status          CheckoutRecoveryStatus @default(NEW)
-  agentId         String?  // Admin ID (Telecaller)
-  lockedUntil     DateTime?
-  
-  createdAt       DateTime @default(now())
-  abandonedAt     DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  user            User?             @relation(fields: [userId], references: [id])
-  agent           User?             @relation("AgentCheckouts", fields: [agentId], references: [id])
-  followups       CheckoutFollowup[]
-  orders          Order[]
-  
+  guestInfo       Json? // { name, phone, email }
+  cartSnapshot    Json // Immutable items, prices
+  financeSnapshot Json // subtotal, discount, final_amount, payment_method
+  metadata        Json? // stock_status, urgency_reason, active_offers
+
+  status      CheckoutRecoveryStatus @default(NEW)
+  agentId     String? // Admin ID (Telecaller)
+  lockedUntil DateTime?
+
+  createdAt   DateTime @default(now())
+  abandonedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User?              @relation(fields: [userId], references: [id])
+  agent     User?              @relation("AgentCheckouts", fields: [agentId], references: [id])
+  followups CheckoutFollowup[]
+  orders    Order[]
+
   @@index([status])
   @@index([agentId])
   @@index([abandonedAt])
@@ -590,13 +566,73 @@ model AbandonedCheckout {
 }
 
 model CheckoutFollowup {
-  id          String      @id @default(cuid())
-  checkoutId  String
-  agentId     String
-  note        String
-  outcome     CallOutcome?
-  createdAt   DateTime    @default(now())
-  
-  checkout    AbandonedCheckout @relation(fields: [checkoutId], references: [id])
-  agent       User              @relation(fields: [agentId], references: [id])
+  id         String       @id @default(cuid())
+  checkoutId String
+  agentId    String
+  note       String
+  outcome    CallOutcome?
+  createdAt  DateTime     @default(now())
+
+  checkout AbandonedCheckout @relation(fields: [checkoutId], references: [id])
+  agent    User              @relation(fields: [agentId], references: [id])
+}
+
+// --- Audit Logs (Security Trail) ---
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String // CREATE_PRODUCT, DELETE_USER, APPROVE_VENDOR, ISSUE_COINS, etc.
+  entity    String // Product, User, Order, Vendor, etc.
+  entityId  String
+  details   Json? // Additional metadata about the action
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([entity])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// --- Refunds Management ---
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSED
+  FAILED
+}
+
+enum RefundMethod {
+  ORIGINAL_PAYMENT
+  COINS
+  BANK_TRANSFER
+}
+
+model Refund {
+  id            String       @id @default(cuid())
+  orderId       String
+  userId        String
+  amount        Float
+  refundMethod  RefundMethod @default(ORIGINAL_PAYMENT)
+  reason        String
+  status        RefundStatus @default(PENDING)
+  adminNotes    String?
+  processedById String?
+  processedAt   DateTime?
+  transactionId String? // Payment gateway transaction ID
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([status])
+  @@index([userId])
+  @@index([orderId])
 }
