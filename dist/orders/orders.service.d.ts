@@ -162,7 +162,18 @@ export declare class OrdersService {
             customerMobile: string;
             shopId: string;
             shopName: string;
-            items: import("@prisma/client/runtime/library").JsonArray;
+            items: {
+                id: string;
+                productId: any;
+                productName: any;
+                productImage: any;
+                sku: any;
+                variantId: any;
+                variantName: any;
+                quantity: any;
+                unitPrice: any;
+                total: number;
+            }[];
             subtotal: number;
             shippingCost: number;
             tax: number;

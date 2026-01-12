@@ -122,8 +122,8 @@ export declare class AdminProductService {
             id: string;
             productId: string;
             quantity: number;
-            cartId: string;
             variantId: string | null;
+            cartId: string;
         }[];
         wishlists: {
             id: string;

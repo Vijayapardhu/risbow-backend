@@ -227,6 +227,18 @@ let OrdersService = class OrdersService {
         console.log(`Found ${orders.length} orders. Total: ${total}`);
         const transformedOrders = orders.map(order => {
             const items = Array.isArray(order.items) ? order.items : [];
+            const transformedItems = items.map((item, index) => ({
+                id: `${order.id}-item-${index}`,
+                productId: item.productId || '',
+                productName: item.productName || item.title || 'Product',
+                productImage: item.image || '',
+                sku: item.sku || item.productId || '',
+                variantId: item.variantId,
+                variantName: item.variantName,
+                quantity: item.quantity || 1,
+                unitPrice: item.price || item.unitPrice || 0,
+                total: (item.price || item.unitPrice || 0) * (item.quantity || 1)
+            }));
             const subtotal = order.totalAmount - (order.coinsUsed || 0);
             return {
                 id: order.id,
@@ -238,7 +250,7 @@ let OrdersService = class OrdersService {
                 customerMobile: order.user?.mobile || '',
                 shopId: '',
                 shopName: 'Risbow Store',
-                items: items,
+                items: transformedItems,
                 subtotal: subtotal,
                 shippingCost: 0,
                 tax: 0,
@@ -300,6 +312,18 @@ let OrdersService = class OrdersService {
             throw new common_1.NotFoundException('Order not found');
         }
         const items = Array.isArray(order.items) ? order.items : [];
+        const transformedItems = items.map((item, index) => ({
+            id: `${order.id}-item-${index}`,
+            productId: item.productId || '',
+            productName: item.productName || item.title || 'Product',
+            productImage: item.image || '',
+            sku: item.sku || item.productId || '',
+            variantId: item.variantId,
+            variantName: item.variantName,
+            quantity: item.quantity || 1,
+            unitPrice: item.price || item.unitPrice || 0,
+            total: transformedItems,
+        }));
         const subtotal = order.totalAmount - (order.coinsUsed || 0);
         return {
             id: order.id,

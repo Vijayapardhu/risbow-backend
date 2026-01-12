@@ -288,6 +288,21 @@ export class OrdersService {
         const transformedOrders = orders.map(order => {
             // Parse items from JSON to calculate subtotal
             const items = Array.isArray(order.items) ? order.items : [];
+            
+            // Transform items to match frontend OrderItem interface
+            const transformedItems = items.map((item: any, index: number) => ({
+                id: `${order.id}-item-${index}`,
+                productId: item.productId || '',
+                productName: item.productName || item.title || 'Product',
+                productImage: item.image || '',
+                sku: item.sku || item.productId || '',
+                variantId: item.variantId,
+                variantName: item.variantName,
+                quantity: item.quantity || 1,
+                unitPrice: item.price || item.unitPrice || 0,
+                total: (item.price || item.unitPrice || 0) * (item.quantity || 1)
+            }));
+            
             const subtotal = order.totalAmount - (order.coinsUsed || 0);
             
             return {
@@ -300,7 +315,7 @@ export class OrdersService {
                 customerMobile: order.user?.mobile || '',
                 shopId: '',
                 shopName: 'Risbow Store',
-                items: items, // Order items from JSON
+                items: transformedItems, // Use transformed items
                 subtotal: subtotal,
                 shippingCost: 0, // Not in current schema
                 tax: 0, // Not in current schema
@@ -367,6 +382,21 @@ export class OrdersService {
 
         // Transform single order with same logic as list
         const items = Array.isArray(order.items) ? order.items : [];
+        
+        // Transform items to match frontend OrderItem interface
+        const transformedItems = items.map((item: any, index: number) => ({
+            id: `${order.id}-item-${index}`,
+            productId: item.productId || '',
+            productName: item.productName || item.title || 'Product',
+            productImage: item.image || '',
+            sku: item.sku || item.productId || '',
+            variantId: item.variantId,
+            variantName: item.variantName,
+            quantity: item.quantity || 1,
+            unitPrice: item.price || item.unitPrice || 0,
+            total: transformedItems, // Use transformed itemsprice || item.unitPrice || 0) * (item.quantity || 1)
+        }));
+        
         const subtotal = order.totalAmount - (order.coinsUsed || 0);
 
         return {
