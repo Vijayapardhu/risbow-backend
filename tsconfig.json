@@ -7,18 +7,20 @@
         "experimentalDecorators": true,
         "allowSyntheticDefaultImports": true,
         "esModuleInterop": true,
-        "target": "es2017",
+        "target": "es2021",
         "sourceMap": true,
         "outDir": "./dist",
         "rootDir": "./src",
         "baseUrl": "./",
-        "incremental": true,
+        "incremental": false,
         "skipLibCheck": true,
         "strictNullChecks": false,
         "noImplicitAny": false,
         "strictBindCallApply": false,
         "forceConsistentCasingInFileNames": false,
-        "noFallthroughCasesInSwitch": false
+        "noFallthroughCasesInSwitch": false,
+        "resolveJsonModule": true,
+        "lib": ["es2021"]
     },
     "include": ["src/**/*"],
     "exclude": ["node_modules", "dist", "prisma", "scripts"]
