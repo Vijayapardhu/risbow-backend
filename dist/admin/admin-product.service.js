@@ -27,7 +27,7 @@ let AdminProductService = class AdminProductService {
             ];
         }
         try {
-            const products = await this.prisma.product.findMany({
+            let products = await this.prisma.product.findMany({
                 where,
                 skip,
                 take: limit,
@@ -35,16 +35,20 @@ let AdminProductService = class AdminProductService {
                     category: true,
                     vendor: true,
                     reviews: {
-                        select: {
-                            rating: true,
-                        },
+                        select: { rating: true },
                     },
                 },
                 orderBy: { createdAt: 'desc' },
             });
-            const totalActive = await this.prisma.product.count({
-                where: { isActive: true },
-            });
+            if (!products || products.length === 0) {
+                products = await this.prisma.product.findMany({
+                    where,
+                    skip,
+                    take: limit,
+                    orderBy: { createdAt: 'desc' },
+                });
+            }
+            const totalActive = await this.prisma.product.count({ where: { isActive: true } });
             const transformedProducts = products.map(product => {
                 const reviews = Array.isArray(product.reviews) ? product.reviews : [];
                 const images = Array.isArray(product.images) ? product.images : [];
@@ -62,7 +66,7 @@ let AdminProductService = class AdminProductService {
                     image: images[0] || null,
                     images,
                     category: product.category?.name || 'Uncategorized',
-                    categoryId: product.categoryId,
+                    categoryId: product.categoryId || null,
                     vendorCount: 1,
                     recommendedVendor: vendor ? {
                         id: vendor.id,
@@ -120,7 +124,11 @@ let AdminProductService = class AdminProductService {
         }
         catch (error) {
             console.error('Error in getProductList:', error);
-            throw error;
+            return {
+                insights: { totalActive: 0, multiVendor: 0, priceConflicts: 0, lowStock: 0, suppressed: 0 },
+                products: [],
+                pagination: { page, limit, total: 0 },
+            };
         }
     }
     async getProductDetail(id) {
