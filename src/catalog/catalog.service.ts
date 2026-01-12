@@ -78,8 +78,17 @@ export class CatalogService {
                 price: data.price,
                 offerPrice: data.offerPrice,
                 stock: data.stock,
+                categoryId: data.categoryId,
+                vendorId: data.vendorId,
+                isActive: data.isActive,
                 // Add other editable fields safely
             }
+        });
+    }
+
+    async deleteProduct(id: string) {
+        return this.prisma.product.delete({
+            where: { id }
         });
     }
 
@@ -136,6 +145,8 @@ export class CatalogService {
         const product = await this.prisma.product.findUnique({
             where: { id },
             include: {
+                vendor: true,
+                category: true,
                 reviews: {
                     take: 10,
                     orderBy: { createdAt: 'desc' },

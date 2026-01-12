@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Query, Param, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Query, Param, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { CatalogService } from './catalog.service';
 import { CreateProductDto, ProductFilterDto } from './dto/catalog.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -42,6 +42,13 @@ export class CatalogController {
     @Roles('VENDOR', 'ADMIN', 'SUPER_ADMIN')
     async update(@Param('id') id: string, @Body() body: any) {
         return this.catalogService.updateProduct(id, body);
+    }
+
+    @Delete(':id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('VENDOR', 'ADMIN', 'SUPER_ADMIN')
+    async remove(@Param('id') id: string) {
+        return this.catalogService.deleteProduct(id);
     }
 }
 
