@@ -65,12 +65,12 @@ export class AdminProductService {
                 category: product.category?.name || 'Uncategorized',
                 categoryId: product.categoryId,
                 vendorCount: 1, // Single vendor in current schema
-                recommendedVendor: {
+                recommendedVendor: product.vendor ? {
                     id: product.vendor.id,
                     name: product.vendor.name,
                     email: product.vendor.email,
                     reason: 'Primary vendor',
-                },
+                } : null,
                 lowestPrice: offerPriceWithGST || basePriceWithGST,
                 highestPrice: basePriceWithGST,
                 basePrice: basePrice, // Without GST for reference
@@ -91,14 +91,14 @@ export class AdminProductService {
                 status: product.isActive ? 'active' : 'inactive',
                 sku: product.sku,
                 vendorId: product.vendorId,
-                vendor: {
+                vendor: product.vendor ? {
                     id: product.vendor.id,
                     name: product.vendor.name,
                     email: product.vendor.email,
                     mobile: product.vendor.mobile,
                     role: product.vendor.role,
                     kycStatus: product.vendor.kycStatus,
-                },
+                } : null,
                 createdAt: product.createdAt,
                 updatedAt: product.updatedAt,
             };
