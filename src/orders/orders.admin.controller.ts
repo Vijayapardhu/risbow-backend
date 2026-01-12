@@ -1,0 +1,36 @@
+import { Controller, Get, Patch, Query, Param, Body, UseGuards } from '@nestjs/common';
+import { OrdersService } from './orders.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { OrderStatus } from '@prisma/client';
+
+@Controller('admin/orders')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN', 'SUPER_ADMIN')
+export class OrdersAdminController {
+    constructor(private readonly ordersService: OrdersService) { }
+
+    @Get()
+    async findAll(
+        @Query('page') page: string,
+        @Query('limit') limit: string,
+        @Query('search') search: string,
+        @Query('status') status: OrderStatus
+    ) {
+        return this.ordersService.findAllOrders({
+            page: Number(page) || 1,
+            limit: Number(limit) || 10,
+            search,
+            status
+        });
+    }
+
+    @Patch(':id/status')
+    async updateStatus(
+        @Param('id') id: string,
+        @Body('status') status: OrderStatus
+    ) {
+        return this.ordersService.updateOrderStatus(id, status);
+    }
+}

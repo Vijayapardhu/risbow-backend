@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, Param, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Query, Param, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { CatalogService } from './catalog.service';
 import { CreateProductDto, ProductFilterDto } from './dto/catalog.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -35,6 +35,13 @@ export class CatalogController {
         if (!file) throw new Error('File not present');
         const content = file.buffer.toString('utf-8');
         return this.catalogService.processBulkUpload(content);
+    }
+
+    @Patch(':id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('VENDOR', 'ADMIN', 'SUPER_ADMIN')
+    async update(@Param('id') id: string, @Body() body: any) {
+        return this.catalogService.updateProduct(id, body);
     }
 }
 

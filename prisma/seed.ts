@@ -8,7 +8,7 @@ async function main() {
 
     // Create Admin Users (User model with admin roles)
     const adminPassword = await bcrypt.hash('admin123', 10);
-    
+
     const superAdminUser = await prisma.user.upsert({
         where: { mobile: '9999999999' },
         update: {},
@@ -63,7 +63,7 @@ async function main() {
 
     // Create Test Customers
     const customerPassword = await bcrypt.hash('customer123', 10);
-    
+
     const customer1 = await prisma.user.upsert({
         where: { mobile: '9876543210' },
         update: {},
@@ -139,7 +139,7 @@ async function main() {
             coinsBalance: 100,
         }
     });
-    
+
     const customers = [customer1, customer2, customer3, customer4, customer5];
     console.log(`✅ ${customers.length} customers created`);
 
@@ -735,9 +735,9 @@ async function main() {
     try {
         await prisma.auditLog.createMany({
             data: [
-                { adminId: superAdmin.id, entity: 'VENDOR', targetId: vendor1.id, action: 'APPROVE', details: { status: 'APPROVED' } },
-                { adminId: admin.id, entity: 'USER', targetId: customer3.id, action: 'SUSPEND_USER', details: { reason: 'Multiple order cancellations' } },
-                { adminId: superAdmin.id, entity: 'PRODUCT', targetId: 'prod-tshirt-1', action: 'CREATE', details: { title: 'Classic Cotton T-Shirt' } },
+                { adminId: superAdmin.id, entity: 'VENDOR', entityId: vendor1.id, action: 'APPROVE', details: { status: 'APPROVED' } },
+                { adminId: admin.id, entity: 'USER', entityId: customer3.id, action: 'SUSPEND_USER', details: { reason: 'Multiple order cancellations' } },
+                { adminId: superAdmin.id, entity: 'PRODUCT', entityId: 'prod-tshirt-1', action: 'CREATE', details: { title: 'Classic Cotton T-Shirt' } },
             ]
         });
         console.log('✅ Audit logs created');

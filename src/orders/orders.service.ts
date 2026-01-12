@@ -235,4 +235,78 @@ export class OrdersService {
             message: 'Order placed successfully (TEST MODE)'
         };
     }
+    // --- ADMIN METHODS ---
+
+    async findAllOrders(params: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        status?: OrderStatus;
+    }) {
+        const { page = 1, limit = 10, search, status } = params;
+        const skip = (page - 1) * limit;
+
+        const where: any = {};
+
+        if (status) {
+            where.status = status;
+        }
+
+        if (search) {
+            where.OR = [
+                { id: { contains: search, mode: 'insensitive' } },
+                { user: { name: { contains: search, mode: 'insensitive' } } },
+                { user: { email: { contains: search, mode: 'insensitive' } } },
+                { user: { mobile: { contains: search, mode: 'insensitive' } } }
+            ];
+        }
+
+        console.log('--- DEBUG: findAllOrders ---');
+        console.log('Params:', params);
+        console.log('Constructed Where:', JSON.stringify(where, null, 2));
+
+        const [orders, total] = await Promise.all([
+            this.prisma.order.findMany({
+                where,
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    user: {
+                        select: { id: true, name: true, email: true, mobile: true }
+                    },
+                    address: true,
+                    payment: true
+                }
+            }),
+            this.prisma.order.count({ where })
+        ]);
+
+        console.log(`Found ${orders.length} orders. Total: ${total}`);
+
+        return {
+            data: orders,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        };
+    }
+
+    async updateOrderStatus(orderId: string, status: OrderStatus) {
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId }
+        });
+
+        if (!order) {
+            throw new NotFoundException('Order not found');
+        }
+
+        return this.prisma.order.update({
+            where: { id: orderId },
+            data: { status }
+        });
+    }
 }

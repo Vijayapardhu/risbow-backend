@@ -69,6 +69,20 @@ export class CatalogService {
         });
     }
 
+    async updateProduct(id: string, data: any) {
+        return this.prisma.product.update({
+            where: { id },
+            data: {
+                title: data.title,
+                description: data.description,
+                price: data.price,
+                offerPrice: data.offerPrice,
+                stock: data.stock,
+                // Add other editable fields safely
+            }
+        });
+    }
+
     async findAll(filters: ProductFilterDto) {
         const where: Prisma.ProductWhereInput = {};
 

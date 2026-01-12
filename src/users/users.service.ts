@@ -160,9 +160,9 @@ export class UsersService {
 
     async getOrderById(userId: string, orderId: string) {
         const order = await this.prisma.order.findFirst({
-            where: { 
+            where: {
                 id: orderId,
-                userId 
+                userId
             },
             include: {
                 address: true,
@@ -227,7 +227,7 @@ export class UsersService {
 
     async getNotifications(userId: string, limit: number = 50) {
         return this.prisma.notification.findMany({
-            where: { 
+            where: {
                 OR: [
                     { userId },
                     { userId: null } // Broadcasts
@@ -242,6 +242,71 @@ export class UsersService {
         return this.prisma.notification.update({
             where: { id: notificationId },
             data: { isRead: true }
+        });
+    }
+
+    // --- ADMIN METHODS ---
+
+    async findAllUsers(params: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        role?: string;
+        status?: string;
+    }) {
+        const { page = 1, limit = 10, search, role, status } = params;
+        const skip = (page - 1) * limit;
+
+        const where: any = {};
+
+        if (role) where.role = role;
+        if (status) where.status = status;
+
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+                { mobile: { contains: search, mode: 'insensitive' } }
+            ];
+        }
+
+        const [users, total] = await Promise.all([
+            this.prisma.user.findMany({
+                where,
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                // Select only necessary fields for admin list
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    mobile: true,
+                    role: true,
+                    status: true,
+                    createdAt: true
+                }
+            }),
+            this.prisma.user.count({ where })
+        ]);
+
+        return {
+            data: users,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        };
+    }
+
+    async updateUserStatus(userId: string, status: string) {
+        // Validate status enum
+        // For brevity we trust the controller or prisma validation
+        return this.prisma.user.update({
+            where: { id: userId },
+            data: { status: status as any }
         });
     }
 }
