@@ -195,6 +195,42 @@ export declare class OrdersService {
             totalPages: number;
         };
     }>;
+    getOrderDetail(orderId: string): Promise<{
+        id: string;
+        orderNumber: string;
+        orderDate: string;
+        customerId: string;
+        customerName: string;
+        customerEmail: string;
+        customerMobile: string;
+        shopId: string;
+        shopName: string;
+        items: import("@prisma/client/runtime/library").JsonArray;
+        subtotal: number;
+        shippingCost: number;
+        tax: number;
+        discount: number;
+        total: number;
+        status: import(".prisma/client").$Enums.OrderStatus;
+        paymentMethod: string;
+        paymentStatus: string;
+        shippingAddress: {
+            fullName: string;
+            phone: string;
+            addressLine1: string;
+            addressLine2: string;
+            city: string;
+            state: string;
+            country: string;
+            postalCode: string;
+            type: any;
+        };
+        courierPartner: string;
+        awbNumber: string;
+        notes: string;
+        createdAt: string;
+        updatedAt: string;
+    }>;
     updateOrderStatus(orderId: string, status: OrderStatus): Promise<{
         id: string;
         status: import(".prisma/client").$Enums.OrderStatus;

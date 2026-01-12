@@ -26,6 +26,11 @@ export class OrdersAdminController {
         });
     }
 
+    @Get(':id')
+    async findOne(@Param('id') id: string) {
+        return this.ordersService.getOrderDetail(id);
+    }
+
     @Patch(':id/status')
     async updateStatus(
         @Param('id') id: string,

@@ -349,6 +349,74 @@ export class OrdersService {
         };
     }
 
+    async getOrderDetail(orderId: string) {
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+                user: {
+                    select: { id: true, name: true, email: true, mobile: true }
+                },
+                address: true,
+                payment: true
+            }
+        });
+
+        if (!order) {
+            throw new NotFoundException('Order not found');
+        }
+
+        // Transform single order with same logic as list
+        const items = Array.isArray(order.items) ? order.items : [];
+        const subtotal = order.totalAmount - (order.coinsUsed || 0);
+
+        return {
+            id: order.id,
+            orderNumber: `ORD-${order.id.substring(0, 8).toUpperCase()}`,
+            orderDate: order.createdAt.toISOString(),
+            customerId: order.userId,
+            customerName: order.user?.name || 'Guest Customer',
+            customerEmail: order.user?.email || '',
+            customerMobile: order.user?.mobile || '',
+            shopId: '',
+            shopName: 'Risbow Store',
+            items: items,
+            subtotal: subtotal,
+            shippingCost: 0,
+            tax: 0,
+            discount: order.coinsUsed || 0,
+            total: order.totalAmount,
+            status: order.status,
+            paymentMethod: order.payment?.provider || 'COD',
+            paymentStatus: order.payment?.status === 'SUCCESS' ? 'Paid' : order.payment?.status === 'FAILED' ? 'Unpaid' : 'Pending',
+            shippingAddress: order.address ? {
+                fullName: order.address.name || order.user?.name || '',
+                phone: order.address.phone || order.address.mobile || order.user?.mobile || '',
+                addressLine1: order.address.addressLine1 || order.address.street || '',
+                addressLine2: order.address.addressLine2 || '',
+                city: order.address.city || '',
+                state: order.address.state || '',
+                country: 'India',
+                postalCode: order.address.pincode || '',
+                type: order.address.label as any || 'Home'
+            } : {
+                fullName: order.user?.name || '',
+                phone: order.user?.mobile || '',
+                addressLine1: 'Address not available',
+                addressLine2: '',
+                city: '',
+                state: '',
+                country: 'India',
+                postalCode: '',
+                type: 'Home' as any
+            },
+            courierPartner: order.courierPartner || '',
+            awbNumber: order.awbNumber || '',
+            notes: '',
+            createdAt: order.createdAt.toISOString(),
+            updatedAt: order.updatedAt.toISOString()
+        };
+    }
+
     async updateOrderStatus(orderId: string, status: OrderStatus) {
         const order = await this.prisma.order.findUnique({
             where: { id: orderId }
