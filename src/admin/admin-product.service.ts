@@ -24,6 +24,7 @@ export class AdminProductService {
         }
 
         // Get products with vendor count
+            try {
         const products = await this.prisma.product.findMany({
             where,
             skip,
@@ -119,6 +120,10 @@ export class AdminProductService {
                 total: await this.prisma.product.count({ where }),
             },
         };
+            } catch (error) {
+                console.error('Error in getProductList:', error);
+                throw error;
+            }
     }
 
     async getProductDetail(id: string) {

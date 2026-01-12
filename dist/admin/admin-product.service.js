@@ -26,93 +26,99 @@ let AdminProductService = class AdminProductService {
                 { id: { contains: search } },
             ];
         }
-        const products = await this.prisma.product.findMany({
-            where,
-            skip,
-            take: limit,
-            include: {
-                category: true,
-                vendor: true,
-                reviews: {
-                    select: {
-                        rating: true,
+        try {
+            const products = await this.prisma.product.findMany({
+                where,
+                skip,
+                take: limit,
+                include: {
+                    category: true,
+                    vendor: true,
+                    reviews: {
+                        select: {
+                            rating: true,
+                        },
                     },
                 },
-            },
-            orderBy: { createdAt: 'desc' },
-        });
-        const totalActive = await this.prisma.product.count({
-            where: { isActive: true },
-        });
-        const transformedProducts = products.map(product => {
-            const avgRating = product.reviews.length > 0
-                ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / product.reviews.length
-                : 0;
-            const basePrice = product.price;
-            const basePriceWithGST = basePrice * 1.18;
-            const offerPriceWithGST = product.offerPrice ? (product.offerPrice * 1.18) : null;
+                orderBy: { createdAt: 'desc' },
+            });
+            const totalActive = await this.prisma.product.count({
+                where: { isActive: true },
+            });
+            const transformedProducts = products.map(product => {
+                const avgRating = product.reviews.length > 0
+                    ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / product.reviews.length
+                    : 0;
+                const basePrice = product.price;
+                const basePriceWithGST = basePrice * 1.18;
+                const offerPriceWithGST = product.offerPrice ? (product.offerPrice * 1.18) : null;
+                return {
+                    id: product.id,
+                    title: product.title,
+                    description: product.description,
+                    image: product.images[0] || null,
+                    images: product.images || [],
+                    category: product.category?.name || 'Uncategorized',
+                    categoryId: product.categoryId,
+                    vendorCount: 1,
+                    recommendedVendor: product.vendor ? {
+                        id: product.vendor.id,
+                        name: product.vendor.name,
+                        email: product.vendor.email,
+                        reason: 'Primary vendor',
+                    } : null,
+                    lowestPrice: offerPriceWithGST || basePriceWithGST,
+                    highestPrice: basePriceWithGST,
+                    basePrice: basePrice,
+                    gstAmount: basePrice * 0.18,
+                    gstPercentage: 18,
+                    priceVariance: 0,
+                    priceAnomaly: false,
+                    totalStock: product.stock,
+                    stockRisk: product.stock < 10,
+                    views: 0,
+                    cartRate: 0,
+                    conversion: 0,
+                    rating: Math.round(avgRating * 10) / 10,
+                    reviewCount: product.reviews.length,
+                    returnRate: 0,
+                    revenue: 0,
+                    commission: 0,
+                    status: product.isActive ? 'active' : 'inactive',
+                    sku: product.sku,
+                    vendorId: product.vendorId,
+                    vendor: product.vendor ? {
+                        id: product.vendor.id,
+                        name: product.vendor.name,
+                        email: product.vendor.email,
+                        mobile: product.vendor.mobile,
+                        role: product.vendor.role,
+                        kycStatus: product.vendor.kycStatus,
+                    } : null,
+                    createdAt: product.createdAt,
+                    updatedAt: product.updatedAt,
+                };
+            });
             return {
-                id: product.id,
-                title: product.title,
-                description: product.description,
-                image: product.images[0] || null,
-                images: product.images || [],
-                category: product.category?.name || 'Uncategorized',
-                categoryId: product.categoryId,
-                vendorCount: 1,
-                recommendedVendor: product.vendor ? {
-                    id: product.vendor.id,
-                    name: product.vendor.name,
-                    email: product.vendor.email,
-                    reason: 'Primary vendor',
-                } : null,
-                lowestPrice: offerPriceWithGST || basePriceWithGST,
-                highestPrice: basePriceWithGST,
-                basePrice: basePrice,
-                gstAmount: basePrice * 0.18,
-                gstPercentage: 18,
-                priceVariance: 0,
-                priceAnomaly: false,
-                totalStock: product.stock,
-                stockRisk: product.stock < 10,
-                views: 0,
-                cartRate: 0,
-                conversion: 0,
-                rating: Math.round(avgRating * 10) / 10,
-                reviewCount: product.reviews.length,
-                returnRate: 0,
-                revenue: 0,
-                commission: 0,
-                status: product.isActive ? 'active' : 'inactive',
-                sku: product.sku,
-                vendorId: product.vendorId,
-                vendor: product.vendor ? {
-                    id: product.vendor.id,
-                    name: product.vendor.name,
-                    email: product.vendor.email,
-                    mobile: product.vendor.mobile,
-                    role: product.vendor.role,
-                    kycStatus: product.vendor.kycStatus,
-                } : null,
-                createdAt: product.createdAt,
-                updatedAt: product.updatedAt,
+                insights: {
+                    totalActive,
+                    multiVendor: 0,
+                    priceConflicts: 0,
+                    lowStock: await this.prisma.product.count({ where: { stock: { lt: 10 } } }),
+                    suppressed: await this.prisma.product.count({ where: { isActive: false } }),
+                },
+                products: transformedProducts,
+                pagination: {
+                    page,
+                    limit,
+                    total: await this.prisma.product.count({ where }),
+                },
             };
-        });
-        return {
-            insights: {
-                totalActive,
-                multiVendor: 0,
-                priceConflicts: 0,
-                lowStock: await this.prisma.product.count({ where: { stock: { lt: 10 } } }),
-                suppressed: await this.prisma.product.count({ where: { isActive: false } }),
-            },
-            products: transformedProducts,
-            pagination: {
-                page,
-                limit,
-                total: await this.prisma.product.count({ where }),
-            },
-        };
+        }
+        catch (error) {
+            console.error('Error in getProductList:', error);
+            throw error;
+        }
     }
     async getProductDetail(id) {
         const product = await this.prisma.product.findUnique({
