@@ -73,34 +73,34 @@ export declare class AdminProductService {
         offerPriceWithGST: number;
         gstAmount: number;
         gstPercentage: number;
-        vendor: {
+        category: {
             id: string;
+            name: string;
             createdAt: Date;
             updatedAt: Date;
-            name: string;
+            image: string | null;
+            nameTE: string | null;
+            attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
+            parentId: string | null;
+        };
+        vendor: {
+            id: string;
             mobile: string;
             email: string | null;
+            name: string;
+            role: import(".prisma/client").$Enums.VendorRole;
+            coinsBalance: number;
             kycStatus: string;
+            kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+            createdAt: Date;
+            updatedAt: Date;
+            vendorCode: string | null;
             tier: string;
             gstNumber: string | null;
             isGstVerified: boolean;
-            kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             skuLimit: number;
-            role: import(".prisma/client").$Enums.VendorRole;
-            coinsBalance: number;
             followCount: number;
-            vendorCode: string | null;
             commissionRate: number;
-        };
-        category: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            name: string;
-            image: string | null;
-            nameTE: string | null;
-            parentId: string | null;
-            attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
         };
         reviews: ({
             user: {
@@ -109,21 +109,21 @@ export declare class AdminProductService {
             };
         } & {
             id: string;
-            vendorId: string | null;
-            images: string[];
             createdAt: Date;
             updatedAt: Date;
             userId: string;
             productId: string | null;
+            vendorId: string | null;
+            images: string[];
             rating: number;
             comment: string | null;
         })[];
         cartItems: {
             id: string;
             productId: string;
+            quantity: number;
             cartId: string;
             variantId: string | null;
-            quantity: number;
         }[];
         wishlists: {
             id: string;
@@ -132,8 +132,11 @@ export declare class AdminProductService {
             productId: string;
         }[];
         id: string;
-        vendorId: string;
+        createdAt: Date;
+        updatedAt: Date;
         title: string;
+        length: number | null;
+        vendorId: string;
         description: string | null;
         price: number;
         offerPrice: number | null;
@@ -150,7 +153,6 @@ export declare class AdminProductService {
         tags: string[];
         weight: number | null;
         weightUnit: string | null;
-        length: number | null;
         width: number | null;
         height: number | null;
         dimensionUnit: string | null;
@@ -158,13 +160,14 @@ export declare class AdminProductService {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     createProduct(productData: any): Promise<{
         id: string;
-        vendorId: string;
+        createdAt: Date;
+        updatedAt: Date;
         title: string;
+        length: number | null;
+        vendorId: string;
         description: string | null;
         price: number;
         offerPrice: number | null;
@@ -181,7 +184,6 @@ export declare class AdminProductService {
         tags: string[];
         weight: number | null;
         weightUnit: string | null;
-        length: number | null;
         width: number | null;
         height: number | null;
         dimensionUnit: string | null;
@@ -189,13 +191,14 @@ export declare class AdminProductService {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     updateProduct(id: string, productData: any): Promise<{
         id: string;
-        vendorId: string;
+        createdAt: Date;
+        updatedAt: Date;
         title: string;
+        length: number | null;
+        vendorId: string;
         description: string | null;
         price: number;
         offerPrice: number | null;
@@ -212,7 +215,6 @@ export declare class AdminProductService {
         tags: string[];
         weight: number | null;
         weightUnit: string | null;
-        length: number | null;
         width: number | null;
         height: number | null;
         dimensionUnit: string | null;
@@ -220,13 +222,14 @@ export declare class AdminProductService {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     deleteProduct(id: string): Promise<{
         id: string;
-        vendorId: string;
+        createdAt: Date;
+        updatedAt: Date;
         title: string;
+        length: number | null;
+        vendorId: string;
         description: string | null;
         price: number;
         offerPrice: number | null;
@@ -243,7 +246,6 @@ export declare class AdminProductService {
         tags: string[];
         weight: number | null;
         weightUnit: string | null;
-        length: number | null;
         width: number | null;
         height: number | null;
         dimensionUnit: string | null;
@@ -251,8 +253,6 @@ export declare class AdminProductService {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     getVendorOffers(productId: string): Promise<{
         vendorId: string;

@@ -25,25 +25,12 @@ async function bootstrap() {
 
     // CORS configuration - allow localhost for Flutter web development
     app.enableCors({
-        origin: (origin, callback) => {
-            const allowedOrigins = [
-                'https://risbow.com',
-                'https://www.risbow.com',
-                'https://admin.risbow.com',
-                process.env.FRONTEND_URL,
-            ].filter(Boolean);
-
-            // Allow requests with no origin (mobile apps, Postman, etc.)
-            // Also allow localhost for development
-            if (!origin || origin.startsWith('http://localhost') || allowedOrigins.includes(origin)) {
-                callback(null, true);
-            } else {
-                callback(null, false);
-            }
-        },
+        origin: true, // Allow all origins (will be restricted in production)
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+        optionsSuccessStatus: 200, // For legacy browsers
+        preflightContinue: false,
     });
 
     app.useGlobalPipes(new ValidationPipe({
