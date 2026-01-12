@@ -18,7 +18,9 @@ let AdminProductService = class AdminProductService {
     }
     async getProductList(params) {
         const { search, period, page = 1, limit = 50 } = params;
-        const skip = (page - 1) * limit;
+        const pageNum = Number(page) || 1;
+        const limitNum = Number(limit) || 50;
+        const skip = (pageNum - 1) * limitNum;
         const where = {};
         if (search) {
             where.OR = [
@@ -30,7 +32,7 @@ let AdminProductService = class AdminProductService {
             let products = await this.prisma.product.findMany({
                 where,
                 skip,
-                take: limit,
+                take: limitNum,
                 include: {
                     category: true,
                     vendor: true,
@@ -44,7 +46,7 @@ let AdminProductService = class AdminProductService {
                 products = await this.prisma.product.findMany({
                     where,
                     skip,
-                    take: limit,
+                    take: limitNum,
                     orderBy: { createdAt: 'desc' },
                 });
             }
@@ -116,8 +118,8 @@ let AdminProductService = class AdminProductService {
                 },
                 products: transformedProducts,
                 pagination: {
-                    page,
-                    limit,
+                    page: pageNum,
+                    limit: limitNum,
                     total: await this.prisma.product.count({ where }),
                 },
             };
@@ -127,7 +129,7 @@ let AdminProductService = class AdminProductService {
             return {
                 insights: { totalActive: 0, multiVendor: 0, priceConflicts: 0, lowStock: 0, suppressed: 0 },
                 products: [],
-                pagination: { page, limit, total: 0 },
+                pagination: { page: pageNum, limit: limitNum, total: 0 },
             };
         }
     }

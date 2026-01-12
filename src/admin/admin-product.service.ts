@@ -12,7 +12,9 @@ export class AdminProductService {
         limit?: number;
     }) {
         const { search, period, page = 1, limit = 50 } = params;
-        const skip = (page - 1) * limit;
+        const pageNum = Number(page) || 1;
+        const limitNum = Number(limit) || 50;
+        const skip = (pageNum - 1) * limitNum;
 
         // Build where clause
         const where: any = {};
@@ -27,7 +29,7 @@ export class AdminProductService {
             let products: any[] = await this.prisma.product.findMany({
                 where,
                 skip,
-                take: limit,
+                take: limitNum,
                 include: {
                     category: true,
                     vendor: true,
@@ -43,7 +45,7 @@ export class AdminProductService {
                 products = await this.prisma.product.findMany({
                     where,
                     skip,
-                    take: limit,
+                    take: limitNum,
                     orderBy: { createdAt: 'desc' },
                 });
             }
@@ -121,8 +123,8 @@ export class AdminProductService {
                 },
                 products: transformedProducts,
                 pagination: {
-                    page,
-                    limit,
+                    page: pageNum,
+                    limit: limitNum,
                     total: await this.prisma.product.count({ where }),
                 },
             };
@@ -132,7 +134,7 @@ export class AdminProductService {
             return {
                 insights: { totalActive: 0, multiVendor: 0, priceConflicts: 0, lowStock: 0, suppressed: 0 },
                 products: [],
-                pagination: { page, limit, total: 0 },
+                pagination: { page: pageNum, limit: limitNum, total: 0 },
             };
         }
     }
