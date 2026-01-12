@@ -429,6 +429,25 @@ model Product {
   cartItems CartItem[]
   wishlists Wishlist[]
 
+  // Extended Details
+  sku             String?  @unique
+  brandName       String?
+  tags            String[] // ["electronics", "sale"]
+
+  // Logistics
+  weight          Float?
+  weightUnit      String?  @default("kg") // kg, g, lb, oz
+  length          Float?
+  width           Float?
+  height          Float?
+  dimensionUnit   String?  @default("cm") // cm, in
+  shippingClass   String?  // "heavy", "fragile"
+
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  metaKeywords    String[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -437,6 +456,7 @@ model Product {
   @@index([isActive])
   @@index([vendorId, isActive])
   @@index([categoryId, isActive])
+  @@index([sku])
 }
 
 // --- Admin ---
