@@ -39,6 +39,26 @@ async function main() {
     });
     console.log('✅ Admin User created:', adminUser.email);
 
+    // Create admin user with email from login page
+    const adminRisbowUser = await prisma.user.upsert({
+        where: { email: 'admin.risbow@gmail.com' },
+        update: {
+            password: adminPassword,
+            role: 'ADMIN',
+            status: 'ACTIVE',
+        },
+        create: {
+            mobile: '8888888881',
+            email: 'admin.risbow@gmail.com',
+            name: 'Admin Risbow',
+            password: adminPassword,
+            role: 'ADMIN',
+            status: 'ACTIVE',
+            coinsBalance: 5000,
+        }
+    });
+    console.log('✅ Admin Risbow User created:', adminRisbowUser.email);
+
     // Create Admin records (separate Admin model for audit logs)
     const superAdmin = await prisma.admin.upsert({
         where: { email: 'superadmin@risbow.com' },

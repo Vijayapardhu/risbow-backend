@@ -4,61 +4,42 @@ export declare class OrdersAdminController {
     private readonly ordersService;
     constructor(ordersService: OrdersService);
     findAll(page: string, limit: string, search: string, status: OrderStatus): Promise<{
-        data: ({
-            user: {
-                id: string;
-                mobile: string;
-                email: string;
-                name: string;
-            };
-            address: {
-                id: string;
-                mobile: string | null;
-                name: string;
-                createdAt: Date;
-                updatedAt: Date;
-                userId: string;
-                title: string | null;
+        data: {
+            id: string;
+            orderNumber: string;
+            orderDate: string;
+            customerId: string;
+            customerName: string;
+            customerEmail: string;
+            customerMobile: string;
+            shopId: string;
+            shopName: string;
+            items: import("@prisma/client/runtime/library").JsonArray;
+            subtotal: number;
+            shippingCost: number;
+            tax: number;
+            discount: number;
+            total: number;
+            status: import(".prisma/client").$Enums.OrderStatus;
+            paymentMethod: string;
+            paymentStatus: string;
+            shippingAddress: {
+                fullName: string;
                 phone: string;
-                street: string | null;
                 addressLine1: string;
-                addressLine2: string | null;
+                addressLine2: string;
                 city: string;
                 state: string;
-                pincode: string;
-                label: string;
-                isDefault: boolean;
+                country: string;
+                postalCode: string;
+                type: any;
             };
-            payment: {
-                id: string;
-                status: import(".prisma/client").$Enums.PaymentStatus;
-                createdAt: Date;
-                updatedAt: Date;
-                amount: number;
-                orderId: string;
-                currency: string;
-                provider: string;
-                providerOrderId: string | null;
-                paymentId: string | null;
-            };
-        } & {
-            id: string;
-            status: import(".prisma/client").$Enums.OrderStatus;
-            createdAt: Date;
-            updatedAt: Date;
-            items: import("@prisma/client/runtime/library").JsonValue;
-            userId: string;
-            roomId: string | null;
-            addressId: string | null;
-            totalAmount: number;
-            coinsUsed: number;
-            coinsUsedDebited: boolean;
-            razorpayOrderId: string | null;
-            awbNumber: string | null;
-            courierPartner: string | null;
-            abandonedCheckoutId: string | null;
-            agentId: string | null;
-        })[];
+            courierPartner: string;
+            awbNumber: string;
+            notes: string;
+            createdAt: string;
+            updatedAt: string;
+        }[];
         meta: {
             total: number;
             page: number;
