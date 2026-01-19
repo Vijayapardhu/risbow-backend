@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateProductDto, UpdateProductDto } from '../catalog/dto/catalog.dto';
 
 @Injectable()
 export class AdminProductService {
@@ -190,17 +191,125 @@ export class AdminProductService {
         };
     }
 
-    async createProduct(productData: any) {
+    async createProduct(productData: CreateProductDto) {
+        const data: any = {
+            title: productData.title,
+            description: productData.description,
+            price: productData.price,
+            categoryId: productData.categoryId,
+            vendorId: productData.vendorId,
+        };
+
+        if (productData.offerPrice !== undefined) data.offerPrice = productData.offerPrice;
+        if (productData.stock !== undefined) data.stock = productData.stock;
+        if (productData.sku !== undefined) data.sku = productData.sku;
+        if (productData.images !== undefined) data.images = productData.images;
+        if (productData.brandName !== undefined) data.brandName = productData.brandName;
+        if (productData.tags !== undefined) data.tags = productData.tags;
+        if (productData.weight !== undefined) data.weight = productData.weight;
+        if (productData.weightUnit !== undefined) data.weightUnit = productData.weightUnit;
+        if (productData.length !== undefined) data.length = productData.length;
+        if (productData.width !== undefined) data.width = productData.width;
+        if (productData.height !== undefined) data.height = productData.height;
+        if (productData.dimensionUnit !== undefined) data.dimensionUnit = productData.dimensionUnit;
+        if (productData.shippingClass !== undefined) data.shippingClass = productData.shippingClass;
+        if (productData.metaTitle !== undefined) data.metaTitle = productData.metaTitle;
+        if (productData.metaDescription !== undefined) data.metaDescription = productData.metaDescription;
+        if (productData.metaKeywords !== undefined) data.metaKeywords = productData.metaKeywords;
+        if (productData.isWholesale !== undefined) data.isWholesale = productData.isWholesale;
+        if (productData.wholesalePrice !== undefined) data.wholesalePrice = productData.wholesalePrice;
+        if (productData.moq !== undefined) data.moq = productData.moq;
+        if (productData.isActive !== undefined) data.isActive = productData.isActive;
+
+        // New Fields Mapping
+        if (productData.isCancelable !== undefined) data.isCancelable = productData.isCancelable;
+        if (productData.isReturnable !== undefined) data.isReturnable = productData.isReturnable;
+        if (productData.requiresOTP !== undefined) data.requiresOTP = productData.requiresOTP;
+        if (productData.isInclusiveTax !== undefined) data.isInclusiveTax = productData.isInclusiveTax;
+        if (productData.isAttachmentRequired !== undefined) data.isAttachmentRequired = productData.isAttachmentRequired;
+        if (productData.minOrderQuantity !== undefined) data.minOrderQuantity = productData.minOrderQuantity;
+        if (productData.quantityStepSize !== undefined) data.quantityStepSize = productData.quantityStepSize;
+        if (productData.totalAllowedQuantity !== undefined) data.totalAllowedQuantity = productData.totalAllowedQuantity;
+        if (productData.basePreparationTime !== undefined) data.basePreparationTime = productData.basePreparationTime;
+        if (productData.storageInstructions !== undefined) data.storageInstructions = productData.storageInstructions;
+        if (productData.allergenInformation !== undefined) data.allergenInformation = productData.allergenInformation;
+
         return this.prisma.product.create({
-            data: productData,
+            data,
         });
     }
 
-    async updateProduct(id: string, productData: any) {
-        return this.prisma.product.update({
+    async updateProduct(id: string, productData: UpdateProductDto) {
+        // Check if product exists
+        const existingProduct = await this.prisma.product.findUnique({
             where: { id },
-            data: productData,
         });
+
+        if (!existingProduct) {
+            throw new NotFoundException(`Product with ID ${id} not found`);
+        }
+
+        // Build update data object with only provided fields
+        const data: any = {};
+
+        if (productData.title !== undefined) data.title = productData.title;
+        if (productData.description !== undefined) data.description = productData.description;
+        if (productData.price !== undefined) data.price = productData.price;
+        if (productData.offerPrice !== undefined) data.offerPrice = productData.offerPrice;
+        if (productData.categoryId !== undefined) data.categoryId = productData.categoryId;
+        if (productData.stock !== undefined) data.stock = productData.stock;
+        if (productData.vendorId !== undefined) data.vendorId = productData.vendorId;
+        if (productData.sku !== undefined) data.sku = productData.sku;
+        if (productData.images !== undefined) data.images = productData.images;
+        if (productData.brandName !== undefined) data.brandName = productData.brandName;
+        if (productData.tags !== undefined) data.tags = productData.tags;
+        if (productData.weight !== undefined) data.weight = productData.weight;
+        if (productData.weightUnit !== undefined) data.weightUnit = productData.weightUnit;
+        if (productData.length !== undefined) data.length = productData.length;
+        if (productData.width !== undefined) data.width = productData.width;
+        if (productData.height !== undefined) data.height = productData.height;
+        if (productData.dimensionUnit !== undefined) data.dimensionUnit = productData.dimensionUnit;
+        if (productData.shippingClass !== undefined) data.shippingClass = productData.shippingClass;
+        if (productData.metaTitle !== undefined) data.metaTitle = productData.metaTitle;
+        if (productData.metaDescription !== undefined) data.metaDescription = productData.metaDescription;
+        if (productData.metaKeywords !== undefined) data.metaKeywords = productData.metaKeywords;
+        if (productData.isWholesale !== undefined) data.isWholesale = productData.isWholesale;
+        if (productData.wholesalePrice !== undefined) data.wholesalePrice = productData.wholesalePrice;
+        if (productData.moq !== undefined) data.moq = productData.moq;
+        if (productData.isActive !== undefined) data.isActive = productData.isActive;
+        if (productData.variants !== undefined) data.variants = productData.variants;
+
+        // New Fields Mapping
+        if (productData.isCancelable !== undefined) data.isCancelable = productData.isCancelable;
+        if (productData.isReturnable !== undefined) data.isReturnable = productData.isReturnable;
+        if (productData.requiresOTP !== undefined) data.requiresOTP = productData.requiresOTP;
+        if (productData.isInclusiveTax !== undefined) data.isInclusiveTax = productData.isInclusiveTax;
+        if (productData.isAttachmentRequired !== undefined) data.isAttachmentRequired = productData.isAttachmentRequired;
+        if (productData.minOrderQuantity !== undefined) data.minOrderQuantity = productData.minOrderQuantity;
+        if (productData.quantityStepSize !== undefined) data.quantityStepSize = productData.quantityStepSize;
+        if (productData.totalAllowedQuantity !== undefined) data.totalAllowedQuantity = productData.totalAllowedQuantity;
+        if (productData.basePreparationTime !== undefined) data.basePreparationTime = productData.basePreparationTime;
+        if (productData.storageInstructions !== undefined) data.storageInstructions = productData.storageInstructions;
+        if (productData.allergenInformation !== undefined) data.allergenInformation = productData.allergenInformation;
+
+        try {
+            return await this.prisma.product.update({
+                where: { id },
+                data,
+                include: {
+                    vendor: true,
+                    category: {
+                        select: {
+                            id: true,
+                            name: true,
+                        }
+                    },
+                },
+            });
+        } catch (error) {
+            console.error('Error updating product:', error);
+            throw new NotFoundException(`Failed to update product with ID ${id}`);
+        }
     }
 
     async deleteProduct(id: string) {

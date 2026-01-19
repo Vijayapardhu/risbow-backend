@@ -452,6 +452,23 @@ model Product {
   metaDescription String?
   metaKeywords    String[]
 
+  // Fulfillment & Compliance
+  isCancelable         Boolean @default(false)
+  isReturnable         Boolean @default(false)
+  requiresOTP          Boolean @default(false)
+  isInclusiveTax       Boolean @default(false)
+  isAttachmentRequired Boolean @default(false)
+
+  // Order Constraints
+  minOrderQuantity     Int     @default(1)
+  quantityStepSize     Int     @default(1)
+  totalAllowedQuantity Int     @default(10)
+  basePreparationTime  Int     @default(0) // Minutes
+
+  // Content
+  storageInstructions  String?
+  allergenInformation  String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

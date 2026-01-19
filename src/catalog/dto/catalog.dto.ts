@@ -105,6 +105,204 @@ export class CreateProductDto {
 
     @IsOptional()
     isActive?: boolean;
+
+    // Fulfillment & Compliance
+    @IsOptional()
+    isCancelable?: boolean;
+
+    @IsOptional()
+    isReturnable?: boolean;
+
+    @IsOptional()
+    requiresOTP?: boolean;
+
+    @IsOptional()
+    isInclusiveTax?: boolean;
+
+    @IsOptional()
+    isAttachmentRequired?: boolean;
+
+    // Order Constraints
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    minOrderQuantity?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    quantityStepSize?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    totalAllowedQuantity?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    basePreparationTime?: number;
+
+    // Content
+    @IsOptional()
+    @IsString()
+    storageInstructions?: string;
+
+    @IsOptional()
+    @IsString()
+    allergenInformation?: string;
+}
+
+export class UpdateProductDto {
+    @IsOptional()
+    @IsString()
+    title?: string;
+
+    @IsOptional()
+    @IsString()
+    description?: string;
+
+    @IsOptional()
+    @IsInt()
+    @Min(0)
+    price?: number;
+
+    @IsOptional()
+    @IsInt()
+    @Min(0)
+    offerPrice?: number;
+
+    @IsOptional()
+    @IsString()
+    categoryId?: string;
+
+    @IsOptional()
+    @IsInt()
+    stock?: number;
+
+    @IsOptional()
+    @IsString()
+    vendorId?: string;
+
+    @IsOptional()
+    @IsString()
+    sku?: string;
+
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    images?: string[];
+
+    @IsOptional()
+    @IsString()
+    brandName?: string;
+
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    tags?: string[];
+
+    @IsOptional()
+    @Type(() => Number)
+    weight?: number;
+
+    @IsOptional()
+    @IsString()
+    weightUnit?: string;
+
+    @IsOptional()
+    @Type(() => Number)
+    length?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    width?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    height?: number;
+
+    @IsOptional()
+    @IsString()
+    dimensionUnit?: string;
+
+    @IsOptional()
+    @IsString()
+    shippingClass?: string;
+
+    @IsOptional()
+    @IsString()
+    metaTitle?: string;
+
+    @IsOptional()
+    @IsString()
+    metaDescription?: string;
+
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    metaKeywords?: string[];
+
+    @IsOptional()
+    isWholesale?: boolean;
+
+    @IsOptional()
+    wholesalePrice?: number;
+
+    @IsOptional()
+    moq?: number;
+
+    @IsOptional()
+    isActive?: boolean;
+
+    // Fulfillment & Compliance
+    @IsOptional()
+    isCancelable?: boolean;
+
+    @IsOptional()
+    isReturnable?: boolean;
+
+    @IsOptional()
+    requiresOTP?: boolean;
+
+    @IsOptional()
+    isInclusiveTax?: boolean;
+
+    @IsOptional()
+    isAttachmentRequired?: boolean;
+
+    // Order Constraints
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    minOrderQuantity?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    quantityStepSize?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    totalAllowedQuantity?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    basePreparationTime?: number;
+
+    // Content
+    @IsOptional()
+    @IsString()
+    storageInstructions?: string;
+
+    @IsOptional()
+    @IsString()
+    allergenInformation?: string;
+
+    @IsOptional()
+    variants?: any;
 }
 
 export class ProductFilterDto {

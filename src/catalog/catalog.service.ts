@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateProductDto, ProductFilterDto } from './dto/catalog.dto';
+import { CreateProductDto, ProductFilterDto, UpdateProductDto } from './dto/catalog.dto';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -143,44 +143,39 @@ export class CatalogService {
         });
     }
 
-    async updateProduct(id: string, data: any) {
+    async updateProduct(id: string, data: UpdateProductDto) {
+        const updateData: any = {};
+        
+        if (data.title !== undefined) updateData.title = data.title;
+        if (data.description !== undefined) updateData.description = data.description;
+        if (data.price !== undefined) updateData.price = data.price;
+        if (data.offerPrice !== undefined) updateData.offerPrice = data.offerPrice;
+        if (data.stock !== undefined) updateData.stock = data.stock;
+        if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
+        if (data.vendorId !== undefined) updateData.vendorId = data.vendorId;
+        if (data.isActive !== undefined) updateData.isActive = data.isActive;
+        if (data.sku !== undefined) updateData.sku = data.sku;
+        if (data.images !== undefined) updateData.images = data.images;
+        if (data.brandName !== undefined) updateData.brandName = data.brandName;
+        if (data.tags !== undefined) updateData.tags = data.tags;
+        if (data.weight !== undefined) updateData.weight = data.weight;
+        if (data.weightUnit !== undefined) updateData.weightUnit = data.weightUnit;
+        if (data.length !== undefined) updateData.length = data.length;
+        if (data.width !== undefined) updateData.width = data.width;
+        if (data.height !== undefined) updateData.height = data.height;
+        if (data.dimensionUnit !== undefined) updateData.dimensionUnit = data.dimensionUnit;
+        if (data.shippingClass !== undefined) updateData.shippingClass = data.shippingClass;
+        if (data.metaTitle !== undefined) updateData.metaTitle = data.metaTitle;
+        if (data.metaDescription !== undefined) updateData.metaDescription = data.metaDescription;
+        if (data.metaKeywords !== undefined) updateData.metaKeywords = data.metaKeywords;
+        if (data.isWholesale !== undefined) updateData.isWholesale = data.isWholesale;
+        if (data.wholesalePrice !== undefined) updateData.wholesalePrice = data.wholesalePrice;
+        if (data.moq !== undefined) updateData.moq = data.moq;
+        if (data.variants !== undefined) updateData.variants = data.variants;
+
         return this.prisma.product.update({
             where: { id },
-            data: {
-                title: data.title,
-                description: data.description,
-                price: data.price,
-                offerPrice: data.offerPrice,
-                stock: data.stock,
-                categoryId: data.categoryId,
-                vendorId: data.vendorId,
-                isActive: data.isActive,
-
-                // Extended Details
-                sku: data.sku,
-                images: data.images,
-                brandName: data.brandName,
-                tags: data.tags,
-
-                // Logistics
-                weight: data.weight,
-                weightUnit: data.weightUnit,
-                length: data.length,
-                width: data.width,
-                height: data.height,
-                dimensionUnit: data.dimensionUnit,
-                shippingClass: data.shippingClass,
-
-                // SEO
-                metaTitle: data.metaTitle,
-                metaDescription: data.metaDescription,
-                metaKeywords: data.metaKeywords,
-
-                // B2B
-                isWholesale: data.isWholesale,
-                wholesalePrice: data.wholesalePrice,
-                moq: data.moq,
-            }
+            data: updateData
         });
     }
 

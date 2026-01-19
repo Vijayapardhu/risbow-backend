@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Patch, Delete, Body, Query, Param, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { CatalogService } from './catalog.service';
-import { CreateProductDto, ProductFilterDto } from './dto/catalog.dto';
+import { CreateProductDto, ProductFilterDto, UpdateProductDto } from './dto/catalog.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -40,7 +40,7 @@ export class CatalogController {
     @Patch(':id')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('VENDOR', 'ADMIN', 'SUPER_ADMIN')
-    async update(@Param('id') id: string, @Body() body: any) {
+    async update(@Param('id') id: string, @Body() body: UpdateProductDto) {
         return this.catalogService.updateProduct(id, body);
     }
 
