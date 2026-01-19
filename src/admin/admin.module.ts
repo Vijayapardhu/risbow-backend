@@ -6,9 +6,10 @@ import { AdminDashboardService } from './admin-dashboard.service';
 import { AdminProductController } from './admin-product.controller';
 import { AdminProductService } from './admin-product.service';
 import { PrismaModule } from '../prisma/prisma.module';
+import { VendorsModule } from '../vendors/vendors.module';
 
 @Module({
-    imports: [PrismaModule],
+    imports: [PrismaModule, VendorsModule],
     controllers: [AdminController, AdminDashboardController, AdminProductController],
     providers: [AdminService, AdminDashboardService, AdminProductService],
 })

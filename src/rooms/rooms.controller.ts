@@ -5,6 +5,9 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RoomStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service'; // Direct access for simple GET
 
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+
 @Controller('rooms')
 export class RoomsController {
     constructor(
@@ -34,6 +37,20 @@ export class RoomsController {
         return this.roomsService.linkOrder(roomId, req.user.id, orderId);
     }
 
+    @Post(':id/unlock')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async forceUnlock(@Param('id') id: string) {
+        return this.roomsService.forceUnlock(id);
+    }
+
+    @Post(':id/expire')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async expireRoom(@Param('id') id: string) {
+        return this.roomsService.expireRoom(id);
+    }
+
     @Get()
     findAll(@Query('status') status: RoomStatus) {
         // Simple filter
@@ -42,9 +59,13 @@ export class RoomsController {
             where,
             include: {
                 members: true, // simple include, prod would aggregate 
-                createdBy: { select: { name: true } }
+                createdBy: { select: { name: true } },
+                _count: {
+                    select: { members: true }
+                }
             },
-            take: 20
+            orderBy: { createdAt: 'desc' },
+            take: 50
         });
     }
 

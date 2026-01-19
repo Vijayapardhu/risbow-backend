@@ -57,8 +57,8 @@ export class CategoriesController {
     constructor(private readonly catalogService: CatalogService) { }
 
     @Get()
-    async getAll() {
-        return this.catalogService.getCategories();
+    async getAll(@Query('includeInactive') includeInactive?: string) {
+        return this.catalogService.getCategories(includeInactive === 'true');
     }
 
     @Get(':id')
@@ -73,11 +73,18 @@ export class CategoriesController {
         return this.catalogService.createCategory(body);
     }
 
-    @Post(':id') // Using Post for update as simpler alternative or Patch
+    @Patch(':id')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('ADMIN', 'SUPER_ADMIN')
     async update(@Param('id') id: string, @Body() body: any) {
         return this.catalogService.updateCategory(id, body);
+    }
+
+    @Delete(':id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async remove(@Param('id') id: string) {
+        return this.catalogService.deleteCategory(id);
     }
 }
 
@@ -85,9 +92,37 @@ export class CategoriesController {
 export class GiftsController {
     constructor(private readonly catalogService: CatalogService) { }
 
+    @Get()
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async getAll() {
+        return this.catalogService.getAllGifts();
+    }
+
     @Get('eligible')
     async getEligible(@Query('cartValue') cartValue: string) {
         const val = parseInt(cartValue, 10) || 0;
         return this.catalogService.getEligibleGifts(val);
+    }
+
+    @Post()
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async create(@Body() body: any) {
+        return this.catalogService.createGift(body);
+    }
+
+    @Patch(':id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async update(@Param('id') id: string, @Body() body: any) {
+        return this.catalogService.updateGift(id, body);
+    }
+
+    @Delete(':id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async remove(@Param('id') id: string) {
+        return this.catalogService.deleteGift(id);
     }
 }

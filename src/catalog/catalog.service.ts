@@ -14,17 +14,24 @@ export class CatalogService {
                 parentId: data.parentId,
                 image: data.image,
                 attributeSchema: data.attributeSchema,
+                isActive: true
             },
         });
     }
 
     async getCategory(id: string) {
         return this.prisma.category.findUnique({
-            where: { id }
+            where: { id },
+            include: {
+                parent: true,
+                children: {
+                    where: { isActive: true }
+                }
+            }
         });
     }
 
-    async updateCategory(id: string, data: { name?: string; parentId?: string; image?: string; attributeSchema?: any }) {
+    async updateCategory(id: string, data: { name?: string; parentId?: string; image?: string; attributeSchema?: any; isActive?: boolean }) {
         return this.prisma.category.update({
             where: { id },
             data: {
@@ -32,8 +39,48 @@ export class CatalogService {
                 parentId: data.parentId,
                 image: data.image,
                 attributeSchema: data.attributeSchema,
+                isActive: data.isActive
             },
         });
+    }
+
+    async deleteCategory(id: string) {
+        // Soft delete
+        return this.prisma.category.update({
+            where: { id },
+            data: { isActive: false }
+        });
+    }
+
+    async getCategories(includeInactive = false) {
+        const categories = await this.prisma.category.findMany({
+            where: includeInactive ? {} : { isActive: true },
+            orderBy: { name: 'asc' },
+            include: {
+                parent: true,
+                _count: {
+                    select: { products: true }
+                }
+            }
+        });
+
+        // Build hierarchy tree
+        const categoryMap = new Map();
+        const roots: any[] = [];
+
+        categories.forEach(cat => {
+            categoryMap.set(cat.id, { ...cat, children: [] });
+        });
+
+        categories.forEach(cat => {
+            if (cat.parentId && categoryMap.has(cat.parentId)) {
+                categoryMap.get(cat.parentId).children.push(categoryMap.get(cat.id));
+            } else {
+                roots.push(categoryMap.get(cat.id));
+            }
+        });
+
+        return roots;
     }
 
     async createProduct(dto: CreateProductDto) {
@@ -141,6 +188,43 @@ export class CatalogService {
         });
     }
 
+    // --- Admin Gift Management ---
+
+    async createGift(data: { title: string; stock: number; cost: number; eligibleCategories?: any }) {
+        return this.prisma.giftSKU.create({
+            data: {
+                title: data.title,
+                stock: data.stock,
+                cost: data.cost,
+                eligibleCategories: data.eligibleCategories
+            }
+        });
+    }
+
+    async updateGift(id: string, data: { title?: string; stock?: number; cost?: number; eligibleCategories?: any }) {
+        return this.prisma.giftSKU.update({
+            where: { id },
+            data: {
+                title: data.title,
+                stock: data.stock,
+                cost: data.cost,
+                eligibleCategories: data.eligibleCategories
+            }
+        });
+    }
+
+    async deleteGift(id: string) {
+        return this.prisma.giftSKU.delete({
+            where: { id }
+        });
+    }
+
+    async getAllGifts() {
+        return this.prisma.giftSKU.findMany({
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+
     async findOne(id: string) {
         const product = await this.prisma.product.findUnique({
             where: { id },
@@ -175,11 +259,7 @@ export class CatalogService {
         };
     }
 
-    async getCategories() {
-        return this.prisma.category.findMany({
-            orderBy: { name: 'asc' }
-        });
-    }
+
 
     async processBulkUpload(csvContent: string) {
         // Stub for CSV parsing logic

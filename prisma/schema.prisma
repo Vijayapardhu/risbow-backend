@@ -158,10 +158,12 @@ model Category {
   children        Category[] @relation("CategoryHierarchy")
   products        Product[]
   attributeSchema Json? // [{ name: "Size", type: "select", options: ["S", "M"] }]
+  isActive        Boolean    @default(true)
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
   @@index([parentId])
+  @@index([isActive])
 }
 
 model GiftSKU {
@@ -198,6 +200,7 @@ model Vendor {
   isGstVerified Boolean @default(false)
   kycDocuments  Json? // { "pan": "url", "aadhaar": "url", "gst": "url" }
   skuLimit      Int     @default(100)
+  strikes       Int     @default(0) // Admin strikes against the vendor
 
   // B2B / Advanced Vendor
   role           VendorRole @default(RETAILER)

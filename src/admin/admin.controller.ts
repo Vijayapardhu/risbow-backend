@@ -4,11 +4,16 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 
+import { VendorsService } from '../vendors/vendors.service';
+
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'SUPER_ADMIN')
 export class AdminController {
-    constructor(private readonly adminService: AdminService) { }
+    constructor(
+        private readonly adminService: AdminService,
+        private readonly vendorsService: VendorsService
+    ) { }
 
     // --- APP CONFIG ---
 
@@ -267,7 +272,51 @@ export class AdminController {
         @Param('id') id: string,
         @Body() body: { approved: boolean, reason?: string }
     ) {
-        return this.adminService.approveVendor(req.user.id, id, body.approved, body.reason);
+        // Calling VendorsService
+        if (body.approved) {
+            return this.vendorsService.approveVendor(req.user.id, id);
+        } else {
+            return this.vendorsService.rejectVendor(req.user.id, id, body.reason || 'No reason provided');
+        }
+    }
+
+    @Post('vendors/:id/reject')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    rejectVendor(
+        @Request() req,
+        @Param('id') id: string,
+        @Body() body: { reason: string }
+    ) {
+        return this.vendorsService.rejectVendor(req.user.id, id, body.reason);
+    }
+
+    @Post('vendors/:id/suspend')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    suspendVendor(
+        @Request() req,
+        @Param('id') id: string,
+        @Body() body: { reason?: string }
+    ) {
+        return this.vendorsService.suspendVendor(req.user.id, id, body.reason);
+    }
+
+    @Post('vendors/:id/activate')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    activateVendor(
+        @Request() req,
+        @Param('id') id: string
+    ) {
+        return this.vendorsService.activateVendor(req.user.id, id);
+    }
+
+    @Post('vendors/:id/strike')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    strikeVendor(
+        @Request() req,
+        @Param('id') id: string,
+        @Body() body: { reason: string }
+    ) {
+        return this.vendorsService.strikeVendor(req.user.id, id, body.reason);
     }
 
     @Get('rooms')

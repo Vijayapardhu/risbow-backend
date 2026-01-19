@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
+import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CoinsModule } from './coins/coins.module';
@@ -33,8 +34,9 @@ import { HealthController } from './common/health.controller';
                 port: parseInt(process.env.REDIS_PORT) || 6379,
             },
         }),
-        SharedModule,
         PrismaModule,
+        AuditModule,
+        SharedModule,
         AuthModule,
         UsersModule,
         CoinsModule,

@@ -157,4 +157,40 @@ export class RoomsService {
 
         return { message: 'Order linked successfully' };
     }
+
+    async forceUnlock(roomId: string) {
+        const room = await this.prisma.room.findUnique({ where: { id: roomId } });
+        if (!room) throw new NotFoundException('Room not found');
+
+        const updated = await this.prisma.room.update({
+            where: { id: roomId },
+            data: { status: RoomStatus.UNLOCKED }
+        });
+
+        this.roomsGateway.server.to(roomId).emit('room_update', {
+            type: 'UNLOCKED',
+            status: RoomStatus.UNLOCKED,
+            forced: true
+        });
+
+        return updated;
+    }
+
+    async expireRoom(roomId: string) {
+        const room = await this.prisma.room.findUnique({ where: { id: roomId } });
+        if (!room) throw new NotFoundException('Room not found');
+
+        const updated = await this.prisma.room.update({
+            where: { id: roomId },
+            data: { status: RoomStatus.EXPIRED }
+        });
+
+        this.roomsGateway.server.to(roomId).emit('room_update', {
+            type: 'EXPIRED',
+            status: RoomStatus.EXPIRED,
+            forced: true
+        });
+
+        return updated;
+    }
 }
