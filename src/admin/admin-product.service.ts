@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -161,7 +161,7 @@ export class AdminProductService {
         });
 
         if (!product) {
-            throw new Error('Product not found');
+            throw new NotFoundException('Product not found');
         }
 
         // Calculate prices with 18% GST

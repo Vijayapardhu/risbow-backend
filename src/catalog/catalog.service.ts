@@ -53,34 +53,39 @@ export class CatalogService {
     }
 
     async getCategories(includeInactive = false) {
-        const categories = await this.prisma.category.findMany({
-            where: includeInactive ? {} : { isActive: true },
-            orderBy: { name: 'asc' },
-            include: {
-                parent: true,
-                _count: {
-                    select: { products: true }
+        try {
+            const categories = await this.prisma.category.findMany({
+                where: includeInactive ? {} : { isActive: true },
+                orderBy: { name: 'asc' },
+                include: {
+                    parent: true,
+                    _count: {
+                        select: { products: true }
+                    }
                 }
-            }
-        });
+            });
 
-        // Build hierarchy tree
-        const categoryMap = new Map();
-        const roots: any[] = [];
+            // Build hierarchy tree
+            const categoryMap = new Map();
+            const roots: any[] = [];
 
-        categories.forEach(cat => {
-            categoryMap.set(cat.id, { ...cat, children: [] });
-        });
+            categories.forEach(cat => {
+                categoryMap.set(cat.id, { ...cat, children: [] });
+            });
 
-        categories.forEach(cat => {
-            if (cat.parentId && categoryMap.has(cat.parentId)) {
-                categoryMap.get(cat.parentId).children.push(categoryMap.get(cat.id));
-            } else {
-                roots.push(categoryMap.get(cat.id));
-            }
-        });
+            categories.forEach(cat => {
+                if (cat.parentId && categoryMap.has(cat.parentId)) {
+                    categoryMap.get(cat.parentId).children.push(categoryMap.get(cat.id));
+                } else {
+                    roots.push(categoryMap.get(cat.id));
+                }
+            });
 
-        return roots;
+            return roots;
+        } catch (error) {
+            console.error('Error fetching categories:', error);
+            throw error; // Re-throw to allow global filter to catch (or InternalServerError)
+        }
     }
 
     async createProduct(dto: CreateProductDto) {
