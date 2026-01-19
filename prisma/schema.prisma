@@ -157,6 +157,7 @@ model Category {
   parent          Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children        Category[] @relation("CategoryHierarchy")
   products        Product[]
+  specs           CategorySpec[] // Dynamic specifications for this category
   attributeSchema Json? // [{ name: "Size", type: "select", options: ["S", "M"] }]
   isActive        Boolean    @default(true)
   createdAt       DateTime   @default(now())
@@ -472,6 +473,9 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Dynamic Specifications
+  specValues ProductSpecValue[]
+
   @@index([vendorId])
   @@index([categoryId])
   @@index([isActive])
@@ -676,4 +680,53 @@ model Refund {
   @@index([status])
   @@index([userId])
   @@index([orderId])
+}
+
+// --- Dynamic Category Specifications ---
+
+enum SpecType {
+  TEXT
+  NUMBER
+  SELECT
+  BOOLEAN
+  MULTISELECT
+}
+
+model CategorySpec {
+  id          String   @id @default(cuid())
+  categoryId  String
+  key         String   // e.g., "brand", "ram_size", "schedule_type"
+  label       String   // Display name: "Brand", "RAM Size", "Schedule Type"
+  labelTE     String?  // Telugu label
+  type        SpecType
+  unit        String?  // "GB", "mg", "ml", "inches"
+  required    Boolean  @default(false)
+  options     Json?    // For SELECT/MULTISELECT: ["Option1", "Option2"]
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category      Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  productValues ProductSpecValue[]
+
+  @@unique([categoryId, key])
+  @@index([categoryId, isActive])
+  @@index([categoryId, sortOrder])
+}
+
+model ProductSpecValue {
+  id        String   @id @default(cuid())
+  productId String
+  specId    String
+  value     String   // Stored as string, validated by spec type
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  spec    CategorySpec @relation(fields: [specId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, specId])
+  @@index([productId])
+  @@index([specId])
 }

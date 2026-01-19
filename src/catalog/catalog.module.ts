@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
-import { CatalogService } from './catalog.service';
 import { CatalogController, CategoriesController, GiftsController } from './catalog.controller';
-import { WholesaleController } from './wholesale.controller';
+import { CatalogService } from './catalog.service';
+import { CategorySpecService } from './category-spec.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Module({
-    controllers: [CatalogController, CategoriesController, GiftsController, WholesaleController],
-    providers: [CatalogService],
-    exports: [CatalogService],
+    controllers: [CatalogController, CategoriesController, GiftsController],
+    providers: [CatalogService, CategorySpecService, PrismaService],
+    exports: [CatalogService, CategorySpecService],
 })
 export class CatalogModule { }

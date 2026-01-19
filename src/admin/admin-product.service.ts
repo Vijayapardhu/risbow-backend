@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto, UpdateProductDto } from '../catalog/dto/catalog.dto';
+import { CategorySpecService } from '../catalog/category-spec.service';
 
 @Injectable()
 export class AdminProductService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private categorySpecService: CategorySpecService
+    ) { }
 
     async getProductList(params: {
         search?: string;
@@ -150,25 +154,24 @@ export class AdminProductService {
         const product = await this.prisma.product.findUnique({
             where: { id },
             include: {
-                vendor: true,
-                category: {
+                vendor: {
                     select: {
                         id: true,
                         name: true,
                     }
                 },
-                reviews: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                            },
-                        },
-                    },
+                category: {
+                    select: {
+                        id: true,
+                        name: true,
+                        parentId: true,
+                    }
                 },
-                cartItems: true,
-                wishlists: true,
+                specValues: {
+                    include: {
+                        spec: true
+                    }
+                }
             },
         });
 
@@ -192,6 +195,11 @@ export class AdminProductService {
     }
 
     async createProduct(productData: CreateProductDto) {
+        // Validate specs if provided
+        if (productData.specs && productData.specs.length > 0) {
+            await this.categorySpecService.validateProductSpecs(productData.categoryId, productData.specs);
+        }
+
         const data: any = {
             title: productData.title,
             description: productData.description,
@@ -234,9 +242,16 @@ export class AdminProductService {
         if (productData.storageInstructions !== undefined) data.storageInstructions = productData.storageInstructions;
         if (productData.allergenInformation !== undefined) data.allergenInformation = productData.allergenInformation;
 
-        return this.prisma.product.create({
+        const product = await this.prisma.product.create({
             data,
         });
+
+        // Save spec values
+        if (productData.specs && productData.specs.length > 0) {
+            await this.categorySpecService.saveProductSpecs(product.id, productData.specs);
+        }
+
+        return product;
     }
 
     async updateProduct(id: string, productData: UpdateProductDto) {
@@ -247,6 +262,13 @@ export class AdminProductService {
 
         if (!existingProduct) {
             throw new NotFoundException(`Product with ID ${id} not found`);
+        }
+
+        // Validate specs if provided
+        if (productData.specs && productData.specs.length > 0) {
+            // Use existing categoryId if not provided in update
+            const categoryId = productData.categoryId || existingProduct.categoryId;
+            await this.categorySpecService.validateProductSpecs(categoryId, productData.specs);
         }
 
         // Build update data object with only provided fields
@@ -293,7 +315,7 @@ export class AdminProductService {
         if (productData.allergenInformation !== undefined) data.allergenInformation = productData.allergenInformation;
 
         try {
-            return await this.prisma.product.update({
+            const product = await this.prisma.product.update({
                 where: { id },
                 data,
                 include: {
@@ -306,6 +328,13 @@ export class AdminProductService {
                     },
                 },
             });
+
+            // Update spec values if provided
+            if (productData.specs !== undefined) {
+                await this.categorySpecService.saveProductSpecs(id, productData.specs);
+            }
+
+            return product;
         } catch (error) {
             console.error('Error updating product:', error);
             throw new NotFoundException(`Failed to update product with ID ${id}`);

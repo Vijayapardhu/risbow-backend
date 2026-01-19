@@ -151,6 +151,11 @@ export class CreateProductDto {
     @IsOptional()
     @IsString()
     allergenInformation?: string;
+
+    // Dynamic Specifications
+    @IsOptional()
+    @IsArray()
+    specs?: Array<{ specId: string; value: string }>;
 }
 
 export class UpdateProductDto {
@@ -300,6 +305,11 @@ export class UpdateProductDto {
     @IsOptional()
     @IsString()
     allergenInformation?: string;
+
+    // Dynamic Specifications
+    @IsOptional()
+    @IsArray()
+    specs?: Array<{ specId: string; value: string }>;
 
     @IsOptional()
     variants?: any;

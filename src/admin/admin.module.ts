@@ -7,10 +7,11 @@ import { AdminProductController } from './admin-product.controller';
 import { AdminProductService } from './admin-product.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { VendorsModule } from '../vendors/vendors.module';
+import { CategorySpecService } from '../catalog/category-spec.service';
 
 @Module({
     imports: [PrismaModule, VendorsModule],
     controllers: [AdminController, AdminDashboardController, AdminProductController],
-    providers: [AdminService, AdminDashboardService, AdminProductService],
+    providers: [AdminService, AdminDashboardService, AdminProductService, CategorySpecService],
 })
 export class AdminModule { }

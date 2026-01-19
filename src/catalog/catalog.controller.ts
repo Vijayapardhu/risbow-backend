@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Query, Param, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Put, Body, Query, Param, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { CatalogService } from './catalog.service';
 import { CreateProductDto, ProductFilterDto, UpdateProductDto } from './dto/catalog.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -85,6 +85,40 @@ export class CategoriesController {
     @Roles('ADMIN', 'SUPER_ADMIN')
     async remove(@Param('id') id: string) {
         return this.catalogService.deleteCategory(id);
+    }
+
+    // Category Specifications
+    @Get(':id/specs')
+    async getCategorySpecs(@Param('id') id: string, @Query('includeInactive') includeInactive?: string) {
+        return this.catalogService.getCategorySpecs(id, includeInactive === 'true');
+    }
+
+    @Post(':id/specs')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async createCategorySpec(@Param('id') id: string, @Body() body: any) {
+        return this.catalogService.createCategorySpec(id, body);
+    }
+
+    @Patch('specs/:specId')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async updateCategorySpec(@Param('specId') specId: string, @Body() body: any) {
+        return this.catalogService.updateCategorySpec(specId, body);
+    }
+
+    @Delete('specs/:specId')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async deleteCategorySpec(@Param('specId') specId: string) {
+        return this.catalogService.deleteCategorySpec(specId);
+    }
+
+    @Put(':id/specs/reorder')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async reorderSpecs(@Param('id') id: string, @Body() body: any) {
+        return this.catalogService.reorderSpecs(id, body.specs);
     }
 }
 

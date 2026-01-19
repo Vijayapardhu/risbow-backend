@@ -1,11 +1,15 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto, ProductFilterDto, UpdateProductDto } from './dto/catalog.dto';
+import { CategorySpecService } from './category-spec.service';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class CatalogService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private categorySpecService: CategorySpecService
+    ) { }
 
     async createCategory(data: { name: string; parentId?: string; image?: string; attributeSchema?: any }) {
         return this.prisma.category.create({
@@ -145,7 +149,7 @@ export class CatalogService {
 
     async updateProduct(id: string, data: UpdateProductDto) {
         const updateData: any = {};
-        
+
         if (data.title !== undefined) updateData.title = data.title;
         if (data.description !== undefined) updateData.description = data.description;
         if (data.price !== undefined) updateData.price = data.price;
@@ -346,5 +350,27 @@ export class CatalogService {
             }
         }
         return { uploaded: count, message: 'Bulk upload processed' };
+    }
+
+    // --- Category Specification Methods (Proxy to CategorySpecService) ---
+
+    async getCategorySpecs(categoryId: string, includeInactive = false) {
+        return this.categorySpecService.getCategorySpecs(categoryId, includeInactive);
+    }
+
+    async createCategorySpec(categoryId: string, dto: any) {
+        return this.categorySpecService.createCategorySpec(categoryId, dto);
+    }
+
+    async updateCategorySpec(specId: string, dto: any) {
+        return this.categorySpecService.updateCategorySpec(specId, dto);
+    }
+
+    async deleteCategorySpec(specId: string) {
+        return this.categorySpecService.deleteCategorySpec(specId);
+    }
+
+    async reorderSpecs(categoryId: string, specs: any) {
+        return this.categorySpecService.reorderSpecs(categoryId, specs);
     }
 }
