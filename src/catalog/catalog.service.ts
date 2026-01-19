@@ -293,7 +293,12 @@ export class CatalogService {
             where: { id },
             include: {
                 vendor: true,
-                category: true,
+                category: {
+                    select: {
+                        id: true,
+                        name: true,
+                    }
+                },
                 reviews: {
                     take: 10,
                     orderBy: { createdAt: 'desc' },

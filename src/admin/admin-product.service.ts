@@ -150,7 +150,12 @@ export class AdminProductService {
             where: { id },
             include: {
                 vendor: true,
-                category: true,
+                category: {
+                    select: {
+                        id: true,
+                        name: true,
+                    }
+                },
                 reviews: {
                     include: {
                         user: {
