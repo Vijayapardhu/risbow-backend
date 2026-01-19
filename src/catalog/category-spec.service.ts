@@ -114,11 +114,6 @@ export class CategorySpecService {
             throw new NotFoundException(`Specification ${specId} not found`);
         }
 
-        // Cannot change type if product values exist
-        if (spec.productValues.length > 0 && dto.type && dto.type !== spec.type) {
-            throw new BadRequestException(`Cannot change spec type when product values exist`);
-        }
-
         // Validate options for SELECT/MULTISELECT
         if ((spec.type === 'SELECT' || spec.type === 'MULTISELECT') && dto.options && dto.options.length === 0) {
             throw new BadRequestException(`SELECT and MULTISELECT specs must have options`);
