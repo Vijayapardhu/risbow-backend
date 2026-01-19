@@ -31,7 +31,13 @@ export class AdminProductService {
                 skip,
                 take: limitNum,
                 include: {
-                    category: true,
+                    category: {
+                        select: {
+                            id: true,
+                            name: true,
+                            // isActive: true, // DB Migration Mismatch: Column missing in Prod
+                        }
+                    },
                     vendor: true,
                     reviews: {
                         select: { rating: true },
