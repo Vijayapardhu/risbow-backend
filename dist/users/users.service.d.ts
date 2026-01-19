@@ -146,8 +146,8 @@ export declare class UsersService {
             status: import(".prisma/client").$Enums.PaymentStatus;
             createdAt: Date;
             updatedAt: Date;
-            orderId: string;
             amount: number;
+            orderId: string;
             currency: string;
             provider: string;
             providerOrderId: string | null;
@@ -168,6 +168,7 @@ export declare class UsersService {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
+        shippingCharges: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
     })[]>;
@@ -195,8 +196,8 @@ export declare class UsersService {
             status: import(".prisma/client").$Enums.PaymentStatus;
             createdAt: Date;
             updatedAt: Date;
-            orderId: string;
             amount: number;
+            orderId: string;
             currency: string;
             provider: string;
             providerOrderId: string | null;
@@ -217,6 +218,7 @@ export declare class UsersService {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
+        shippingCharges: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
     }>;
@@ -247,22 +249,22 @@ export declare class UsersService {
         message: string;
     }>;
     getNotifications(userId: string, limit?: number): Promise<{
-        type: string;
         id: string;
         createdAt: Date;
         userId: string | null;
         title: string;
         body: string;
+        type: string;
         targetAudience: string | null;
         isRead: boolean;
     }[]>;
     markNotificationRead(userId: string, notificationId: string): Promise<{
-        type: string;
         id: string;
         createdAt: Date;
         userId: string | null;
         title: string;
         body: string;
+        type: string;
         targetAudience: string | null;
         isRead: boolean;
     }>;

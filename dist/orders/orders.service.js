@@ -230,16 +230,20 @@ let OrdersService = class OrdersService {
             const transformedItems = items.map((item, index) => ({
                 id: `${order.id}-item-${index}`,
                 productId: item.productId || '',
-                productName: item.productName || item.title || 'Product',
-                productImage: item.image || '',
+                productName: item.productName || item.title || item.name || item.product?.title || item.product?.name || 'Product',
+                productImage: item.image || item.product?.image || '',
                 sku: item.sku || item.productId || '',
                 variantId: item.variantId,
-                variantName: item.variantName,
+                variantName: item.variantName || item.variant?.name,
                 quantity: item.quantity || 1,
                 unitPrice: item.price || item.unitPrice || 0,
                 total: (item.price || item.unitPrice || 0) * (item.quantity || 1)
             }));
-            const subtotal = order.totalAmount - (order.coinsUsed || 0);
+            const subtotal = transformedItems.reduce((sum, item) => sum + item.total, 0);
+            const tax = Math.round(subtotal * 0.18);
+            const shipping = order.shippingCharges || 0;
+            const discount = order.coinsUsed || 0;
+            const total = subtotal + tax + shipping - discount;
             return {
                 id: order.id,
                 orderNumber: `ORD-${order.id.substring(0, 8).toUpperCase()}`,
@@ -252,10 +256,10 @@ let OrdersService = class OrdersService {
                 shopName: 'Risbow Store',
                 items: transformedItems,
                 subtotal: subtotal,
-                shippingCost: 0,
-                tax: 0,
-                discount: order.coinsUsed || 0,
-                total: order.totalAmount,
+                shippingCost: shipping,
+                tax: tax,
+                discount: discount,
+                total: total,
                 status: order.status,
                 paymentMethod: order.payment?.provider || 'COD',
                 paymentStatus: order.payment?.status === 'SUCCESS' ? 'Paid' : order.payment?.status === 'FAILED' ? 'Unpaid' : 'Pending',
@@ -315,16 +319,20 @@ let OrdersService = class OrdersService {
         const transformedItems = items.map((item, index) => ({
             id: `${order.id}-item-${index}`,
             productId: item.productId || '',
-            productName: item.productName || item.title || 'Product',
-            productImage: item.image || '',
+            productName: item.productName || item.title || item.name || item.product?.title || item.product?.name || 'Product',
+            productImage: item.image || item.product?.image || '',
             sku: item.sku || item.productId || '',
             variantId: item.variantId,
-            variantName: item.variantName,
+            variantName: item.variantName || item.variant?.name,
             quantity: item.quantity || 1,
             unitPrice: item.price || item.unitPrice || 0,
-            total: transformedItems,
+            total: (item.price || item.unitPrice || 0) * (item.quantity || 1)
         }));
-        const subtotal = order.totalAmount - (order.coinsUsed || 0);
+        const subtotal = transformedItems.reduce((sum, item) => sum + item.total, 0);
+        const tax = Math.round(subtotal * 0.18);
+        const shipping = order.shippingCharges || 0;
+        const discount = order.coinsUsed || 0;
+        const total = subtotal + tax + shipping - discount;
         return {
             id: order.id,
             orderNumber: `ORD-${order.id.substring(0, 8).toUpperCase()}`,
@@ -335,12 +343,12 @@ let OrdersService = class OrdersService {
             customerMobile: order.user?.mobile || '',
             shopId: '',
             shopName: 'Risbow Store',
-            items: items,
+            items: transformedItems,
             subtotal: subtotal,
-            shippingCost: 0,
-            tax: 0,
-            discount: order.coinsUsed || 0,
-            total: order.totalAmount,
+            shippingCost: shipping,
+            tax: tax,
+            discount: discount,
+            total: total,
             status: order.status,
             paymentMethod: order.payment?.provider || 'COD',
             paymentStatus: order.payment?.status === 'SUCCESS' ? 'Paid' : order.payment?.status === 'FAILED' ? 'Unpaid' : 'Pending',

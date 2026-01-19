@@ -35,15 +35,27 @@ export declare class OrdersService {
         message: string;
     }>;
     getUserOrders(userId: string, page?: number, limit?: number): Promise<({
+        payment: {
+            id: string;
+            status: import(".prisma/client").$Enums.PaymentStatus;
+            createdAt: Date;
+            updatedAt: Date;
+            amount: number;
+            currency: string;
+            orderId: string;
+            provider: string;
+            providerOrderId: string | null;
+            paymentId: string | null;
+        };
         address: {
             id: string;
-            mobile: string | null;
-            name: string;
             createdAt: Date;
             updatedAt: Date;
             userId: string;
+            name: string;
             title: string | null;
             phone: string;
+            mobile: string | null;
             street: string | null;
             addressLine1: string;
             addressLine2: string | null;
@@ -53,46 +65,47 @@ export declare class OrdersService {
             label: string;
             isDefault: boolean;
         };
-        payment: {
-            id: string;
-            status: import(".prisma/client").$Enums.PaymentStatus;
-            createdAt: Date;
-            updatedAt: Date;
-            orderId: string;
-            amount: number;
-            currency: string;
-            provider: string;
-            providerOrderId: string | null;
-            paymentId: string | null;
-        };
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.OrderStatus;
-        createdAt: Date;
-        updatedAt: Date;
-        items: import("@prisma/client/runtime/library").JsonValue;
-        userId: string;
         roomId: string | null;
-        addressId: string | null;
+        items: import("@prisma/client/runtime/library").JsonValue;
         totalAmount: number;
         coinsUsed: number;
         coinsUsedDebited: boolean;
+        status: import(".prisma/client").$Enums.OrderStatus;
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
-        abandonedCheckoutId: string | null;
+        shippingCharges: number;
         agentId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        userId: string;
+        addressId: string | null;
+        abandonedCheckoutId: string | null;
     })[]>;
     getOrderDetails(userId: string, orderId: string): Promise<{
+        payment: {
+            id: string;
+            status: import(".prisma/client").$Enums.PaymentStatus;
+            createdAt: Date;
+            updatedAt: Date;
+            amount: number;
+            currency: string;
+            orderId: string;
+            provider: string;
+            providerOrderId: string | null;
+            paymentId: string | null;
+        };
         address: {
             id: string;
-            mobile: string | null;
-            name: string;
             createdAt: Date;
             updatedAt: Date;
             userId: string;
+            name: string;
             title: string | null;
             phone: string;
+            mobile: string | null;
             street: string | null;
             addressLine1: string;
             addressLine2: string | null;
@@ -102,35 +115,24 @@ export declare class OrdersService {
             label: string;
             isDefault: boolean;
         };
-        payment: {
-            id: string;
-            status: import(".prisma/client").$Enums.PaymentStatus;
-            createdAt: Date;
-            updatedAt: Date;
-            orderId: string;
-            amount: number;
-            currency: string;
-            provider: string;
-            providerOrderId: string | null;
-            paymentId: string | null;
-        };
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.OrderStatus;
-        createdAt: Date;
-        updatedAt: Date;
-        items: import("@prisma/client/runtime/library").JsonValue;
-        userId: string;
         roomId: string | null;
-        addressId: string | null;
+        items: import("@prisma/client/runtime/library").JsonValue;
         totalAmount: number;
         coinsUsed: number;
         coinsUsedDebited: boolean;
+        status: import(".prisma/client").$Enums.OrderStatus;
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
-        abandonedCheckoutId: string | null;
+        shippingCharges: number;
         agentId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        userId: string;
+        addressId: string | null;
+        abandonedCheckoutId: string | null;
     }>;
     createOrder(userId: string, orderData: any): Promise<{
         success: boolean;
@@ -216,7 +218,18 @@ export declare class OrdersService {
         customerMobile: string;
         shopId: string;
         shopName: string;
-        items: import("@prisma/client/runtime/library").JsonArray;
+        items: {
+            id: string;
+            productId: any;
+            productName: any;
+            productImage: any;
+            sku: any;
+            variantId: any;
+            variantName: any;
+            quantity: any;
+            unitPrice: any;
+            total: number;
+        }[];
         subtotal: number;
         shippingCost: number;
         tax: number;
@@ -244,20 +257,21 @@ export declare class OrdersService {
     }>;
     updateOrderStatus(orderId: string, status: OrderStatus): Promise<{
         id: string;
-        status: import(".prisma/client").$Enums.OrderStatus;
-        createdAt: Date;
-        updatedAt: Date;
-        items: import("@prisma/client/runtime/library").JsonValue;
-        userId: string;
         roomId: string | null;
-        addressId: string | null;
+        items: import("@prisma/client/runtime/library").JsonValue;
         totalAmount: number;
         coinsUsed: number;
         coinsUsedDebited: boolean;
+        status: import(".prisma/client").$Enums.OrderStatus;
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
-        abandonedCheckoutId: string | null;
+        shippingCharges: number;
         agentId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        userId: string;
+        addressId: string | null;
+        abandonedCheckoutId: string | null;
     }>;
 }

@@ -125,8 +125,8 @@ export declare class AdminService {
                 status: import(".prisma/client").$Enums.PaymentStatus;
                 createdAt: Date;
                 updatedAt: Date;
-                orderId: string;
                 amount: number;
+                orderId: string;
                 currency: string;
                 provider: string;
                 providerOrderId: string | null;
@@ -147,6 +147,7 @@ export declare class AdminService {
             razorpayOrderId: string | null;
             awbNumber: string | null;
             courierPartner: string | null;
+            shippingCharges: number;
             abandonedCheckoutId: string | null;
             agentId: string | null;
         })[];
@@ -653,8 +654,8 @@ export declare class AdminService {
                 status: import(".prisma/client").$Enums.PaymentStatus;
                 createdAt: Date;
                 updatedAt: Date;
-                orderId: string;
                 amount: number;
+                orderId: string;
                 currency: string;
                 provider: string;
                 providerOrderId: string | null;
@@ -675,6 +676,7 @@ export declare class AdminService {
             razorpayOrderId: string | null;
             awbNumber: string | null;
             courierPartner: string | null;
+            shippingCharges: number;
             abandonedCheckoutId: string | null;
             agentId: string | null;
         })[];
@@ -727,12 +729,12 @@ export declare class AdminService {
     sendUserNotification(userId: string, title: string, message: string): Promise<{
         success: boolean;
         notification: {
-            type: string;
             id: string;
             createdAt: Date;
             userId: string | null;
             title: string;
             body: string;
+            type: string;
             targetAudience: string | null;
             isRead: boolean;
         };
@@ -794,6 +796,7 @@ export declare class AdminService {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
+        shippingCharges: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
     })[]>;
@@ -837,6 +840,7 @@ export declare class AdminService {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
+        shippingCharges: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
     }>;
@@ -858,6 +862,7 @@ export declare class AdminService {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
+        shippingCharges: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
     }>;
@@ -924,11 +929,11 @@ export declare class AdminService {
         status: import(".prisma/client").$Enums.RoomStatus;
         size: number;
         createdAt: Date;
-        unlockMinOrders: number;
-        unlockMinValue: number;
         offerId: string;
         startAt: Date;
         endAt: Date;
+        unlockMinOrders: number;
+        unlockMinValue: number;
         isSystemRoom: boolean;
         createdById: string | null;
     }[]>;
@@ -938,11 +943,11 @@ export declare class AdminService {
         status: import(".prisma/client").$Enums.RoomStatus;
         size: number;
         createdAt: Date;
-        unlockMinOrders: number;
-        unlockMinValue: number;
         offerId: string;
         startAt: Date;
         endAt: Date;
+        unlockMinOrders: number;
+        unlockMinValue: number;
         isSystemRoom: boolean;
         createdById: string | null;
     }>;
@@ -1112,12 +1117,12 @@ export declare class AdminService {
         endDate: Date;
     }>;
     sendBroadcast(adminId: string, title: string, body: string, audience: string): Promise<{
-        type: string;
         id: string;
         createdAt: Date;
         userId: string | null;
         title: string;
         body: string;
+        type: string;
         targetAudience: string | null;
         isRead: boolean;
     }>;

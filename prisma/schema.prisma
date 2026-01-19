@@ -380,6 +380,7 @@ model Order {
   razorpayOrderId  String?
   awbNumber        String?
   courierPartner   String?
+  shippingCharges  Int         @default(0)
 
   // Recovery Fields
   abandonedCheckoutId String?

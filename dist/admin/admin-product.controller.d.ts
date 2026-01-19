@@ -116,8 +116,8 @@ export declare class AdminProductController {
         cartItems: {
             id: string;
             productId: string;
-            quantity: number;
             variantId: string | null;
+            quantity: number;
             cartId: string;
         }[];
         wishlists: {

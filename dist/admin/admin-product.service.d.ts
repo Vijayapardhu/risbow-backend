@@ -121,8 +121,8 @@ export declare class AdminProductService {
         cartItems: {
             id: string;
             productId: string;
-            quantity: number;
             variantId: string | null;
+            quantity: number;
             cartId: string;
         }[];
         wishlists: {

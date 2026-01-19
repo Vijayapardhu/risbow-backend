@@ -17,11 +17,11 @@ export declare class RoomsService {
         status: import(".prisma/client").$Enums.RoomStatus;
         size: number;
         createdAt: Date;
-        unlockMinOrders: number;
-        unlockMinValue: number;
         offerId: string;
         startAt: Date;
         endAt: Date;
+        unlockMinOrders: number;
+        unlockMinValue: number;
         isSystemRoom: boolean;
         createdById: string | null;
     }>;

@@ -97,8 +97,8 @@ export declare class UsersController {
             status: import(".prisma/client").$Enums.PaymentStatus;
             createdAt: Date;
             updatedAt: Date;
-            orderId: string;
             amount: number;
+            orderId: string;
             currency: string;
             provider: string;
             providerOrderId: string | null;
@@ -119,6 +119,7 @@ export declare class UsersController {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
+        shippingCharges: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
     })[]>;
@@ -146,8 +147,8 @@ export declare class UsersController {
             status: import(".prisma/client").$Enums.PaymentStatus;
             createdAt: Date;
             updatedAt: Date;
-            orderId: string;
             amount: number;
+            orderId: string;
             currency: string;
             provider: string;
             providerOrderId: string | null;
@@ -168,6 +169,7 @@ export declare class UsersController {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
+        shippingCharges: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
     }>;
@@ -198,22 +200,22 @@ export declare class UsersController {
         message: string;
     }>;
     getNotifications(req: any, limit: string): Promise<{
-        type: string;
         id: string;
         createdAt: Date;
         userId: string | null;
         title: string;
         body: string;
+        type: string;
         targetAudience: string | null;
         isRead: boolean;
     }[]>;
     markNotificationRead(req: any, notificationId: string): Promise<{
-        type: string;
         id: string;
         createdAt: Date;
         userId: string | null;
         title: string;
         body: string;
+        type: string;
         targetAudience: string | null;
         isRead: boolean;
     }>;
