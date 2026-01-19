@@ -108,6 +108,28 @@ export class CatalogService {
                 categoryId: dto.categoryId,
                 vendorId: vendorId,
 
+                // Extended Details
+                sku: dto.sku,
+                images: dto.images || [],
+                brandName: dto.brandName,
+                tags: dto.tags || [],
+
+                // Logistics
+                weight: dto.weight,
+                weightUnit: dto.weightUnit,
+                length: dto.length,
+                width: dto.width,
+                height: dto.height,
+                dimensionUnit: dto.dimensionUnit,
+                shippingClass: dto.shippingClass,
+
+                // SEO
+                metaTitle: dto.metaTitle,
+                metaDescription: dto.metaDescription,
+                metaKeywords: dto.metaKeywords || [],
+
+                isActive: dto.isActive ?? false,
+
                 // B2B Wholesale Fields
                 isWholesale: dto.isWholesale || false,
                 wholesalePrice: dto.wholesalePrice,
@@ -128,7 +150,31 @@ export class CatalogService {
                 categoryId: data.categoryId,
                 vendorId: data.vendorId,
                 isActive: data.isActive,
-                // Add other editable fields safely
+
+                // Extended Details
+                sku: data.sku,
+                images: data.images,
+                brandName: data.brandName,
+                tags: data.tags,
+
+                // Logistics
+                weight: data.weight,
+                weightUnit: data.weightUnit,
+                length: data.length,
+                width: data.width,
+                height: data.height,
+                dimensionUnit: data.dimensionUnit,
+                shippingClass: data.shippingClass,
+
+                // SEO
+                metaTitle: data.metaTitle,
+                metaDescription: data.metaDescription,
+                metaKeywords: data.metaKeywords,
+
+                // B2B
+                isWholesale: data.isWholesale,
+                wholesalePrice: data.wholesalePrice,
+                moq: data.moq,
             }
         });
     }
@@ -176,15 +222,27 @@ export class CatalogService {
         });
     }
 
-    async getEligibleGifts(cartValue: number) {
-        // SRS: Cart >= 2k -> choose gift @0.
-        // Logic: if cartValue >= 2500 (example threshold in SRS 3.2), return gifts.
-        // For now we just return all gifts if value > 2000
+    async getEligibleGifts(cartValue: number, categoryIds: string[] = []) {
+        // SRS: Cart >= 2k (or configured threshold) -> eligible for gifts
         if (cartValue < 2000) {
             return [];
         }
-        return this.prisma.giftSKU.findMany({
+
+        // Fetch all gifts with stock
+        const allGifts = await this.prisma.giftSKU.findMany({
             where: { stock: { gt: 0 } },
+        });
+
+        // Filter based on eligibility
+        // Logic: if gift.eligibleCategories is set, cart MUST contain item from that category
+        // If not set, it's a generic gift
+        return allGifts.filter(gift => {
+            const rules: any = gift.eligibleCategories;
+            if (!rules || !Array.isArray(rules) || rules.length === 0) {
+                return true; // No specific category restrictions
+            }
+            // Check if user cart has overlapping category
+            return rules.some(catId => categoryIds.includes(catId));
         });
     }
 

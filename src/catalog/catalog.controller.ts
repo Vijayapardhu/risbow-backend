@@ -100,9 +100,10 @@ export class GiftsController {
     }
 
     @Get('eligible')
-    async getEligible(@Query('cartValue') cartValue: string) {
+    async getEligible(@Query('cartValue') cartValue: string, @Query('categoryIds') categoryIds?: string) {
         const val = parseInt(cartValue, 10) || 0;
-        return this.catalogService.getEligibleGifts(val);
+        const cats = categoryIds ? categoryIds.split(',') : [];
+        return this.catalogService.getEligibleGifts(val, cats);
     }
 
     @Post()

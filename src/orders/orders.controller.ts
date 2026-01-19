@@ -3,6 +3,9 @@ import { OrdersService } from './orders.service';
 import { CheckoutDto, ConfirmOrderDto } from './dto/order.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+
 @Controller('orders')
 export class OrdersController {
     constructor(private readonly ordersService: OrdersService) { }
@@ -54,5 +57,38 @@ export class OrdersController {
     @UseGuards(JwtAuthGuard)
     async createOrder(@Request() req, @Body() orderData: any) {
         return this.ordersService.createOrder(req.user.id, orderData);
+    }
+
+    // --- ADMIN ENDPOINTS ---
+
+    @Get('admin/all')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async getAllAdminOrders(
+        @Query('page') page: string,
+        @Query('limit') limit: string,
+        @Query('search') search: string,
+        @Query('status') status: any
+    ) {
+        return this.ordersService.findAllOrders({
+            page: Number(page) || 1,
+            limit: Number(limit) || 10,
+            search,
+            status: status === 'ALL' ? undefined : status
+        });
+    }
+
+    @Get('admin/:id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async getAdminOrderDetails(@Param('id') orderId: string) {
+        return this.ordersService.getOrderDetail(orderId);
+    }
+
+    @Post('admin/pos/orders')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async createPosOrder(@Request() req, @Body() dto: any) {
+        return this.ordersService.createAdminOrder(req.user.id, dto);
     }
 }

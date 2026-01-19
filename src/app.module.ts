@@ -16,6 +16,8 @@ import { BowModule } from './bow/bow.module';
 import { CheckoutModule } from './checkout/checkout.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { BullModule } from '@nestjs/bullmq';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { TelecallerModule } from './telecaller/telecaller.module';
 
 import { SharedModule } from './shared/shared.module';
 import { HealthController } from './common/health.controller';
@@ -36,6 +38,7 @@ import { HealthController } from './common/health.controller';
         }),
         PrismaModule,
         AuditModule,
+        AnalyticsModule,
         SharedModule,
         AuthModule,
         UsersModule,
@@ -48,6 +51,7 @@ import { HealthController } from './common/health.controller';
         AdminModule,
         CheckoutModule,
         BowModule,
+        TelecallerModule,
     ],
     controllers: [HealthController],
 })

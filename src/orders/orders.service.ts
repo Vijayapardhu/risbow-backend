@@ -201,39 +201,61 @@ export class OrdersService {
 
     // Simple order creation for COD (Cash on Delivery)
     // TODO: Replace with actual implementation
-    async createOrder(userId: string, orderData: any) {
-        const {
-            addressId,
-            paymentMethod = 'COD',
-            subtotal,
-            deliveryFee = 0,
-        } = orderData;
+    // --- ADMIN / POS METHODS ---
 
-        // Basic validation
-        if (!addressId) {
-            throw new BadRequestException('Address is required');
-        }
+    async createAdminOrder(adminId: string, dto: {
+        customerId: string;
+        items: any[];
+        totalAmount: number;
+        paymentMethod: string;
+        source: string;
+    }) {
+        const { customerId, items, totalAmount, paymentMethod, source } = dto;
 
-        const totalAmount = subtotal + deliveryFee;
+        // Verify customer
+        const user = await this.prisma.user.findUnique({ where: { id: customerId } });
+        if (!user) throw new NotFoundException('Customer not found');
 
-        // Generate a mock order ID
-        const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-        // Return mock success response
-        return {
-            success: true,
-            orderId: orderId,
-            order: {
-                id: orderId,
-                userId,
-                addressId,
-                totalAmount: Math.round(totalAmount),
-                status: 'CONFIRMED',
-                paymentMethod,
-                createdAt: new Date().toISOString()
+        // Create Order
+        const order = await this.prisma.order.create({
+            data: {
+                userId: customerId,
+                items: items,
+                totalAmount: totalAmount,
+                status: 'CONFIRMED', // POS orders are typically immediate
+                payment: {
+                    create: {
+                        provider: paymentMethod.toUpperCase(), // Ensure uppercase e.g. 'CASH'
+                        amount: totalAmount,
+                        status: 'SUCCESS', // Assume payment collected at POS
+                        paymentId: `POS-${Date.now()}`
+                    }
+                },
+                address: {
+                    create: {
+                        name: user.name,
+                        mobile: user.mobile,
+                        addressLine1: 'POS Location', // Default for POS
+                        city: 'Store',
+                        state: 'Store',
+                        pincode: '000000',
+                        // Country not in schema
+                        label: 'WORK',
+                        isDefault: false
+                    }
+                }
             },
-            message: 'Order placed successfully (TEST MODE)'
-        };
+            include: {
+                payment: true
+            }
+        });
+
+        // Audit Log
+        // Note: adminId is passed for logging if we inject AuditLogService, 
+        // but for now we just return the order. 
+        // Ideally we should log this action.
+
+        return order;
     }
     // --- ADMIN METHODS ---
 
@@ -261,10 +283,6 @@ export class OrdersService {
             ];
         }
 
-        console.log('--- DEBUG: findAllOrders ---');
-        console.log('Params:', params);
-        console.log('Constructed Where:', JSON.stringify(where, null, 2));
-
         const [orders, total] = await Promise.all([
             this.prisma.order.findMany({
                 where,
@@ -282,26 +300,40 @@ export class OrdersService {
             this.prisma.order.count({ where })
         ]);
 
-        console.log(`Found ${orders.length} orders. Total: ${total}`);
-
         // Transform orders to match frontend expectations
-        const transformedOrders = orders.map(order => {
-            // Parse items from JSON to calculate subtotal
+        const transformedOrders = await Promise.all(orders.map(async order => {
+            // Parse items from JSON
             const items = Array.isArray(order.items) ? order.items : [];
 
+            // Fetch Product/Vendor Metadata for these items
+            const productIds = items.map((i: any) => i.productId).filter(id => id);
+            const products = await this.prisma.product.findMany({
+                where: { id: { in: productIds } },
+                include: { vendor: true }
+            });
+            const productMap = new Map(products.map(p => [p.id, p]));
+
             // Transform items to match frontend OrderItem interface
-            const transformedItems = items.map((item: any, index: number) => ({
-                id: `${order.id}-item-${index}`,
-                productId: item.productId || '',
-                productName: item.productName || item.title || item.name || item.product?.title || item.product?.name || 'Product',
-                productImage: item.image || item.product?.image || '',
-                sku: item.sku || item.productId || '',
-                variantId: item.variantId,
-                variantName: item.variantName || item.variant?.name,
-                quantity: item.quantity || 1,
-                unitPrice: item.price || item.unitPrice || 0,
-                total: (item.price || item.unitPrice || 0) * (item.quantity || 1)
-            }));
+            const transformedItems = items.map((item: any, index: number) => {
+                const product = productMap.get(item.productId);
+                return {
+                    id: `${order.id}-item-${index}`,
+                    productId: item.productId || '',
+                    productName: item.productName || item.title || item.name || product?.title || 'Product',
+                    productImage: item.image || product?.images?.[0] || '',
+                    sku: item.sku || item.productId || '',
+                    variantId: item.variantId,
+                    variantName: item.variantName || item.variant?.name,
+                    quantity: item.quantity || 1,
+                    unitPrice: item.price || item.unitPrice || 0,
+                    total: (item.price || item.unitPrice || 0) * (item.quantity || 1),
+                    // Vendor Enrichment
+                    vendorId: product?.vendorId || 'RISBOW_RETAIL',
+                    vendorName: product?.vendor?.name || 'Risbow Retail',
+                    vendorGst: '29ABCDE1234F1Z5', // Fallback or from Vendor table if added
+                    vendorAddress: 'Registered Store Address' // Placeholder or from Vendor
+                };
+            });
 
             const subtotal = transformedItems.reduce((sum, item) => sum + item.total, 0);
             const tax = Math.round(subtotal * 0.18);
@@ -311,15 +343,15 @@ export class OrdersService {
 
             return {
                 id: order.id,
-                orderNumber: `ORD-${order.id.substring(0, 8).toUpperCase()}`, // Use first 8 chars of ID as order number
+                orderNumber: `ORD-${order.id.substring(0, 8).toUpperCase()}`,
                 orderDate: order.createdAt.toISOString(),
                 customerId: order.userId,
                 customerName: order.user?.name || 'Guest Customer',
                 customerEmail: order.user?.email || '',
                 customerMobile: order.user?.mobile || '',
                 shopId: '',
-                shopName: 'Risbow Store',
-                items: transformedItems, // Use transformed items
+                shopName: 'Risbow Store', // Could be aggregated or multi-vendor label
+                items: transformedItems,
                 subtotal: subtotal,
                 shippingCost: shipping,
                 tax: tax,
@@ -338,24 +370,14 @@ export class OrdersService {
                     country: 'India',
                     postalCode: order.address.pincode || '',
                     type: order.address.label as any || 'Home'
-                } : {
-                    fullName: order.user?.name || '',
-                    phone: order.user?.mobile || '',
-                    addressLine1: 'Address not available',
-                    addressLine2: '',
-                    city: '',
-                    state: '',
-                    country: 'India',
-                    postalCode: '',
-                    type: 'Home' as any
-                },
+                } : null,
                 courierPartner: order.courierPartner || '',
                 awbNumber: order.awbNumber || '',
                 notes: '',
                 createdAt: order.createdAt.toISOString(),
                 updatedAt: order.updatedAt.toISOString()
             };
-        });
+        }));
 
         return {
             data: transformedOrders,
@@ -387,19 +409,35 @@ export class OrdersService {
         // Transform single order with same logic as list
         const items = Array.isArray(order.items) ? order.items : [];
 
+        // Fetch Product/Vendor Metadata
+        const productIds = items.map((i: any) => i.productId).filter(id => id);
+        const products = await this.prisma.product.findMany({
+            where: { id: { in: productIds } },
+            include: { vendor: true }
+        });
+        const productMap = new Map(products.map(p => [p.id, p]));
+
         // Transform items to match frontend OrderItem interface
-        const transformedItems = items.map((item: any, index: number) => ({
-            id: `${order.id}-item-${index}`,
-            productId: item.productId || '',
-            productName: item.productName || item.title || item.name || item.product?.title || item.product?.name || 'Product',
-            productImage: item.image || item.product?.image || '',
-            sku: item.sku || item.productId || '',
-            variantId: item.variantId,
-            variantName: item.variantName || item.variant?.name,
-            quantity: item.quantity || 1,
-            unitPrice: item.price || item.unitPrice || 0,
-            total: (item.price || item.unitPrice || 0) * (item.quantity || 1)
-        }));
+        const transformedItems = items.map((item: any, index: number) => {
+            const product = productMap.get(item.productId);
+            return {
+                id: `${order.id}-item-${index}`,
+                productId: item.productId || '',
+                productName: item.productName || item.title || item.name || product?.title || 'Product',
+                productImage: item.image || product?.images?.[0] || '',
+                sku: item.sku || item.productId || '',
+                variantId: item.variantId,
+                variantName: item.variantName || item.variant?.name,
+                quantity: item.quantity || 1,
+                unitPrice: item.price || item.unitPrice || 0,
+                total: (item.price || item.unitPrice || 0) * (item.quantity || 1),
+                // Vendor Enrichment
+                vendorId: product?.vendorId || 'RISBOW_DEFAULT',
+                vendorName: product?.vendor?.name || 'Risbow Retail',
+                vendorGst: '29ABCDE1234F1Z5',
+                vendorAddress: 'Registered Store Address'
+            };
+        });
 
         const subtotal = transformedItems.reduce((sum, item) => sum + item.total, 0);
         const tax = Math.round(subtotal * 0.18);
@@ -436,17 +474,7 @@ export class OrdersService {
                 country: 'India',
                 postalCode: order.address.pincode || '',
                 type: order.address.label as any || 'Home'
-            } : {
-                fullName: order.user?.name || '',
-                phone: order.user?.mobile || '',
-                addressLine1: 'Address not available',
-                addressLine2: '',
-                city: '',
-                state: '',
-                country: 'India',
-                postalCode: '',
-                type: 'Home' as any
-            },
+            } : null,
             courierPartner: order.courierPartner || '',
             awbNumber: order.awbNumber || '',
             notes: '',

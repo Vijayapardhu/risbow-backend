@@ -11,10 +11,20 @@ export class RoomsService {
         private roomsGateway: RoomsGateway,
     ) { }
 
+
     async create(userId: string, dto: CreateRoomDto) {
         // SRS 1.6: Check active offer window
-        // In real system: const offer = await this.prisma.weeklyOffer.findFirst({ where: { isActive: true }});
-        // if (!offer) throw ...
+        const activeOffer = await this.prisma.weeklyOffer.findFirst({
+            where: {
+                isActive: true,
+                endAt: { gt: new Date() }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        if (!activeOffer) {
+            throw new BadRequestException('No active Weekly Offer available to start a room. Please wait for the next drop!');
+        }
 
         const room = await this.prisma.room.create({
             data: {
@@ -22,12 +32,12 @@ export class RoomsService {
                 size: dto.size,
                 unlockMinOrders: dto.unlockMinOrders,
                 unlockMinValue: dto.unlockMinValue,
-                offerId: dto.offerId,
+                offerId: activeOffer.id,
                 createdById: userId,
                 isSystemRoom: false,
                 startAt: new Date(),
-                // End at 7 days
-                endAt: new Date(new Date().setDate(new Date().getDate() + 7)),
+                // End at 7 days or Offer End, whichever is sooner? usually 7 days for room
+                endAt: activeOffer.endAt,
                 members: {
                     create: {
                         userId,

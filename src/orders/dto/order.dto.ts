@@ -10,6 +10,10 @@ class OrderItemDto {
     @IsNumber()
     @Min(1)
     quantity: number;
+
+    @IsOptional()
+    @IsString()
+    vendorId?: string;
 }
 
 export class CheckoutDto {

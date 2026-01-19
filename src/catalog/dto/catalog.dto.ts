@@ -34,6 +34,67 @@ export class CreateProductDto {
     vendorId?: string; // In real app, this comes from JWT/Context if vendor logs in
 
     @IsOptional()
+    @IsString()
+    sku?: string;
+
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    images?: string[];
+
+    @IsOptional()
+    @IsString()
+    brandName?: string;
+
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    tags?: string[];
+
+    // Logistics
+    @IsOptional()
+    @Type(() => Number)
+    weight?: number;
+
+    @IsOptional()
+    @IsString()
+    weightUnit?: string;
+
+    @IsOptional()
+    @Type(() => Number)
+    length?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    width?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    height?: number;
+
+    @IsOptional()
+    @IsString()
+    dimensionUnit?: string;
+
+    @IsOptional()
+    @IsString()
+    shippingClass?: string;
+
+    // SEO
+    @IsOptional()
+    @IsString()
+    metaTitle?: string;
+
+    @IsOptional()
+    @IsString()
+    metaDescription?: string;
+
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    metaKeywords?: string[];
+
+    @IsOptional()
     isWholesale?: boolean;
 
     @IsOptional()
@@ -41,6 +102,9 @@ export class CreateProductDto {
 
     @IsOptional()
     moq?: number;
+
+    @IsOptional()
+    isActive?: boolean;
 }
 
 export class ProductFilterDto {

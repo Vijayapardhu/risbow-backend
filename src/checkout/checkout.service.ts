@@ -39,22 +39,26 @@ export class CheckoutService {
     }
 
     private async calculatePersuasionMetadata(cartItems: any[]) {
-        // Mock logic for now, real implementation would query Product table
-        // stock_status (low / medium / high)
-        // trending_score
-        // active_offers
-        // estimated_delivery
-        // urgency_reason (string)
-
         let lowStockCount = 0;
+        let activeOffers = [];
 
-        // Check stocks (simulated)
-        // In real app: const products = await this.prisma.product.findMany(...)
+        // Check real product data
+        for (const item of cartItems) {
+            if (!item.productId) continue;
+            const product = await this.prisma.product.findUnique({
+                where: { id: item.productId }
+            });
 
-        cartItems.forEach(item => {
-            // simulate random stock for demo or check real DB if product module access
-            if (item.quantity > 5) lowStockCount++;
-        });
+            if (product) {
+                // Determine stock urgency
+                if (product.stock < 10) lowStockCount++;
+
+                // Check if product has offer price
+                if (product.offerPrice && product.offerPrice < product.price) {
+                    activeOffers.push('DISCOUNTED');
+                }
+            }
+        }
 
         const stockStatus = lowStockCount > 0 ? 'LOW' : 'MEDIUM';
         const urgencyReason = stockStatus === 'LOW'
@@ -63,11 +67,11 @@ export class CheckoutService {
 
         return {
             stock_status: stockStatus,
-            trending_score: 85, // Mock
-            active_offers: ['FREE_DELIVERY'],
+            trending_score: 85, // Trending score could be calculated from recent orders count if needed
+            active_offers: [...new Set(activeOffers)], // Unique offers
             estimated_delivery: '2-3 Days',
             urgency_reason: urgencyReason,
-            source: 'WEB' // Default
+            source: 'WEB'
         };
     }
 
