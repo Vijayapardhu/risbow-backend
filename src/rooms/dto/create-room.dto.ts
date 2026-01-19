@@ -17,11 +17,6 @@ export class CreateRoomDto {
     @IsNotEmpty()
     @IsInt()
     unlockMinValue: number;
-
-    // For weekly offers, maybe offerId
-    @IsNotEmpty()
-    @IsString()
-    offerId: string;
 }
 
 export class JoinRoomDto {
