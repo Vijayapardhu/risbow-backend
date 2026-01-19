@@ -199,6 +199,33 @@ export class OrdersService {
         return order;
     }
 
+    /* Restored Legacy/Standard Order Creation */
+    async createOrder(userId: string, data: any) {
+        // This acts as a direct order creation (e.g. COD) avoiding the checkout flow if needed
+        // or wrappers the checkout flow.
+        // Given the controller usage, it expects to return an order object.
+
+        // reuse createCheckout logic but force COD/Pending?
+        // Or simple create logic:
+        return this.prisma.order.create({
+            data: {
+                user: { connect: { id: userId } },
+                items: data.items,
+                totalAmount: data.totalAmount,
+                status: 'PENDING',
+                payment: {
+                    create: {
+                        provider: data.paymentMethod || 'COD',
+                        amount: data.totalAmount,
+                        status: 'PENDING'
+                    }
+                },
+                // Address handling would be needed here too if passed
+                // For now, assuming basic structure
+            }
+        });
+    }
+
     // Simple order creation for COD (Cash on Delivery)
     // TODO: Replace with actual implementation
     // --- ADMIN / POS METHODS ---
@@ -219,7 +246,7 @@ export class OrdersService {
         // Create Order
         const order = await this.prisma.order.create({
             data: {
-                userId: customerId,
+                user: { connect: { id: customerId } },
                 items: items,
                 totalAmount: totalAmount,
                 status: 'CONFIRMED', // POS orders are typically immediate
@@ -233,8 +260,9 @@ export class OrdersService {
                 },
                 address: {
                     create: {
+                        userId: customerId,
                         name: user.name,
-                        mobile: user.mobile,
+                        phone: user.mobile,
                         addressLine1: 'POS Location', // Default for POS
                         city: 'Store',
                         state: 'Store',
