@@ -12,9 +12,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminProductService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const category_spec_service_1 = require("../catalog/category-spec.service");
 let AdminProductService = class AdminProductService {
-    constructor(prisma) {
+    constructor(prisma, categorySpecService) {
         this.prisma = prisma;
+        this.categorySpecService = categorySpecService;
     }
     async getProductList(params) {
         const { search, period, page = 1, limit = 50 } = params;
@@ -34,7 +36,12 @@ let AdminProductService = class AdminProductService {
                 skip,
                 take: limitNum,
                 include: {
-                    category: true,
+                    category: {
+                        select: {
+                            id: true,
+                            name: true,
+                        }
+                    },
                     vendor: true,
                     reviews: {
                         select: { rating: true },
@@ -137,24 +144,28 @@ let AdminProductService = class AdminProductService {
         const product = await this.prisma.product.findUnique({
             where: { id },
             include: {
-                vendor: true,
-                category: true,
-                reviews: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                            },
-                        },
-                    },
+                vendor: {
+                    select: {
+                        id: true,
+                        name: true,
+                    }
                 },
-                cartItems: true,
-                wishlists: true,
+                category: {
+                    select: {
+                        id: true,
+                        name: true,
+                        parentId: true,
+                    }
+                },
+                specValues: {
+                    include: {
+                        spec: true
+                    }
+                }
             },
         });
         if (!product) {
-            throw new Error('Product not found');
+            throw new common_1.NotFoundException('Product not found');
         }
         const basePrice = product.price;
         const priceWithGST = basePrice * 1.18;
@@ -169,15 +180,221 @@ let AdminProductService = class AdminProductService {
         };
     }
     async createProduct(productData) {
-        return this.prisma.product.create({
-            data: productData,
+        if (productData.specs && productData.specs.length > 0) {
+            await this.categorySpecService.validateProductSpecs(productData.categoryId, productData.specs);
+        }
+        const data = {
+            title: productData.title,
+            description: productData.description,
+            price: productData.price,
+            categoryId: productData.categoryId,
+            vendorId: productData.vendorId,
+        };
+        if (productData.offerPrice !== undefined)
+            data.offerPrice = productData.offerPrice;
+        if (productData.stock !== undefined)
+            data.stock = productData.stock;
+        if (productData.sku !== undefined)
+            data.sku = productData.sku;
+        if (productData.images !== undefined)
+            data.images = productData.images;
+        if (productData.brandName !== undefined)
+            data.brandName = productData.brandName;
+        if (productData.tags !== undefined)
+            data.tags = productData.tags;
+        if (productData.weight !== undefined)
+            data.weight = productData.weight;
+        if (productData.weightUnit !== undefined)
+            data.weightUnit = productData.weightUnit;
+        if (productData.length !== undefined)
+            data.length = productData.length;
+        if (productData.width !== undefined)
+            data.width = productData.width;
+        if (productData.height !== undefined)
+            data.height = productData.height;
+        if (productData.dimensionUnit !== undefined)
+            data.dimensionUnit = productData.dimensionUnit;
+        if (productData.shippingClass !== undefined)
+            data.shippingClass = productData.shippingClass;
+        if (productData.metaTitle !== undefined)
+            data.metaTitle = productData.metaTitle;
+        if (productData.metaDescription !== undefined)
+            data.metaDescription = productData.metaDescription;
+        if (productData.metaKeywords !== undefined)
+            data.metaKeywords = productData.metaKeywords;
+        if (productData.isWholesale !== undefined)
+            data.isWholesale = productData.isWholesale;
+        if (productData.wholesalePrice !== undefined)
+            data.wholesalePrice = productData.wholesalePrice;
+        if (productData.moq !== undefined)
+            data.moq = productData.moq;
+        if (productData.isActive !== undefined)
+            data.isActive = productData.isActive;
+        if (productData.isCancelable !== undefined)
+            data.isCancelable = productData.isCancelable;
+        if (productData.isReturnable !== undefined)
+            data.isReturnable = productData.isReturnable;
+        if (productData.requiresOTP !== undefined)
+            data.requiresOTP = productData.requiresOTP;
+        if (productData.isInclusiveTax !== undefined)
+            data.isInclusiveTax = productData.isInclusiveTax;
+        if (productData.isAttachmentRequired !== undefined)
+            data.isAttachmentRequired = productData.isAttachmentRequired;
+        if (productData.minOrderQuantity !== undefined)
+            data.minOrderQuantity = productData.minOrderQuantity;
+        if (productData.quantityStepSize !== undefined)
+            data.quantityStepSize = productData.quantityStepSize;
+        if (productData.totalAllowedQuantity !== undefined)
+            data.totalAllowedQuantity = productData.totalAllowedQuantity;
+        if (productData.basePreparationTime !== undefined)
+            data.basePreparationTime = productData.basePreparationTime;
+        if (productData.storageInstructions !== undefined)
+            data.storageInstructions = productData.storageInstructions;
+        if (productData.storageInstructions !== undefined)
+            data.storageInstructions = productData.storageInstructions;
+        if (productData.allergenInformation !== undefined)
+            data.allergenInformation = productData.allergenInformation;
+        if (productData.attributes !== undefined)
+            data.attributes = productData.attributes;
+        if (productData.costPrice !== undefined)
+            data.costPrice = productData.costPrice;
+        if (productData.rulesSnapshot !== undefined)
+            data.rulesSnapshot = productData.rulesSnapshot;
+        if (productData.shippingDetails !== undefined)
+            data.shippingDetails = productData.shippingDetails;
+        if (productData.mediaGallery !== undefined)
+            data.mediaGallery = productData.mediaGallery;
+        if (productData.variants !== undefined)
+            data.variants = productData.variants;
+        const product = await this.prisma.product.create({
+            data,
         });
+        if (productData.specs && productData.specs.length > 0) {
+            await this.categorySpecService.saveProductSpecs(product.id, productData.specs);
+        }
+        return product;
     }
     async updateProduct(id, productData) {
-        return this.prisma.product.update({
+        const existingProduct = await this.prisma.product.findUnique({
             where: { id },
-            data: productData,
         });
+        if (!existingProduct) {
+            throw new common_1.NotFoundException(`Product with ID ${id} not found`);
+        }
+        if (productData.specs && productData.specs.length > 0) {
+            const categoryId = productData.categoryId || existingProduct.categoryId;
+            await this.categorySpecService.validateProductSpecs(categoryId, productData.specs);
+        }
+        const data = {};
+        if (productData.title !== undefined)
+            data.title = productData.title;
+        if (productData.description !== undefined)
+            data.description = productData.description;
+        if (productData.price !== undefined)
+            data.price = productData.price;
+        if (productData.offerPrice !== undefined)
+            data.offerPrice = productData.offerPrice;
+        if (productData.categoryId !== undefined)
+            data.categoryId = productData.categoryId;
+        if (productData.stock !== undefined)
+            data.stock = productData.stock;
+        if (productData.vendorId !== undefined)
+            data.vendorId = productData.vendorId;
+        if (productData.sku !== undefined)
+            data.sku = productData.sku;
+        if (productData.images !== undefined)
+            data.images = productData.images;
+        if (productData.brandName !== undefined)
+            data.brandName = productData.brandName;
+        if (productData.tags !== undefined)
+            data.tags = productData.tags;
+        if (productData.weight !== undefined)
+            data.weight = productData.weight;
+        if (productData.weightUnit !== undefined)
+            data.weightUnit = productData.weightUnit;
+        if (productData.length !== undefined)
+            data.length = productData.length;
+        if (productData.width !== undefined)
+            data.width = productData.width;
+        if (productData.height !== undefined)
+            data.height = productData.height;
+        if (productData.dimensionUnit !== undefined)
+            data.dimensionUnit = productData.dimensionUnit;
+        if (productData.shippingClass !== undefined)
+            data.shippingClass = productData.shippingClass;
+        if (productData.metaTitle !== undefined)
+            data.metaTitle = productData.metaTitle;
+        if (productData.metaDescription !== undefined)
+            data.metaDescription = productData.metaDescription;
+        if (productData.metaKeywords !== undefined)
+            data.metaKeywords = productData.metaKeywords;
+        if (productData.isWholesale !== undefined)
+            data.isWholesale = productData.isWholesale;
+        if (productData.wholesalePrice !== undefined)
+            data.wholesalePrice = productData.wholesalePrice;
+        if (productData.moq !== undefined)
+            data.moq = productData.moq;
+        if (productData.isActive !== undefined)
+            data.isActive = productData.isActive;
+        if (productData.variants !== undefined)
+            data.variants = productData.variants;
+        if (productData.isCancelable !== undefined)
+            data.isCancelable = productData.isCancelable;
+        if (productData.isReturnable !== undefined)
+            data.isReturnable = productData.isReturnable;
+        if (productData.requiresOTP !== undefined)
+            data.requiresOTP = productData.requiresOTP;
+        if (productData.isInclusiveTax !== undefined)
+            data.isInclusiveTax = productData.isInclusiveTax;
+        if (productData.isAttachmentRequired !== undefined)
+            data.isAttachmentRequired = productData.isAttachmentRequired;
+        if (productData.minOrderQuantity !== undefined)
+            data.minOrderQuantity = productData.minOrderQuantity;
+        if (productData.quantityStepSize !== undefined)
+            data.quantityStepSize = productData.quantityStepSize;
+        if (productData.totalAllowedQuantity !== undefined)
+            data.totalAllowedQuantity = productData.totalAllowedQuantity;
+        if (productData.basePreparationTime !== undefined)
+            data.basePreparationTime = productData.basePreparationTime;
+        if (productData.storageInstructions !== undefined)
+            data.storageInstructions = productData.storageInstructions;
+        if (productData.storageInstructions !== undefined)
+            data.storageInstructions = productData.storageInstructions;
+        if (productData.allergenInformation !== undefined)
+            data.allergenInformation = productData.allergenInformation;
+        if (productData.attributes !== undefined)
+            data.attributes = productData.attributes;
+        if (productData.costPrice !== undefined)
+            data.costPrice = productData.costPrice;
+        if (productData.rulesSnapshot !== undefined)
+            data.rulesSnapshot = productData.rulesSnapshot;
+        if (productData.shippingDetails !== undefined)
+            data.shippingDetails = productData.shippingDetails;
+        if (productData.mediaGallery !== undefined)
+            data.mediaGallery = productData.mediaGallery;
+        try {
+            const product = await this.prisma.product.update({
+                where: { id },
+                data,
+                include: {
+                    vendor: true,
+                    category: {
+                        select: {
+                            id: true,
+                            name: true,
+                        }
+                    },
+                },
+            });
+            if (productData.specs !== undefined) {
+                await this.categorySpecService.saveProductSpecs(id, productData.specs);
+            }
+            return product;
+        }
+        catch (error) {
+            console.error('Error updating product:', error);
+            throw new common_1.NotFoundException(`Failed to update product with ID ${id}`);
+        }
     }
     async deleteProduct(id) {
         return this.prisma.product.delete({
@@ -219,6 +436,7 @@ let AdminProductService = class AdminProductService {
 exports.AdminProductService = AdminProductService;
 exports.AdminProductService = AdminProductService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        category_spec_service_1.CategorySpecService])
 ], AdminProductService);
 //# sourceMappingURL=admin-product.service.js.map

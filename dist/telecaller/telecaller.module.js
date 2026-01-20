@@ -9,16 +9,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TelecallerModule = void 0;
 const common_1 = require("@nestjs/common");
 const telecaller_controller_1 = require("./telecaller.controller");
-const admin_service_1 = require("../admin/admin.service");
-const prisma_module_1 = require("../prisma/prisma.module");
+const telecaller_service_1 = require("./telecaller.service");
+const prisma_service_1 = require("../prisma/prisma.service");
 let TelecallerModule = class TelecallerModule {
 };
 exports.TelecallerModule = TelecallerModule;
 exports.TelecallerModule = TelecallerModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule],
         controllers: [telecaller_controller_1.TelecallerController],
-        providers: [admin_service_1.AdminService],
+        providers: [telecaller_service_1.TelecallerService, prisma_service_1.PrismaService],
     })
 ], TelecallerModule);
 //# sourceMappingURL=telecaller.module.js.map

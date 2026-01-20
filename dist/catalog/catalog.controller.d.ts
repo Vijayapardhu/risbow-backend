@@ -1,14 +1,14 @@
 import { CatalogService } from './catalog.service';
-import { CreateProductDto, ProductFilterDto } from './dto/catalog.dto';
+import { CreateProductDto, ProductFilterDto, UpdateProductDto } from './dto/catalog.dto';
 export declare class CatalogController {
     private readonly catalogService;
     constructor(catalogService: CatalogService);
     findAll(filters: ProductFilterDto): Promise<{
         id: string;
         createdAt: Date;
+        length: number | null;
         updatedAt: Date;
         title: string;
-        length: number | null;
         vendorId: string;
         description: string | null;
         price: number;
@@ -33,6 +33,25 @@ export declare class CatalogController {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        isCancelable: boolean;
+        isReturnable: boolean;
+        requiresOTP: boolean;
+        isInclusiveTax: boolean;
+        isAttachmentRequired: boolean;
+        minOrderQuantity: number;
+        quantityStepSize: number;
+        totalAllowedQuantity: number;
+        basePreparationTime: number;
+        storageInstructions: string | null;
+        allergenInformation: string | null;
+        attributes: import("@prisma/client/runtime/library").JsonValue | null;
+        costPrice: number | null;
+        rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
+        shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
+        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
+        videos: string[];
+        hasVariations: boolean;
+        variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
     }[]>;
     findOne(id: string): Promise<{
         averageRating: number;
@@ -40,29 +59,24 @@ export declare class CatalogController {
         category: {
             id: string;
             name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            image: string | null;
-            nameTE: string | null;
-            attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
-            parentId: string | null;
         };
         vendor: {
             id: string;
+            createdAt: Date;
+            name: string;
             mobile: string;
             email: string | null;
-            name: string;
             role: import(".prisma/client").$Enums.VendorRole;
             coinsBalance: number;
             kycStatus: string;
             kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-            createdAt: Date;
             updatedAt: Date;
             vendorCode: string | null;
             tier: string;
             gstNumber: string | null;
             isGstVerified: boolean;
             skuLimit: number;
+            strikes: number;
             followCount: number;
             commissionRate: number;
         };
@@ -84,9 +98,9 @@ export declare class CatalogController {
         })[];
         id: string;
         createdAt: Date;
+        length: number | null;
         updatedAt: Date;
         title: string;
-        length: number | null;
         vendorId: string;
         description: string | null;
         price: number;
@@ -111,13 +125,32 @@ export declare class CatalogController {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        isCancelable: boolean;
+        isReturnable: boolean;
+        requiresOTP: boolean;
+        isInclusiveTax: boolean;
+        isAttachmentRequired: boolean;
+        minOrderQuantity: number;
+        quantityStepSize: number;
+        totalAllowedQuantity: number;
+        basePreparationTime: number;
+        storageInstructions: string | null;
+        allergenInformation: string | null;
+        attributes: import("@prisma/client/runtime/library").JsonValue | null;
+        costPrice: number | null;
+        rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
+        shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
+        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
+        videos: string[];
+        hasVariations: boolean;
+        variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     create(createProductDto: CreateProductDto): Promise<{
         id: string;
         createdAt: Date;
+        length: number | null;
         updatedAt: Date;
         title: string;
-        length: number | null;
         vendorId: string;
         description: string | null;
         price: number;
@@ -142,17 +175,36 @@ export declare class CatalogController {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        isCancelable: boolean;
+        isReturnable: boolean;
+        requiresOTP: boolean;
+        isInclusiveTax: boolean;
+        isAttachmentRequired: boolean;
+        minOrderQuantity: number;
+        quantityStepSize: number;
+        totalAllowedQuantity: number;
+        basePreparationTime: number;
+        storageInstructions: string | null;
+        allergenInformation: string | null;
+        attributes: import("@prisma/client/runtime/library").JsonValue | null;
+        costPrice: number | null;
+        rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
+        shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
+        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
+        videos: string[];
+        hasVariations: boolean;
+        variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     bulkUpload(file: any): Promise<{
         uploaded: number;
         message: string;
     }>;
-    update(id: string, body: any): Promise<{
+    update(id: string, body: UpdateProductDto): Promise<{
         id: string;
         createdAt: Date;
+        length: number | null;
         updatedAt: Date;
         title: string;
-        length: number | null;
         vendorId: string;
         description: string | null;
         price: number;
@@ -177,13 +229,32 @@ export declare class CatalogController {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        isCancelable: boolean;
+        isReturnable: boolean;
+        requiresOTP: boolean;
+        isInclusiveTax: boolean;
+        isAttachmentRequired: boolean;
+        minOrderQuantity: number;
+        quantityStepSize: number;
+        totalAllowedQuantity: number;
+        basePreparationTime: number;
+        storageInstructions: string | null;
+        allergenInformation: string | null;
+        attributes: import("@prisma/client/runtime/library").JsonValue | null;
+        costPrice: number | null;
+        rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
+        shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
+        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
+        videos: string[];
+        hasVariations: boolean;
+        variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     remove(id: string): Promise<{
         id: string;
         createdAt: Date;
+        length: number | null;
         updatedAt: Date;
         title: string;
-        length: number | null;
         vendorId: string;
         description: string | null;
         price: number;
@@ -208,56 +279,202 @@ export declare class CatalogController {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        isCancelable: boolean;
+        isReturnable: boolean;
+        requiresOTP: boolean;
+        isInclusiveTax: boolean;
+        isAttachmentRequired: boolean;
+        minOrderQuantity: number;
+        quantityStepSize: number;
+        totalAllowedQuantity: number;
+        basePreparationTime: number;
+        storageInstructions: string | null;
+        allergenInformation: string | null;
+        attributes: import("@prisma/client/runtime/library").JsonValue | null;
+        costPrice: number | null;
+        rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
+        shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
+        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
+        videos: string[];
+        hasVariations: boolean;
+        variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
 }
 export declare class CategoriesController {
     private readonly catalogService;
     constructor(catalogService: CatalogService);
-    getAll(): Promise<{
+    getAll(includeInactive?: string): Promise<({
+        _count: {
+            products: number;
+        };
+        parent: {
+            id: string;
+            createdAt: Date;
+            name: string;
+            updatedAt: Date;
+            isActive: boolean;
+            image: string | null;
+            nameTE: string | null;
+            parentId: string | null;
+            attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
+        };
+    } & {
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
+        isActive: boolean;
         image: string | null;
         nameTE: string | null;
-        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
         parentId: string | null;
-    }[]>;
+        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
+    })[]>;
     findOne(id: string): Promise<{
+        parent: {
+            id: string;
+            createdAt: Date;
+            name: string;
+            updatedAt: Date;
+            isActive: boolean;
+            image: string | null;
+            nameTE: string | null;
+            parentId: string | null;
+            attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
+        };
+        children: {
+            id: string;
+            createdAt: Date;
+            name: string;
+            updatedAt: Date;
+            isActive: boolean;
+            image: string | null;
+            nameTE: string | null;
+            parentId: string | null;
+            attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
+        }[];
+    } & {
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
+        isActive: boolean;
         image: string | null;
         nameTE: string | null;
-        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
         parentId: string | null;
+        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
+    }>;
+    getRules(id: string): Promise<{
+        categoryId: string;
+        categoryName: string;
+        features: {
+            hasVariants: boolean;
+            hasExpiry: boolean;
+            hasWarranty: boolean;
+            hasReturnPolicy: boolean;
+            isPhysical: boolean;
+            shippingClassRequired: boolean;
+            requiresCompliance: boolean;
+        };
+        inventory: {
+            mode: string;
+            allowFractional: boolean;
+            trackBatches: boolean;
+        };
+        sections: {
+            id: string;
+            label: string;
+            hidden: boolean;
+            order: number;
+        }[];
+        attributeSchema: any[];
     }>;
     create(body: any): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
+        isActive: boolean;
         image: string | null;
         nameTE: string | null;
-        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
         parentId: string | null;
+        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     update(id: string, body: any): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
+        isActive: boolean;
         image: string | null;
         nameTE: string | null;
-        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
         parentId: string | null;
+        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
+    }>;
+    remove(id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        name: string;
+        updatedAt: Date;
+        isActive: boolean;
+        image: string | null;
+        nameTE: string | null;
+        parentId: string | null;
+        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
+    }>;
+    getCategorySpecs(id: string, includeInactive?: string): Promise<any[]>;
+    createCategorySpec(id: string, body: any): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        type: import(".prisma/client").$Enums.SpecType;
+        label: string;
+        categoryId: string;
+        isActive: boolean;
+        key: string;
+        labelTE: string | null;
+        unit: string | null;
+        required: boolean;
+        options: import("@prisma/client/runtime/library").JsonValue | null;
+        sortOrder: number;
+    }>;
+    updateCategorySpec(specId: string, body: any): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        type: import(".prisma/client").$Enums.SpecType;
+        label: string;
+        categoryId: string;
+        isActive: boolean;
+        key: string;
+        labelTE: string | null;
+        unit: string | null;
+        required: boolean;
+        options: import("@prisma/client/runtime/library").JsonValue | null;
+        sortOrder: number;
+    }>;
+    deleteCategorySpec(specId: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        type: import(".prisma/client").$Enums.SpecType;
+        label: string;
+        categoryId: string;
+        isActive: boolean;
+        key: string;
+        labelTE: string | null;
+        unit: string | null;
+        required: boolean;
+        options: import("@prisma/client/runtime/library").JsonValue | null;
+        sortOrder: number;
+    }>;
+    reorderSpecs(id: string, body: any): Promise<{
+        success: boolean;
     }>;
 }
 export declare class GiftsController {
     private readonly catalogService;
     constructor(catalogService: CatalogService);
-    getEligible(cartValue: string): Promise<{
+    getAll(): Promise<{
         id: string;
         createdAt: Date;
         title: string;
@@ -265,4 +482,36 @@ export declare class GiftsController {
         cost: number;
         eligibleCategories: import("@prisma/client/runtime/library").JsonValue | null;
     }[]>;
+    getEligible(cartValue: string, categoryIds?: string): Promise<{
+        id: string;
+        createdAt: Date;
+        title: string;
+        stock: number;
+        cost: number;
+        eligibleCategories: import("@prisma/client/runtime/library").JsonValue | null;
+    }[]>;
+    create(body: any): Promise<{
+        id: string;
+        createdAt: Date;
+        title: string;
+        stock: number;
+        cost: number;
+        eligibleCategories: import("@prisma/client/runtime/library").JsonValue | null;
+    }>;
+    update(id: string, body: any): Promise<{
+        id: string;
+        createdAt: Date;
+        title: string;
+        stock: number;
+        cost: number;
+        eligibleCategories: import("@prisma/client/runtime/library").JsonValue | null;
+    }>;
+    remove(id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        title: string;
+        stock: number;
+        cost: number;
+        eligibleCategories: import("@prisma/client/runtime/library").JsonValue | null;
+    }>;
 }

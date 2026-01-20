@@ -5,20 +5,21 @@ export declare class VendorsController {
     constructor(vendorsService: VendorsService);
     register(dto: RegisterVendorDto): Promise<{
         id: string;
+        createdAt: Date;
+        name: string;
         mobile: string;
         email: string | null;
-        name: string;
         role: import(".prisma/client").$Enums.VendorRole;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        createdAt: Date;
         updatedAt: Date;
         vendorCode: string | null;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
+        strikes: number;
         followCount: number;
         commissionRate: number;
     }>;
@@ -28,20 +29,21 @@ export declare class VendorsController {
     }>;
     findAll(): Promise<{
         id: string;
+        createdAt: Date;
+        name: string;
         mobile: string;
         email: string | null;
-        name: string;
         role: import(".prisma/client").$Enums.VendorRole;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        createdAt: Date;
         updatedAt: Date;
         vendorCode: string | null;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
+        strikes: number;
         followCount: number;
         commissionRate: number;
     }[]>;

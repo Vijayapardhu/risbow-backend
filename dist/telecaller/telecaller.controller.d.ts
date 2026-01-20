@@ -1,8 +1,8 @@
-import { AdminService } from '../admin/admin.service';
+import { TelecallerService } from './telecaller.service';
 export declare class TelecallerController {
-    private readonly adminService;
-    constructor(adminService: AdminService);
-    getDashboard(): Promise<{
+    private readonly telecallerService;
+    constructor(telecallerService: TelecallerService);
+    getDashboard(req: any): Promise<{
         stats: {
             myTasks: number;
             completed: number;
@@ -13,17 +13,19 @@ export declare class TelecallerController {
             name: string;
             mobile: string;
             coins: number;
-            expiryDate: string;
+            expiryDate: Date;
             daysLeft: number;
             lastOrder: string;
         }[];
         checkoutRecovery: {
-            customerName: string;
-            mobile: string;
-            cartValue: number;
+            id: string;
+            customerName: any;
+            mobile: any;
+            cartValue: any;
             itemCount: number;
-            abandonedAt: string;
+            abandonedAt: Date;
             priority: string;
+            status: import(".prisma/client").$Enums.CheckoutRecoveryStatus;
         }[];
         supportTickets: {
             id: string;
@@ -32,24 +34,26 @@ export declare class TelecallerController {
             customerName: string;
             mobile: string;
             priority: string;
-            createdAt: string;
+            createdAt: Date;
         }[];
     }>;
     getExpiringCoins(): Promise<{
         name: string;
         mobile: string;
         coins: number;
-        expiryDate: string;
+        expiryDate: Date;
         daysLeft: number;
         lastOrder: string;
     }[]>;
-    getCheckoutRecoveryLeads(): Promise<{
-        customerName: string;
-        mobile: string;
-        cartValue: number;
+    getCheckoutRecoveryLeads(req: any): Promise<{
+        id: string;
+        customerName: any;
+        mobile: any;
+        cartValue: any;
         itemCount: number;
-        abandonedAt: string;
+        abandonedAt: Date;
         priority: string;
+        status: import(".prisma/client").$Enums.CheckoutRecoveryStatus;
     }[]>;
     getSupportTickets(): Promise<{
         id: string;
@@ -58,6 +62,6 @@ export declare class TelecallerController {
         customerName: string;
         mobile: string;
         priority: string;
-        createdAt: string;
+        createdAt: Date;
     }[]>;
 }

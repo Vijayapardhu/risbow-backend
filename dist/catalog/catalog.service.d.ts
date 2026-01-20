@@ -1,9 +1,11 @@
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateProductDto, ProductFilterDto } from './dto/catalog.dto';
+import { CreateProductDto, ProductFilterDto, UpdateProductDto } from './dto/catalog.dto';
+import { CategorySpecService } from './category-spec.service';
 import { Prisma } from '@prisma/client';
 export declare class CatalogService {
     private prisma;
-    constructor(prisma: PrismaService);
+    private categorySpecService;
+    constructor(prisma: PrismaService, categorySpecService: CategorySpecService);
     createCategory(data: {
         name: string;
         parentId?: string;
@@ -11,45 +13,109 @@ export declare class CatalogService {
         attributeSchema?: any;
     }): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
+        isActive: boolean;
         image: string | null;
         nameTE: string | null;
-        attributeSchema: Prisma.JsonValue | null;
         parentId: string | null;
+        attributeSchema: Prisma.JsonValue | null;
     }>;
     getCategory(id: string): Promise<{
+        parent: {
+            id: string;
+            createdAt: Date;
+            name: string;
+            updatedAt: Date;
+            isActive: boolean;
+            image: string | null;
+            nameTE: string | null;
+            parentId: string | null;
+            attributeSchema: Prisma.JsonValue | null;
+        };
+        children: {
+            id: string;
+            createdAt: Date;
+            name: string;
+            updatedAt: Date;
+            isActive: boolean;
+            image: string | null;
+            nameTE: string | null;
+            parentId: string | null;
+            attributeSchema: Prisma.JsonValue | null;
+        }[];
+    } & {
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
+        isActive: boolean;
         image: string | null;
         nameTE: string | null;
-        attributeSchema: Prisma.JsonValue | null;
         parentId: string | null;
+        attributeSchema: Prisma.JsonValue | null;
     }>;
     updateCategory(id: string, data: {
         name?: string;
         parentId?: string;
         image?: string;
         attributeSchema?: any;
+        isActive?: boolean;
     }): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
+        isActive: boolean;
         image: string | null;
         nameTE: string | null;
-        attributeSchema: Prisma.JsonValue | null;
         parentId: string | null;
+        attributeSchema: Prisma.JsonValue | null;
     }>;
+    deleteCategory(id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        name: string;
+        updatedAt: Date;
+        isActive: boolean;
+        image: string | null;
+        nameTE: string | null;
+        parentId: string | null;
+        attributeSchema: Prisma.JsonValue | null;
+    }>;
+    getCategories(includeInactive?: boolean): Promise<({
+        _count: {
+            products: number;
+        };
+        parent: {
+            id: string;
+            createdAt: Date;
+            name: string;
+            updatedAt: Date;
+            isActive: boolean;
+            image: string | null;
+            nameTE: string | null;
+            parentId: string | null;
+            attributeSchema: Prisma.JsonValue | null;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        name: string;
+        updatedAt: Date;
+        isActive: boolean;
+        image: string | null;
+        nameTE: string | null;
+        parentId: string | null;
+        attributeSchema: Prisma.JsonValue | null;
+    })[]>;
     createProduct(dto: CreateProductDto): Promise<{
         id: string;
         createdAt: Date;
+        length: number | null;
         updatedAt: Date;
         title: string;
-        length: number | null;
         vendorId: string;
         description: string | null;
         price: number;
@@ -74,13 +140,32 @@ export declare class CatalogService {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        isCancelable: boolean;
+        isReturnable: boolean;
+        requiresOTP: boolean;
+        isInclusiveTax: boolean;
+        isAttachmentRequired: boolean;
+        minOrderQuantity: number;
+        quantityStepSize: number;
+        totalAllowedQuantity: number;
+        basePreparationTime: number;
+        storageInstructions: string | null;
+        allergenInformation: string | null;
+        attributes: Prisma.JsonValue | null;
+        costPrice: number | null;
+        rulesSnapshot: Prisma.JsonValue | null;
+        shippingDetails: Prisma.JsonValue | null;
+        mediaGallery: Prisma.JsonValue | null;
+        videos: string[];
+        hasVariations: boolean;
+        variationOptions: Prisma.JsonValue | null;
     }>;
-    updateProduct(id: string, data: any): Promise<{
+    updateProduct(id: string, data: UpdateProductDto): Promise<{
         id: string;
         createdAt: Date;
+        length: number | null;
         updatedAt: Date;
         title: string;
-        length: number | null;
         vendorId: string;
         description: string | null;
         price: number;
@@ -105,13 +190,32 @@ export declare class CatalogService {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        isCancelable: boolean;
+        isReturnable: boolean;
+        requiresOTP: boolean;
+        isInclusiveTax: boolean;
+        isAttachmentRequired: boolean;
+        minOrderQuantity: number;
+        quantityStepSize: number;
+        totalAllowedQuantity: number;
+        basePreparationTime: number;
+        storageInstructions: string | null;
+        allergenInformation: string | null;
+        attributes: Prisma.JsonValue | null;
+        costPrice: number | null;
+        rulesSnapshot: Prisma.JsonValue | null;
+        shippingDetails: Prisma.JsonValue | null;
+        mediaGallery: Prisma.JsonValue | null;
+        videos: string[];
+        hasVariations: boolean;
+        variationOptions: Prisma.JsonValue | null;
     }>;
     deleteProduct(id: string): Promise<{
         id: string;
         createdAt: Date;
+        length: number | null;
         updatedAt: Date;
         title: string;
-        length: number | null;
         vendorId: string;
         description: string | null;
         price: number;
@@ -136,13 +240,32 @@ export declare class CatalogService {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        isCancelable: boolean;
+        isReturnable: boolean;
+        requiresOTP: boolean;
+        isInclusiveTax: boolean;
+        isAttachmentRequired: boolean;
+        minOrderQuantity: number;
+        quantityStepSize: number;
+        totalAllowedQuantity: number;
+        basePreparationTime: number;
+        storageInstructions: string | null;
+        allergenInformation: string | null;
+        attributes: Prisma.JsonValue | null;
+        costPrice: number | null;
+        rulesSnapshot: Prisma.JsonValue | null;
+        shippingDetails: Prisma.JsonValue | null;
+        mediaGallery: Prisma.JsonValue | null;
+        videos: string[];
+        hasVariations: boolean;
+        variationOptions: Prisma.JsonValue | null;
     }>;
     findAll(filters: ProductFilterDto): Promise<{
         id: string;
         createdAt: Date;
+        length: number | null;
         updatedAt: Date;
         title: string;
-        length: number | null;
         vendorId: string;
         description: string | null;
         price: number;
@@ -167,8 +290,69 @@ export declare class CatalogService {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        isCancelable: boolean;
+        isReturnable: boolean;
+        requiresOTP: boolean;
+        isInclusiveTax: boolean;
+        isAttachmentRequired: boolean;
+        minOrderQuantity: number;
+        quantityStepSize: number;
+        totalAllowedQuantity: number;
+        basePreparationTime: number;
+        storageInstructions: string | null;
+        allergenInformation: string | null;
+        attributes: Prisma.JsonValue | null;
+        costPrice: number | null;
+        rulesSnapshot: Prisma.JsonValue | null;
+        shippingDetails: Prisma.JsonValue | null;
+        mediaGallery: Prisma.JsonValue | null;
+        videos: string[];
+        hasVariations: boolean;
+        variationOptions: Prisma.JsonValue | null;
     }[]>;
-    getEligibleGifts(cartValue: number): Promise<{
+    getEligibleGifts(cartValue: number, categoryIds?: string[]): Promise<{
+        id: string;
+        createdAt: Date;
+        title: string;
+        stock: number;
+        cost: number;
+        eligibleCategories: Prisma.JsonValue | null;
+    }[]>;
+    createGift(data: {
+        title: string;
+        stock: number;
+        cost: number;
+        eligibleCategories?: any;
+    }): Promise<{
+        id: string;
+        createdAt: Date;
+        title: string;
+        stock: number;
+        cost: number;
+        eligibleCategories: Prisma.JsonValue | null;
+    }>;
+    updateGift(id: string, data: {
+        title?: string;
+        stock?: number;
+        cost?: number;
+        eligibleCategories?: any;
+    }): Promise<{
+        id: string;
+        createdAt: Date;
+        title: string;
+        stock: number;
+        cost: number;
+        eligibleCategories: Prisma.JsonValue | null;
+    }>;
+    deleteGift(id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        title: string;
+        stock: number;
+        cost: number;
+        eligibleCategories: Prisma.JsonValue | null;
+    }>;
+    getAllGifts(): Promise<{
         id: string;
         createdAt: Date;
         title: string;
@@ -182,29 +366,24 @@ export declare class CatalogService {
         category: {
             id: string;
             name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            image: string | null;
-            nameTE: string | null;
-            attributeSchema: Prisma.JsonValue | null;
-            parentId: string | null;
         };
         vendor: {
             id: string;
+            createdAt: Date;
+            name: string;
             mobile: string;
             email: string | null;
-            name: string;
             role: import(".prisma/client").$Enums.VendorRole;
             coinsBalance: number;
             kycStatus: string;
             kycDocuments: Prisma.JsonValue | null;
-            createdAt: Date;
             updatedAt: Date;
             vendorCode: string | null;
             tier: string;
             gstNumber: string | null;
             isGstVerified: boolean;
             skuLimit: number;
+            strikes: number;
             followCount: number;
             commissionRate: number;
         };
@@ -226,9 +405,9 @@ export declare class CatalogService {
         })[];
         id: string;
         createdAt: Date;
+        length: number | null;
         updatedAt: Date;
         title: string;
-        length: number | null;
         vendorId: string;
         description: string | null;
         price: number;
@@ -253,19 +432,102 @@ export declare class CatalogService {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        isCancelable: boolean;
+        isReturnable: boolean;
+        requiresOTP: boolean;
+        isInclusiveTax: boolean;
+        isAttachmentRequired: boolean;
+        minOrderQuantity: number;
+        quantityStepSize: number;
+        totalAllowedQuantity: number;
+        basePreparationTime: number;
+        storageInstructions: string | null;
+        allergenInformation: string | null;
+        attributes: Prisma.JsonValue | null;
+        costPrice: number | null;
+        rulesSnapshot: Prisma.JsonValue | null;
+        shippingDetails: Prisma.JsonValue | null;
+        mediaGallery: Prisma.JsonValue | null;
+        videos: string[];
+        hasVariations: boolean;
+        variationOptions: Prisma.JsonValue | null;
     }>;
-    getCategories(): Promise<{
-        id: string;
-        name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        image: string | null;
-        nameTE: string | null;
-        attributeSchema: Prisma.JsonValue | null;
-        parentId: string | null;
-    }[]>;
     processBulkUpload(csvContent: string): Promise<{
         uploaded: number;
         message: string;
+    }>;
+    getCategorySpecs(categoryId: string, includeInactive?: boolean): Promise<any[]>;
+    createCategorySpec(categoryId: string, dto: any): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        type: import(".prisma/client").$Enums.SpecType;
+        label: string;
+        categoryId: string;
+        isActive: boolean;
+        key: string;
+        labelTE: string | null;
+        unit: string | null;
+        required: boolean;
+        options: Prisma.JsonValue | null;
+        sortOrder: number;
+    }>;
+    updateCategorySpec(specId: string, dto: any): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        type: import(".prisma/client").$Enums.SpecType;
+        label: string;
+        categoryId: string;
+        isActive: boolean;
+        key: string;
+        labelTE: string | null;
+        unit: string | null;
+        required: boolean;
+        options: Prisma.JsonValue | null;
+        sortOrder: number;
+    }>;
+    deleteCategorySpec(specId: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        type: import(".prisma/client").$Enums.SpecType;
+        label: string;
+        categoryId: string;
+        isActive: boolean;
+        key: string;
+        labelTE: string | null;
+        unit: string | null;
+        required: boolean;
+        options: Prisma.JsonValue | null;
+        sortOrder: number;
+    }>;
+    reorderSpecs(categoryId: string, specs: any): Promise<{
+        success: boolean;
+    }>;
+    getCategoryRules(categoryId: string): Promise<{
+        categoryId: string;
+        categoryName: string;
+        features: {
+            hasVariants: boolean;
+            hasExpiry: boolean;
+            hasWarranty: boolean;
+            hasReturnPolicy: boolean;
+            isPhysical: boolean;
+            shippingClassRequired: boolean;
+            requiresCompliance: boolean;
+        };
+        inventory: {
+            mode: string;
+            allowFractional: boolean;
+            trackBatches: boolean;
+        };
+        sections: {
+            id: string;
+            label: string;
+            hidden: boolean;
+            order: number;
+        }[];
+        attributeSchema: any[];
     }>;
 }

@@ -20,17 +20,27 @@ let RoomsService = class RoomsService {
         this.roomsGateway = roomsGateway;
     }
     async create(userId, dto) {
+        const activeOffer = await this.prisma.weeklyOffer.findFirst({
+            where: {
+                isActive: true,
+                endAt: { gt: new Date() }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        if (!activeOffer) {
+            throw new common_1.BadRequestException('No active Weekly Offer available to start a room. Please wait for the next drop!');
+        }
         const room = await this.prisma.room.create({
             data: {
                 name: dto.name,
                 size: dto.size,
                 unlockMinOrders: dto.unlockMinOrders,
                 unlockMinValue: dto.unlockMinValue,
-                offerId: dto.offerId,
+                offerId: activeOffer.id,
                 createdById: userId,
                 isSystemRoom: false,
                 startAt: new Date(),
-                endAt: new Date(new Date().setDate(new Date().getDate() + 7)),
+                endAt: activeOffer.endAt,
                 members: {
                     create: {
                         userId,
@@ -134,6 +144,36 @@ let RoomsService = class RoomsService {
         });
         await this.checkUnlockStatus(roomId);
         return { message: 'Order linked successfully' };
+    }
+    async forceUnlock(roomId) {
+        const room = await this.prisma.room.findUnique({ where: { id: roomId } });
+        if (!room)
+            throw new common_1.NotFoundException('Room not found');
+        const updated = await this.prisma.room.update({
+            where: { id: roomId },
+            data: { status: client_1.RoomStatus.UNLOCKED }
+        });
+        this.roomsGateway.server.to(roomId).emit('room_update', {
+            type: 'UNLOCKED',
+            status: client_1.RoomStatus.UNLOCKED,
+            forced: true
+        });
+        return updated;
+    }
+    async expireRoom(roomId) {
+        const room = await this.prisma.room.findUnique({ where: { id: roomId } });
+        if (!room)
+            throw new common_1.NotFoundException('Room not found');
+        const updated = await this.prisma.room.update({
+            where: { id: roomId },
+            data: { status: client_1.RoomStatus.EXPIRED }
+        });
+        this.roomsGateway.server.to(roomId).emit('room_update', {
+            type: 'EXPIRED',
+            status: client_1.RoomStatus.EXPIRED,
+            forced: true
+        });
+        return updated;
     }
 };
 exports.RoomsService = RoomsService;

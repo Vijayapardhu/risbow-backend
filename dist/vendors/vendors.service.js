@@ -13,12 +13,14 @@ exports.VendorsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const coins_service_1 = require("../coins/coins.service");
+const audit_service_1 = require("../audit/audit.service");
 const coin_dto_1 = require("../coins/dto/coin.dto");
 const client_1 = require("@prisma/client");
 let VendorsService = class VendorsService {
-    constructor(prisma, coinsService) {
+    constructor(prisma, coinsService, audit) {
         this.prisma = prisma;
         this.coinsService = coinsService;
+        this.audit = audit;
     }
     async register(dto) {
         const existing = await this.prisma.vendor.findUnique({
@@ -108,11 +110,67 @@ let VendorsService = class VendorsService {
             kycStatus: vendor.kycStatus,
         };
     }
+    async approveVendor(adminId, vendorId) {
+        const vendor = await this.prisma.vendor.update({
+            where: { id: vendorId },
+            data: { kycStatus: 'VERIFIED' },
+        });
+        await this.audit.logAdminAction(adminId, 'APPROVE_VENDOR', 'Vendor', vendorId, { kycStatus: 'VERIFIED' });
+        return vendor;
+    }
+    async rejectVendor(adminId, vendorId, reason) {
+        const vendor = await this.prisma.vendor.update({
+            where: { id: vendorId },
+            data: { kycStatus: 'REJECTED' },
+        });
+        await this.audit.logAdminAction(adminId, 'REJECT_VENDOR', 'Vendor', vendorId, { reason });
+        return vendor;
+    }
+    async suspendVendor(adminId, vendorId, reason) {
+        const vendor = await this.prisma.vendor.update({
+            where: { id: vendorId },
+            data: { kycStatus: 'SUSPENDED' },
+        });
+        await this.audit.logAdminAction(adminId, 'SUSPEND_VENDOR', 'Vendor', vendorId, { reason });
+        return vendor;
+    }
+    async activateVendor(adminId, vendorId) {
+        const vendor = await this.prisma.vendor.update({
+            where: { id: vendorId },
+            data: { kycStatus: 'VERIFIED' },
+        });
+        await this.audit.logAdminAction(adminId, 'ACTIVATE_VENDOR', 'Vendor', vendorId, { previousStatus: 'SUSPENDED' });
+        return vendor;
+    }
+    async strikeVendor(adminId, vendorId, reason) {
+        const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+        if (!vendor)
+            throw new common_1.BadRequestException('Vendor not found');
+        const newStrikeCount = (vendor.strikes || 0) + 1;
+        let kycStatus = vendor.kycStatus;
+        if (newStrikeCount >= 3) {
+            kycStatus = 'SUSPENDED';
+        }
+        const updated = await this.prisma.vendor.update({
+            where: { id: vendorId },
+            data: {
+                strikes: newStrikeCount,
+                kycStatus: kycStatus
+            }
+        });
+        await this.audit.logAdminAction(adminId, 'STRIKE_VENDOR', 'Vendor', vendorId, {
+            reason,
+            strikeCount: newStrikeCount,
+            autoSuspended: newStrikeCount >= 3
+        });
+        return updated;
+    }
 };
 exports.VendorsService = VendorsService;
 exports.VendorsService = VendorsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        coins_service_1.CoinsService])
+        coins_service_1.CoinsService,
+        audit_service_1.AuditLogService])
 ], VendorsService);
 //# sourceMappingURL=vendors.service.js.map

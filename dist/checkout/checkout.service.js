@@ -32,10 +32,21 @@ let CheckoutService = class CheckoutService {
     }
     async calculatePersuasionMetadata(cartItems) {
         let lowStockCount = 0;
-        cartItems.forEach(item => {
-            if (item.quantity > 5)
-                lowStockCount++;
-        });
+        let activeOffers = [];
+        for (const item of cartItems) {
+            if (!item.productId)
+                continue;
+            const product = await this.prisma.product.findUnique({
+                where: { id: item.productId }
+            });
+            if (product) {
+                if (product.stock < 10)
+                    lowStockCount++;
+                if (product.offerPrice && product.offerPrice < product.price) {
+                    activeOffers.push('DISCOUNTED');
+                }
+            }
+        }
         const stockStatus = lowStockCount > 0 ? 'LOW' : 'MEDIUM';
         const urgencyReason = stockStatus === 'LOW'
             ? `High demand! ${lowStockCount} items in your cart are running low.`
@@ -43,7 +54,7 @@ let CheckoutService = class CheckoutService {
         return {
             stock_status: stockStatus,
             trending_score: 85,
-            active_offers: ['FREE_DELIVERY'],
+            active_offers: [...new Set(activeOffers)],
             estimated_delivery: '2-3 Days',
             urgency_reason: urgencyReason,
             source: 'WEB'

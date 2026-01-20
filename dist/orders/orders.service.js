@@ -168,27 +168,61 @@ let OrdersService = class OrdersService {
             throw new common_1.NotFoundException('Order not found');
         return order;
     }
-    async createOrder(userId, orderData) {
-        const { addressId, paymentMethod = 'COD', subtotal, deliveryFee = 0, } = orderData;
-        if (!addressId) {
-            throw new common_1.BadRequestException('Address is required');
-        }
-        const totalAmount = subtotal + deliveryFee;
-        const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        return {
-            success: true,
-            orderId: orderId,
-            order: {
-                id: orderId,
-                userId,
-                addressId,
-                totalAmount: Math.round(totalAmount),
+    async createOrder(userId, data) {
+        return this.prisma.order.create({
+            data: {
+                user: { connect: { id: userId } },
+                items: data.items,
+                totalAmount: data.totalAmount,
+                status: 'PENDING',
+                payment: {
+                    create: {
+                        provider: data.paymentMethod || 'COD',
+                        amount: data.totalAmount,
+                        status: 'PENDING'
+                    }
+                },
+            }
+        });
+    }
+    async createAdminOrder(adminId, dto) {
+        const { customerId, items, totalAmount, paymentMethod, source } = dto;
+        const user = await this.prisma.user.findUnique({ where: { id: customerId } });
+        if (!user)
+            throw new common_1.NotFoundException('Customer not found');
+        const order = await this.prisma.order.create({
+            data: {
+                user: { connect: { id: customerId } },
+                items: items,
+                totalAmount: totalAmount,
                 status: 'CONFIRMED',
-                paymentMethod,
-                createdAt: new Date().toISOString()
+                payment: {
+                    create: {
+                        provider: paymentMethod.toUpperCase(),
+                        amount: totalAmount,
+                        status: 'SUCCESS',
+                        paymentId: `POS-${Date.now()}`
+                    }
+                },
+                address: {
+                    create: {
+                        userId: customerId,
+                        name: user.name,
+                        phone: user.mobile,
+                        addressLine1: 'POS Location',
+                        city: 'Store',
+                        state: 'Store',
+                        pincode: '000000',
+                        label: 'WORK',
+                        isDefault: false
+                    }
+                }
             },
-            message: 'Order placed successfully (TEST MODE)'
-        };
+            include: {
+                payment: true
+            }
+        });
+        return order;
     }
     async findAllOrders(params) {
         const { page = 1, limit = 10, search, status } = params;
@@ -205,9 +239,6 @@ let OrdersService = class OrdersService {
                 { user: { mobile: { contains: search, mode: 'insensitive' } } }
             ];
         }
-        console.log('--- DEBUG: findAllOrders ---');
-        console.log('Params:', params);
-        console.log('Constructed Where:', JSON.stringify(where, null, 2));
         const [orders, total] = await Promise.all([
             this.prisma.order.findMany({
                 where,
@@ -224,21 +255,33 @@ let OrdersService = class OrdersService {
             }),
             this.prisma.order.count({ where })
         ]);
-        console.log(`Found ${orders.length} orders. Total: ${total}`);
-        const transformedOrders = orders.map(order => {
+        const transformedOrders = await Promise.all(orders.map(async (order) => {
             const items = Array.isArray(order.items) ? order.items : [];
-            const transformedItems = items.map((item, index) => ({
-                id: `${order.id}-item-${index}`,
-                productId: item.productId || '',
-                productName: item.productName || item.title || item.name || item.product?.title || item.product?.name || 'Product',
-                productImage: item.image || item.product?.image || '',
-                sku: item.sku || item.productId || '',
-                variantId: item.variantId,
-                variantName: item.variantName || item.variant?.name,
-                quantity: item.quantity || 1,
-                unitPrice: item.price || item.unitPrice || 0,
-                total: (item.price || item.unitPrice || 0) * (item.quantity || 1)
-            }));
+            const productIds = items.map((i) => i.productId).filter(id => id);
+            const products = await this.prisma.product.findMany({
+                where: { id: { in: productIds } },
+                include: { vendor: true }
+            });
+            const productMap = new Map(products.map(p => [p.id, p]));
+            const transformedItems = items.map((item, index) => {
+                const product = productMap.get(item.productId);
+                return {
+                    id: `${order.id}-item-${index}`,
+                    productId: item.productId || '',
+                    productName: item.productName || item.title || item.name || product?.title || 'Product',
+                    productImage: item.image || product?.images?.[0] || '',
+                    sku: item.sku || item.productId || '',
+                    variantId: item.variantId,
+                    variantName: item.variantName || item.variant?.name,
+                    quantity: item.quantity || 1,
+                    unitPrice: item.price || item.unitPrice || 0,
+                    total: (item.price || item.unitPrice || 0) * (item.quantity || 1),
+                    vendorId: product?.vendorId || 'RISBOW_RETAIL',
+                    vendorName: product?.vendor?.name || 'Risbow Retail',
+                    vendorGst: '29ABCDE1234F1Z5',
+                    vendorAddress: 'Registered Store Address'
+                };
+            });
             const subtotal = transformedItems.reduce((sum, item) => sum + item.total, 0);
             const tax = Math.round(subtotal * 0.18);
             const shipping = order.shippingCharges || 0;
@@ -273,24 +316,14 @@ let OrdersService = class OrdersService {
                     country: 'India',
                     postalCode: order.address.pincode || '',
                     type: order.address.label || 'Home'
-                } : {
-                    fullName: order.user?.name || '',
-                    phone: order.user?.mobile || '',
-                    addressLine1: 'Address not available',
-                    addressLine2: '',
-                    city: '',
-                    state: '',
-                    country: 'India',
-                    postalCode: '',
-                    type: 'Home'
-                },
+                } : null,
                 courierPartner: order.courierPartner || '',
                 awbNumber: order.awbNumber || '',
                 notes: '',
                 createdAt: order.createdAt.toISOString(),
                 updatedAt: order.updatedAt.toISOString()
             };
-        });
+        }));
         return {
             data: transformedOrders,
             meta: {
@@ -316,18 +349,31 @@ let OrdersService = class OrdersService {
             throw new common_1.NotFoundException('Order not found');
         }
         const items = Array.isArray(order.items) ? order.items : [];
-        const transformedItems = items.map((item, index) => ({
-            id: `${order.id}-item-${index}`,
-            productId: item.productId || '',
-            productName: item.productName || item.title || item.name || item.product?.title || item.product?.name || 'Product',
-            productImage: item.image || item.product?.image || '',
-            sku: item.sku || item.productId || '',
-            variantId: item.variantId,
-            variantName: item.variantName || item.variant?.name,
-            quantity: item.quantity || 1,
-            unitPrice: item.price || item.unitPrice || 0,
-            total: (item.price || item.unitPrice || 0) * (item.quantity || 1)
-        }));
+        const productIds = items.map((i) => i.productId).filter(id => id);
+        const products = await this.prisma.product.findMany({
+            where: { id: { in: productIds } },
+            include: { vendor: true }
+        });
+        const productMap = new Map(products.map(p => [p.id, p]));
+        const transformedItems = items.map((item, index) => {
+            const product = productMap.get(item.productId);
+            return {
+                id: `${order.id}-item-${index}`,
+                productId: item.productId || '',
+                productName: item.productName || item.title || item.name || product?.title || 'Product',
+                productImage: item.image || product?.images?.[0] || '',
+                sku: item.sku || item.productId || '',
+                variantId: item.variantId,
+                variantName: item.variantName || item.variant?.name,
+                quantity: item.quantity || 1,
+                unitPrice: item.price || item.unitPrice || 0,
+                total: (item.price || item.unitPrice || 0) * (item.quantity || 1),
+                vendorId: product?.vendorId || 'RISBOW_DEFAULT',
+                vendorName: product?.vendor?.name || 'Risbow Retail',
+                vendorGst: '29ABCDE1234F1Z5',
+                vendorAddress: 'Registered Store Address'
+            };
+        });
         const subtotal = transformedItems.reduce((sum, item) => sum + item.total, 0);
         const tax = Math.round(subtotal * 0.18);
         const shipping = order.shippingCharges || 0;
@@ -362,17 +408,7 @@ let OrdersService = class OrdersService {
                 country: 'India',
                 postalCode: order.address.pincode || '',
                 type: order.address.label || 'Home'
-            } : {
-                fullName: order.user?.name || '',
-                phone: order.user?.mobile || '',
-                addressLine1: 'Address not available',
-                addressLine2: '',
-                city: '',
-                state: '',
-                country: 'India',
-                postalCode: '',
-                type: 'Home'
-            },
+            } : null,
             courierPartner: order.courierPartner || '',
             awbNumber: order.awbNumber || '',
             notes: '',

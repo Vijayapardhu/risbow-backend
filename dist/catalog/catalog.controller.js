@@ -87,7 +87,7 @@ __decorate([
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, catalog_dto_1.UpdateProductDto]),
     __metadata("design:returntype", Promise)
 ], CatalogController.prototype, "update", null);
 __decorate([
@@ -107,11 +107,14 @@ let CategoriesController = class CategoriesController {
     constructor(catalogService) {
         this.catalogService = catalogService;
     }
-    async getAll() {
-        return this.catalogService.getCategories();
+    async getAll(includeInactive) {
+        return this.catalogService.getCategories(includeInactive === 'true');
     }
     async findOne(id) {
         return this.catalogService.getCategory(id);
+    }
+    async getRules(id) {
+        return this.catalogService.getCategoryRules(id);
     }
     async create(body) {
         return this.catalogService.createCategory(body);
@@ -119,12 +122,31 @@ let CategoriesController = class CategoriesController {
     async update(id, body) {
         return this.catalogService.updateCategory(id, body);
     }
+    async remove(id) {
+        return this.catalogService.deleteCategory(id);
+    }
+    async getCategorySpecs(id, includeInactive) {
+        return this.catalogService.getCategorySpecs(id, includeInactive === 'true');
+    }
+    async createCategorySpec(id, body) {
+        return this.catalogService.createCategorySpec(id, body);
+    }
+    async updateCategorySpec(specId, body) {
+        return this.catalogService.updateCategorySpec(specId, body);
+    }
+    async deleteCategorySpec(specId) {
+        return this.catalogService.deleteCategorySpec(specId);
+    }
+    async reorderSpecs(id, body) {
+        return this.catalogService.reorderSpecs(id, body.specs);
+    }
 };
 exports.CategoriesController = CategoriesController;
 __decorate([
     (0, common_1.Get)(),
+    __param(0, (0, common_1.Query)('includeInactive')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], CategoriesController.prototype, "getAll", null);
 __decorate([
@@ -135,6 +157,13 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], CategoriesController.prototype, "findOne", null);
 __decorate([
+    (0, common_1.Get)(':id/rules'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], CategoriesController.prototype, "getRules", null);
+__decorate([
     (0, common_1.Post)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
@@ -144,7 +173,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], CategoriesController.prototype, "create", null);
 __decorate([
-    (0, common_1.Post)(':id'),
+    (0, common_1.Patch)(':id'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
     __param(0, (0, common_1.Param)('id')),
@@ -153,6 +182,62 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], CategoriesController.prototype, "update", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], CategoriesController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Get)(':id/specs'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Query)('includeInactive')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], CategoriesController.prototype, "getCategorySpecs", null);
+__decorate([
+    (0, common_1.Post)(':id/specs'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], CategoriesController.prototype, "createCategorySpec", null);
+__decorate([
+    (0, common_1.Patch)('specs/:specId'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Param)('specId')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], CategoriesController.prototype, "updateCategorySpec", null);
+__decorate([
+    (0, common_1.Delete)('specs/:specId'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Param)('specId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], CategoriesController.prototype, "deleteCategorySpec", null);
+__decorate([
+    (0, common_1.Put)(':id/specs/reorder'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], CategoriesController.prototype, "reorderSpecs", null);
 exports.CategoriesController = CategoriesController = __decorate([
     (0, common_1.Controller)('categories'),
     __metadata("design:paramtypes", [catalog_service_1.CatalogService])
@@ -161,19 +246,69 @@ let GiftsController = class GiftsController {
     constructor(catalogService) {
         this.catalogService = catalogService;
     }
-    async getEligible(cartValue) {
+    async getAll() {
+        return this.catalogService.getAllGifts();
+    }
+    async getEligible(cartValue, categoryIds) {
         const val = parseInt(cartValue, 10) || 0;
-        return this.catalogService.getEligibleGifts(val);
+        const cats = categoryIds ? categoryIds.split(',') : [];
+        return this.catalogService.getEligibleGifts(val, cats);
+    }
+    async create(body) {
+        return this.catalogService.createGift(body);
+    }
+    async update(id, body) {
+        return this.catalogService.updateGift(id, body);
+    }
+    async remove(id) {
+        return this.catalogService.deleteGift(id);
     }
 };
 exports.GiftsController = GiftsController;
 __decorate([
+    (0, common_1.Get)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], GiftsController.prototype, "getAll", null);
+__decorate([
     (0, common_1.Get)('eligible'),
     __param(0, (0, common_1.Query)('cartValue')),
+    __param(1, (0, common_1.Query)('categoryIds')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], GiftsController.prototype, "getEligible", null);
+__decorate([
+    (0, common_1.Post)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], GiftsController.prototype, "create", null);
+__decorate([
+    (0, common_1.Patch)(':id'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], GiftsController.prototype, "update", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
-], GiftsController.prototype, "getEligible", null);
+], GiftsController.prototype, "remove", null);
 exports.GiftsController = GiftsController = __decorate([
     (0, common_1.Controller)('gifts'),
     __metadata("design:paramtypes", [catalog_service_1.CatalogService])

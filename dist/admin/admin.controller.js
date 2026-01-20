@@ -18,9 +18,11 @@ const admin_service_1 = require("./admin.service");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const roles_guard_1 = require("../common/guards/roles.guard");
 const roles_decorator_1 = require("../common/decorators/roles.decorator");
+const vendors_service_1 = require("../vendors/vendors.service");
 let AdminController = class AdminController {
-    constructor(adminService) {
+    constructor(adminService, vendorsService) {
         this.adminService = adminService;
+        this.vendorsService = vendorsService;
     }
     getAppConfig() {
         return this.adminService.getAppConfig();
@@ -122,7 +124,24 @@ let AdminController = class AdminController {
         return this.adminService.getVendors(status);
     }
     approveVendor(req, id, body) {
-        return this.adminService.approveVendor(req.user.id, id, body.approved, body.reason);
+        if (body.approved) {
+            return this.vendorsService.approveVendor(req.user.id, id);
+        }
+        else {
+            return this.vendorsService.rejectVendor(req.user.id, id, body.reason || 'No reason provided');
+        }
+    }
+    rejectVendor(req, id, body) {
+        return this.vendorsService.rejectVendor(req.user.id, id, body.reason);
+    }
+    suspendVendor(req, id, body) {
+        return this.vendorsService.suspendVendor(req.user.id, id, body.reason);
+    }
+    activateVendor(req, id) {
+        return this.vendorsService.activateVendor(req.user.id, id);
+    }
+    strikeVendor(req, id, body) {
+        return this.vendorsService.strikeVendor(req.user.id, id, body.reason);
     }
     getAllRooms() {
         return this.adminService.getAllRooms();
@@ -516,6 +535,45 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "approveVendor", null);
 __decorate([
+    (0, common_1.Post)('vendors/:id/reject'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "rejectVendor", null);
+__decorate([
+    (0, common_1.Post)('vendors/:id/suspend'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "suspendVendor", null);
+__decorate([
+    (0, common_1.Post)('vendors/:id/activate'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "activateVendor", null);
+__decorate([
+    (0, common_1.Post)('vendors/:id/strike'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "strikeVendor", null);
+__decorate([
     (0, common_1.Get)('rooms'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
@@ -763,6 +821,7 @@ exports.AdminController = AdminController = __decorate([
     (0, common_1.Controller)('admin'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
-    __metadata("design:paramtypes", [admin_service_1.AdminService])
+    __metadata("design:paramtypes", [admin_service_1.AdminService,
+        vendors_service_1.VendorsService])
 ], AdminController);
 //# sourceMappingURL=admin.controller.js.map

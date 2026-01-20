@@ -19,6 +19,8 @@ const create_room_dto_1 = require("./dto/create-room.dto");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../prisma/prisma.service");
+const roles_guard_1 = require("../common/guards/roles.guard");
+const roles_decorator_1 = require("../common/decorators/roles.decorator");
 let RoomsController = class RoomsController {
     constructor(roomsService, prisma) {
         this.roomsService = roomsService;
@@ -33,15 +35,25 @@ let RoomsController = class RoomsController {
     async linkOrder(roomId, orderId, req) {
         return this.roomsService.linkOrder(roomId, req.user.id, orderId);
     }
+    async forceUnlock(id) {
+        return this.roomsService.forceUnlock(id);
+    }
+    async expireRoom(id) {
+        return this.roomsService.expireRoom(id);
+    }
     findAll(status) {
         const where = status ? { status } : {};
         return this.prisma.room.findMany({
             where,
             include: {
                 members: true,
-                createdBy: { select: { name: true } }
+                createdBy: { select: { name: true } },
+                _count: {
+                    select: { members: true }
+                }
             },
-            take: 20
+            orderBy: { createdAt: 'desc' },
+            take: 50
         });
     }
     async findOne(id) {
@@ -80,6 +92,24 @@ __decorate([
     __metadata("design:paramtypes", [String, String, Object]),
     __metadata("design:returntype", Promise)
 ], RoomsController.prototype, "linkOrder", null);
+__decorate([
+    (0, common_1.Post)(':id/unlock'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], RoomsController.prototype, "forceUnlock", null);
+__decorate([
+    (0, common_1.Post)(':id/expire'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], RoomsController.prototype, "expireRoom", null);
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, common_1.Query)('status')),

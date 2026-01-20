@@ -18,6 +18,7 @@ const admin_product_service_1 = require("./admin-product.service");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const roles_guard_1 = require("../auth/roles.guard");
 const roles_decorator_1 = require("../auth/roles.decorator");
+const catalog_dto_1 = require("../catalog/dto/catalog.dto");
 let AdminProductController = class AdminProductController {
     constructor(productService) {
         this.productService = productService;
@@ -66,7 +67,7 @@ __decorate([
     (0, common_1.Post)(),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [catalog_dto_1.CreateProductDto]),
     __metadata("design:returntype", Promise)
 ], AdminProductController.prototype, "createProduct", null);
 __decorate([
@@ -74,7 +75,7 @@ __decorate([
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, catalog_dto_1.UpdateProductDto]),
     __metadata("design:returntype", Promise)
 ], AdminProductController.prototype, "updateProduct", null);
 __decorate([

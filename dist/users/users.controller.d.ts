@@ -7,14 +7,15 @@ export declare class UsersController {
     constructor(usersService: UsersService, coinsService: CoinsService);
     getProfile(req: any): Promise<{
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -30,19 +31,19 @@ export declare class UsersController {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
     updateProfile(req: any, updateUserDto: UpdateUserDto): Promise<{
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -58,7 +59,6 @@ export declare class UsersController {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
     getCoins(req: any): Promise<{
@@ -76,9 +76,9 @@ export declare class UsersController {
     getOrders(req: any, limit: string): Promise<({
         address: {
             id: string;
-            mobile: string | null;
-            name: string;
             createdAt: Date;
+            name: string;
+            mobile: string | null;
             updatedAt: Date;
             userId: string;
             title: string | null;
@@ -94,8 +94,8 @@ export declare class UsersController {
         };
         payment: {
             id: string;
-            status: import(".prisma/client").$Enums.PaymentStatus;
             createdAt: Date;
+            status: import(".prisma/client").$Enums.PaymentStatus;
             updatedAt: Date;
             amount: number;
             orderId: string;
@@ -106,8 +106,8 @@ export declare class UsersController {
         };
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.OrderStatus;
         createdAt: Date;
+        status: import(".prisma/client").$Enums.OrderStatus;
         updatedAt: Date;
         items: import("@prisma/client/runtime/library").JsonValue;
         userId: string;
@@ -126,9 +126,9 @@ export declare class UsersController {
     getOrderDetails(req: any, orderId: string): Promise<{
         address: {
             id: string;
-            mobile: string | null;
-            name: string;
             createdAt: Date;
+            name: string;
+            mobile: string | null;
             updatedAt: Date;
             userId: string;
             title: string | null;
@@ -144,8 +144,8 @@ export declare class UsersController {
         };
         payment: {
             id: string;
-            status: import(".prisma/client").$Enums.PaymentStatus;
             createdAt: Date;
+            status: import(".prisma/client").$Enums.PaymentStatus;
             updatedAt: Date;
             amount: number;
             orderId: string;
@@ -156,8 +156,8 @@ export declare class UsersController {
         };
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.OrderStatus;
         createdAt: Date;
+        status: import(".prisma/client").$Enums.OrderStatus;
         updatedAt: Date;
         items: import("@prisma/client/runtime/library").JsonValue;
         userId: string;
@@ -202,28 +202,28 @@ export declare class UsersController {
     getNotifications(req: any, limit: string): Promise<{
         id: string;
         createdAt: Date;
+        type: string;
         userId: string | null;
         title: string;
         body: string;
-        type: string;
         targetAudience: string | null;
         isRead: boolean;
     }[]>;
     markNotificationRead(req: any, notificationId: string): Promise<{
         id: string;
         createdAt: Date;
+        type: string;
         userId: string | null;
         title: string;
         body: string;
-        type: string;
         targetAudience: string | null;
         isRead: boolean;
     }>;
     getAddresses(req: any): Promise<{
         id: string;
-        mobile: string | null;
-        name: string;
         createdAt: Date;
+        name: string;
+        mobile: string | null;
         updatedAt: Date;
         userId: string;
         title: string | null;
@@ -239,9 +239,9 @@ export declare class UsersController {
     }[]>;
     createAddress(req: any, addressData: any): Promise<{
         id: string;
-        mobile: string | null;
-        name: string;
         createdAt: Date;
+        name: string;
+        mobile: string | null;
         updatedAt: Date;
         userId: string;
         title: string | null;
@@ -257,9 +257,9 @@ export declare class UsersController {
     }>;
     updateAddress(req: any, id: string, addressData: any): Promise<{
         id: string;
-        mobile: string | null;
-        name: string;
         createdAt: Date;
+        name: string;
+        mobile: string | null;
         updatedAt: Date;
         userId: string;
         title: string | null;
@@ -275,9 +275,9 @@ export declare class UsersController {
     }>;
     updateAddressAlt(req: any, id: string, addressData: any): Promise<{
         id: string;
-        mobile: string | null;
-        name: string;
         createdAt: Date;
+        name: string;
+        mobile: string | null;
         updatedAt: Date;
         userId: string;
         title: string | null;

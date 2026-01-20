@@ -17,6 +17,8 @@ const common_1 = require("@nestjs/common");
 const orders_service_1 = require("./orders.service");
 const order_dto_1 = require("./dto/order.dto");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
+const roles_guard_1 = require("../common/guards/roles.guard");
+const roles_decorator_1 = require("../common/decorators/roles.decorator");
 let OrdersController = class OrdersController {
     constructor(ordersService) {
         this.ordersService = ordersService;
@@ -38,6 +40,20 @@ let OrdersController = class OrdersController {
     }
     async createOrder(req, orderData) {
         return this.ordersService.createOrder(req.user.id, orderData);
+    }
+    async getAllAdminOrders(page, limit, search, status) {
+        return this.ordersService.findAllOrders({
+            page: Number(page) || 1,
+            limit: Number(limit) || 10,
+            search,
+            status: status === 'ALL' ? undefined : status
+        });
+    }
+    async getAdminOrderDetails(orderId) {
+        return this.ordersService.getOrderDetail(orderId);
+    }
+    async createPosOrder(req, dto) {
+        return this.ordersService.createAdminOrder(req.user.id, dto);
     }
 };
 exports.OrdersController = OrdersController;
@@ -95,6 +111,37 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "createOrder", null);
+__decorate([
+    (0, common_1.Get)('admin/all'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __param(2, (0, common_1.Query)('search')),
+    __param(3, (0, common_1.Query)('status')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, Object]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "getAllAdminOrders", null);
+__decorate([
+    (0, common_1.Get)('admin/:id'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "getAdminOrderDetails", null);
+__decorate([
+    (0, common_1.Post)('admin/pos/orders'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "createPosOrder", null);
 exports.OrdersController = OrdersController = __decorate([
     (0, common_1.Controller)('orders'),
     __metadata("design:paramtypes", [orders_service_1.OrdersService])

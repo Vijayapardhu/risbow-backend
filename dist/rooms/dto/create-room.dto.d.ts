@@ -3,7 +3,6 @@ export declare class CreateRoomDto {
     size: number;
     unlockMinOrders: number;
     unlockMinValue: number;
-    offerId: string;
 }
 export declare class JoinRoomDto {
 }

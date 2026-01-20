@@ -8,14 +8,15 @@ export declare class JwtStrategy extends JwtStrategy_base {
     constructor(configService: ConfigService, prisma: PrismaService);
     validate(payload: any): Promise<{
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -31,7 +32,6 @@ export declare class JwtStrategy extends JwtStrategy_base {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
 }

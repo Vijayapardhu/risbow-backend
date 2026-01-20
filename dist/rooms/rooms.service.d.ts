@@ -13,15 +13,15 @@ export declare class RoomsService {
         }[];
     } & {
         id: string;
+        createdAt: Date;
         name: string;
         status: import(".prisma/client").$Enums.RoomStatus;
         size: number;
-        createdAt: Date;
-        offerId: string;
-        startAt: Date;
-        endAt: Date;
         unlockMinOrders: number;
         unlockMinValue: number;
+        startAt: Date;
+        endAt: Date;
+        offerId: string;
         isSystemRoom: boolean;
         createdById: string | null;
     }>;
@@ -40,5 +40,33 @@ export declare class RoomsService {
     checkUnlockStatus(roomId: string): Promise<void>;
     linkOrder(roomId: string, userId: string, orderId: string): Promise<{
         message: string;
+    }>;
+    forceUnlock(roomId: string): Promise<{
+        id: string;
+        createdAt: Date;
+        name: string;
+        status: import(".prisma/client").$Enums.RoomStatus;
+        size: number;
+        unlockMinOrders: number;
+        unlockMinValue: number;
+        startAt: Date;
+        endAt: Date;
+        offerId: string;
+        isSystemRoom: boolean;
+        createdById: string | null;
+    }>;
+    expireRoom(roomId: string): Promise<{
+        id: string;
+        createdAt: Date;
+        name: string;
+        status: import(".prisma/client").$Enums.RoomStatus;
+        size: number;
+        unlockMinOrders: number;
+        unlockMinValue: number;
+        startAt: Date;
+        endAt: Date;
+        offerId: string;
+        isSystemRoom: boolean;
+        createdById: string | null;
     }>;
 }

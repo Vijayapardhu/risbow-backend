@@ -5,12 +5,12 @@ export declare class UsersAdminController {
     findAll(page: string, limit: string, search: string, role: string, status: string): Promise<{
         data: {
             id: string;
+            createdAt: Date;
+            name: string;
             mobile: string;
             email: string;
-            name: string;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.UserStatus;
-            createdAt: Date;
         }[];
         meta: {
             total: number;
@@ -21,14 +21,15 @@ export declare class UsersAdminController {
     }>;
     updateStatus(id: string, status: string): Promise<{
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -44,7 +45,6 @@ export declare class UsersAdminController {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
 }

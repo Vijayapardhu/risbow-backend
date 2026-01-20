@@ -7,9 +7,9 @@ export declare class BowService {
         products: {
             id: string;
             createdAt: Date;
+            length: number | null;
             updatedAt: Date;
             title: string;
-            length: number | null;
             vendorId: string;
             description: string | null;
             price: number;
@@ -34,6 +34,25 @@ export declare class BowService {
             metaTitle: string | null;
             metaDescription: string | null;
             metaKeywords: string[];
+            isCancelable: boolean;
+            isReturnable: boolean;
+            requiresOTP: boolean;
+            isInclusiveTax: boolean;
+            isAttachmentRequired: boolean;
+            minOrderQuantity: number;
+            quantityStepSize: number;
+            totalAllowedQuantity: number;
+            basePreparationTime: number;
+            storageInstructions: string | null;
+            allergenInformation: string | null;
+            attributes: import("@prisma/client/runtime/library").JsonValue | null;
+            costPrice: number | null;
+            rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
+            shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
+            mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
+            videos: string[];
+            hasVariations: boolean;
+            variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
         }[];
     } | {
         text: string;

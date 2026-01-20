@@ -25,6 +25,10 @@ export declare class OrdersAdminController {
                 quantity: any;
                 unitPrice: any;
                 total: number;
+                vendorId: string;
+                vendorName: string;
+                vendorGst: string;
+                vendorAddress: string;
             }[];
             subtotal: number;
             shippingCost: number;
@@ -79,6 +83,10 @@ export declare class OrdersAdminController {
             quantity: any;
             unitPrice: any;
             total: number;
+            vendorId: string;
+            vendorName: string;
+            vendorGst: string;
+            vendorAddress: string;
         }[];
         subtotal: number;
         shippingCost: number;
@@ -107,21 +115,21 @@ export declare class OrdersAdminController {
     }>;
     updateStatus(id: string, status: OrderStatus): Promise<{
         id: string;
-        roomId: string | null;
+        createdAt: Date;
+        status: import(".prisma/client").$Enums.OrderStatus;
+        updatedAt: Date;
         items: import("@prisma/client/runtime/library").JsonValue;
+        userId: string;
+        roomId: string | null;
+        addressId: string | null;
         totalAmount: number;
         coinsUsed: number;
         coinsUsedDebited: boolean;
-        status: import(".prisma/client").$Enums.OrderStatus;
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
         shippingCharges: number;
-        agentId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        userId: string;
-        addressId: string | null;
         abandonedCheckoutId: string | null;
+        agentId: string | null;
     }>;
 }

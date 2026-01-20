@@ -11,8 +11,8 @@ export declare class CheckoutService {
         source?: string;
     }): Promise<{
         id: string;
-        status: import(".prisma/client").$Enums.CheckoutRecoveryStatus;
         createdAt: Date;
+        status: import(".prisma/client").$Enums.CheckoutRecoveryStatus;
         updatedAt: Date;
         userId: string | null;
         agentId: string | null;
@@ -33,14 +33,15 @@ export declare class CheckoutService {
     }): Promise<({
         user: {
             id: string;
+            createdAt: Date;
+            name: string | null;
             mobile: string;
             email: string | null;
-            referralCode: string;
-            name: string | null;
             password: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.UserStatus;
             coinsBalance: number;
+            referralCode: string;
             referredBy: string | null;
             dateOfBirth: Date | null;
             gender: string | null;
@@ -56,19 +57,19 @@ export declare class CheckoutService {
             kycDocuments: Prisma.JsonValue | null;
             miscDocuments: Prisma.JsonValue | null;
             forceLogoutAt: Date | null;
-            createdAt: Date;
             updatedAt: Date;
         };
         agent: {
             id: string;
+            createdAt: Date;
+            name: string | null;
             mobile: string;
             email: string | null;
-            referralCode: string;
-            name: string | null;
             password: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.UserStatus;
             coinsBalance: number;
+            referralCode: string;
             referredBy: string | null;
             dateOfBirth: Date | null;
             gender: string | null;
@@ -84,7 +85,6 @@ export declare class CheckoutService {
             kycDocuments: Prisma.JsonValue | null;
             miscDocuments: Prisma.JsonValue | null;
             forceLogoutAt: Date | null;
-            createdAt: Date;
             updatedAt: Date;
         };
         followups: {
@@ -97,8 +97,8 @@ export declare class CheckoutService {
         }[];
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.CheckoutRecoveryStatus;
         createdAt: Date;
+        status: import(".prisma/client").$Enums.CheckoutRecoveryStatus;
         updatedAt: Date;
         userId: string | null;
         agentId: string | null;
@@ -112,14 +112,15 @@ export declare class CheckoutService {
     getCheckoutById(id: string): Promise<{
         user: {
             id: string;
+            createdAt: Date;
+            name: string | null;
             mobile: string;
             email: string | null;
-            referralCode: string;
-            name: string | null;
             password: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.UserStatus;
             coinsBalance: number;
+            referralCode: string;
             referredBy: string | null;
             dateOfBirth: Date | null;
             gender: string | null;
@@ -135,19 +136,19 @@ export declare class CheckoutService {
             kycDocuments: Prisma.JsonValue | null;
             miscDocuments: Prisma.JsonValue | null;
             forceLogoutAt: Date | null;
-            createdAt: Date;
             updatedAt: Date;
         };
         agent: {
             id: string;
+            createdAt: Date;
+            name: string | null;
             mobile: string;
             email: string | null;
-            referralCode: string;
-            name: string | null;
             password: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.UserStatus;
             coinsBalance: number;
+            referralCode: string;
             referredBy: string | null;
             dateOfBirth: Date | null;
             gender: string | null;
@@ -163,20 +164,20 @@ export declare class CheckoutService {
             kycDocuments: Prisma.JsonValue | null;
             miscDocuments: Prisma.JsonValue | null;
             forceLogoutAt: Date | null;
-            createdAt: Date;
             updatedAt: Date;
         };
         followups: ({
             agent: {
                 id: string;
+                createdAt: Date;
+                name: string | null;
                 mobile: string;
                 email: string | null;
-                referralCode: string;
-                name: string | null;
                 password: string | null;
                 role: import(".prisma/client").$Enums.UserRole;
                 status: import(".prisma/client").$Enums.UserStatus;
                 coinsBalance: number;
+                referralCode: string;
                 referredBy: string | null;
                 dateOfBirth: Date | null;
                 gender: string | null;
@@ -192,7 +193,6 @@ export declare class CheckoutService {
                 kycDocuments: Prisma.JsonValue | null;
                 miscDocuments: Prisma.JsonValue | null;
                 forceLogoutAt: Date | null;
-                createdAt: Date;
                 updatedAt: Date;
             };
         } & {
@@ -205,8 +205,8 @@ export declare class CheckoutService {
         })[];
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.CheckoutRecoveryStatus;
         createdAt: Date;
+        status: import(".prisma/client").$Enums.CheckoutRecoveryStatus;
         updatedAt: Date;
         userId: string | null;
         agentId: string | null;
@@ -220,14 +220,15 @@ export declare class CheckoutService {
     assignLead(checkoutId: string, agentId: string): Promise<{
         agent: {
             id: string;
+            createdAt: Date;
+            name: string | null;
             mobile: string;
             email: string | null;
-            referralCode: string;
-            name: string | null;
             password: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.UserStatus;
             coinsBalance: number;
+            referralCode: string;
             referredBy: string | null;
             dateOfBirth: Date | null;
             gender: string | null;
@@ -243,13 +244,12 @@ export declare class CheckoutService {
             kycDocuments: Prisma.JsonValue | null;
             miscDocuments: Prisma.JsonValue | null;
             forceLogoutAt: Date | null;
-            createdAt: Date;
             updatedAt: Date;
         };
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.CheckoutRecoveryStatus;
         createdAt: Date;
+        status: import(".prisma/client").$Enums.CheckoutRecoveryStatus;
         updatedAt: Date;
         userId: string | null;
         agentId: string | null;

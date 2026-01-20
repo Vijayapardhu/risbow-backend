@@ -12,9 +12,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CatalogService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const category_spec_service_1 = require("./category-spec.service");
 let CatalogService = class CatalogService {
-    constructor(prisma) {
+    constructor(prisma, categorySpecService) {
         this.prisma = prisma;
+        this.categorySpecService = categorySpecService;
     }
     async createCategory(data) {
         return this.prisma.category.create({
@@ -23,12 +25,19 @@ let CatalogService = class CatalogService {
                 parentId: data.parentId,
                 image: data.image,
                 attributeSchema: data.attributeSchema,
+                isActive: true
             },
         });
     }
     async getCategory(id) {
         return this.prisma.category.findUnique({
-            where: { id }
+            where: { id },
+            include: {
+                parent: true,
+                children: {
+                    where: { isActive: true }
+                }
+            }
         });
     }
     async updateCategory(id, data) {
@@ -39,8 +48,34 @@ let CatalogService = class CatalogService {
                 parentId: data.parentId,
                 image: data.image,
                 attributeSchema: data.attributeSchema,
+                isActive: data.isActive
             },
         });
+    }
+    async deleteCategory(id) {
+        return this.prisma.category.update({
+            where: { id },
+            data: { isActive: false }
+        });
+    }
+    async getCategories(includeInactive = false) {
+        try {
+            const categories = await this.prisma.category.findMany({
+                where: includeInactive ? {} : { isActive: true },
+                orderBy: { name: 'asc' },
+                include: {
+                    parent: true,
+                    _count: {
+                        select: { products: true }
+                    }
+                }
+            });
+            return categories;
+        }
+        catch (error) {
+            console.error('Error fetching categories:', error);
+            throw error;
+        }
     }
     async createProduct(dto) {
         const vendorId = dto.vendorId || 'msg_vendor_placeholder';
@@ -60,6 +95,21 @@ let CatalogService = class CatalogService {
                 stock: dto.stock || 0,
                 categoryId: dto.categoryId,
                 vendorId: vendorId,
+                sku: dto.sku,
+                images: dto.images || [],
+                brandName: dto.brandName,
+                tags: dto.tags || [],
+                weight: dto.weight,
+                weightUnit: dto.weightUnit,
+                length: dto.length,
+                width: dto.width,
+                height: dto.height,
+                dimensionUnit: dto.dimensionUnit,
+                shippingClass: dto.shippingClass,
+                metaTitle: dto.metaTitle,
+                metaDescription: dto.metaDescription,
+                metaKeywords: dto.metaKeywords || [],
+                isActive: dto.isActive ?? false,
                 isWholesale: dto.isWholesale || false,
                 wholesalePrice: dto.wholesalePrice,
                 moq: dto.moq || 1,
@@ -67,18 +117,62 @@ let CatalogService = class CatalogService {
         });
     }
     async updateProduct(id, data) {
+        const updateData = {};
+        if (data.title !== undefined)
+            updateData.title = data.title;
+        if (data.description !== undefined)
+            updateData.description = data.description;
+        if (data.price !== undefined)
+            updateData.price = data.price;
+        if (data.offerPrice !== undefined)
+            updateData.offerPrice = data.offerPrice;
+        if (data.stock !== undefined)
+            updateData.stock = data.stock;
+        if (data.categoryId !== undefined)
+            updateData.categoryId = data.categoryId;
+        if (data.vendorId !== undefined)
+            updateData.vendorId = data.vendorId;
+        if (data.isActive !== undefined)
+            updateData.isActive = data.isActive;
+        if (data.sku !== undefined)
+            updateData.sku = data.sku;
+        if (data.images !== undefined)
+            updateData.images = data.images;
+        if (data.brandName !== undefined)
+            updateData.brandName = data.brandName;
+        if (data.tags !== undefined)
+            updateData.tags = data.tags;
+        if (data.weight !== undefined)
+            updateData.weight = data.weight;
+        if (data.weightUnit !== undefined)
+            updateData.weightUnit = data.weightUnit;
+        if (data.length !== undefined)
+            updateData.length = data.length;
+        if (data.width !== undefined)
+            updateData.width = data.width;
+        if (data.height !== undefined)
+            updateData.height = data.height;
+        if (data.dimensionUnit !== undefined)
+            updateData.dimensionUnit = data.dimensionUnit;
+        if (data.shippingClass !== undefined)
+            updateData.shippingClass = data.shippingClass;
+        if (data.metaTitle !== undefined)
+            updateData.metaTitle = data.metaTitle;
+        if (data.metaDescription !== undefined)
+            updateData.metaDescription = data.metaDescription;
+        if (data.metaKeywords !== undefined)
+            updateData.metaKeywords = data.metaKeywords;
+        if (data.isWholesale !== undefined)
+            updateData.isWholesale = data.isWholesale;
+        if (data.wholesalePrice !== undefined)
+            updateData.wholesalePrice = data.wholesalePrice;
+        if (data.moq !== undefined)
+            updateData.moq = data.moq;
+        if (data.variants !== undefined)
+            updateData.variants = data.variants;
         return this.prisma.product.update({
             where: { id },
-            data: {
-                title: data.title,
-                description: data.description,
-                price: data.price,
-                offerPrice: data.offerPrice,
-                stock: data.stock,
-                categoryId: data.categoryId,
-                vendorId: data.vendorId,
-                isActive: data.isActive,
-            }
+            data: updateData
         });
     }
     async deleteProduct(id) {
@@ -124,12 +218,50 @@ let CatalogService = class CatalogService {
             take: 50,
         });
     }
-    async getEligibleGifts(cartValue) {
+    async getEligibleGifts(cartValue, categoryIds = []) {
         if (cartValue < 2000) {
             return [];
         }
-        return this.prisma.giftSKU.findMany({
+        const allGifts = await this.prisma.giftSKU.findMany({
             where: { stock: { gt: 0 } },
+        });
+        return allGifts.filter(gift => {
+            const rules = gift.eligibleCategories;
+            if (!rules || !Array.isArray(rules) || rules.length === 0) {
+                return true;
+            }
+            return rules.some(catId => categoryIds.includes(catId));
+        });
+    }
+    async createGift(data) {
+        return this.prisma.giftSKU.create({
+            data: {
+                title: data.title,
+                stock: data.stock,
+                cost: data.cost,
+                eligibleCategories: data.eligibleCategories
+            }
+        });
+    }
+    async updateGift(id, data) {
+        return this.prisma.giftSKU.update({
+            where: { id },
+            data: {
+                title: data.title,
+                stock: data.stock,
+                cost: data.cost,
+                eligibleCategories: data.eligibleCategories
+            }
+        });
+    }
+    async deleteGift(id) {
+        return this.prisma.giftSKU.delete({
+            where: { id }
+        });
+    }
+    async getAllGifts() {
+        return this.prisma.giftSKU.findMany({
+            orderBy: { createdAt: 'desc' }
         });
     }
     async findOne(id) {
@@ -137,7 +269,12 @@ let CatalogService = class CatalogService {
             where: { id },
             include: {
                 vendor: true,
-                category: true,
+                category: {
+                    select: {
+                        id: true,
+                        name: true,
+                    }
+                },
                 reviews: {
                     take: 10,
                     orderBy: { createdAt: 'desc' },
@@ -161,11 +298,6 @@ let CatalogService = class CatalogService {
             reviewCount: product.reviews.length
         };
     }
-    async getCategories() {
-        return this.prisma.category.findMany({
-            orderBy: { name: 'asc' }
-        });
-    }
     async processBulkUpload(csvContent) {
         const lines = csvContent.split('\n').filter(Boolean);
         let count = 0;
@@ -186,10 +318,263 @@ let CatalogService = class CatalogService {
         }
         return { uploaded: count, message: 'Bulk upload processed' };
     }
+    async getCategorySpecs(categoryId, includeInactive = false) {
+        return this.categorySpecService.getCategorySpecs(categoryId, includeInactive);
+    }
+    async createCategorySpec(categoryId, dto) {
+        return this.categorySpecService.createCategorySpec(categoryId, dto);
+    }
+    async updateCategorySpec(specId, dto) {
+        return this.categorySpecService.updateCategorySpec(specId, dto);
+    }
+    async deleteCategorySpec(specId) {
+        return this.categorySpecService.deleteCategorySpec(specId);
+    }
+    async reorderSpecs(categoryId, specs) {
+        return this.categorySpecService.reorderSpecs(categoryId, specs);
+    }
+    async getCategoryRules(categoryId) {
+        const id = categoryId.toLowerCase();
+        if (id.includes('groc') || id.includes('food') || id.includes('veg')) {
+            return GROCERY_RULES;
+        }
+        else if (id.includes('elec') || id.includes('tech') || id.includes('mobile')) {
+            return ELECTRONICS_RULES;
+        }
+        else if (id.includes('fash') || id.includes('clot') || id.includes('wear')) {
+            return FASHION_RULES;
+        }
+        return DEFAULT_RULES;
+    }
 };
 exports.CatalogService = CatalogService;
 exports.CatalogService = CatalogService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        category_spec_service_1.CategorySpecService])
 ], CatalogService);
+const GROCERY_RULES = {
+    categoryId: "grocery",
+    categoryName: "Fresh Produce & Dairy",
+    features: {
+        hasVariants: false,
+        hasExpiry: true,
+        hasWarranty: false,
+        hasReturnPolicy: false,
+        isPhysical: true,
+        shippingClassRequired: true,
+        requiresCompliance: true
+    },
+    inventory: {
+        mode: 'batch',
+        allowFractional: false,
+        trackBatches: true
+    },
+    sections: [
+        { id: 'identity', label: 'Product Identity', hidden: false, order: 1 },
+        { id: 'pricing', label: 'Pricing', hidden: false, order: 2 },
+        { id: 'inventory', label: 'Inventory', hidden: false, order: 3 },
+        { id: 'media', label: 'Media', hidden: false, order: 4 },
+        { id: 'shipping', label: 'Shipping', hidden: false, order: 5 },
+        { id: 'attributes', label: 'Attributes', hidden: false, order: 6 },
+        { id: 'compliance', label: 'Compliance', hidden: false, order: 7 },
+        { id: 'visibility', label: 'Visibility', hidden: false, order: 8 },
+        { id: 'review', label: 'Review & Publish', hidden: false, order: 9 },
+    ],
+    attributeSchema: [
+        {
+            key: 'ingredients',
+            label: 'Ingredients',
+            type: 'textarea',
+            required: true,
+            group: 'specification',
+            placeholder: 'List all ingredients...'
+        },
+        {
+            key: 'storage_temp',
+            label: 'Storage Temperature',
+            type: 'select',
+            required: true,
+            options: ['Ambient', 'Refrigerated (0-4°C)', 'Frozen (-18°C)'],
+            group: 'specification'
+        },
+        {
+            key: 'shelf_life',
+            label: 'Shelf Life',
+            type: 'number',
+            required: true,
+            unit: 'days',
+            group: 'specification'
+        },
+        {
+            key: 'is_organic',
+            label: 'Organic Certified',
+            type: 'boolean',
+            required: false,
+            group: 'specification'
+        },
+        {
+            key: 'fssai_license',
+            label: 'FSSAI License No.',
+            type: 'text',
+            required: false,
+            group: 'compliance',
+            placeholder: 'e.g. 10012345678901',
+            validation: { regex: '^[0-9]{14}$', message: 'Must be 14 digits' }
+        }
+    ]
+};
+const ELECTRONICS_RULES = {
+    categoryId: "electronics",
+    categoryName: "Consumer Electronics",
+    features: {
+        hasVariants: true,
+        hasExpiry: false,
+        hasWarranty: true,
+        hasReturnPolicy: true,
+        isPhysical: true,
+        shippingClassRequired: true,
+        requiresCompliance: true
+    },
+    inventory: {
+        mode: 'unit',
+        allowFractional: false,
+        trackBatches: false
+    },
+    sections: [
+        { id: 'identity', label: 'Product Details', hidden: false, order: 1 },
+        { id: 'variants', label: 'Models & Variants', hidden: false, order: 2 },
+        { id: 'commercial', label: 'Pricing', hidden: false, order: 3 },
+        { id: 'attributes', label: 'Tech Specs', hidden: false, order: 4 },
+        { id: 'logistics', label: 'Shipping', hidden: false, order: 5 },
+        { id: 'compliance', label: 'Regulatory', hidden: false, order: 6 },
+    ],
+    attributeSchema: [
+        {
+            key: 'brand',
+            label: 'Brand',
+            type: 'text',
+            required: true,
+            group: 'identity'
+        },
+        {
+            key: 'model_number',
+            label: 'Model Number',
+            type: 'text',
+            required: true,
+            group: 'identity'
+        },
+        {
+            key: 'warranty_period',
+            label: 'Warranty Period',
+            type: 'number',
+            required: true,
+            unit: 'months',
+            group: 'specification'
+        },
+        {
+            key: 'warranty_type',
+            label: 'Warranty Type',
+            type: 'select',
+            required: true,
+            options: ['On-site', 'Carry-in', 'Replacement'],
+            group: 'specification'
+        },
+        {
+            key: 'bis_number',
+            label: 'BIS Registration No.',
+            type: 'text',
+            required: false,
+            group: 'compliance',
+            helperText: 'Bureau of Indian Standards registration for imported electronics'
+        }
+    ]
+};
+const FASHION_RULES = {
+    categoryId: "fashion",
+    categoryName: "Apparel & Fashion",
+    features: {
+        hasVariants: true,
+        hasExpiry: false,
+        hasWarranty: false,
+        hasReturnPolicy: true,
+        isPhysical: true,
+        shippingClassRequired: true,
+        requiresCompliance: false
+    },
+    inventory: {
+        mode: 'unit',
+        allowFractional: false,
+        trackBatches: false
+    },
+    sections: [
+        { id: 'identity', label: 'Overview', hidden: false, order: 1 },
+        { id: 'variants', label: 'Size & Color Matrix', hidden: false, order: 2 },
+        { id: 'attributes', label: 'Material & Care', hidden: false, order: 3 },
+        { id: 'commercial', label: 'Commercial', hidden: false, order: 4 },
+        { id: 'logistics', label: 'Shipping', hidden: false, order: 5 },
+    ],
+    attributeSchema: [
+        {
+            key: 'material',
+            label: 'Material Composition',
+            type: 'text',
+            required: true,
+            group: 'specification',
+            placeholder: 'e.g. 100% Cotton'
+        },
+        {
+            key: 'care_instructions',
+            label: 'Care Instructions',
+            type: 'multiselect',
+            required: false,
+            options: ['Machine Wash', 'Hand Wash', 'Dry Clean Only', 'Do Not Bleach'],
+            group: 'specification'
+        },
+        {
+            key: 'fit_type',
+            label: 'Fit Type',
+            type: 'select',
+            required: true,
+            options: ['Regular', 'Slim', 'Oversized', 'Loose'],
+            group: 'specification'
+        },
+        {
+            key: 'gender',
+            label: 'Gender',
+            type: 'select',
+            required: true,
+            options: ['Men', 'Women', 'Unisex', 'Kids'],
+            group: 'identity'
+        }
+    ]
+};
+const DEFAULT_RULES = {
+    categoryId: "generic",
+    categoryName: "General Product",
+    features: {
+        hasVariants: false,
+        hasExpiry: false,
+        hasWarranty: false,
+        hasReturnPolicy: false,
+        isPhysical: true,
+        shippingClassRequired: true,
+        requiresCompliance: false
+    },
+    inventory: {
+        mode: 'unit',
+        allowFractional: false,
+        trackBatches: false
+    },
+    sections: [
+        { id: 'identity', label: 'Basic Information', hidden: false, order: 1 },
+        { id: 'commercial', label: 'Pricing', hidden: false, order: 2 },
+        { id: 'inventory', label: 'Inventory', hidden: false, order: 3 },
+        { id: 'logistics', label: 'Shipping', hidden: false, order: 4 },
+        { id: 'attributes', label: 'Attributes', hidden: false, order: 5 },
+        { id: 'variants', label: 'Variants', hidden: true, order: 6 },
+        { id: 'compliance', label: 'Compliance', hidden: true, order: 7 },
+    ],
+    attributeSchema: []
+};
 //# sourceMappingURL=catalog.service.js.map

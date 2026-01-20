@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const throttler_1 = require("@nestjs/throttler");
 const prisma_module_1 = require("./prisma/prisma.module");
+const audit_module_1 = require("./audit/audit.module");
 const auth_module_1 = require("./auth/auth.module");
 const users_module_1 = require("./users/users.module");
 const coins_module_1 = require("./coins/coins.module");
@@ -24,6 +25,9 @@ const bow_module_1 = require("./bow/bow.module");
 const checkout_module_1 = require("./checkout/checkout.module");
 const schedule_1 = require("@nestjs/schedule");
 const bullmq_1 = require("@nestjs/bullmq");
+const analytics_module_1 = require("./analytics/analytics.module");
+const telecaller_module_1 = require("./telecaller/telecaller.module");
+const returns_module_1 = require("./returns/returns.module");
 const shared_module_1 = require("./shared/shared.module");
 const health_controller_1 = require("./common/health.controller");
 let AppModule = class AppModule {
@@ -44,8 +48,10 @@ exports.AppModule = AppModule = __decorate([
                     port: parseInt(process.env.REDIS_PORT) || 6379,
                 },
             }),
-            shared_module_1.SharedModule,
             prisma_module_1.PrismaModule,
+            audit_module_1.AuditModule,
+            analytics_module_1.AnalyticsModule,
+            shared_module_1.SharedModule,
             auth_module_1.AuthModule,
             users_module_1.UsersModule,
             coins_module_1.CoinsModule,
@@ -57,6 +63,8 @@ exports.AppModule = AppModule = __decorate([
             admin_module_1.AdminModule,
             checkout_module_1.CheckoutModule,
             bow_module_1.BowModule,
+            telecaller_module_1.TelecallerModule,
+            returns_module_1.ReturnsModule,
         ],
         controllers: [health_controller_1.HealthController],
     })

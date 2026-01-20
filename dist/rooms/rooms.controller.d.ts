@@ -14,15 +14,15 @@ export declare class RoomsController {
         }[];
     } & {
         id: string;
+        createdAt: Date;
         name: string;
         status: import(".prisma/client").$Enums.RoomStatus;
         size: number;
-        createdAt: Date;
-        offerId: string;
-        startAt: Date;
-        endAt: Date;
         unlockMinOrders: number;
         unlockMinValue: number;
+        startAt: Date;
+        endAt: Date;
+        offerId: string;
         isSystemRoom: boolean;
         createdById: string | null;
     }>;
@@ -41,7 +41,38 @@ export declare class RoomsController {
     linkOrder(roomId: string, orderId: string, req: any): Promise<{
         message: string;
     }>;
+    forceUnlock(id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        name: string;
+        status: import(".prisma/client").$Enums.RoomStatus;
+        size: number;
+        unlockMinOrders: number;
+        unlockMinValue: number;
+        startAt: Date;
+        endAt: Date;
+        offerId: string;
+        isSystemRoom: boolean;
+        createdById: string | null;
+    }>;
+    expireRoom(id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        name: string;
+        status: import(".prisma/client").$Enums.RoomStatus;
+        size: number;
+        unlockMinOrders: number;
+        unlockMinValue: number;
+        startAt: Date;
+        endAt: Date;
+        offerId: string;
+        isSystemRoom: boolean;
+        createdById: string | null;
+    }>;
     findAll(status: RoomStatus): import(".prisma/client").Prisma.PrismaPromise<({
+        _count: {
+            members: number;
+        };
         members: {
             status: import(".prisma/client").$Enums.MemberStatus;
             userId: string;
@@ -52,15 +83,15 @@ export declare class RoomsController {
         };
     } & {
         id: string;
+        createdAt: Date;
         name: string;
         status: import(".prisma/client").$Enums.RoomStatus;
         size: number;
-        createdAt: Date;
-        offerId: string;
-        startAt: Date;
-        endAt: Date;
         unlockMinOrders: number;
         unlockMinValue: number;
+        startAt: Date;
+        endAt: Date;
+        offerId: string;
         isSystemRoom: boolean;
         createdById: string | null;
     })[]>;
@@ -72,15 +103,15 @@ export declare class RoomsController {
         }[];
     } & {
         id: string;
+        createdAt: Date;
         name: string;
         status: import(".prisma/client").$Enums.RoomStatus;
         size: number;
-        createdAt: Date;
-        offerId: string;
-        startAt: Date;
-        endAt: Date;
         unlockMinOrders: number;
         unlockMinValue: number;
+        startAt: Date;
+        endAt: Date;
+        offerId: string;
         isSystemRoom: boolean;
         createdById: string | null;
     }>;

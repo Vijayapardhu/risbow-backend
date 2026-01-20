@@ -5,14 +5,15 @@ export declare class UsersService {
     constructor(prisma: PrismaService);
     findOne(id: string): Promise<{
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -28,19 +29,19 @@ export declare class UsersService {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
     update(id: string, updateUserDto: UpdateUserDto): Promise<{
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -56,7 +57,6 @@ export declare class UsersService {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
     claimReferral(userId: string, refCode: string): Promise<{
@@ -66,9 +66,9 @@ export declare class UsersService {
     }>;
     getAddresses(userId: string): Promise<{
         id: string;
-        mobile: string | null;
-        name: string;
         createdAt: Date;
+        name: string;
+        mobile: string | null;
         updatedAt: Date;
         userId: string;
         title: string | null;
@@ -84,9 +84,9 @@ export declare class UsersService {
     }[]>;
     createAddress(userId: string, addressData: any): Promise<{
         id: string;
-        mobile: string | null;
-        name: string;
         createdAt: Date;
+        name: string;
+        mobile: string | null;
         updatedAt: Date;
         userId: string;
         title: string | null;
@@ -102,9 +102,9 @@ export declare class UsersService {
     }>;
     updateAddress(userId: string, addressId: string, addressData: any): Promise<{
         id: string;
-        mobile: string | null;
-        name: string;
         createdAt: Date;
+        name: string;
+        mobile: string | null;
         updatedAt: Date;
         userId: string;
         title: string | null;
@@ -125,9 +125,9 @@ export declare class UsersService {
     getUserOrders(userId: string, limit?: number): Promise<({
         address: {
             id: string;
-            mobile: string | null;
-            name: string;
             createdAt: Date;
+            name: string;
+            mobile: string | null;
             updatedAt: Date;
             userId: string;
             title: string | null;
@@ -143,8 +143,8 @@ export declare class UsersService {
         };
         payment: {
             id: string;
-            status: import(".prisma/client").$Enums.PaymentStatus;
             createdAt: Date;
+            status: import(".prisma/client").$Enums.PaymentStatus;
             updatedAt: Date;
             amount: number;
             orderId: string;
@@ -155,8 +155,8 @@ export declare class UsersService {
         };
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.OrderStatus;
         createdAt: Date;
+        status: import(".prisma/client").$Enums.OrderStatus;
         updatedAt: Date;
         items: import("@prisma/client/runtime/library").JsonValue;
         userId: string;
@@ -175,9 +175,9 @@ export declare class UsersService {
     getOrderById(userId: string, orderId: string): Promise<{
         address: {
             id: string;
-            mobile: string | null;
-            name: string;
             createdAt: Date;
+            name: string;
+            mobile: string | null;
             updatedAt: Date;
             userId: string;
             title: string | null;
@@ -193,8 +193,8 @@ export declare class UsersService {
         };
         payment: {
             id: string;
-            status: import(".prisma/client").$Enums.PaymentStatus;
             createdAt: Date;
+            status: import(".prisma/client").$Enums.PaymentStatus;
             updatedAt: Date;
             amount: number;
             orderId: string;
@@ -205,8 +205,8 @@ export declare class UsersService {
         };
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.OrderStatus;
         createdAt: Date;
+        status: import(".prisma/client").$Enums.OrderStatus;
         updatedAt: Date;
         items: import("@prisma/client/runtime/library").JsonValue;
         userId: string;
@@ -251,20 +251,20 @@ export declare class UsersService {
     getNotifications(userId: string, limit?: number): Promise<{
         id: string;
         createdAt: Date;
+        type: string;
         userId: string | null;
         title: string;
         body: string;
-        type: string;
         targetAudience: string | null;
         isRead: boolean;
     }[]>;
     markNotificationRead(userId: string, notificationId: string): Promise<{
         id: string;
         createdAt: Date;
+        type: string;
         userId: string | null;
         title: string;
         body: string;
-        type: string;
         targetAudience: string | null;
         isRead: boolean;
     }>;
@@ -277,12 +277,12 @@ export declare class UsersService {
     }): Promise<{
         data: {
             id: string;
+            createdAt: Date;
+            name: string;
             mobile: string;
             email: string;
-            name: string;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.UserStatus;
-            createdAt: Date;
         }[];
         meta: {
             total: number;
@@ -293,14 +293,15 @@ export declare class UsersService {
     }>;
     updateUserStatus(userId: string, status: string): Promise<{
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -316,7 +317,6 @@ export declare class UsersService {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
 }

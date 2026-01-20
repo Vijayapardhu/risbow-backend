@@ -1,7 +1,9 @@
 import { AdminService } from './admin.service';
+import { VendorsService } from '../vendors/vendors.service';
 export declare class AdminController {
     private readonly adminService;
-    constructor(adminService: AdminService);
+    private readonly vendorsService;
+    constructor(adminService: AdminService, vendorsService: VendorsService);
     getAppConfig(): Promise<{
         maintenance_mode: any;
         tagline: any;
@@ -27,14 +29,14 @@ export declare class AdminController {
     }>;
     getAuditLogs(limit: number): Promise<{
         id: string;
-        createdAt: Date;
-        adminId: string;
         action: string;
         entity: string;
         entityId: string;
         details: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
+        createdAt: Date;
+        adminId: string;
     }[]>;
     getStats(): Promise<{
         totalRevenue: number;
@@ -130,29 +132,30 @@ export declare class AdminController {
     getUsers(page: number, search: string): Promise<{
         users: {
             id: string;
+            createdAt: Date;
+            name: string;
             mobile: string;
             email: string;
-            name: string;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.UserStatus;
             coinsBalance: number;
             riskTag: import(".prisma/client").$Enums.RiskTag;
             valueTag: import(".prisma/client").$Enums.ValueTag;
-            createdAt: Date;
         }[];
         total: number;
         pages: number;
     }>;
     exportUsers(): Promise<{
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -168,7 +171,6 @@ export declare class AdminController {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }[]>;
     getUserDetails(id: string): Promise<{
@@ -179,8 +181,8 @@ export declare class AdminController {
         } & {
             id: string;
             createdAt: Date;
-            userId: string;
             adminId: string;
+            userId: string;
             note: string;
         })[];
         coinLedger: any[];
@@ -192,8 +194,8 @@ export declare class AdminController {
         orders: ({
             payment: {
                 id: string;
-                status: import(".prisma/client").$Enums.PaymentStatus;
                 createdAt: Date;
+                status: import(".prisma/client").$Enums.PaymentStatus;
                 updatedAt: Date;
                 amount: number;
                 orderId: string;
@@ -204,8 +206,8 @@ export declare class AdminController {
             };
         } & {
             id: string;
-            status: import(".prisma/client").$Enums.OrderStatus;
             createdAt: Date;
+            status: import(".prisma/client").$Enums.OrderStatus;
             updatedAt: Date;
             items: import("@prisma/client/runtime/library").JsonValue;
             userId: string;
@@ -223,9 +225,9 @@ export declare class AdminController {
         })[];
         addresses: {
             id: string;
-            mobile: string | null;
-            name: string;
             createdAt: Date;
+            name: string;
+            mobile: string | null;
             updatedAt: Date;
             userId: string;
             title: string | null;
@@ -257,19 +259,20 @@ export declare class AdminController {
         } & {
             id: string;
             createdAt: Date;
-            userId: string;
             adminId: string;
+            userId: string;
             note: string;
         })[];
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -285,19 +288,19 @@ export declare class AdminController {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
     updateUser(req: any, userId: string, body: any): Promise<{
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -313,7 +316,6 @@ export declare class AdminController {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
     updateKyc(req: any, userId: string, body: {
@@ -321,14 +323,15 @@ export declare class AdminController {
         notes?: string;
     }): Promise<{
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -344,7 +347,6 @@ export declare class AdminController {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
     forceLogout(req: any, userId: string): Promise<{
@@ -355,14 +357,15 @@ export declare class AdminController {
         disabled: boolean;
     }): Promise<{
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -378,21 +381,21 @@ export declare class AdminController {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
     toggleCod(req: any, userId: string, body: {
         disabled: boolean;
     }): Promise<{
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -408,21 +411,21 @@ export declare class AdminController {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
     updateRiskTag(req: any, userId: string, body: {
         tag: string;
     }): Promise<{
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -438,21 +441,21 @@ export declare class AdminController {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
     updateValueTag(req: any, userId: string, body: {
         tag: string;
     }): Promise<{
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -468,7 +471,6 @@ export declare class AdminController {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
     addAdminNote(req: any, userId: string, body: {
@@ -476,8 +478,8 @@ export declare class AdminController {
     }): Promise<{
         id: string;
         createdAt: Date;
-        userId: string;
         adminId: string;
+        userId: string;
         note: string;
     }>;
     getUserCart(userId: string): Promise<{
@@ -509,14 +511,15 @@ export declare class AdminController {
         reason: string;
     }): Promise<{
         id: string;
+        createdAt: Date;
+        name: string | null;
         mobile: string;
         email: string | null;
-        referralCode: string;
-        name: string | null;
         password: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.UserStatus;
         coinsBalance: number;
+        referralCode: string;
         referredBy: string | null;
         dateOfBirth: Date | null;
         gender: string | null;
@@ -532,7 +535,6 @@ export declare class AdminController {
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
     updateUserStatus(req: any, userId: string, body: {
@@ -542,14 +544,15 @@ export declare class AdminController {
         success: boolean;
         user: {
             id: string;
+            createdAt: Date;
+            name: string | null;
             mobile: string;
             email: string | null;
-            referralCode: string;
-            name: string | null;
             password: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.UserStatus;
             coinsBalance: number;
+            referralCode: string;
             referredBy: string | null;
             dateOfBirth: Date | null;
             gender: string | null;
@@ -565,7 +568,6 @@ export declare class AdminController {
             kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             forceLogoutAt: Date | null;
-            createdAt: Date;
             updatedAt: Date;
         };
         message: string;
@@ -576,14 +578,15 @@ export declare class AdminController {
         success: boolean;
         user: {
             id: string;
+            createdAt: Date;
+            name: string | null;
             mobile: string;
             email: string | null;
-            referralCode: string;
-            name: string | null;
             password: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.UserStatus;
             coinsBalance: number;
+            referralCode: string;
             referredBy: string | null;
             dateOfBirth: Date | null;
             gender: string | null;
@@ -599,7 +602,6 @@ export declare class AdminController {
             kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             forceLogoutAt: Date | null;
-            createdAt: Date;
             updatedAt: Date;
         };
         message: string;
@@ -608,14 +610,15 @@ export declare class AdminController {
         success: boolean;
         user: {
             id: string;
+            createdAt: Date;
+            name: string | null;
             mobile: string;
             email: string | null;
-            referralCode: string;
-            name: string | null;
             password: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.UserStatus;
             coinsBalance: number;
+            referralCode: string;
             referredBy: string | null;
             dateOfBirth: Date | null;
             gender: string | null;
@@ -631,7 +634,6 @@ export declare class AdminController {
             kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             forceLogoutAt: Date | null;
-            createdAt: Date;
             updatedAt: Date;
         };
         message: string;
@@ -642,14 +644,15 @@ export declare class AdminController {
         success: boolean;
         user: {
             id: string;
+            createdAt: Date;
+            name: string | null;
             mobile: string;
             email: string | null;
-            referralCode: string;
-            name: string | null;
             password: string | null;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.UserStatus;
             coinsBalance: number;
+            referralCode: string;
             referredBy: string | null;
             dateOfBirth: Date | null;
             gender: string | null;
@@ -665,7 +668,6 @@ export declare class AdminController {
             kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             forceLogoutAt: Date | null;
-            createdAt: Date;
             updatedAt: Date;
         };
         message: string;
@@ -678,9 +680,9 @@ export declare class AdminController {
         orders: ({
             address: {
                 id: string;
-                mobile: string | null;
-                name: string;
                 createdAt: Date;
+                name: string;
+                mobile: string | null;
                 updatedAt: Date;
                 userId: string;
                 title: string | null;
@@ -696,8 +698,8 @@ export declare class AdminController {
             };
             payment: {
                 id: string;
-                status: import(".prisma/client").$Enums.PaymentStatus;
                 createdAt: Date;
+                status: import(".prisma/client").$Enums.PaymentStatus;
                 updatedAt: Date;
                 amount: number;
                 orderId: string;
@@ -708,8 +710,8 @@ export declare class AdminController {
             };
         } & {
             id: string;
-            status: import(".prisma/client").$Enums.OrderStatus;
             createdAt: Date;
+            status: import(".prisma/client").$Enums.OrderStatus;
             updatedAt: Date;
             items: import("@prisma/client/runtime/library").JsonValue;
             userId: string;
@@ -753,9 +755,9 @@ export declare class AdminController {
     getUserAddresses(userId: string): Promise<{
         addresses: {
             id: string;
-            mobile: string | null;
-            name: string;
             createdAt: Date;
+            name: string;
+            mobile: string | null;
             updatedAt: Date;
             userId: string;
             title: string | null;
@@ -779,10 +781,10 @@ export declare class AdminController {
         notification: {
             id: string;
             createdAt: Date;
+            type: string;
             userId: string | null;
             title: string;
             body: string;
-            type: string;
             targetAudience: string | null;
             isRead: boolean;
         };
@@ -807,20 +809,21 @@ export declare class AdminController {
     }>;
     getVendors(status: string): Promise<{
         id: string;
+        createdAt: Date;
+        name: string;
         mobile: string;
         email: string | null;
-        name: string;
         role: import(".prisma/client").$Enums.VendorRole;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        createdAt: Date;
         updatedAt: Date;
         vendorCode: string | null;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
+        strikes: number;
         followCount: number;
         commissionRate: number;
     }[]>;
@@ -829,62 +832,149 @@ export declare class AdminController {
         reason?: string;
     }): Promise<{
         id: string;
+        createdAt: Date;
+        name: string;
         mobile: string;
         email: string | null;
-        name: string;
         role: import(".prisma/client").$Enums.VendorRole;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        createdAt: Date;
         updatedAt: Date;
         vendorCode: string | null;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
+        strikes: number;
+        followCount: number;
+        commissionRate: number;
+    }>;
+    rejectVendor(req: any, id: string, body: {
+        reason: string;
+    }): Promise<{
+        id: string;
+        createdAt: Date;
+        name: string;
+        mobile: string;
+        email: string | null;
+        role: import(".prisma/client").$Enums.VendorRole;
+        coinsBalance: number;
+        kycStatus: string;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        updatedAt: Date;
+        vendorCode: string | null;
+        tier: string;
+        gstNumber: string | null;
+        isGstVerified: boolean;
+        skuLimit: number;
+        strikes: number;
+        followCount: number;
+        commissionRate: number;
+    }>;
+    suspendVendor(req: any, id: string, body: {
+        reason?: string;
+    }): Promise<{
+        id: string;
+        createdAt: Date;
+        name: string;
+        mobile: string;
+        email: string | null;
+        role: import(".prisma/client").$Enums.VendorRole;
+        coinsBalance: number;
+        kycStatus: string;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        updatedAt: Date;
+        vendorCode: string | null;
+        tier: string;
+        gstNumber: string | null;
+        isGstVerified: boolean;
+        skuLimit: number;
+        strikes: number;
+        followCount: number;
+        commissionRate: number;
+    }>;
+    activateVendor(req: any, id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        name: string;
+        mobile: string;
+        email: string | null;
+        role: import(".prisma/client").$Enums.VendorRole;
+        coinsBalance: number;
+        kycStatus: string;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        updatedAt: Date;
+        vendorCode: string | null;
+        tier: string;
+        gstNumber: string | null;
+        isGstVerified: boolean;
+        skuLimit: number;
+        strikes: number;
+        followCount: number;
+        commissionRate: number;
+    }>;
+    strikeVendor(req: any, id: string, body: {
+        reason: string;
+    }): Promise<{
+        id: string;
+        createdAt: Date;
+        name: string;
+        mobile: string;
+        email: string | null;
+        role: import(".prisma/client").$Enums.VendorRole;
+        coinsBalance: number;
+        kycStatus: string;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        updatedAt: Date;
+        vendorCode: string | null;
+        tier: string;
+        gstNumber: string | null;
+        isGstVerified: boolean;
+        skuLimit: number;
+        strikes: number;
         followCount: number;
         commissionRate: number;
     }>;
     getAllRooms(): Promise<{
         id: string;
+        createdAt: Date;
         name: string;
         status: import(".prisma/client").$Enums.RoomStatus;
         size: number;
-        createdAt: Date;
-        offerId: string;
-        startAt: Date;
-        endAt: Date;
         unlockMinOrders: number;
         unlockMinValue: number;
+        startAt: Date;
+        endAt: Date;
+        offerId: string;
         isSystemRoom: boolean;
         createdById: string | null;
     }[]>;
     createRoom(req: any, body: any): Promise<{
         id: string;
+        createdAt: Date;
         name: string;
         status: import(".prisma/client").$Enums.RoomStatus;
         size: number;
-        createdAt: Date;
-        offerId: string;
-        startAt: Date;
-        endAt: Date;
         unlockMinOrders: number;
         unlockMinValue: number;
+        startAt: Date;
+        endAt: Date;
+        offerId: string;
         isSystemRoom: boolean;
         createdById: string | null;
     }>;
     getAllOrders(limit: number, search: string, status: string): Promise<({
         user: {
+            name: string;
             mobile: string;
             email: string;
-            name: string;
         };
         address: {
             id: string;
-            mobile: string | null;
-            name: string;
             createdAt: Date;
+            name: string;
+            mobile: string | null;
             updatedAt: Date;
             userId: string;
             title: string | null;
@@ -900,8 +990,8 @@ export declare class AdminController {
         };
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.OrderStatus;
         createdAt: Date;
+        status: import(".prisma/client").$Enums.OrderStatus;
         updatedAt: Date;
         items: import("@prisma/client/runtime/library").JsonValue;
         userId: string;
@@ -920,15 +1010,15 @@ export declare class AdminController {
     getOrderById(id: string): Promise<{
         user: {
             id: string;
+            name: string;
             mobile: string;
             email: string;
-            name: string;
         };
         address: {
             id: string;
-            mobile: string | null;
-            name: string;
             createdAt: Date;
+            name: string;
+            mobile: string | null;
             updatedAt: Date;
             userId: string;
             title: string | null;
@@ -944,8 +1034,8 @@ export declare class AdminController {
         };
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.OrderStatus;
         createdAt: Date;
+        status: import(".prisma/client").$Enums.OrderStatus;
         updatedAt: Date;
         items: import("@prisma/client/runtime/library").JsonValue;
         userId: string;
@@ -966,8 +1056,8 @@ export declare class AdminController {
         logistics?: any;
     }): Promise<{
         id: string;
-        status: import(".prisma/client").$Enums.OrderStatus;
         createdAt: Date;
+        status: import(".prisma/client").$Enums.OrderStatus;
         updatedAt: Date;
         items: import("@prisma/client/runtime/library").JsonValue;
         userId: string;
@@ -1023,10 +1113,10 @@ export declare class AdminController {
     }): Promise<{
         id: string;
         createdAt: Date;
+        type: string;
         userId: string | null;
         title: string;
         body: string;
-        type: string;
         targetAudience: string | null;
         isRead: boolean;
     }>;
@@ -1068,13 +1158,14 @@ export declare class AdminController {
     }>;
     getCategories(): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
+        isActive: boolean;
         image: string | null;
         nameTE: string | null;
-        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
         parentId: string | null;
+        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
     }[]>;
     createCategory(body: {
         name: string;
@@ -1082,61 +1173,65 @@ export declare class AdminController {
         image?: string;
     }): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
+        isActive: boolean;
         image: string | null;
         nameTE: string | null;
-        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
         parentId: string | null;
+        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     getCategory(id: string): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
+        isActive: boolean;
         image: string | null;
         nameTE: string | null;
-        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
         parentId: string | null;
+        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     deleteCategory(id: string): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
+        isActive: boolean;
         image: string | null;
         nameTE: string | null;
-        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
         parentId: string | null;
+        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     updateCategory(id: string, body: any): Promise<any>;
     updateCategoryPatch(id: string, body: any): Promise<any>;
     updateCommission(req: any, id: string, rate: number): Promise<{
         id: string;
+        createdAt: Date;
+        name: string;
         mobile: string;
         email: string | null;
-        name: string;
         role: import(".prisma/client").$Enums.VendorRole;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        createdAt: Date;
         updatedAt: Date;
         vendorCode: string | null;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
+        strikes: number;
         followCount: number;
         commissionRate: number;
     }>;
     createProduct(body: any): Promise<{
         id: string;
         createdAt: Date;
+        length: number | null;
         updatedAt: Date;
         title: string;
-        length: number | null;
         vendorId: string;
         description: string | null;
         price: number;
@@ -1161,6 +1256,25 @@ export declare class AdminController {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        isCancelable: boolean;
+        isReturnable: boolean;
+        requiresOTP: boolean;
+        isInclusiveTax: boolean;
+        isAttachmentRequired: boolean;
+        minOrderQuantity: number;
+        quantityStepSize: number;
+        totalAllowedQuantity: number;
+        basePreparationTime: number;
+        storageInstructions: string | null;
+        allergenInformation: string | null;
+        attributes: import("@prisma/client/runtime/library").JsonValue | null;
+        costPrice: number | null;
+        rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
+        shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
+        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
+        videos: string[];
+        hasVariations: boolean;
+        variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     bulkCreateProduct(body: {
         products: any[];
@@ -1172,9 +1286,9 @@ export declare class AdminController {
     toggleProduct(id: string, isActive: boolean): Promise<{
         id: string;
         createdAt: Date;
+        length: number | null;
         updatedAt: Date;
         title: string;
-        length: number | null;
         vendorId: string;
         description: string | null;
         price: number;
@@ -1199,6 +1313,25 @@ export declare class AdminController {
         metaTitle: string | null;
         metaDescription: string | null;
         metaKeywords: string[];
+        isCancelable: boolean;
+        isReturnable: boolean;
+        requiresOTP: boolean;
+        isInclusiveTax: boolean;
+        isAttachmentRequired: boolean;
+        minOrderQuantity: number;
+        quantityStepSize: number;
+        totalAllowedQuantity: number;
+        basePreparationTime: number;
+        storageInstructions: string | null;
+        allergenInformation: string | null;
+        attributes: import("@prisma/client/runtime/library").JsonValue | null;
+        costPrice: number | null;
+        rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
+        shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
+        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
+        videos: string[];
+        hasVariations: boolean;
+        variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     deleteBanner(id: string): Promise<{
         id: string;
@@ -1215,8 +1348,8 @@ export declare class AdminController {
         id: string;
         updatedAt: Date;
         description: string | null;
-        value: string;
         key: string;
+        value: string;
     }[]>;
     updateSetting(body: {
         key: string;
@@ -1225,8 +1358,8 @@ export declare class AdminController {
         id: string;
         updatedAt: Date;
         description: string | null;
-        value: string;
         key: string;
+        value: string;
     }>;
     getCoupons(): Promise<{
         id: string;
@@ -1336,13 +1469,13 @@ export declare class AdminController {
     }>;
     getReports(status: string): Promise<({
         reporter: {
-            email: string;
             name: string;
+            email: string;
         };
     } & {
         id: string;
-        status: string;
         createdAt: Date;
+        status: string;
         updatedAt: Date;
         description: string | null;
         reason: string;
@@ -1352,8 +1485,8 @@ export declare class AdminController {
     })[]>;
     resolveReport(id: string, action: string): Promise<{
         id: string;
-        status: string;
         createdAt: Date;
+        status: string;
         updatedAt: Date;
         description: string | null;
         reason: string;

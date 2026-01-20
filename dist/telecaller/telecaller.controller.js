@@ -8,73 +8,48 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TelecallerController = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
-const roles_guard_1 = require("../auth/roles.guard");
-const roles_decorator_1 = require("../auth/roles.decorator");
-const admin_service_1 = require("../admin/admin.service");
+const roles_guard_1 = require("../common/guards/roles.guard");
+const roles_decorator_1 = require("../common/decorators/roles.decorator");
+const telecaller_service_1 = require("./telecaller.service");
 let TelecallerController = class TelecallerController {
-    constructor(adminService) {
-        this.adminService = adminService;
+    constructor(telecallerService) {
+        this.telecallerService = telecallerService;
     }
-    async getDashboard() {
+    async getDashboard(req) {
+        const stats = await this.telecallerService.getDashboardStats(req.user.id);
+        const expiringCoins = await this.telecallerService.getExpiringCoins();
+        const checkoutRecovery = await this.telecallerService.getCheckoutRecoveryLeads(req.user.id);
+        const supportTickets = await this.telecallerService.getSupportTickets();
         return {
-            stats: {
-                myTasks: 15,
-                completed: 8,
-                pending: 7,
-                successRate: 65,
-            },
-            expiringCoins: await this.getExpiringCoins(),
-            checkoutRecovery: await this.getCheckoutRecoveryLeads(),
-            supportTickets: await this.getSupportTickets(),
+            stats,
+            expiringCoins,
+            checkoutRecovery,
+            supportTickets,
         };
     }
     async getExpiringCoins() {
-        return [
-            {
-                name: 'Rajesh Kumar',
-                mobile: '+91 98765 00001',
-                coins: 500,
-                expiryDate: '2026-01-10',
-                daysLeft: 2,
-                lastOrder: '15 days ago',
-            },
-        ];
+        return this.telecallerService.getExpiringCoins();
     }
-    async getCheckoutRecoveryLeads() {
-        return [
-            {
-                customerName: 'Sneha Reddy',
-                mobile: '+91 98765 00004',
-                cartValue: 5000,
-                itemCount: 3,
-                abandonedAt: '2 hours ago',
-                priority: 'High',
-            },
-        ];
+    async getCheckoutRecoveryLeads(req) {
+        return this.telecallerService.getCheckoutRecoveryLeads(req.user.id);
     }
     async getSupportTickets() {
-        return [
-            {
-                id: 'TKT001',
-                subject: 'Order not delivered',
-                description: 'Customer complaining about delayed delivery',
-                customerName: 'Rahul Verma',
-                mobile: '+91 98765 00006',
-                priority: 'High',
-                createdAt: '1 hour ago',
-            },
-        ];
+        return this.telecallerService.getSupportTickets();
     }
 };
 exports.TelecallerController = TelecallerController;
 __decorate([
     (0, common_1.Get)('dashboard'),
+    __param(0, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], TelecallerController.prototype, "getDashboard", null);
 __decorate([
@@ -85,8 +60,9 @@ __decorate([
 ], TelecallerController.prototype, "getExpiringCoins", null);
 __decorate([
     (0, common_1.Get)('checkout-recovery'),
+    __param(0, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], TelecallerController.prototype, "getCheckoutRecoveryLeads", null);
 __decorate([
@@ -99,6 +75,6 @@ exports.TelecallerController = TelecallerController = __decorate([
     (0, common_1.Controller)('telecaller'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('TELECALLER', 'ADMIN', 'SUPER_ADMIN'),
-    __metadata("design:paramtypes", [admin_service_1.AdminService])
+    __metadata("design:paramtypes", [telecaller_service_1.TelecallerService])
 ], TelecallerController);
 //# sourceMappingURL=telecaller.controller.js.map
