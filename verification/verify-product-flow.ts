@@ -1,13 +1,17 @@
 
 const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
-const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 
-const API_URL = 'http://localhost:3001/api/v1/admin/products';
+const API_URL = 'https://risbow-backend.onrender.com/api/v1/admin/products';
+const AUTH_URL = 'https://risbow-backend.onrender.com/api/v1/auth/login';
 const prisma = new PrismaClient();
-const JWT_SECRET = "eseLE0zNP_wDxDpYf3inMmX-VDdnRJ8jV-4bXZQbd9pLAVQYlfUkWqr0hANDvRKU";
 
 async function getAdminToken() {
+    const password = 'password123';
+    // Hash password for DB update
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     let admin = await prisma.user.findFirst({
         where: { role: 'ADMIN' }
     });
@@ -19,15 +23,33 @@ async function getAdminToken() {
             data: {
                 mobile: `999${Math.floor(Math.random() * 10000000)}`,
                 email: `admin_${timestamp}@risbow.com`,
-                password: 'hashed_placeholder',
+                password: hashedPassword,
                 role: 'ADMIN',
                 name: 'Verification Admin',
                 kycStatus: 'VERIFIED'
             }
         });
+    } else {
+        // Reset password to ensure we can login
+        console.log(`🔄 Resetting password for admin: ${admin.email}`);
+        await prisma.user.update({
+            where: { id: admin.id },
+            data: { password: hashedPassword }
+        });
     }
-    console.log(`🔑 Using Admin User: ${admin.email} (${admin.id})`);
-    return jwt.sign({ sub: admin.id, role: 'ADMIN' }, JWT_SECRET, { expiresIn: '1h' });
+
+    console.log(`🔑 Logging in via API as: ${admin.email}`);
+    try {
+        const loginRes = await axios.post(AUTH_URL, {
+            email: admin.email,
+            password: password
+        });
+        console.log('✅ Authentication Successful');
+        return loginRes.data.access_token;
+    } catch (error: any) {
+        console.error('❌ Login Failed:', error.response?.data || error.message);
+        throw error;
+    }
 }
 
 async function verifyProductCreation() {
@@ -40,14 +62,14 @@ async function verifyProductCreation() {
         // Fetch valid Category
         let categoryId = 'cat_default';
         try {
-            const catRes = await axios.get('http://localhost:3001/api/v1/categories');
+            const catRes = await axios.get('https://risbow-backend.onrender.com/api/v1/categories');
             if (catRes.data && catRes.data.length > 0) {
                 categoryId = catRes.data[0].id; // Use first category
                 console.log(`✅ Found Category: ${catRes.data[0].name} (${categoryId})`);
             } else {
                 console.warn('⚠️ No categories found. Using default ID.');
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error('⚠️ Category fetch failed, utilizing fallback ID.', e.message);
         }
 
@@ -121,7 +143,7 @@ async function verifyProductCreation() {
             console.warn('⚠️ No variations returned in response.');
         }
 
-    } catch (error) {
+    } catch (error: any) {
         if (axios.isAxiosError(error)) {
             console.error('❌ Verification Failed:', error.response?.status, error.response?.data);
         } else {

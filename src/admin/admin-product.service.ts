@@ -279,6 +279,12 @@ export class AdminProductService {
 
             hasVariations: !!(variationsCreateInput && variationsCreateInput.length > 0)
         };
+
+        // Defensive: Ensure variations key is removed if present (though it shouldn't be)
+        if ('variations' in data) {
+            delete data['variations'];
+        }
+
         console.log('DEBUG DATA TO PRISMA:', JSON.stringify(data, null, 2));
 
         const product = await this.prisma.product.create({

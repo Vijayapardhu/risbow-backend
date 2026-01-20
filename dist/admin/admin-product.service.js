@@ -240,6 +240,9 @@ let AdminProductService = class AdminProductService {
             } : undefined,
             hasVariations: !!(variationsCreateInput && variationsCreateInput.length > 0)
         };
+        if ('variations' in data) {
+            delete data['variations'];
+        }
         console.log('DEBUG DATA TO PRISMA:', JSON.stringify(data, null, 2));
         const product = await this.prisma.product.create({
             data,
