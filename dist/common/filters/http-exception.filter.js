@@ -13,6 +13,7 @@ let GlobalExceptionsFilter = class GlobalExceptionsFilter {
         const ctx = host.switchToHttp();
         const response = ctx.getResponse();
         const request = ctx.getRequest();
+        console.error('🔥 Global Exception Filter Caught:', exception);
         const status = exception instanceof common_1.HttpException
             ? exception.getStatus()
             : common_1.HttpStatus.INTERNAL_SERVER_ERROR;

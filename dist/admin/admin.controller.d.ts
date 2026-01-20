@@ -814,6 +814,7 @@ export declare class AdminController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -826,6 +827,7 @@ export declare class AdminController {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }[]>;
     approveVendor(req: any, id: string, body: {
         approved: boolean;
@@ -837,6 +839,7 @@ export declare class AdminController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -849,6 +852,7 @@ export declare class AdminController {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     rejectVendor(req: any, id: string, body: {
         reason: string;
@@ -859,6 +863,7 @@ export declare class AdminController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -871,6 +876,7 @@ export declare class AdminController {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     suspendVendor(req: any, id: string, body: {
         reason?: string;
@@ -881,6 +887,7 @@ export declare class AdminController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -893,6 +900,7 @@ export declare class AdminController {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     activateVendor(req: any, id: string): Promise<{
         id: string;
@@ -901,6 +909,7 @@ export declare class AdminController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -913,6 +922,7 @@ export declare class AdminController {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     strikeVendor(req: any, id: string, body: {
         reason: string;
@@ -923,6 +933,7 @@ export declare class AdminController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -935,6 +946,7 @@ export declare class AdminController {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     getAllRooms(): Promise<{
         id: string;
@@ -1213,6 +1225,7 @@ export declare class AdminController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -1225,6 +1238,7 @@ export declare class AdminController {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     createProduct(body: any): Promise<{
         id: string;
@@ -1238,12 +1252,15 @@ export declare class AdminController {
         offerPrice: number | null;
         stock: number;
         categoryId: string;
+        visibility: import(".prisma/client").$Enums.ProductVisibility;
+        defaultVariationId: string | null;
+        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
         variants: import("@prisma/client/runtime/library").JsonValue | null;
         images: string[];
+        isActive: boolean;
         isWholesale: boolean;
         wholesalePrice: number | null;
         moq: number;
-        isActive: boolean;
         sku: string | null;
         brandName: string | null;
         tags: string[];
@@ -1271,7 +1288,6 @@ export declare class AdminController {
         costPrice: number | null;
         rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
         shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
-        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
         videos: string[];
         hasVariations: boolean;
         variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
@@ -1295,12 +1311,15 @@ export declare class AdminController {
         offerPrice: number | null;
         stock: number;
         categoryId: string;
+        visibility: import(".prisma/client").$Enums.ProductVisibility;
+        defaultVariationId: string | null;
+        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
         variants: import("@prisma/client/runtime/library").JsonValue | null;
         images: string[];
+        isActive: boolean;
         isWholesale: boolean;
         wholesalePrice: number | null;
         moq: number;
-        isActive: boolean;
         sku: string | null;
         brandName: string | null;
         tags: string[];
@@ -1328,7 +1347,6 @@ export declare class AdminController {
         costPrice: number | null;
         rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
         shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
-        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
         videos: string[];
         hasVariations: boolean;
         variationOptions: import("@prisma/client/runtime/library").JsonValue | null;

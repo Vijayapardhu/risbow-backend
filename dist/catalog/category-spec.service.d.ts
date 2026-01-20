@@ -18,6 +18,7 @@ export declare class CategorySpecService {
         required: boolean;
         options: import("@prisma/client/runtime/library").JsonValue | null;
         sortOrder: number;
+        scope: import(".prisma/client").$Enums.AttributeScope;
     }>;
     updateCategorySpec(specId: string, dto: UpdateCategorySpecDto): Promise<{
         id: string;
@@ -33,6 +34,7 @@ export declare class CategorySpecService {
         required: boolean;
         options: import("@prisma/client/runtime/library").JsonValue | null;
         sortOrder: number;
+        scope: import(".prisma/client").$Enums.AttributeScope;
     }>;
     deleteCategorySpec(specId: string): Promise<{
         id: string;
@@ -48,6 +50,7 @@ export declare class CategorySpecService {
         required: boolean;
         options: import("@prisma/client/runtime/library").JsonValue | null;
         sortOrder: number;
+        scope: import(".prisma/client").$Enums.AttributeScope;
     }>;
     reorderSpecs(categoryId: string, specs: Array<{
         id: string;
@@ -73,6 +76,7 @@ export declare class CategorySpecService {
             required: boolean;
             options: import("@prisma/client/runtime/library").JsonValue | null;
             sortOrder: number;
+            scope: import(".prisma/client").$Enums.AttributeScope;
         };
     } & {
         id: string;

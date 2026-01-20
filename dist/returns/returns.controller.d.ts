@@ -59,12 +59,15 @@ export declare class ReturnsController {
                     offerPrice: number | null;
                     stock: number;
                     categoryId: string;
+                    visibility: import(".prisma/client").$Enums.ProductVisibility;
+                    defaultVariationId: string | null;
+                    mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
                     variants: import("@prisma/client/runtime/library").JsonValue | null;
                     images: string[];
+                    isActive: boolean;
                     isWholesale: boolean;
                     wholesalePrice: number | null;
                     moq: number;
-                    isActive: boolean;
                     sku: string | null;
                     brandName: string | null;
                     tags: string[];
@@ -92,7 +95,6 @@ export declare class ReturnsController {
                     costPrice: number | null;
                     rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
                     shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
-                    mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
                     videos: string[];
                     hasVariations: boolean;
                     variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
@@ -170,6 +172,7 @@ export declare class ReturnsController {
             mobile: string;
             email: string | null;
             role: import(".prisma/client").$Enums.VendorRole;
+            status: import(".prisma/client").$Enums.VendorStatus;
             coinsBalance: number;
             kycStatus: string;
             kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -182,6 +185,7 @@ export declare class ReturnsController {
             strikes: number;
             followCount: number;
             commissionRate: number;
+            commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
         };
         order: {
             id: string;
@@ -215,12 +219,15 @@ export declare class ReturnsController {
                 offerPrice: number | null;
                 stock: number;
                 categoryId: string;
+                visibility: import(".prisma/client").$Enums.ProductVisibility;
+                defaultVariationId: string | null;
+                mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
                 variants: import("@prisma/client/runtime/library").JsonValue | null;
                 images: string[];
+                isActive: boolean;
                 isWholesale: boolean;
                 wholesalePrice: number | null;
                 moq: number;
-                isActive: boolean;
                 sku: string | null;
                 brandName: string | null;
                 tags: string[];
@@ -248,7 +255,6 @@ export declare class ReturnsController {
                 costPrice: number | null;
                 rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
                 shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
-                mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
                 videos: string[];
                 hasVariations: boolean;
                 variationOptions: import("@prisma/client/runtime/library").JsonValue | null;

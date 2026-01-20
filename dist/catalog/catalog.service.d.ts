@@ -122,12 +122,15 @@ export declare class CatalogService {
         offerPrice: number | null;
         stock: number;
         categoryId: string;
+        visibility: import(".prisma/client").$Enums.ProductVisibility;
+        defaultVariationId: string | null;
+        mediaGallery: Prisma.JsonValue | null;
         variants: Prisma.JsonValue | null;
         images: string[];
+        isActive: boolean;
         isWholesale: boolean;
         wholesalePrice: number | null;
         moq: number;
-        isActive: boolean;
         sku: string | null;
         brandName: string | null;
         tags: string[];
@@ -155,7 +158,6 @@ export declare class CatalogService {
         costPrice: number | null;
         rulesSnapshot: Prisma.JsonValue | null;
         shippingDetails: Prisma.JsonValue | null;
-        mediaGallery: Prisma.JsonValue | null;
         videos: string[];
         hasVariations: boolean;
         variationOptions: Prisma.JsonValue | null;
@@ -172,12 +174,15 @@ export declare class CatalogService {
         offerPrice: number | null;
         stock: number;
         categoryId: string;
+        visibility: import(".prisma/client").$Enums.ProductVisibility;
+        defaultVariationId: string | null;
+        mediaGallery: Prisma.JsonValue | null;
         variants: Prisma.JsonValue | null;
         images: string[];
+        isActive: boolean;
         isWholesale: boolean;
         wholesalePrice: number | null;
         moq: number;
-        isActive: boolean;
         sku: string | null;
         brandName: string | null;
         tags: string[];
@@ -205,7 +210,6 @@ export declare class CatalogService {
         costPrice: number | null;
         rulesSnapshot: Prisma.JsonValue | null;
         shippingDetails: Prisma.JsonValue | null;
-        mediaGallery: Prisma.JsonValue | null;
         videos: string[];
         hasVariations: boolean;
         variationOptions: Prisma.JsonValue | null;
@@ -222,12 +226,15 @@ export declare class CatalogService {
         offerPrice: number | null;
         stock: number;
         categoryId: string;
+        visibility: import(".prisma/client").$Enums.ProductVisibility;
+        defaultVariationId: string | null;
+        mediaGallery: Prisma.JsonValue | null;
         variants: Prisma.JsonValue | null;
         images: string[];
+        isActive: boolean;
         isWholesale: boolean;
         wholesalePrice: number | null;
         moq: number;
-        isActive: boolean;
         sku: string | null;
         brandName: string | null;
         tags: string[];
@@ -255,7 +262,6 @@ export declare class CatalogService {
         costPrice: number | null;
         rulesSnapshot: Prisma.JsonValue | null;
         shippingDetails: Prisma.JsonValue | null;
-        mediaGallery: Prisma.JsonValue | null;
         videos: string[];
         hasVariations: boolean;
         variationOptions: Prisma.JsonValue | null;
@@ -272,12 +278,15 @@ export declare class CatalogService {
         offerPrice: number | null;
         stock: number;
         categoryId: string;
+        visibility: import(".prisma/client").$Enums.ProductVisibility;
+        defaultVariationId: string | null;
+        mediaGallery: Prisma.JsonValue | null;
         variants: Prisma.JsonValue | null;
         images: string[];
+        isActive: boolean;
         isWholesale: boolean;
         wholesalePrice: number | null;
         moq: number;
-        isActive: boolean;
         sku: string | null;
         brandName: string | null;
         tags: string[];
@@ -305,7 +314,6 @@ export declare class CatalogService {
         costPrice: number | null;
         rulesSnapshot: Prisma.JsonValue | null;
         shippingDetails: Prisma.JsonValue | null;
-        mediaGallery: Prisma.JsonValue | null;
         videos: string[];
         hasVariations: boolean;
         variationOptions: Prisma.JsonValue | null;
@@ -374,6 +382,7 @@ export declare class CatalogService {
             mobile: string;
             email: string | null;
             role: import(".prisma/client").$Enums.VendorRole;
+            status: import(".prisma/client").$Enums.VendorStatus;
             coinsBalance: number;
             kycStatus: string;
             kycDocuments: Prisma.JsonValue | null;
@@ -386,6 +395,7 @@ export declare class CatalogService {
             strikes: number;
             followCount: number;
             commissionRate: number;
+            commissionOverrides: Prisma.JsonValue | null;
         };
         reviews: ({
             user: {
@@ -414,12 +424,15 @@ export declare class CatalogService {
         offerPrice: number | null;
         stock: number;
         categoryId: string;
+        visibility: import(".prisma/client").$Enums.ProductVisibility;
+        defaultVariationId: string | null;
+        mediaGallery: Prisma.JsonValue | null;
         variants: Prisma.JsonValue | null;
         images: string[];
+        isActive: boolean;
         isWholesale: boolean;
         wholesalePrice: number | null;
         moq: number;
-        isActive: boolean;
         sku: string | null;
         brandName: string | null;
         tags: string[];
@@ -447,7 +460,6 @@ export declare class CatalogService {
         costPrice: number | null;
         rulesSnapshot: Prisma.JsonValue | null;
         shippingDetails: Prisma.JsonValue | null;
-        mediaGallery: Prisma.JsonValue | null;
         videos: string[];
         hasVariations: boolean;
         variationOptions: Prisma.JsonValue | null;
@@ -471,6 +483,7 @@ export declare class CatalogService {
         required: boolean;
         options: Prisma.JsonValue | null;
         sortOrder: number;
+        scope: import(".prisma/client").$Enums.AttributeScope;
     }>;
     updateCategorySpec(specId: string, dto: any): Promise<{
         id: string;
@@ -486,6 +499,7 @@ export declare class CatalogService {
         required: boolean;
         options: Prisma.JsonValue | null;
         sortOrder: number;
+        scope: import(".prisma/client").$Enums.AttributeScope;
     }>;
     deleteCategorySpec(specId: string): Promise<{
         id: string;
@@ -501,6 +515,7 @@ export declare class CatalogService {
         required: boolean;
         options: Prisma.JsonValue | null;
         sortOrder: number;
+        scope: import(".prisma/client").$Enums.AttributeScope;
     }>;
     reorderSpecs(categoryId: string, specs: any): Promise<{
         success: boolean;

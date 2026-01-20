@@ -7,9 +7,11 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import helmet from 'helmet';
 
-// Trigger deployment update - v2
+// Trigger deployment update - v4 - Trigger restart for AdminService fix
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
+    console.log("🚀 BOOTSTRAP V5 - VERIFICATION MODE");
+
 
     // Security middleware
     app.use(helmet({

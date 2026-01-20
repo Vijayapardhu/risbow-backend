@@ -57,7 +57,7 @@ let AdminProductService = class AdminProductService {
                     orderBy: { createdAt: 'desc' },
                 });
             }
-            const totalActive = await this.prisma.product.count({ where: { isActive: true } });
+            const totalActive = await this.prisma.product.count({ where: { visibility: 'PUBLISHED' } });
             const transformedProducts = products.map(product => {
                 const reviews = Array.isArray(product.reviews) ? product.reviews : [];
                 const images = Array.isArray(product.images) ? product.images : [];
@@ -121,7 +121,7 @@ let AdminProductService = class AdminProductService {
                     multiVendor: 0,
                     priceConflicts: 0,
                     lowStock: await this.prisma.product.count({ where: { stock: { lt: 10 } } }),
-                    suppressed: await this.prisma.product.count({ where: { isActive: false } }),
+                    suppressed: await this.prisma.product.count({ where: { visibility: { in: ['DRAFT', 'BLOCKED'] } } }),
                 },
                 products: transformedProducts,
                 pagination: {
@@ -183,89 +183,64 @@ let AdminProductService = class AdminProductService {
         if (productData.specs && productData.specs.length > 0) {
             await this.categorySpecService.validateProductSpecs(productData.categoryId, productData.specs);
         }
+        const variationsCreateInput = productData.variations?.map(v => ({
+            sku: v.sku || `${productData.title.slice(0, 3)}-${Math.random().toString(36).substr(2, 5)}`.toUpperCase(),
+            attributes: v.attributes,
+            mrp: v.mrp,
+            sellingPrice: v.sellingPrice,
+            stock: v.stock || 0,
+            status: v.status || 'ACTIVE',
+            weight: v.weight,
+            dimensions: v.dimensions,
+            mediaOverrides: v.mediaOverrides,
+        }));
         const data = {
             title: productData.title,
             description: productData.description,
             price: productData.price,
             categoryId: productData.categoryId,
             vendorId: productData.vendorId,
+            defaultVariationId: productData.defaultVariationId,
+            attributes: productData.attributes,
+            costPrice: productData.costPrice,
+            rulesSnapshot: productData.rulesSnapshot,
+            shippingDetails: productData.shippingDetails,
+            mediaGallery: productData.mediaGallery,
+            visibility: productData.visibility || (productData.isActive ? 'PUBLISHED' : 'DRAFT'),
+            sku: productData.sku,
+            brandName: productData.brandName,
+            tags: productData.tags,
+            images: productData.images,
+            weight: productData.weight,
+            weightUnit: productData.weightUnit,
+            length: productData.length,
+            width: productData.width,
+            height: productData.height,
+            dimensionUnit: productData.dimensionUnit,
+            shippingClass: productData.shippingClass,
+            metaTitle: productData.metaTitle,
+            metaDescription: productData.metaDescription,
+            metaKeywords: productData.metaKeywords,
+            isWholesale: productData.isWholesale,
+            wholesalePrice: productData.wholesalePrice,
+            moq: productData.moq,
+            isCancelable: productData.isCancelable,
+            isReturnable: productData.isReturnable,
+            requiresOTP: productData.requiresOTP,
+            isInclusiveTax: productData.isInclusiveTax,
+            isAttachmentRequired: productData.isAttachmentRequired,
+            minOrderQuantity: productData.minOrderQuantity,
+            quantityStepSize: productData.quantityStepSize,
+            totalAllowedQuantity: productData.totalAllowedQuantity,
+            basePreparationTime: productData.basePreparationTime,
+            storageInstructions: productData.storageInstructions,
+            allergenInformation: productData.allergenInformation,
+            productVariations: variationsCreateInput ? {
+                create: variationsCreateInput
+            } : undefined,
+            hasVariations: !!(variationsCreateInput && variationsCreateInput.length > 0)
         };
-        if (productData.offerPrice !== undefined)
-            data.offerPrice = productData.offerPrice;
-        if (productData.stock !== undefined)
-            data.stock = productData.stock;
-        if (productData.sku !== undefined)
-            data.sku = productData.sku;
-        if (productData.images !== undefined)
-            data.images = productData.images;
-        if (productData.brandName !== undefined)
-            data.brandName = productData.brandName;
-        if (productData.tags !== undefined)
-            data.tags = productData.tags;
-        if (productData.weight !== undefined)
-            data.weight = productData.weight;
-        if (productData.weightUnit !== undefined)
-            data.weightUnit = productData.weightUnit;
-        if (productData.length !== undefined)
-            data.length = productData.length;
-        if (productData.width !== undefined)
-            data.width = productData.width;
-        if (productData.height !== undefined)
-            data.height = productData.height;
-        if (productData.dimensionUnit !== undefined)
-            data.dimensionUnit = productData.dimensionUnit;
-        if (productData.shippingClass !== undefined)
-            data.shippingClass = productData.shippingClass;
-        if (productData.metaTitle !== undefined)
-            data.metaTitle = productData.metaTitle;
-        if (productData.metaDescription !== undefined)
-            data.metaDescription = productData.metaDescription;
-        if (productData.metaKeywords !== undefined)
-            data.metaKeywords = productData.metaKeywords;
-        if (productData.isWholesale !== undefined)
-            data.isWholesale = productData.isWholesale;
-        if (productData.wholesalePrice !== undefined)
-            data.wholesalePrice = productData.wholesalePrice;
-        if (productData.moq !== undefined)
-            data.moq = productData.moq;
-        if (productData.isActive !== undefined)
-            data.isActive = productData.isActive;
-        if (productData.isCancelable !== undefined)
-            data.isCancelable = productData.isCancelable;
-        if (productData.isReturnable !== undefined)
-            data.isReturnable = productData.isReturnable;
-        if (productData.requiresOTP !== undefined)
-            data.requiresOTP = productData.requiresOTP;
-        if (productData.isInclusiveTax !== undefined)
-            data.isInclusiveTax = productData.isInclusiveTax;
-        if (productData.isAttachmentRequired !== undefined)
-            data.isAttachmentRequired = productData.isAttachmentRequired;
-        if (productData.minOrderQuantity !== undefined)
-            data.minOrderQuantity = productData.minOrderQuantity;
-        if (productData.quantityStepSize !== undefined)
-            data.quantityStepSize = productData.quantityStepSize;
-        if (productData.totalAllowedQuantity !== undefined)
-            data.totalAllowedQuantity = productData.totalAllowedQuantity;
-        if (productData.basePreparationTime !== undefined)
-            data.basePreparationTime = productData.basePreparationTime;
-        if (productData.storageInstructions !== undefined)
-            data.storageInstructions = productData.storageInstructions;
-        if (productData.storageInstructions !== undefined)
-            data.storageInstructions = productData.storageInstructions;
-        if (productData.allergenInformation !== undefined)
-            data.allergenInformation = productData.allergenInformation;
-        if (productData.attributes !== undefined)
-            data.attributes = productData.attributes;
-        if (productData.costPrice !== undefined)
-            data.costPrice = productData.costPrice;
-        if (productData.rulesSnapshot !== undefined)
-            data.rulesSnapshot = productData.rulesSnapshot;
-        if (productData.shippingDetails !== undefined)
-            data.shippingDetails = productData.shippingDetails;
-        if (productData.mediaGallery !== undefined)
-            data.mediaGallery = productData.mediaGallery;
-        if (productData.variants !== undefined)
-            data.variants = productData.variants;
+        console.log('DEBUG DATA TO PRISMA:', JSON.stringify(data, null, 2));
         const product = await this.prisma.product.create({
             data,
         });
@@ -285,108 +260,23 @@ let AdminProductService = class AdminProductService {
             const categoryId = productData.categoryId || existingProduct.categoryId;
             await this.categorySpecService.validateProductSpecs(categoryId, productData.specs);
         }
-        const data = {};
-        if (productData.title !== undefined)
-            data.title = productData.title;
-        if (productData.description !== undefined)
-            data.description = productData.description;
-        if (productData.price !== undefined)
-            data.price = productData.price;
-        if (productData.offerPrice !== undefined)
-            data.offerPrice = productData.offerPrice;
-        if (productData.categoryId !== undefined)
-            data.categoryId = productData.categoryId;
-        if (productData.stock !== undefined)
-            data.stock = productData.stock;
-        if (productData.vendorId !== undefined)
-            data.vendorId = productData.vendorId;
-        if (productData.sku !== undefined)
-            data.sku = productData.sku;
-        if (productData.images !== undefined)
-            data.images = productData.images;
-        if (productData.brandName !== undefined)
-            data.brandName = productData.brandName;
-        if (productData.tags !== undefined)
-            data.tags = productData.tags;
-        if (productData.weight !== undefined)
-            data.weight = productData.weight;
-        if (productData.weightUnit !== undefined)
-            data.weightUnit = productData.weightUnit;
-        if (productData.length !== undefined)
-            data.length = productData.length;
-        if (productData.width !== undefined)
-            data.width = productData.width;
-        if (productData.height !== undefined)
-            data.height = productData.height;
-        if (productData.dimensionUnit !== undefined)
-            data.dimensionUnit = productData.dimensionUnit;
-        if (productData.shippingClass !== undefined)
-            data.shippingClass = productData.shippingClass;
-        if (productData.metaTitle !== undefined)
-            data.metaTitle = productData.metaTitle;
-        if (productData.metaDescription !== undefined)
-            data.metaDescription = productData.metaDescription;
-        if (productData.metaKeywords !== undefined)
-            data.metaKeywords = productData.metaKeywords;
-        if (productData.isWholesale !== undefined)
-            data.isWholesale = productData.isWholesale;
-        if (productData.wholesalePrice !== undefined)
-            data.wholesalePrice = productData.wholesalePrice;
-        if (productData.moq !== undefined)
-            data.moq = productData.moq;
-        if (productData.isActive !== undefined)
-            data.isActive = productData.isActive;
-        if (productData.variants !== undefined)
-            data.variants = productData.variants;
-        if (productData.isCancelable !== undefined)
-            data.isCancelable = productData.isCancelable;
-        if (productData.isReturnable !== undefined)
-            data.isReturnable = productData.isReturnable;
-        if (productData.requiresOTP !== undefined)
-            data.requiresOTP = productData.requiresOTP;
-        if (productData.isInclusiveTax !== undefined)
-            data.isInclusiveTax = productData.isInclusiveTax;
-        if (productData.isAttachmentRequired !== undefined)
-            data.isAttachmentRequired = productData.isAttachmentRequired;
-        if (productData.minOrderQuantity !== undefined)
-            data.minOrderQuantity = productData.minOrderQuantity;
-        if (productData.quantityStepSize !== undefined)
-            data.quantityStepSize = productData.quantityStepSize;
-        if (productData.totalAllowedQuantity !== undefined)
-            data.totalAllowedQuantity = productData.totalAllowedQuantity;
-        if (productData.basePreparationTime !== undefined)
-            data.basePreparationTime = productData.basePreparationTime;
-        if (productData.storageInstructions !== undefined)
-            data.storageInstructions = productData.storageInstructions;
-        if (productData.storageInstructions !== undefined)
-            data.storageInstructions = productData.storageInstructions;
-        if (productData.allergenInformation !== undefined)
-            data.allergenInformation = productData.allergenInformation;
-        if (productData.attributes !== undefined)
-            data.attributes = productData.attributes;
-        if (productData.costPrice !== undefined)
-            data.costPrice = productData.costPrice;
-        if (productData.rulesSnapshot !== undefined)
-            data.rulesSnapshot = productData.rulesSnapshot;
-        if (productData.shippingDetails !== undefined)
-            data.shippingDetails = productData.shippingDetails;
-        if (productData.mediaGallery !== undefined)
-            data.mediaGallery = productData.mediaGallery;
+        const data = { ...productData };
+        delete data.specs;
+        delete data.variants;
+        if (productData.visibility)
+            data.visibility = productData.visibility;
+        Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
         try {
             const product = await this.prisma.product.update({
                 where: { id },
                 data,
                 include: {
                     vendor: true,
-                    category: {
-                        select: {
-                            id: true,
-                            name: true,
-                        }
-                    },
+                    category: { select: { id: true, name: true } },
+                    productVariations: true,
                 },
             });
-            if (productData.specs !== undefined) {
+            if (productData.specs) {
                 await this.categorySpecService.saveProductSpecs(id, productData.specs);
             }
             return product;
@@ -404,13 +294,10 @@ let AdminProductService = class AdminProductService {
     async getVendorOffers(productId) {
         const product = await this.prisma.product.findUnique({
             where: { id: productId },
-            include: {
-                vendor: true,
-            },
+            include: { vendor: true },
         });
-        if (!product) {
+        if (!product)
             return [];
-        }
         return [
             {
                 vendorId: product.vendorId,

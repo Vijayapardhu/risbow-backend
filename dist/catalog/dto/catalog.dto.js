@@ -9,9 +9,100 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ProductFilterDto = exports.UpdateProductDto = exports.CreateProductDto = void 0;
+exports.ProductFilterDto = exports.UpdateProductDto = exports.CreateProductDto = exports.CreateVariationDto = exports.MediaDto = exports.MediaType = exports.VariationStatus = exports.ProductVisibility = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+var ProductVisibility;
+(function (ProductVisibility) {
+    ProductVisibility["DRAFT"] = "DRAFT";
+    ProductVisibility["PUBLISHED"] = "PUBLISHED";
+    ProductVisibility["BLOCKED"] = "BLOCKED";
+})(ProductVisibility || (exports.ProductVisibility = ProductVisibility = {}));
+var VariationStatus;
+(function (VariationStatus) {
+    VariationStatus["ACTIVE"] = "ACTIVE";
+    VariationStatus["OUT_OF_STOCK"] = "OUT_OF_STOCK";
+    VariationStatus["ARCHIVED"] = "ARCHIVED";
+})(VariationStatus || (exports.VariationStatus = VariationStatus = {}));
+var MediaType;
+(function (MediaType) {
+    MediaType["IMAGE"] = "IMAGE";
+    MediaType["VIDEO"] = "VIDEO";
+    MediaType["GIF"] = "GIF";
+})(MediaType || (exports.MediaType = MediaType = {}));
+class MediaDto {
+}
+exports.MediaDto = MediaDto;
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], MediaDto.prototype, "id", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsEnum)(MediaType),
+    __metadata("design:type", String)
+], MediaDto.prototype, "type", void 0);
+__decorate([
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], MediaDto.prototype, "url", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    __metadata("design:type", Number)
+], MediaDto.prototype, "priority", void 0);
+class CreateVariationDto {
+}
+exports.CreateVariationDto = CreateVariationDto;
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateVariationDto.prototype, "sku", void 0);
+__decorate([
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", Object)
+], CreateVariationDto.prototype, "attributes", void 0);
+__decorate([
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], CreateVariationDto.prototype, "mrp", void 0);
+__decorate([
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], CreateVariationDto.prototype, "sellingPrice", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    __metadata("design:type", Number)
+], CreateVariationDto.prototype, "stock", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(VariationStatus),
+    __metadata("design:type", String)
+], CreateVariationDto.prototype, "status", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateVariationDto.prototype, "weight", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], CreateVariationDto.prototype, "dimensions", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => MediaDto),
+    __metadata("design:type", Array)
+], CreateVariationDto.prototype, "mediaOverrides", void 0);
 class CreateProductDto {
 }
 exports.CreateProductDto = CreateProductDto;
@@ -54,15 +145,43 @@ __decorate([
 ], CreateProductDto.prototype, "vendorId", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(ProductVisibility),
+    __metadata("design:type", String)
+], CreateProductDto.prototype, "visibility", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
-], CreateProductDto.prototype, "sku", void 0);
+], CreateProductDto.prototype, "defaultVariationId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => MediaDto),
+    __metadata("design:type", Array)
+], CreateProductDto.prototype, "mediaGallery", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => CreateVariationDto),
+    __metadata("design:type", Array)
+], CreateProductDto.prototype, "variations", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], CreateProductDto.prototype, "attributes", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.IsString)({ each: true }),
     __metadata("design:type", Array)
 ], CreateProductDto.prototype, "images", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateProductDto.prototype, "sku", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
@@ -127,38 +246,47 @@ __decorate([
 ], CreateProductDto.prototype, "metaKeywords", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], CreateProductDto.prototype, "isWholesale", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], CreateProductDto.prototype, "wholesalePrice", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
     __metadata("design:type", Number)
 ], CreateProductDto.prototype, "moq", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], CreateProductDto.prototype, "isActive", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], CreateProductDto.prototype, "isCancelable", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], CreateProductDto.prototype, "isReturnable", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], CreateProductDto.prototype, "requiresOTP", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], CreateProductDto.prototype, "isInclusiveTax", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], CreateProductDto.prototype, "isAttachmentRequired", void 0);
 __decorate([
@@ -202,10 +330,6 @@ __decorate([
 ], CreateProductDto.prototype, "specs", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", Object)
-], CreateProductDto.prototype, "attributes", void 0);
-__decorate([
-    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
@@ -218,14 +342,6 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Object)
 ], CreateProductDto.prototype, "shippingDetails", void 0);
-__decorate([
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", Object)
-], CreateProductDto.prototype, "mediaGallery", void 0);
-__decorate([
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", Object)
-], CreateProductDto.prototype, "variants", void 0);
 class UpdateProductDto {
 }
 exports.UpdateProductDto = UpdateProductDto;
@@ -266,6 +382,27 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], UpdateProductDto.prototype, "vendorId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(ProductVisibility),
+    __metadata("design:type", String)
+], UpdateProductDto.prototype, "visibility", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateProductDto.prototype, "defaultVariationId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => MediaDto),
+    __metadata("design:type", Array)
+], UpdateProductDto.prototype, "mediaGallery", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], UpdateProductDto.prototype, "attributes", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
@@ -420,10 +557,6 @@ __decorate([
 ], UpdateProductDto.prototype, "variants", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", Object)
-], UpdateProductDto.prototype, "attributes", void 0);
-__decorate([
-    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
@@ -436,10 +569,6 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Object)
 ], UpdateProductDto.prototype, "shippingDetails", void 0);
-__decorate([
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", Object)
-], UpdateProductDto.prototype, "mediaGallery", void 0);
 class ProductFilterDto {
 }
 exports.ProductFilterDto = ProductFilterDto;

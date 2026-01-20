@@ -110,6 +110,7 @@ let CatalogService = class CatalogService {
                 metaDescription: dto.metaDescription,
                 metaKeywords: dto.metaKeywords || [],
                 isActive: dto.isActive ?? false,
+                visibility: dto.isActive ? 'PUBLISHED' : 'DRAFT',
                 isWholesale: dto.isWholesale || false,
                 wholesalePrice: dto.wholesalePrice,
                 moq: dto.moq || 1,

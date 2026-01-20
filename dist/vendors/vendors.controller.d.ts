@@ -10,6 +10,7 @@ export declare class VendorsController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -22,6 +23,7 @@ export declare class VendorsController {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     purchaseBanner(image: string, req: any): Promise<{
         message: string;
@@ -34,6 +36,7 @@ export declare class VendorsController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -46,6 +49,7 @@ export declare class VendorsController {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }[]>;
     getVendorStats(req: any): Promise<{
         totalProducts: number;

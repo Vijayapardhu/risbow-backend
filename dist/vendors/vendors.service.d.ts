@@ -14,6 +14,7 @@ export declare class VendorsService {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -26,6 +27,7 @@ export declare class VendorsService {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     purchaseBannerSlot(userId: string, image: string): Promise<{
         message: string;
@@ -38,6 +40,7 @@ export declare class VendorsService {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -50,6 +53,7 @@ export declare class VendorsService {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }[]>;
     getVendorStats(userId: string): Promise<{
         totalProducts: number;
@@ -79,6 +83,7 @@ export declare class VendorsService {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -91,6 +96,7 @@ export declare class VendorsService {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     rejectVendor(adminId: string, vendorId: string, reason: string): Promise<{
         id: string;
@@ -99,6 +105,7 @@ export declare class VendorsService {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -111,6 +118,7 @@ export declare class VendorsService {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     suspendVendor(adminId: string, vendorId: string, reason?: string): Promise<{
         id: string;
@@ -119,6 +127,7 @@ export declare class VendorsService {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -131,6 +140,7 @@ export declare class VendorsService {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     activateVendor(adminId: string, vendorId: string): Promise<{
         id: string;
@@ -139,6 +149,7 @@ export declare class VendorsService {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -151,6 +162,7 @@ export declare class VendorsService {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     strikeVendor(adminId: string, vendorId: string, reason: string): Promise<{
         id: string;
@@ -159,6 +171,7 @@ export declare class VendorsService {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
+        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
         kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -171,5 +184,6 @@ export declare class VendorsService {
         strikes: number;
         followCount: number;
         commissionRate: number;
+        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
 }

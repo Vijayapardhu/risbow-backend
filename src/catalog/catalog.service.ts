@@ -123,7 +123,9 @@ export class CatalogService {
                 metaDescription: dto.metaDescription,
                 metaKeywords: dto.metaKeywords || [],
 
+                // legacy mapping
                 isActive: dto.isActive ?? false,
+                visibility: dto.isActive ? 'PUBLISHED' : 'DRAFT',
 
                 // B2B Wholesale Fields
                 isWholesale: dto.isWholesale || false,

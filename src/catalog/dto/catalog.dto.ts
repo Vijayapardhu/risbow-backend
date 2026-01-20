@@ -1,6 +1,81 @@
-
-import { IsInt, IsNotEmpty, IsOptional, IsString, Min, IsArray } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString, Min, IsArray, IsEnum, ValidateNested, IsBoolean, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export enum ProductVisibility {
+    DRAFT = 'DRAFT',
+    PUBLISHED = 'PUBLISHED',
+    BLOCKED = 'BLOCKED'
+}
+
+export enum VariationStatus {
+    ACTIVE = 'ACTIVE',
+    OUT_OF_STOCK = 'OUT_OF_STOCK',
+    ARCHIVED = 'ARCHIVED'
+}
+
+export enum MediaType {
+    IMAGE = 'IMAGE',
+    VIDEO = 'VIDEO',
+    GIF = 'GIF'
+}
+
+export class MediaDto {
+    @IsOptional()
+    @IsString()
+    id?: string;
+
+    @IsString()
+    @IsEnum(MediaType)
+    type: MediaType;
+
+    @IsNotEmpty()
+    @IsString()
+    url: string;
+
+    @IsOptional()
+    @IsInt()
+    priority?: number;
+}
+
+export class CreateVariationDto {
+    @IsOptional()
+    @IsString()
+    sku?: string;
+
+    @IsNotEmpty()
+    attributes: any; // JSON: { size: "M", color: "Red" }
+
+    @IsNotEmpty()
+    @IsInt()
+    @Min(0)
+    mrp: number;
+
+    @IsNotEmpty()
+    @IsInt()
+    @Min(0)
+    sellingPrice: number;
+
+    @IsOptional()
+    @IsInt()
+    stock?: number;
+
+    @IsOptional()
+    @IsEnum(VariationStatus)
+    status?: VariationStatus;
+
+    @IsOptional()
+    @IsNumber()
+    weight?: number;
+
+    @IsOptional()
+    dimensions?: any; // JSON
+
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => MediaDto)
+    mediaOverrides?: MediaDto[];
+}
 
 export class CreateProductDto {
     @IsNotEmpty()
@@ -14,7 +89,7 @@ export class CreateProductDto {
     @IsNotEmpty()
     @IsInt()
     @Min(0)
-    price: number;
+    price: number; // Display Price / Starting Price
 
     @IsOptional()
     @IsInt()
@@ -31,16 +106,40 @@ export class CreateProductDto {
 
     @IsOptional()
     @IsString()
-    vendorId?: string; // In real app, this comes from JWT/Context if vendor logs in
+    vendorId?: string;
+
+    @IsOptional()
+    @IsEnum(ProductVisibility)
+    visibility?: ProductVisibility;
 
     @IsOptional()
     @IsString()
-    sku?: string;
+    defaultVariationId?: string; // If creating simultaneously, logic handles this, usually undefined on create
 
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => MediaDto)
+    mediaGallery?: MediaDto[];
+
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CreateVariationDto)
+    variations?: CreateVariationDto[];
+
+    @IsOptional()
+    attributes?: any; // Product-scope attributes
+
+    // --- Legacy / Back-Compat Fields ---
     @IsOptional()
     @IsArray()
     @IsString({ each: true })
     images?: string[];
+
+    @IsOptional()
+    @IsString()
+    sku?: string;
 
     @IsOptional()
     @IsString()
@@ -95,31 +194,40 @@ export class CreateProductDto {
     metaKeywords?: string[];
 
     @IsOptional()
+    @IsBoolean()
     isWholesale?: boolean;
 
     @IsOptional()
+    @IsNumber()
     wholesalePrice?: number;
 
     @IsOptional()
+    @IsInt()
     moq?: number;
 
     @IsOptional()
+    @IsBoolean()
     isActive?: boolean;
 
     // Fulfillment & Compliance
     @IsOptional()
+    @IsBoolean()
     isCancelable?: boolean;
 
     @IsOptional()
+    @IsBoolean()
     isReturnable?: boolean;
 
     @IsOptional()
+    @IsBoolean()
     requiresOTP?: boolean;
 
     @IsOptional()
+    @IsBoolean()
     isInclusiveTax?: boolean;
 
     @IsOptional()
+    @IsBoolean()
     isAttachmentRequired?: boolean;
 
     // Order Constraints
@@ -152,14 +260,10 @@ export class CreateProductDto {
     @IsString()
     allergenInformation?: string;
 
-    // Dynamic Specifications
+    // Dynamic Specifications (Legacy V1)
     @IsOptional()
     @IsArray()
     specs?: Array<{ specId: string; value: string }>;
-
-    // Enterprise V2 Fields (Phase 8)
-    @IsOptional()
-    attributes?: any; // JSONB
 
     @IsOptional()
     @IsInt()
@@ -167,16 +271,10 @@ export class CreateProductDto {
     costPrice?: number;
 
     @IsOptional()
-    rulesSnapshot?: any; // JSONB
+    rulesSnapshot?: any;
 
     @IsOptional()
-    shippingDetails?: any; // JSONB
-
-    @IsOptional()
-    mediaGallery?: any; // JSONB
-
-    @IsOptional()
-    variants?: any; // JSONB
+    shippingDetails?: any;
 }
 
 export class UpdateProductDto {
@@ -210,6 +308,24 @@ export class UpdateProductDto {
     @IsString()
     vendorId?: string;
 
+    @IsOptional()
+    @IsEnum(ProductVisibility)
+    visibility?: ProductVisibility;
+
+    @IsOptional()
+    @IsString()
+    defaultVariationId?: string;
+
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => MediaDto)
+    mediaGallery?: MediaDto[];
+
+    @IsOptional()
+    attributes?: any;
+
+    // --- Legacy Fields ---
     @IsOptional()
     @IsString()
     sku?: string;
@@ -281,7 +397,6 @@ export class UpdateProductDto {
     @IsOptional()
     isActive?: boolean;
 
-    // Fulfillment & Compliance
     @IsOptional()
     isCancelable?: boolean;
 
@@ -297,7 +412,6 @@ export class UpdateProductDto {
     @IsOptional()
     isAttachmentRequired?: boolean;
 
-    // Order Constraints
     @IsOptional()
     @Type(() => Number)
     @IsInt()
@@ -318,7 +432,6 @@ export class UpdateProductDto {
     @IsInt()
     basePreparationTime?: number;
 
-    // Content
     @IsOptional()
     @IsString()
     storageInstructions?: string;
@@ -327,17 +440,12 @@ export class UpdateProductDto {
     @IsString()
     allergenInformation?: string;
 
-    // Dynamic Specifications
     @IsOptional()
     @IsArray()
     specs?: Array<{ specId: string; value: string }>;
 
     @IsOptional()
-    variants?: any;
-
-    // Enterprise V2 Fields (Phase 8)
-    @IsOptional()
-    attributes?: any; // JSONB
+    variants?: any; // For backward compat or raw update
 
     @IsOptional()
     @IsInt()
@@ -345,13 +453,10 @@ export class UpdateProductDto {
     costPrice?: number;
 
     @IsOptional()
-    rulesSnapshot?: any; // JSONB
+    rulesSnapshot?: any;
 
     @IsOptional()
-    shippingDetails?: any; // JSONB
-
-    @IsOptional()
-    mediaGallery?: any; // JSONB
+    shippingDetails?: any;
 }
 
 export class ProductFilterDto {

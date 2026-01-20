@@ -93,6 +93,7 @@ export declare class AdminProductController {
                 required: boolean;
                 options: import("@prisma/client/runtime/library").JsonValue | null;
                 sortOrder: number;
+                scope: import(".prisma/client").$Enums.AttributeScope;
             };
         } & {
             id: string;
@@ -113,12 +114,15 @@ export declare class AdminProductController {
         offerPrice: number | null;
         stock: number;
         categoryId: string;
+        visibility: import(".prisma/client").$Enums.ProductVisibility;
+        defaultVariationId: string | null;
+        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
         variants: import("@prisma/client/runtime/library").JsonValue | null;
         images: string[];
+        isActive: boolean;
         isWholesale: boolean;
         wholesalePrice: number | null;
         moq: number;
-        isActive: boolean;
         sku: string | null;
         brandName: string | null;
         tags: string[];
@@ -146,7 +150,6 @@ export declare class AdminProductController {
         costPrice: number | null;
         rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
         shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
-        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
         videos: string[];
         hasVariations: boolean;
         variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
@@ -163,12 +166,15 @@ export declare class AdminProductController {
         offerPrice: number | null;
         stock: number;
         categoryId: string;
+        visibility: import(".prisma/client").$Enums.ProductVisibility;
+        defaultVariationId: string | null;
+        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
         variants: import("@prisma/client/runtime/library").JsonValue | null;
         images: string[];
+        isActive: boolean;
         isWholesale: boolean;
         wholesalePrice: number | null;
         moq: number;
-        isActive: boolean;
         sku: string | null;
         brandName: string | null;
         tags: string[];
@@ -196,7 +202,6 @@ export declare class AdminProductController {
         costPrice: number | null;
         rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
         shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
-        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
         videos: string[];
         hasVariations: boolean;
         variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
@@ -213,6 +218,7 @@ export declare class AdminProductController {
             mobile: string;
             email: string | null;
             role: import(".prisma/client").$Enums.VendorRole;
+            status: import(".prisma/client").$Enums.VendorStatus;
             coinsBalance: number;
             kycStatus: string;
             kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
@@ -225,7 +231,25 @@ export declare class AdminProductController {
             strikes: number;
             followCount: number;
             commissionRate: number;
+            commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
         };
+        productVariations: {
+            id: string;
+            createdAt: Date;
+            status: import(".prisma/client").$Enums.VariationStatus;
+            updatedAt: Date;
+            productId: string;
+            stock: number;
+            images: string[];
+            sku: string;
+            weight: number | null;
+            attributes: import("@prisma/client/runtime/library").JsonValue;
+            costPrice: number | null;
+            mrp: number;
+            sellingPrice: number;
+            dimensions: import("@prisma/client/runtime/library").JsonValue | null;
+            mediaOverrides: import("@prisma/client/runtime/library").JsonValue | null;
+        }[];
     } & {
         id: string;
         createdAt: Date;
@@ -238,12 +262,15 @@ export declare class AdminProductController {
         offerPrice: number | null;
         stock: number;
         categoryId: string;
+        visibility: import(".prisma/client").$Enums.ProductVisibility;
+        defaultVariationId: string | null;
+        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
         variants: import("@prisma/client/runtime/library").JsonValue | null;
         images: string[];
+        isActive: boolean;
         isWholesale: boolean;
         wholesalePrice: number | null;
         moq: number;
-        isActive: boolean;
         sku: string | null;
         brandName: string | null;
         tags: string[];
@@ -271,7 +298,6 @@ export declare class AdminProductController {
         costPrice: number | null;
         rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
         shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
-        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
         videos: string[];
         hasVariations: boolean;
         variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
@@ -288,12 +314,15 @@ export declare class AdminProductController {
         offerPrice: number | null;
         stock: number;
         categoryId: string;
+        visibility: import(".prisma/client").$Enums.ProductVisibility;
+        defaultVariationId: string | null;
+        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
         variants: import("@prisma/client/runtime/library").JsonValue | null;
         images: string[];
+        isActive: boolean;
         isWholesale: boolean;
         wholesalePrice: number | null;
         moq: number;
-        isActive: boolean;
         sku: string | null;
         brandName: string | null;
         tags: string[];
@@ -321,7 +350,6 @@ export declare class AdminProductController {
         costPrice: number | null;
         rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
         shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
-        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
         videos: string[];
         hasVariations: boolean;
         variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
@@ -332,7 +360,7 @@ export declare class AdminProductController {
         price: number;
         offerPrice: number;
         stock: number;
-        isActive: boolean;
+        isActive: any;
     }[]>;
     getProductAnalytics(id: string, period?: string): Promise<{
         views: number;
