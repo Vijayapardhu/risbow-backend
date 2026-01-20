@@ -11,14 +11,15 @@ const common_1 = require("@nestjs/common");
 const scheduler_service_1 = require("../common/scheduler.service");
 const notifications_service_1 = require("./notifications.service");
 const redis_service_1 = require("./redis.service");
+const supabase_service_1 = require("./supabase.service");
 let SharedModule = class SharedModule {
 };
 exports.SharedModule = SharedModule;
 exports.SharedModule = SharedModule = __decorate([
     (0, common_1.Global)(),
     (0, common_1.Module)({
-        providers: [scheduler_service_1.SchedulerService, notifications_service_1.NotificationsService, redis_service_1.RedisService],
-        exports: [scheduler_service_1.SchedulerService, notifications_service_1.NotificationsService, redis_service_1.RedisService],
+        providers: [scheduler_service_1.SchedulerService, notifications_service_1.NotificationsService, redis_service_1.RedisService, supabase_service_1.SupabaseService],
+        exports: [scheduler_service_1.SchedulerService, notifications_service_1.NotificationsService, redis_service_1.RedisService, supabase_service_1.SupabaseService],
     })
 ], SharedModule);
 //# sourceMappingURL=shared.module.js.map

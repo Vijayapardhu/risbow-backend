@@ -146,8 +146,8 @@ export declare class UsersService {
             createdAt: Date;
             status: import(".prisma/client").$Enums.PaymentStatus;
             updatedAt: Date;
-            amount: number;
             orderId: string;
+            amount: number;
             currency: string;
             provider: string;
             providerOrderId: string | null;
@@ -196,8 +196,8 @@ export declare class UsersService {
             createdAt: Date;
             status: import(".prisma/client").$Enums.PaymentStatus;
             updatedAt: Date;
-            amount: number;
             orderId: string;
+            amount: number;
             currency: string;
             provider: string;
             providerOrderId: string | null;

@@ -4,13 +4,15 @@ import { ConfigService } from '@nestjs/config';
 import { OrderStatus } from '@prisma/client';
 import { RoomsService } from '../rooms/rooms.service';
 import { CoinsService } from '../coins/coins.service';
+import { OrderStateMachine } from './order-state-machine';
 export declare class OrdersService {
     private prisma;
     private configService;
     private roomsService;
     private coinsService;
+    private stateMachine;
     private razorpay;
-    constructor(prisma: PrismaService, configService: ConfigService, roomsService: RoomsService, coinsService: CoinsService);
+    constructor(prisma: PrismaService, configService: ConfigService, roomsService: RoomsService, coinsService: CoinsService, stateMachine: OrderStateMachine);
     createCheckout(userId: string, dto: CheckoutDto & {
         abandonedCheckoutId?: string;
     }): Promise<{
@@ -58,8 +60,8 @@ export declare class OrdersService {
             createdAt: Date;
             status: import(".prisma/client").$Enums.PaymentStatus;
             updatedAt: Date;
-            amount: number;
             orderId: string;
+            amount: number;
             currency: string;
             provider: string;
             providerOrderId: string | null;
@@ -108,8 +110,8 @@ export declare class OrdersService {
             createdAt: Date;
             status: import(".prisma/client").$Enums.PaymentStatus;
             updatedAt: Date;
-            amount: number;
             orderId: string;
+            amount: number;
             currency: string;
             provider: string;
             providerOrderId: string | null;
@@ -165,8 +167,8 @@ export declare class OrdersService {
             createdAt: Date;
             status: import(".prisma/client").$Enums.PaymentStatus;
             updatedAt: Date;
-            amount: number;
             orderId: string;
+            amount: number;
             currency: string;
             provider: string;
             providerOrderId: string | null;
@@ -306,7 +308,7 @@ export declare class OrdersService {
         createdAt: string;
         updatedAt: string;
     }>;
-    updateOrderStatus(orderId: string, status: OrderStatus): Promise<{
+    updateOrderStatus(orderId: string, status: OrderStatus, userId: string, role: string, notes?: string): Promise<{
         id: string;
         createdAt: Date;
         status: import(".prisma/client").$Enums.OrderStatus;
@@ -324,5 +326,31 @@ export declare class OrdersService {
         shippingCharges: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
+    }>;
+    cancelOrder(orderId: string, userId: string, role: string, reason?: string): Promise<{
+        id: string;
+        createdAt: Date;
+        status: import(".prisma/client").$Enums.OrderStatus;
+        updatedAt: Date;
+        items: import("@prisma/client/runtime/library").JsonValue;
+        userId: string;
+        roomId: string | null;
+        addressId: string | null;
+        totalAmount: number;
+        coinsUsed: number;
+        coinsUsedDebited: boolean;
+        razorpayOrderId: string | null;
+        awbNumber: string | null;
+        courierPartner: string | null;
+        shippingCharges: number;
+        abandonedCheckoutId: string | null;
+        agentId: string | null;
+    }>;
+    getOrderTracking(orderId: string): Promise<{
+        status: import(".prisma/client").$Enums.OrderStatus;
+        awb: string;
+        courier: string;
+        trackingUrl: string;
+        lastUpdate: Date;
     }>;
 }

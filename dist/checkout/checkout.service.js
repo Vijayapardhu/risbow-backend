@@ -12,119 +12,131 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CheckoutService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const checkout_dto_1 = require("./dto/checkout.dto");
+const payments_service_1 = require("../payments/payments.service");
 let CheckoutService = class CheckoutService {
-    constructor(prisma) {
+    constructor(prisma, paymentsService) {
         this.prisma = prisma;
+        this.paymentsService = paymentsService;
     }
-    async captureCheckout(data) {
-        const persuasionMetadata = await this.calculatePersuasionMetadata(data.cartItems);
-        const checkoutData = {
-            user: data.userId ? { connect: { id: data.userId } } : undefined,
-            guestInfo: data.guestInfo || {},
-            cartSnapshot: data.cartItems,
-            financeSnapshot: data.financeDetails,
-            metadata: persuasionMetadata,
-            status: 'NEW',
-        };
-        return this.prisma.abandonedCheckout.create({
-            data: checkoutData,
-        });
-    }
-    async calculatePersuasionMetadata(cartItems) {
-        let lowStockCount = 0;
-        let activeOffers = [];
-        for (const item of cartItems) {
-            if (!item.productId)
-                continue;
-            const product = await this.prisma.product.findUnique({
-                where: { id: item.productId }
+    async checkout(userId, dto) {
+        const { paymentMode, shippingAddressId, notes } = dto;
+        return this.prisma.$transaction(async (tx) => {
+            const cart = await tx.cart.findUnique({
+                where: { userId },
+                include: { items: true }
             });
-            if (product) {
-                if (product.stock < 10)
-                    lowStockCount++;
-                if (product.offerPrice && product.offerPrice < product.price) {
-                    activeOffers.push('DISCOUNTED');
+            if (!cart || cart.items.length === 0) {
+                throw new common_1.BadRequestException('Cart is empty');
+            }
+            const address = await tx.address.findUnique({
+                where: { id: shippingAddressId }
+            });
+            if (!address) {
+                throw new common_1.NotFoundException('Shipping address not found');
+            }
+            if (address.userId !== userId) {
+                throw new common_1.BadRequestException('Invalid shipping address');
+            }
+            let totalAmount = 0;
+            const orderItems = [];
+            for (const item of cart.items) {
+                const product = await tx.product.findUnique({ where: { id: item.productId } });
+                if (!product)
+                    throw new common_1.NotFoundException(`Product ${item.productId} not found`);
+                let price = product.offerPrice || product.price;
+                let stock = product.stock;
+                let variantSnapshot = null;
+                if (item.variantId) {
+                    const variant = await tx.productVariation.findUnique({ where: { id: item.variantId } });
+                    if (!variant)
+                        throw new common_1.NotFoundException(`Variant ${item.variantId} not found`);
+                    price = variant.sellingPrice;
+                    stock = variant.stock;
+                    variantSnapshot = {
+                        attributes: variant.attributes,
+                        sku: variant.sku
+                    };
                 }
-            }
-        }
-        const stockStatus = lowStockCount > 0 ? 'LOW' : 'MEDIUM';
-        const urgencyReason = stockStatus === 'LOW'
-            ? `High demand! ${lowStockCount} items in your cart are running low.`
-            : 'Order now for faster delivery.';
-        return {
-            stock_status: stockStatus,
-            trending_score: 85,
-            active_offers: [...new Set(activeOffers)],
-            estimated_delivery: '2-3 Days',
-            urgency_reason: urgencyReason,
-            source: 'WEB'
-        };
-    }
-    async getCheckouts(params) {
-        const { skip, take, cursor, where, orderBy } = params;
-        return this.prisma.abandonedCheckout.findMany({
-            skip,
-            take,
-            cursor,
-            where,
-            orderBy,
-            include: {
-                user: true,
-                agent: true,
-                followups: true
-            }
-        });
-    }
-    async getCheckoutById(id) {
-        return this.prisma.abandonedCheckout.findUnique({
-            where: { id },
-            include: {
-                user: true,
-                agent: true,
-                followups: {
-                    include: { agent: true },
-                    orderBy: { createdAt: 'desc' }
+                if (stock < item.quantity) {
+                    throw new common_1.BadRequestException(`Insufficient stock for ${product.title}`);
                 }
+                const subtotal = price * item.quantity;
+                totalAmount += subtotal;
+                orderItems.push({
+                    productId: product.id,
+                    variantId: item.variantId,
+                    vendorId: product.vendorId,
+                    productTitle: product.title,
+                    quantity: item.quantity,
+                    price: price,
+                    subtotal: subtotal,
+                    variantSnapshot
+                });
+            }
+            const orderStatus = paymentMode === checkout_dto_1.PaymentMode.COD ? 'CONFIRMED' : 'PENDING_PAYMENT';
+            const order = await tx.order.create({
+                data: {
+                    userId,
+                    addressId: shippingAddressId,
+                    totalAmount,
+                    status: orderStatus,
+                    items: orderItems,
+                }
+            });
+            if (paymentMode === checkout_dto_1.PaymentMode.COD) {
+                await tx.payment.create({
+                    data: {
+                        orderId: order.id,
+                        amount: totalAmount,
+                        currency: 'INR',
+                        provider: 'COD',
+                        status: 'PENDING',
+                    }
+                });
+                await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+                return {
+                    message: 'Order placed successfully',
+                    orderId: order.id,
+                    status: 'CONFIRMED',
+                    paymentMode: 'COD',
+                    totalAmount
+                };
+            }
+            else {
+                const razorpayOrder = await this.paymentsService.generateRazorpayOrder(totalAmount * 100, 'INR', order.id, { userId, internalOrderId: order.id });
+                await tx.payment.create({
+                    data: {
+                        orderId: order.id,
+                        amount: totalAmount * 100,
+                        currency: 'INR',
+                        provider: 'RAZORPAY',
+                        providerOrderId: razorpayOrder.id,
+                        status: 'PENDING'
+                    }
+                });
+                await tx.order.update({
+                    where: { id: order.id },
+                    data: { razorpayOrderId: razorpayOrder.id }
+                });
+                return {
+                    message: 'Order created, proceed to payment',
+                    orderId: order.id,
+                    status: 'PENDING_PAYMENT',
+                    paymentMode: 'ONLINE',
+                    razorpayOrderId: razorpayOrder.id,
+                    amount: razorpayOrder.amount,
+                    currency: razorpayOrder.currency,
+                    key: process.env.RAZORPAY_KEY_ID
+                };
             }
         });
-    }
-    async assignLead(checkoutId, agentId) {
-        const lockedUntil = new Date();
-        lockedUntil.setMinutes(lockedUntil.getMinutes() + 15);
-        return this.prisma.abandonedCheckout.update({
-            where: { id: checkoutId },
-            data: {
-                status: 'ASSIGNED',
-                agentId,
-                lockedUntil
-            },
-            include: { agent: true }
-        });
-    }
-    async addFollowup(data) {
-        const followup = await this.prisma.checkoutFollowup.create({
-            data: {
-                checkoutId: data.checkoutId,
-                agentId: data.agentId,
-                note: data.note,
-                outcome: data.outcome
-            }
-        });
-        let newStatus = 'FOLLOW_UP';
-        if (data.outcome === 'CONVERTED')
-            newStatus = 'CONVERTED';
-        if (data.outcome === 'DROPPED')
-            newStatus = 'DROPPED';
-        await this.prisma.abandonedCheckout.update({
-            where: { id: data.checkoutId },
-            data: { status: newStatus }
-        });
-        return followup;
     }
 };
 exports.CheckoutService = CheckoutService;
 exports.CheckoutService = CheckoutService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        payments_service_1.PaymentsService])
 ], CheckoutService);
 //# sourceMappingURL=checkout.service.js.map

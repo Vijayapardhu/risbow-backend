@@ -13,6 +13,7 @@ const orders_controller_1 = require("./orders.controller");
 const orders_admin_controller_1 = require("./orders.admin.controller");
 const rooms_module_1 = require("../rooms/rooms.module");
 const coins_module_1 = require("../coins/coins.module");
+const order_state_machine_1 = require("./order-state-machine");
 let OrdersModule = class OrdersModule {
 };
 exports.OrdersModule = OrdersModule;
@@ -20,7 +21,7 @@ exports.OrdersModule = OrdersModule = __decorate([
     (0, common_1.Module)({
         imports: [rooms_module_1.RoomsModule, coins_module_1.CoinsModule],
         controllers: [orders_controller_1.OrdersController, orders_admin_controller_1.OrdersAdminController],
-        providers: [orders_service_1.OrdersService],
+        providers: [orders_service_1.OrdersService, order_state_machine_1.OrderStateMachine],
         exports: [orders_service_1.OrdersService],
     })
 ], OrdersModule);

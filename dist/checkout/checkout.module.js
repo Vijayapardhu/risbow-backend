@@ -11,12 +11,14 @@ const common_1 = require("@nestjs/common");
 const checkout_service_1 = require("./checkout.service");
 const checkout_controller_1 = require("./checkout.controller");
 const prisma_module_1 = require("../prisma/prisma.module");
+const cart_module_1 = require("../cart/cart.module");
+const payments_module_1 = require("../payments/payments.module");
 let CheckoutModule = class CheckoutModule {
 };
 exports.CheckoutModule = CheckoutModule;
 exports.CheckoutModule = CheckoutModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule],
+        imports: [prisma_module_1.PrismaModule, cart_module_1.CartModule, payments_module_1.PaymentsModule],
         controllers: [checkout_controller_1.CheckoutController],
         providers: [checkout_service_1.CheckoutService],
         exports: [checkout_service_1.CheckoutService],

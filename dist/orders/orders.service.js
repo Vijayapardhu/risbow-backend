@@ -21,12 +21,14 @@ const client_1 = require("@prisma/client");
 const rooms_service_1 = require("../rooms/rooms.service");
 const coins_service_1 = require("../coins/coins.service");
 const coin_dto_1 = require("../coins/dto/coin.dto");
+const order_state_machine_1 = require("./order-state-machine");
 let OrdersService = class OrdersService {
-    constructor(prisma, configService, roomsService, coinsService) {
+    constructor(prisma, configService, roomsService, coinsService, stateMachine) {
         this.prisma = prisma;
         this.configService = configService;
         this.roomsService = roomsService;
         this.coinsService = coinsService;
+        this.stateMachine = stateMachine;
         this.razorpay = new razorpay_1.default({
             key_id: this.configService.get('RAZORPAY_KEY_ID'),
             key_secret: this.configService.get('RAZORPAY_KEY_SECRET'),
@@ -50,7 +52,7 @@ let OrdersService = class OrdersService {
                 items: dto.items,
                 totalAmount: payable,
                 coinsUsed: usableCoins,
-                status: client_1.OrderStatus.PENDING,
+                status: client_1.OrderStatus.PENDING_PAYMENT,
                 razorpayOrderId: rzpOrder.id,
                 abandonedCheckoutId: dto.abandonedCheckoutId,
             },
@@ -174,7 +176,7 @@ let OrdersService = class OrdersService {
                 user: { connect: { id: userId } },
                 items: data.items,
                 totalAmount: data.totalAmount,
-                status: 'PENDING',
+                status: client_1.OrderStatus.PENDING_PAYMENT,
                 payment: {
                     create: {
                         provider: data.paymentMethod || 'COD',
@@ -416,17 +418,67 @@ let OrdersService = class OrdersService {
             updatedAt: order.updatedAt.toISOString()
         };
     }
-    async updateOrderStatus(orderId, status) {
+    async updateOrderStatus(orderId, status, userId, role, notes) {
         const order = await this.prisma.order.findUnique({
-            where: { id: orderId }
-        });
-        if (!order) {
-            throw new common_1.NotFoundException('Order not found');
-        }
-        return this.prisma.order.update({
             where: { id: orderId },
-            data: { status }
+            include: { payment: true }
         });
+        if (!order)
+            throw new common_1.NotFoundException('Order not found');
+        const paymentMode = order.payment?.provider === 'COD' ? 'COD' : 'ONLINE';
+        const mode = (order.payment?.provider === 'COD' || order.payment?.provider === 'CASH') ? 'COD' : 'ONLINE';
+        this.stateMachine.validateTransition(order.status, status, role, mode);
+        return this.prisma.$transaction(async (tx) => {
+            const updated = await tx.order.update({
+                where: { id: orderId },
+                data: { status }
+            });
+            await tx.orderTimeline.create({
+                data: {
+                    orderId,
+                    status,
+                    notes,
+                    changedBy: userId
+                }
+            });
+            return updated;
+        });
+    }
+    async cancelOrder(orderId, userId, role, reason) {
+        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+        if (!order)
+            throw new common_1.NotFoundException('Order not found');
+        if (role === 'CUSTOMER' && order.userId !== userId) {
+            throw new common_1.ForbiddenException('Cannot cancel others order');
+        }
+        this.stateMachine.validateTransition(order.status, client_1.OrderStatus.CANCELLED, role);
+        return this.prisma.$transaction(async (tx) => {
+            const updated = await tx.order.update({
+                where: { id: orderId },
+                data: { status: client_1.OrderStatus.CANCELLED }
+            });
+            await tx.orderTimeline.create({
+                data: {
+                    orderId,
+                    status: client_1.OrderStatus.CANCELLED,
+                    notes: `Cancelled by ${role}: ${reason || 'No reason'}`,
+                    changedBy: userId
+                }
+            });
+            return updated;
+        });
+    }
+    async getOrderTracking(orderId) {
+        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+        if (!order)
+            throw new common_1.NotFoundException('Order not found');
+        return {
+            status: order.status,
+            awb: order.awbNumber,
+            courier: order.courierPartner,
+            trackingUrl: order.awbNumber ? `https://track.courier.com/${order.awbNumber}` : null,
+            lastUpdate: order.updatedAt
+        };
     }
 };
 exports.OrdersService = OrdersService;
@@ -435,6 +487,7 @@ exports.OrdersService = OrdersService = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         config_1.ConfigService,
         rooms_service_1.RoomsService,
-        coins_service_1.CoinsService])
+        coins_service_1.CoinsService,
+        order_state_machine_1.OrderStateMachine])
 ], OrdersService);
 //# sourceMappingURL=orders.service.js.map

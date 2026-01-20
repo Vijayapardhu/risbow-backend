@@ -141,12 +141,16 @@ enum MemberStatus {
 }
 
 enum OrderStatus {
-  PENDING
+  CREATED
+  PENDING_PAYMENT
   CONFIRMED
+  PAID
   PACKED
   SHIPPED
   DELIVERED
   CANCELLED
+  RETURN_REQUESTED
+  REPLACED
 }
 
 model Category {
@@ -315,16 +319,26 @@ model Review {
   vendorId  String?
   rating    Int // 1-5
   comment   String?
-  images    String[] // URLs
-  user      User     @relation(fields: [userId], references: [id])
-  product   Product? @relation(fields: [productId], references: [id])
-  vendor    Vendor?  @relation(fields: [vendorId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  images       String[] // URLs
+  isVerified   Boolean      @default(false)
+  helpfulCount Int          @default(0)
+  status       ReviewStatus @default(ACTIVE)
+  user         User         @relation(fields: [userId], references: [id])
+  product      Product?     @relation(fields: [productId], references: [id])
+  vendor       Vendor?      @relation(fields: [vendorId], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   @@index([productId])
   @@index([vendorId])
   @@index([userId])
+}
+
+enum ReviewStatus {
+  ACTIVE
+  REPORTED
+  HIDDEN
+  DELETED
 }
 
 // --- Payments & Logistics ---
@@ -391,7 +405,7 @@ model Order {
   totalAmount      Int
   coinsUsed        Int         @default(0)
   coinsUsedDebited Boolean     @default(false)
-  status           OrderStatus @default(PENDING)
+  status           OrderStatus @default(CREATED)
   razorpayOrderId  String?
   awbNumber        String?
   courierPartner   String?
@@ -408,8 +422,9 @@ model Order {
   address   Address?        @relation(fields: [addressId], references: [id])
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
-  Refund    Refund[]
+  refunds   Refund[]
   returns   ReturnRequest[] // Returns for this order
+  timeline  OrderTimeline[]
 
   @@index([userId])
   @@index([status])
@@ -418,6 +433,19 @@ model Order {
   @@index([awbNumber])
   @@index([userId, status])
   @@index([status, createdAt])
+}
+
+model OrderTimeline {
+  id        String      @id @default(cuid())
+  orderId   String
+  status    OrderStatus
+  notes     String?
+  changedBy String?     // User ID or "SYSTEM"
+  createdAt DateTime    @default(now())
+  
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
 }
 
 
@@ -691,16 +719,16 @@ model CheckoutFollowup {
 // --- Return & Replacement Management ---
 
 enum ReturnStatus {
-  PENDING_APPROVAL
-  APPROVED
-  REJECTED
+  RETURN_REQUESTED
+  RETURN_APPROVED
+  RETURN_REJECTED
   PICKUP_SCHEDULED
   PICKUP_COMPLETED
   QC_IN_PROGRESS
   QC_PASSED
   QC_FAILED
-  REPLACEMENT_INITIATED
-  REPLACEMENT_COMPLETED
+  REPLACEMENT_SHIPPED
+  REPLACED
 }
 
 enum ReturnReason {
@@ -719,7 +747,7 @@ model ReturnRequest {
   userId       String // Customer
   vendorId     String? // Seller involved
 
-  status         ReturnStatus @default(PENDING_APPROVAL)
+  status         ReturnStatus @default(RETURN_REQUESTED)
   reason         ReturnReason
   description    String?
   evidenceImages String[]
@@ -734,7 +762,8 @@ model ReturnRequest {
   // Logistics
   pickupAddress  Json?
   courierPartner String?
-  trackingId     String?
+  trackingId     String? // Return Pickup Tracking
+  replacementTrackingId String? // Replacement Shipment Tracking
 
   // QC & Replacement
   qcNotes            String?
@@ -929,4 +958,8 @@ model ProductSpecValue {
   @@index([productId])
   @@index([specId])
 }
+
+
+// --- System Configuration ---
+
 

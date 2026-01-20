@@ -113,7 +113,7 @@ export declare class OrdersAdminController {
         createdAt: string;
         updatedAt: string;
     }>;
-    updateStatus(id: string, status: OrderStatus): Promise<{
+    updateStatus(id: string, status: any, notes: string, req: any): Promise<{
         id: string;
         createdAt: Date;
         status: import(".prisma/client").$Enums.OrderStatus;

@@ -125,8 +125,8 @@ export declare class AdminService {
                 createdAt: Date;
                 status: import(".prisma/client").$Enums.PaymentStatus;
                 updatedAt: Date;
-                amount: number;
                 orderId: string;
+                amount: number;
                 currency: string;
                 provider: string;
                 providerOrderId: string | null;
@@ -172,6 +172,7 @@ export declare class AdminService {
         reviews: {
             id: string;
             createdAt: Date;
+            status: import(".prisma/client").$Enums.ReviewStatus;
             updatedAt: Date;
             userId: string;
             productId: string | null;
@@ -179,6 +180,8 @@ export declare class AdminService {
             images: string[];
             rating: number;
             comment: string | null;
+            isVerified: boolean;
+            helpfulCount: number;
         }[];
         receivedNotes: ({
             admin: {
@@ -654,8 +657,8 @@ export declare class AdminService {
                 createdAt: Date;
                 status: import(".prisma/client").$Enums.PaymentStatus;
                 updatedAt: Date;
-                amount: number;
                 orderId: string;
+                amount: number;
                 currency: string;
                 provider: string;
                 providerOrderId: string | null;
@@ -1335,6 +1338,7 @@ export declare class AdminService {
     } & {
         id: string;
         createdAt: Date;
+        status: import(".prisma/client").$Enums.ReviewStatus;
         updatedAt: Date;
         userId: string;
         productId: string | null;
@@ -1342,10 +1346,13 @@ export declare class AdminService {
         images: string[];
         rating: number;
         comment: string | null;
+        isVerified: boolean;
+        helpfulCount: number;
     })[]>;
     deleteReview(id: string): Promise<{
         id: string;
         createdAt: Date;
+        status: import(".prisma/client").$Enums.ReviewStatus;
         updatedAt: Date;
         userId: string;
         productId: string | null;
@@ -1353,6 +1360,8 @@ export declare class AdminService {
         images: string[];
         rating: number;
         comment: string | null;
+        isVerified: boolean;
+        helpfulCount: number;
     }>;
     getReports(status?: string): Promise<({
         reporter: {

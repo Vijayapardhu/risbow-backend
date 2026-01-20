@@ -92,6 +92,7 @@ export declare class CatalogController {
         } & {
             id: string;
             createdAt: Date;
+            status: import(".prisma/client").$Enums.ReviewStatus;
             updatedAt: Date;
             userId: string;
             productId: string | null;
@@ -99,6 +100,8 @@ export declare class CatalogController {
             images: string[];
             rating: number;
             comment: string | null;
+            isVerified: boolean;
+            helpfulCount: number;
         })[];
         id: string;
         createdAt: Date;

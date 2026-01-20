@@ -103,7 +103,7 @@ export class VendorsService {
 
         const totalOrders = vendorOrders.length;
         const pendingOrders = vendorOrders.filter(o =>
-            o.status === 'PENDING' || o.status === 'CONFIRMED'
+            ['CREATED', 'PENDING_PAYMENT', 'CONFIRMED'].includes(o.status)
         ).length;
 
         // Calculate revenue from this vendor's items

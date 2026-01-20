@@ -11,7 +11,7 @@ const http_exception_filter_1 = require("./common/filters/http-exception.filter"
 const path_1 = require("path");
 const helmet_1 = __importDefault(require("helmet"));
 async function bootstrap() {
-    const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    const app = await core_1.NestFactory.create(app_module_1.AppModule, { rawBody: true });
     console.log("🚀 BOOTSTRAP V5 - VERIFICATION MODE");
     app.use((0, helmet_1.default)({
         crossOriginEmbedderPolicy: false,

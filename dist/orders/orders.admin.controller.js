@@ -34,8 +34,8 @@ let OrdersAdminController = class OrdersAdminController {
     async findOne(id) {
         return this.ordersService.getOrderDetail(id);
     }
-    async updateStatus(id, status) {
-        return this.ordersService.updateOrderStatus(id, status);
+    async updateStatus(id, status, notes, req) {
+        return this.ordersService.updateOrderStatus(id, status, req.user.id, req.user.role, notes);
     }
 };
 exports.OrdersAdminController = OrdersAdminController;
@@ -60,8 +60,10 @@ __decorate([
     (0, common_1.Patch)(':id/status'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)('status')),
+    __param(2, (0, common_1.Body)('notes')),
+    __param(3, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, Object, String, Object]),
     __metadata("design:returntype", Promise)
 ], OrdersAdminController.prototype, "updateStatus", null);
 exports.OrdersAdminController = OrdersAdminController = __decorate([

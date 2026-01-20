@@ -28,6 +28,10 @@ const bullmq_1 = require("@nestjs/bullmq");
 const analytics_module_1 = require("./analytics/analytics.module");
 const telecaller_module_1 = require("./telecaller/telecaller.module");
 const returns_module_1 = require("./returns/returns.module");
+const cart_module_1 = require("./cart/cart.module");
+const upload_module_1 = require("./upload/upload.module");
+const reviews_module_1 = require("./reviews/reviews.module");
+const refunds_module_1 = require("./refunds/refunds.module");
 const shared_module_1 = require("./shared/shared.module");
 const health_controller_1 = require("./common/health.controller");
 let AppModule = class AppModule {
@@ -65,6 +69,10 @@ exports.AppModule = AppModule = __decorate([
             bow_module_1.BowModule,
             telecaller_module_1.TelecallerModule,
             returns_module_1.ReturnsModule,
+            cart_module_1.CartModule,
+            upload_module_1.UploadModule,
+            reviews_module_1.ReviewsModule,
+            refunds_module_1.RefundsModule,
         ],
         controllers: [health_controller_1.HealthController],
     })

@@ -19,6 +19,11 @@ import { BullModule } from '@nestjs/bullmq';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { TelecallerModule } from './telecaller/telecaller.module';
 import { ReturnsModule } from './returns/returns.module';
+import { CartModule } from './cart/cart.module';
+
+import { UploadModule } from './upload/upload.module';
+import { ReviewsModule } from './reviews/reviews.module';
+import { RefundsModule } from './refunds/refunds.module';
 
 import { SharedModule } from './shared/shared.module';
 import { HealthController } from './common/health.controller';
@@ -54,6 +59,10 @@ import { HealthController } from './common/health.controller';
         BowModule,
         TelecallerModule,
         ReturnsModule,
+        CartModule,
+        UploadModule,
+        ReviewsModule,
+        RefundsModule,
     ],
     controllers: [HealthController],
 })

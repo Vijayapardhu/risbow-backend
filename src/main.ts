@@ -9,7 +9,7 @@ import helmet from 'helmet';
 
 // Trigger deployment update - v4 - Trigger restart for AdminService fix
 async function bootstrap() {
-    const app = await NestFactory.create<NestExpressApplication>(AppModule);
+    const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
     console.log("🚀 BOOTSTRAP V5 - VERIFICATION MODE");
 
 

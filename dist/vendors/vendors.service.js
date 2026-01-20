@@ -87,7 +87,7 @@ let VendorsService = class VendorsService {
             return items.some(item => vendorProductIds.includes(item.productId));
         });
         const totalOrders = vendorOrders.length;
-        const pendingOrders = vendorOrders.filter(o => o.status === 'PENDING' || o.status === 'CONFIRMED').length;
+        const pendingOrders = vendorOrders.filter(o => ['CREATED', 'PENDING_PAYMENT', 'CONFIRMED'].includes(o.status)).length;
         const totalRevenue = vendorOrders.reduce((sum, order) => {
             const items = order.items;
             if (!Array.isArray(items))

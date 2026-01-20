@@ -22,8 +22,10 @@ let ReturnsService = class ReturnsService {
         const order = await this.prisma.order.findUnique({
             where: { id: dto.orderId, userId },
         });
-        if (!order) {
-            throw new common_1.NotFoundException('Order not found or does not belong to user');
+        if (!order)
+            throw new common_1.NotFoundException('Order not found');
+        if (order.status !== 'DELIVERED') {
+            throw new common_1.BadRequestException('Returns can only be requested for delivered orders');
         }
         const returnNumber = `RET-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
         return this.prisma.returnRequest.create({
@@ -36,6 +38,7 @@ let ReturnsService = class ReturnsService {
                 evidenceImages: dto.evidenceImages || [],
                 evidenceVideo: dto.evidenceVideo,
                 pickupAddress: dto.pickupAddress,
+                status: 'RETURN_REQUESTED',
                 items: {
                     create: dto.items.map((item) => ({
                         productId: item.productId,
@@ -46,7 +49,7 @@ let ReturnsService = class ReturnsService {
                 },
                 timeline: {
                     create: {
-                        status: 'PENDING_APPROVAL',
+                        status: 'RETURN_REQUESTED',
                         action: 'RETURN_REQUESTED',
                         performedBy: 'CUSTOMER',
                         notes: 'Return request submitted by customer',
@@ -134,7 +137,7 @@ let ReturnsService = class ReturnsService {
             },
             include: { timeline: true },
         });
-        if (dto.status === 'APPROVED' && returnReq.vendor) {
+        if (dto.status === 'RETURN_APPROVED' && returnReq.vendor) {
             const vendorUser = await this.prisma.user.findUnique({
                 where: { mobile: returnReq.vendor.mobile }
             });
@@ -143,6 +146,26 @@ let ReturnsService = class ReturnsService {
             }
         }
         return updatedReturn;
+    }
+    async shipReplacement(id, trackingId, adminId) {
+        const returnReq = await this.prisma.returnRequest.findUnique({ where: { id } });
+        if (!returnReq)
+            throw new common_1.NotFoundException('Return request not found');
+        return this.prisma.returnRequest.update({
+            where: { id },
+            data: {
+                status: 'REPLACEMENT_SHIPPED',
+                replacementTrackingId: trackingId,
+                timeline: {
+                    create: {
+                        status: 'REPLACEMENT_SHIPPED',
+                        action: 'REPLACEMENT_DISPATCHED',
+                        performedBy: 'ADMIN',
+                        notes: `Tracking ID: ${trackingId}`
+                    }
+                }
+            }
+        });
     }
 };
 exports.ReturnsService = ReturnsService;

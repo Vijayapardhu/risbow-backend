@@ -9,22 +9,22 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UpdateReturnStatusDto = void 0;
+exports.UpdateReturnStatusDto = exports.ReturnStatus = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
 var ReturnStatus;
 (function (ReturnStatus) {
-    ReturnStatus["PENDING_APPROVAL"] = "PENDING_APPROVAL";
-    ReturnStatus["APPROVED"] = "APPROVED";
-    ReturnStatus["REJECTED"] = "REJECTED";
+    ReturnStatus["RETURN_REQUESTED"] = "RETURN_REQUESTED";
+    ReturnStatus["RETURN_APPROVED"] = "RETURN_APPROVED";
+    ReturnStatus["RETURN_REJECTED"] = "RETURN_REJECTED";
     ReturnStatus["PICKUP_SCHEDULED"] = "PICKUP_SCHEDULED";
     ReturnStatus["PICKUP_COMPLETED"] = "PICKUP_COMPLETED";
     ReturnStatus["QC_IN_PROGRESS"] = "QC_IN_PROGRESS";
     ReturnStatus["QC_PASSED"] = "QC_PASSED";
     ReturnStatus["QC_FAILED"] = "QC_FAILED";
-    ReturnStatus["REPLACEMENT_INITIATED"] = "REPLACEMENT_INITIATED";
-    ReturnStatus["REPLACEMENT_COMPLETED"] = "REPLACEMENT_COMPLETED";
-})(ReturnStatus || (ReturnStatus = {}));
+    ReturnStatus["REPLACEMENT_SHIPPED"] = "REPLACEMENT_SHIPPED";
+    ReturnStatus["REPLACED"] = "REPLACED";
+})(ReturnStatus || (exports.ReturnStatus = ReturnStatus = {}));
 class UpdateReturnStatusDto {
 }
 exports.UpdateReturnStatusDto = UpdateReturnStatusDto;

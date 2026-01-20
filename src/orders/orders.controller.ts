@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UseGuards, Request, Param } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Query, UseGuards, Request, Param } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CheckoutDto, ConfirmOrderDto } from './dto/order.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -90,5 +90,31 @@ export class OrdersController {
     @Roles('ADMIN', 'SUPER_ADMIN')
     async createPosOrder(@Request() req, @Body() dto: any) {
         return this.ordersService.createAdminOrder(req.user.id, dto);
+    }
+
+    // --- LIFECYCLE ENDPOINTS ---
+
+    @Post(':id/cancel')
+    @UseGuards(JwtAuthGuard) // Any auth user
+    async cancelOrder(@Request() req, @Param('id') id: string, @Body('reason') reason: string) {
+        return this.ordersService.cancelOrder(id, req.user.id, req.user.role, reason);
+    }
+
+    @Patch(':id/status')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN', 'VENDOR')
+    async updateStatus(
+        @Param('id') id: string,
+        @Body('status') status: any, // OrderStatus type isn't working in IDE, use any
+        @Body('notes') notes: string,
+        @Request() req
+    ) {
+        return this.ordersService.updateOrderStatus(id, status, req.user.id, req.user.role, notes);
+    }
+
+    @Get(':id/tracking')
+    @UseGuards(JwtAuthGuard)
+    async getTracking(@Param('id') id: string) {
+        return this.ordersService.getOrderTracking(id);
     }
 }

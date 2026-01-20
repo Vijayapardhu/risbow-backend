@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Query, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Query, Param, Body, UseGuards, Request } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -34,8 +34,10 @@ export class OrdersAdminController {
     @Patch(':id/status')
     async updateStatus(
         @Param('id') id: string,
-        @Body('status') status: OrderStatus
+        @Body('status') status: any,
+        @Body('notes') notes: string,
+        @Request() req
     ) {
-        return this.ordersService.updateOrderStatus(id, status);
+        return this.ordersService.updateOrderStatus(id, status, req.user.id, req.user.role, notes);
     }
 }

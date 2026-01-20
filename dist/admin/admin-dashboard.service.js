@@ -106,12 +106,12 @@ let AdminDashboardService = class AdminDashboardService {
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const pendingOld = await this.prisma.order.count({
             where: {
-                status: 'PENDING',
+                status: { in: ['CREATED', 'PENDING_PAYMENT'] },
                 createdAt: { lt: oneDayAgo },
             },
         });
         return {
-            pending: statusMap['pending'] || 0,
+            pending: (statusMap['created'] || 0) + (statusMap['pending_payment'] || 0),
             pendingAlert: pendingOld > 0,
             confirmed: statusMap['confirmed'] || 0,
             packed: statusMap['packed'] || 0,
@@ -173,7 +173,7 @@ let AdminDashboardService = class AdminDashboardService {
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const pendingOrders = await this.prisma.order.count({
             where: {
-                status: 'PENDING',
+                status: { in: ['CREATED', 'PENDING_PAYMENT'] },
                 createdAt: { lt: oneDayAgo },
             },
         });

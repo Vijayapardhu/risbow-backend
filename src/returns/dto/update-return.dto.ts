@@ -2,17 +2,17 @@
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-enum ReturnStatus {
-    PENDING_APPROVAL = 'PENDING_APPROVAL',
-    APPROVED = 'APPROVED',
-    REJECTED = 'REJECTED',
+export enum ReturnStatus { // Exporting for reuse if needed, though usually Prisma's is better
+    RETURN_REQUESTED = 'RETURN_REQUESTED',
+    RETURN_APPROVED = 'RETURN_APPROVED',
+    RETURN_REJECTED = 'RETURN_REJECTED',
     PICKUP_SCHEDULED = 'PICKUP_SCHEDULED',
     PICKUP_COMPLETED = 'PICKUP_COMPLETED',
     QC_IN_PROGRESS = 'QC_IN_PROGRESS',
     QC_PASSED = 'QC_PASSED',
     QC_FAILED = 'QC_FAILED',
-    REPLACEMENT_INITIATED = 'REPLACEMENT_INITIATED',
-    REPLACEMENT_COMPLETED = 'REPLACEMENT_COMPLETED',
+    REPLACEMENT_SHIPPED = 'REPLACEMENT_SHIPPED',
+    REPLACED = 'REPLACED',
 }
 
 export class UpdateReturnStatusDto {

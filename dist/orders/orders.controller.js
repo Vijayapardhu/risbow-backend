@@ -55,6 +55,15 @@ let OrdersController = class OrdersController {
     async createPosOrder(req, dto) {
         return this.ordersService.createAdminOrder(req.user.id, dto);
     }
+    async cancelOrder(req, id, reason) {
+        return this.ordersService.cancelOrder(id, req.user.id, req.user.role, reason);
+    }
+    async updateStatus(id, status, notes, req) {
+        return this.ordersService.updateOrderStatus(id, status, req.user.id, req.user.role, notes);
+    }
+    async getTracking(id) {
+        return this.ordersService.getOrderTracking(id);
+    }
 };
 exports.OrdersController = OrdersController;
 __decorate([
@@ -142,6 +151,36 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "createPosOrder", null);
+__decorate([
+    (0, common_1.Post)(':id/cancel'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)('reason')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "cancelOrder", null);
+__decorate([
+    (0, common_1.Patch)(':id/status'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN', 'VENDOR'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)('status')),
+    __param(2, (0, common_1.Body)('notes')),
+    __param(3, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "updateStatus", null);
+__decorate([
+    (0, common_1.Get)(':id/tracking'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "getTracking", null);
 exports.OrdersController = OrdersController = __decorate([
     (0, common_1.Controller)('orders'),
     __metadata("design:paramtypes", [orders_service_1.OrdersService])

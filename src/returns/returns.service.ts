@@ -18,8 +18,10 @@ export class ReturnsService {
             where: { id: dto.orderId, userId },
         });
 
-        if (!order) {
-            throw new NotFoundException('Order not found or does not belong to user');
+        if (!order) throw new NotFoundException('Order not found');
+
+        if (order.status !== 'DELIVERED') {
+            throw new BadRequestException('Returns can only be requested for delivered orders');
         }
 
         const returnNumber = `RET-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -34,6 +36,7 @@ export class ReturnsService {
                 evidenceImages: dto.evidenceImages || [],
                 evidenceVideo: dto.evidenceVideo,
                 pickupAddress: dto.pickupAddress,
+                status: 'RETURN_REQUESTED',
                 items: {
                     create: dto.items.map((item) => ({
                         productId: item.productId,
@@ -44,7 +47,7 @@ export class ReturnsService {
                 },
                 timeline: {
                     create: {
-                        status: 'PENDING_APPROVAL',
+                        status: 'RETURN_REQUESTED',
                         action: 'RETURN_REQUESTED',
                         performedBy: 'CUSTOMER',
                         notes: 'Return request submitted by customer',
@@ -140,7 +143,7 @@ export class ReturnsService {
         });
 
         // NOTIFICATION LOGIC: Alert Vendor if Approved
-        if (dto.status === 'APPROVED' && returnReq.vendor) {
+        if (dto.status === 'RETURN_APPROVED' && returnReq.vendor) {
             // Find User associated with Vendor Mobile
             const vendorUser = await this.prisma.user.findUnique({
                 where: { mobile: returnReq.vendor.mobile }
@@ -158,5 +161,26 @@ export class ReturnsService {
         }
 
         return updatedReturn;
+    }
+
+    async shipReplacement(id: string, trackingId: string, adminId: string) {
+        const returnReq = await this.prisma.returnRequest.findUnique({ where: { id } });
+        if (!returnReq) throw new NotFoundException('Return request not found');
+
+        return this.prisma.returnRequest.update({
+            where: { id },
+            data: {
+                status: 'REPLACEMENT_SHIPPED',
+                replacementTrackingId: trackingId,
+                timeline: {
+                    create: {
+                        status: 'REPLACEMENT_SHIPPED',
+                        action: 'REPLACEMENT_DISPATCHED',
+                        performedBy: 'ADMIN',
+                        notes: `Tracking ID: ${trackingId}`
+                    }
+                }
+            }
+        });
     }
 }

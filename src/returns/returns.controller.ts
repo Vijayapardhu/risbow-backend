@@ -50,4 +50,15 @@ export class ReturnsController {
     ) {
         return this.returnsService.updateStatus(id, updateReturnStatusDto, req.user.id);
     }
+    @Patch(':id/ship-replacement')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Admin: Mark replacement as shipped with tracking' })
+    shipReplacement(
+        @Request() req,
+        @Param('id') id: string,
+        @Body() body: { trackingId: string },
+    ) {
+        return this.returnsService.shipReplacement(id, body.trackingId, req.user.id);
+    }
 }

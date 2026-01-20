@@ -33,6 +33,7 @@ export declare class ReturnsService {
         pickupDate: Date | null;
         deliveredAt: Date | null;
         trackingId: string | null;
+        replacementTrackingId: string | null;
         qcNotes: string | null;
         qcBy: string | null;
         replacementOrderId: string | null;
@@ -127,6 +128,7 @@ export declare class ReturnsService {
             pickupDate: Date | null;
             deliveredAt: Date | null;
             trackingId: string | null;
+            replacementTrackingId: string | null;
             qcNotes: string | null;
             qcBy: string | null;
             replacementOrderId: string | null;
@@ -269,15 +271,6 @@ export declare class ReturnsService {
             condition: string | null;
             returnId: string;
         })[];
-        settlement: {
-            id: string;
-            status: string;
-            adminNotes: string | null;
-            returnId: string;
-            costBearer: string;
-            penaltyApplied: boolean;
-            penaltyAmount: number | null;
-        };
         timeline: {
             id: string;
             action: string;
@@ -287,6 +280,15 @@ export declare class ReturnsService {
             returnId: string;
             performedBy: string;
         }[];
+        settlement: {
+            id: string;
+            status: string;
+            adminNotes: string | null;
+            returnId: string;
+            costBearer: string;
+            penaltyApplied: boolean;
+            penaltyAmount: number | null;
+        };
     } & {
         id: string;
         status: import(".prisma/client").$Enums.ReturnStatus;
@@ -305,6 +307,7 @@ export declare class ReturnsService {
         pickupDate: Date | null;
         deliveredAt: Date | null;
         trackingId: string | null;
+        replacementTrackingId: string | null;
         qcNotes: string | null;
         qcBy: string | null;
         replacementOrderId: string | null;
@@ -337,6 +340,30 @@ export declare class ReturnsService {
         pickupDate: Date | null;
         deliveredAt: Date | null;
         trackingId: string | null;
+        replacementTrackingId: string | null;
+        qcNotes: string | null;
+        qcBy: string | null;
+        replacementOrderId: string | null;
+    }>;
+    shipReplacement(id: string, trackingId: string, adminId: string): Promise<{
+        id: string;
+        status: import(".prisma/client").$Enums.ReturnStatus;
+        updatedAt: Date;
+        userId: string;
+        courierPartner: string | null;
+        vendorId: string | null;
+        description: string | null;
+        orderId: string;
+        reason: import(".prisma/client").$Enums.ReturnReason;
+        evidenceImages: string[];
+        evidenceVideo: string | null;
+        pickupAddress: import("@prisma/client/runtime/library").JsonValue | null;
+        returnNumber: string;
+        requestedAt: Date;
+        pickupDate: Date | null;
+        deliveredAt: Date | null;
+        trackingId: string | null;
+        replacementTrackingId: string | null;
         qcNotes: string | null;
         qcBy: string | null;
         replacementOrderId: string | null;

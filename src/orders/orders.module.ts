@@ -5,10 +5,12 @@ import { OrdersAdminController } from './orders.admin.controller';
 import { RoomsModule } from '../rooms/rooms.module';
 import { CoinsModule } from '../coins/coins.module';
 
+import { OrderStateMachine } from './order-state-machine';
+
 @Module({
     imports: [RoomsModule, CoinsModule],
     controllers: [OrdersController, OrdersAdminController],
-    providers: [OrdersService],
+    providers: [OrdersService, OrderStateMachine],
     exports: [OrdersService],
 })
 export class OrdersModule { }

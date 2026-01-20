@@ -40,6 +40,9 @@ let ReturnsController = class ReturnsController {
     updateStatus(req, id, updateReturnStatusDto) {
         return this.returnsService.updateStatus(id, updateReturnStatusDto, req.user.id);
     }
+    shipReplacement(req, id, body) {
+        return this.returnsService.shipReplacement(id, body.trackingId, req.user.id);
+    }
 };
 exports.ReturnsController = ReturnsController;
 __decorate([
@@ -83,6 +86,18 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, update_return_dto_1.UpdateReturnStatusDto]),
     __metadata("design:returntype", void 0)
 ], ReturnsController.prototype, "updateStatus", null);
+__decorate([
+    (0, common_1.Patch)(':id/ship-replacement'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    (0, swagger_1.ApiOperation)({ summary: 'Admin: Mark replacement as shipped with tracking' }),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", void 0)
+], ReturnsController.prototype, "shipReplacement", null);
 exports.ReturnsController = ReturnsController = __decorate([
     (0, swagger_1.ApiTags)('Returns'),
     (0, swagger_1.ApiBearerAuth)(),
