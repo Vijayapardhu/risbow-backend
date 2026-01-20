@@ -1,0 +1,93 @@
+  @@unique([productId, specId])
+  @@index([productId])
+  @@index([specId])
+}
+
+// --- Product Management ---
+
+model Product {
+  id              String              @id @default(cuid())
+  name            String
+  description     String?             @db.Text
+  brand           String?
+  categoryId      String
+  sku             String              @unique
+  status          ProductStatus       @default(DRAFT)
+  
+  // Pricing (base - used when hasVariations = false)
+  mrp             Int                 @default(0)
+  sellingPrice    Int                 @default(0)
+  costPrice       Int?
+  taxRate         Float               @default(0)
+  
+  // Inventory (base - used when hasVariations = false)
+  stock           Int                 @default(0)
+  lowStockThreshold Int?
+  allowBackorder  Boolean             @default(false)
+  
+  // Shipping
+  weight          Float?
+  shippingClass   String?
+  dimensions      Json?               // { length, width, height }
+  codAllowed      Boolean             @default(true)
+  
+  // Media
+  images          String[]
+  videos          String[]
+  
+  // Dynamic Data
+  attributes      Json?               // Dynamic attributes based on category
+  compliance      Json?               // Legal/compliance data
+  
+  // Variations
+  hasVariations   Boolean             @default(false)
+  variationOptions Json?              // [{ name: "Size", values: ["S", "M", "L"] }]
+  variations      ProductVariation[]
+  
+  // Relations
+  category        Category            @relation(fields: [categoryId], references: [id])
+  cartItems       CartItem[]
+  wishlist        Wishlist[]
+  reviews         Review[]
+  returnItems     ReturnItem[]
+  specValues      ProductSpecValue[]
+  
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  @@index([categoryId])
+  @@index([status])
+  @@index([sku])
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model ProductVariation {
+  id            String   @id @default(cuid())
+  productId     String
+  sku           String   @unique
+  attributes    Json     // { size: "M", color: "Red" }
+  
+  // Pricing for this variation
+  mrp           Int
+  sellingPrice  Int
+  costPrice     Int?
+  
+  // Inventory for this variation
+  stock         Int      @default(0)
+  
+  // Media (optional variant-specific images)
+  images        String[]
+  
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([productId])
+  @@index([sku])
+}

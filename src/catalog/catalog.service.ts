@@ -69,26 +69,12 @@ export class CatalogService {
                 }
             });
 
-            // Build hierarchy tree
-            const categoryMap = new Map();
-            const roots: any[] = [];
-
-            categories.forEach(cat => {
-                categoryMap.set(cat.id, { ...cat, children: [] });
-            });
-
-            categories.forEach(cat => {
-                if (cat.parentId && categoryMap.has(cat.parentId)) {
-                    categoryMap.get(cat.parentId).children.push(categoryMap.get(cat.id));
-                } else {
-                    roots.push(categoryMap.get(cat.id));
-                }
-            });
-
-            return roots;
+            // Return flat array of all categories (including children)
+            // Frontend will handle filtering parent/child categories
+            return categories;
         } catch (error) {
             console.error('Error fetching categories:', error);
-            throw error; // Re-throw to allow global filter to catch (or InternalServerError)
+            throw error;
         }
     }
 
