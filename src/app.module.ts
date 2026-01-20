@@ -18,6 +18,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { BullModule } from '@nestjs/bullmq';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { TelecallerModule } from './telecaller/telecaller.module';
+import { ReturnsModule } from './returns/returns.module';
 
 import { SharedModule } from './shared/shared.module';
 import { HealthController } from './common/health.controller';
@@ -52,6 +53,7 @@ import { HealthController } from './common/health.controller';
         CheckoutModule,
         BowModule,
         TelecallerModule,
+        ReturnsModule,
     ],
     controllers: [HealthController],
 })

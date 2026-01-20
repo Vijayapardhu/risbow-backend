@@ -1,0 +1,53 @@
+
+import { Controller, Get, Post, Body, Param, Patch, Query, UseGuards, Request } from '@nestjs/common';
+import { ReturnsService } from './returns.service';
+import { CreateReturnDto } from './dto/create-return.dto';
+import { UpdateReturnStatusDto } from './dto/update-return.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+
+@ApiTags('Returns')
+@ApiBearerAuth()
+@Controller('returns')
+export class ReturnsController {
+    constructor(private readonly returnsService: ReturnsService) { }
+
+    @Post()
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Create a new return request for a customer' })
+    create(@Request() req, @Body() createReturnDto: CreateReturnDto) {
+        return this.returnsService.create(req.user.id, createReturnDto);
+    }
+
+    @Get()
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Get my returns (Customer) or All Returns (Admin)' })
+    findAll(@Request() req, @Query() query: any) {
+        // If user is NOT admin, force userId filter
+        if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
+            query.userId = req.user.id;
+        }
+        return this.returnsService.findAll(query);
+    }
+
+    @Get(':id')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Get detailed return info' })
+    findOne(@Param('id') id: string) {
+        return this.returnsService.findOne(id);
+    }
+
+    @Patch(':id/status')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Admin: Update return status' })
+    updateStatus(
+        @Request() req,
+        @Param('id') id: string,
+        @Body() updateReturnStatusDto: UpdateReturnStatusDto,
+    ) {
+        return this.returnsService.updateStatus(id, updateReturnStatusDto, req.user.id);
+    }
+}

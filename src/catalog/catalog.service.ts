@@ -373,4 +373,252 @@ export class CatalogService {
     async reorderSpecs(categoryId: string, specs: any) {
         return this.categorySpecService.reorderSpecs(categoryId, specs);
     }
+
+    // --- Dynamic Rules Engine (Phase 8) ---
+    async getCategoryRules(categoryId: string) {
+        // In a real/advanced version, this would be stored in a 'CategoryRules' table JSONB
+        // For now, we mirror the frontend logic to drive the UI from the backend.
+
+        const id = categoryId.toLowerCase();
+
+        if (id.includes('groc') || id.includes('food') || id.includes('veg')) {
+            return GROCERY_RULES;
+        } else if (id.includes('elec') || id.includes('tech') || id.includes('mobile')) {
+            return ELECTRONICS_RULES;
+        } else if (id.includes('fash') || id.includes('clot') || id.includes('wear')) {
+            return FASHION_RULES;
+        }
+
+        return DEFAULT_RULES;
+    }
 }
+
+// --- Rules Definitions ---
+
+const GROCERY_RULES = {
+    categoryId: "grocery",
+    categoryName: "Fresh Produce & Dairy",
+    features: {
+        hasVariants: false,
+        hasExpiry: true,
+        hasWarranty: false,
+        hasReturnPolicy: false,
+        isPhysical: true,
+        shippingClassRequired: true,
+        requiresCompliance: true
+    },
+    inventory: {
+        mode: 'batch',
+        allowFractional: false,
+        trackBatches: true
+    },
+    sections: [
+        { id: 'identity', label: 'Product Identity', hidden: false, order: 1 },
+        { id: 'pricing', label: 'Pricing', hidden: false, order: 2 },
+        { id: 'inventory', label: 'Inventory', hidden: false, order: 3 },
+        { id: 'media', label: 'Media', hidden: false, order: 4 },
+        { id: 'shipping', label: 'Shipping', hidden: false, order: 5 },
+        { id: 'attributes', label: 'Attributes', hidden: false, order: 6 },
+        { id: 'compliance', label: 'Compliance', hidden: false, order: 7 },
+        { id: 'visibility', label: 'Visibility', hidden: false, order: 8 },
+        { id: 'review', label: 'Review & Publish', hidden: false, order: 9 },
+    ],
+    attributeSchema: [
+        {
+            key: 'ingredients',
+            label: 'Ingredients',
+            type: 'textarea',
+            required: true,
+            group: 'specification',
+            placeholder: 'List all ingredients...'
+        },
+        {
+            key: 'storage_temp',
+            label: 'Storage Temperature',
+            type: 'select',
+            required: true,
+            options: ['Ambient', 'Refrigerated (0-4°C)', 'Frozen (-18°C)'],
+            group: 'specification'
+        },
+        {
+            key: 'shelf_life',
+            label: 'Shelf Life',
+            type: 'number',
+            required: true,
+            unit: 'days',
+            group: 'specification'
+        },
+        {
+            key: 'is_organic',
+            label: 'Organic Certified',
+            type: 'boolean',
+            required: false,
+            group: 'specification'
+        },
+        {
+            key: 'fssai_license',
+            label: 'FSSAI License No.',
+            type: 'text',
+            required: false,
+            group: 'compliance',
+            placeholder: 'e.g. 10012345678901',
+            validation: { regex: '^[0-9]{14}$', message: 'Must be 14 digits' }
+        }
+    ]
+};
+
+const ELECTRONICS_RULES = {
+    categoryId: "electronics",
+    categoryName: "Consumer Electronics",
+    features: {
+        hasVariants: true,
+        hasExpiry: false,
+        hasWarranty: true,
+        hasReturnPolicy: true,
+        isPhysical: true,
+        shippingClassRequired: true,
+        requiresCompliance: true
+    },
+    inventory: {
+        mode: 'unit',
+        allowFractional: false,
+        trackBatches: false
+    },
+    sections: [
+        { id: 'identity', label: 'Product Details', hidden: false, order: 1 },
+        { id: 'variants', label: 'Models & Variants', hidden: false, order: 2 },
+        { id: 'commercial', label: 'Pricing', hidden: false, order: 3 },
+        { id: 'attributes', label: 'Tech Specs', hidden: false, order: 4 },
+        { id: 'logistics', label: 'Shipping', hidden: false, order: 5 },
+        { id: 'compliance', label: 'Regulatory', hidden: false, order: 6 },
+    ],
+    attributeSchema: [
+        {
+            key: 'brand',
+            label: 'Brand',
+            type: 'text',
+            required: true,
+            group: 'identity'
+        },
+        {
+            key: 'model_number',
+            label: 'Model Number',
+            type: 'text',
+            required: true,
+            group: 'identity'
+        },
+        {
+            key: 'warranty_period',
+            label: 'Warranty Period',
+            type: 'number',
+            required: true,
+            unit: 'months',
+            group: 'specification'
+        },
+        {
+            key: 'warranty_type',
+            label: 'Warranty Type',
+            type: 'select',
+            required: true,
+            options: ['On-site', 'Carry-in', 'Replacement'],
+            group: 'specification'
+        },
+        {
+            key: 'bis_number',
+            label: 'BIS Registration No.',
+            type: 'text',
+            required: false,
+            group: 'compliance',
+            helperText: 'Bureau of Indian Standards registration for imported electronics'
+        }
+    ]
+};
+
+const FASHION_RULES = {
+    categoryId: "fashion",
+    categoryName: "Apparel & Fashion",
+    features: {
+        hasVariants: true,
+        hasExpiry: false,
+        hasWarranty: false,
+        hasReturnPolicy: true,
+        isPhysical: true,
+        shippingClassRequired: true,
+        requiresCompliance: false
+    },
+    inventory: {
+        mode: 'unit',
+        allowFractional: false,
+        trackBatches: false
+    },
+    sections: [
+        { id: 'identity', label: 'Overview', hidden: false, order: 1 },
+        { id: 'variants', label: 'Size & Color Matrix', hidden: false, order: 2 },
+        { id: 'attributes', label: 'Material & Care', hidden: false, order: 3 },
+        { id: 'commercial', label: 'Commercial', hidden: false, order: 4 },
+        { id: 'logistics', label: 'Shipping', hidden: false, order: 5 },
+    ],
+    attributeSchema: [
+        {
+            key: 'material',
+            label: 'Material Composition',
+            type: 'text',
+            required: true,
+            group: 'specification',
+            placeholder: 'e.g. 100% Cotton'
+        },
+        {
+            key: 'care_instructions',
+            label: 'Care Instructions',
+            type: 'multiselect',
+            required: false,
+            options: ['Machine Wash', 'Hand Wash', 'Dry Clean Only', 'Do Not Bleach'],
+            group: 'specification'
+        },
+        {
+            key: 'fit_type',
+            label: 'Fit Type',
+            type: 'select',
+            required: true,
+            options: ['Regular', 'Slim', 'Oversized', 'Loose'],
+            group: 'specification'
+        },
+        {
+            key: 'gender',
+            label: 'Gender',
+            type: 'select',
+            required: true,
+            options: ['Men', 'Women', 'Unisex', 'Kids'],
+            group: 'identity'
+        }
+    ]
+};
+
+const DEFAULT_RULES = {
+    categoryId: "generic",
+    categoryName: "General Product",
+    features: {
+        hasVariants: false,
+        hasExpiry: false,
+        hasWarranty: false,
+        hasReturnPolicy: false,
+        isPhysical: true,
+        shippingClassRequired: true,
+        requiresCompliance: false
+    },
+    inventory: {
+        mode: 'unit',
+        allowFractional: false,
+        trackBatches: false
+    },
+    sections: [
+        { id: 'identity', label: 'Basic Information', hidden: false, order: 1 },
+        { id: 'commercial', label: 'Pricing', hidden: false, order: 2 },
+        { id: 'inventory', label: 'Inventory', hidden: false, order: 3 },
+        { id: 'logistics', label: 'Shipping', hidden: false, order: 4 },
+        { id: 'attributes', label: 'Attributes', hidden: false, order: 5 },
+        { id: 'variants', label: 'Variants', hidden: true, order: 6 },
+        { id: 'compliance', label: 'Compliance', hidden: true, order: 7 },
+    ],
+    attributeSchema: []
+};

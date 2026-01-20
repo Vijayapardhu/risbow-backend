@@ -240,7 +240,16 @@ export class AdminProductService {
         if (productData.totalAllowedQuantity !== undefined) data.totalAllowedQuantity = productData.totalAllowedQuantity;
         if (productData.basePreparationTime !== undefined) data.basePreparationTime = productData.basePreparationTime;
         if (productData.storageInstructions !== undefined) data.storageInstructions = productData.storageInstructions;
+        if (productData.storageInstructions !== undefined) data.storageInstructions = productData.storageInstructions;
         if (productData.allergenInformation !== undefined) data.allergenInformation = productData.allergenInformation;
+
+        // Enterprise V2 Mapping
+        if (productData.attributes !== undefined) data.attributes = productData.attributes;
+        if (productData.costPrice !== undefined) data.costPrice = productData.costPrice;
+        if (productData.rulesSnapshot !== undefined) data.rulesSnapshot = productData.rulesSnapshot;
+        if (productData.shippingDetails !== undefined) data.shippingDetails = productData.shippingDetails;
+        if (productData.mediaGallery !== undefined) data.mediaGallery = productData.mediaGallery;
+        if (productData.variants !== undefined) data.variants = productData.variants;
 
         const product = await this.prisma.product.create({
             data,
@@ -312,7 +321,15 @@ export class AdminProductService {
         if (productData.totalAllowedQuantity !== undefined) data.totalAllowedQuantity = productData.totalAllowedQuantity;
         if (productData.basePreparationTime !== undefined) data.basePreparationTime = productData.basePreparationTime;
         if (productData.storageInstructions !== undefined) data.storageInstructions = productData.storageInstructions;
+        if (productData.storageInstructions !== undefined) data.storageInstructions = productData.storageInstructions;
         if (productData.allergenInformation !== undefined) data.allergenInformation = productData.allergenInformation;
+
+        // Enterprise V2 Mapping
+        if (productData.attributes !== undefined) data.attributes = productData.attributes;
+        if (productData.costPrice !== undefined) data.costPrice = productData.costPrice;
+        if (productData.rulesSnapshot !== undefined) data.rulesSnapshot = productData.rulesSnapshot;
+        if (productData.shippingDetails !== undefined) data.shippingDetails = productData.shippingDetails;
+        if (productData.mediaGallery !== undefined) data.mediaGallery = productData.mediaGallery;
 
         try {
             const product = await this.prisma.product.update({

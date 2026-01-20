@@ -66,6 +66,11 @@ export class CategoriesController {
         return this.catalogService.getCategory(id);
     }
 
+    @Get(':id/rules')
+    async getRules(@Param('id') id: string) {
+        return this.catalogService.getCategoryRules(id);
+    }
+
     @Post()
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('ADMIN', 'SUPER_ADMIN')

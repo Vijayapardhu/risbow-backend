@@ -156,6 +156,27 @@ export class CreateProductDto {
     @IsOptional()
     @IsArray()
     specs?: Array<{ specId: string; value: string }>;
+
+    // Enterprise V2 Fields (Phase 8)
+    @IsOptional()
+    attributes?: any; // JSONB
+
+    @IsOptional()
+    @IsInt()
+    @Min(0)
+    costPrice?: number;
+
+    @IsOptional()
+    rulesSnapshot?: any; // JSONB
+
+    @IsOptional()
+    shippingDetails?: any; // JSONB
+
+    @IsOptional()
+    mediaGallery?: any; // JSONB
+
+    @IsOptional()
+    variants?: any; // JSONB
 }
 
 export class UpdateProductDto {
@@ -313,6 +334,24 @@ export class UpdateProductDto {
 
     @IsOptional()
     variants?: any;
+
+    // Enterprise V2 Fields (Phase 8)
+    @IsOptional()
+    attributes?: any; // JSONB
+
+    @IsOptional()
+    @IsInt()
+    @Min(0)
+    costPrice?: number;
+
+    @IsOptional()
+    rulesSnapshot?: any; // JSONB
+
+    @IsOptional()
+    shippingDetails?: any; // JSONB
+
+    @IsOptional()
+    mediaGallery?: any; // JSONB
 }
 
 export class ProductFilterDto {
