@@ -4,11 +4,12 @@ import { OrdersController } from './orders.controller';
 import { OrdersAdminController } from './orders.admin.controller';
 import { RoomsModule } from '../rooms/rooms.module';
 import { CoinsModule } from '../coins/coins.module';
+import { InventoryModule } from '../inventory/inventory.module'; // Added
 
 import { OrderStateMachine } from './order-state-machine';
 
 @Module({
-    imports: [RoomsModule, CoinsModule],
+    imports: [RoomsModule, CoinsModule, InventoryModule],
     controllers: [OrdersController, OrdersAdminController],
     providers: [OrdersService, OrderStateMachine],
     exports: [OrdersService],

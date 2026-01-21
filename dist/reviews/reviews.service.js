@@ -12,9 +12,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReviewsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const cache_service_1 = require("../shared/cache.service");
 let ReviewsService = class ReviewsService {
-    constructor(prisma) {
+    constructor(prisma, cache) {
         this.prisma = prisma;
+        this.cache = cache;
     }
     async create(userId, productId, dto) {
         const existingReview = await this.prisma.review.findFirst({
@@ -43,7 +45,7 @@ let ReviewsService = class ReviewsService {
         });
         if (!product)
             throw new common_1.NotFoundException('Product not found');
-        return this.prisma.review.create({
+        const review = await this.prisma.review.create({
             data: {
                 userId,
                 productId,
@@ -55,26 +57,31 @@ let ReviewsService = class ReviewsService {
                 status: 'ACTIVE'
             }
         });
+        await this.cache.delPattern(`reviews:product:${productId}:*`);
+        return review;
     }
     async findAllByProduct(productId, page = 1, limit = 10) {
-        const skip = (page - 1) * limit;
-        const [reviews, total] = await this.prisma.$transaction([
-            this.prisma.review.findMany({
-                where: { productId, status: 'ACTIVE' },
-                include: { user: { select: { id: true, name: true } } },
-                orderBy: [
-                    { helpfulCount: 'desc' },
-                    { createdAt: 'desc' }
-                ],
-                skip,
-                take: limit,
-            }),
-            this.prisma.review.count({ where: { productId, status: 'ACTIVE' } })
-        ]);
-        return {
-            data: reviews,
-            meta: { total, page, limit, pages: Math.ceil(total / limit) }
-        };
+        const cacheKey = `reviews:product:${productId}:p${page}:l${limit}`;
+        return await this.cache.getOrSet(cacheKey, 300, async () => {
+            const skip = (page - 1) * limit;
+            const [reviews, total] = await this.prisma.$transaction([
+                this.prisma.review.findMany({
+                    where: { productId, status: 'ACTIVE' },
+                    include: { user: { select: { id: true, name: true } } },
+                    orderBy: [
+                        { helpfulCount: 'desc' },
+                        { createdAt: 'desc' }
+                    ],
+                    skip,
+                    take: limit,
+                }),
+                this.prisma.review.count({ where: { productId, status: 'ACTIVE' } })
+            ]);
+            return {
+                data: reviews,
+                meta: { total, page, limit, pages: Math.ceil(total / limit) }
+            };
+        });
     }
     async getVendorReviews(vendorId) {
         const aggregations = await this.prisma.review.aggregate({
@@ -144,6 +151,7 @@ let ReviewsService = class ReviewsService {
 exports.ReviewsService = ReviewsService;
 exports.ReviewsService = ReviewsService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        cache_service_1.CacheService])
 ], ReviewsService);
 //# sourceMappingURL=reviews.service.js.map

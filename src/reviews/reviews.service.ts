@@ -1,10 +1,14 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReviewDto, UpdateReviewDto, ReportReviewDto } from './dto/review.dto';
+import { CacheService } from '../shared/cache.service';
 
 @Injectable()
 export class ReviewsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private cache: CacheService
+    ) { }
 
     async create(userId: string, productId: string, dto: CreateReviewDto) {
         // 1. Check if User already reviewed this product
@@ -16,11 +20,6 @@ export class ReviewsService {
         }
 
         // 2. Verify Purchase (DELIVERED Order containing Product)
-        // We need to check orders for this user that have status DELIVERED
-        // and contain the productId in their items JSON.
-        // Prisma JSON filtering can be tricky, so we might fetch delivered orders and filter in code if complex,
-        // or usage path query if structure is known. Assuming items is Array of objects with productId.
-
         const deliveredOrders = await this.prisma.order.findMany({
             where: {
                 userId,
@@ -46,7 +45,7 @@ export class ReviewsService {
         if (!product) throw new NotFoundException('Product not found');
 
         // 4. Create Review
-        return this.prisma.review.create({
+        const review = await this.prisma.review.create({
             data: {
                 userId,
                 productId,
@@ -58,28 +57,41 @@ export class ReviewsService {
                 status: 'ACTIVE'
             }
         });
+
+        // Invalidate Product Reviews Cache
+        await this.cache.delPattern(`reviews:product:${productId}:*`);
+
+        return review;
     }
 
     async findAllByProduct(productId: string, page = 1, limit = 10) {
-        const skip = (page - 1) * limit;
-        const [reviews, total] = await this.prisma.$transaction([
-            this.prisma.review.findMany({
-                where: { productId, status: 'ACTIVE' },
-                include: { user: { select: { id: true, name: true } } },
-                orderBy: [
-                    { helpfulCount: 'desc' },
-                    { createdAt: 'desc' }
-                ],
-                skip,
-                take: limit,
-            }),
-            this.prisma.review.count({ where: { productId, status: 'ACTIVE' } })
-        ]);
+        const cacheKey = `reviews:product:${productId}:p${page}:l${limit}`;
 
-        return {
-            data: reviews,
-            meta: { total, page, limit, pages: Math.ceil(total / limit) }
-        };
+        return await this.cache.getOrSet(
+            cacheKey,
+            300, // 5 mins TTL
+            async () => {
+                const skip = (page - 1) * limit;
+                const [reviews, total] = await this.prisma.$transaction([
+                    this.prisma.review.findMany({
+                        where: { productId, status: 'ACTIVE' },
+                        include: { user: { select: { id: true, name: true } } },
+                        orderBy: [
+                            { helpfulCount: 'desc' },
+                            { createdAt: 'desc' }
+                        ],
+                        skip,
+                        take: limit,
+                    }),
+                    this.prisma.review.count({ where: { productId, status: 'ACTIVE' } })
+                ]);
+
+                return {
+                    data: reviews,
+                    meta: { total, page, limit, pages: Math.ceil(total / limit) }
+                };
+            }
+        );
     }
 
     async getVendorReviews(vendorId: string) {

@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TelecallerController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const roles_guard_1 = require("../common/guards/roles.guard");
 const roles_decorator_1 = require("../common/decorators/roles.decorator");
@@ -72,6 +73,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TelecallerController.prototype, "getSupportTickets", null);
 exports.TelecallerController = TelecallerController = __decorate([
+    (0, swagger_1.ApiTags)('Telecaller'),
     (0, common_1.Controller)('telecaller'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('TELECALLER', 'ADMIN', 'SUPER_ADMIN'),

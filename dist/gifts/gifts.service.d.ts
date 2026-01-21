@@ -1,9 +1,11 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateGiftDto, UpdateGiftDto, GiftResponseDto } from './dto/gift.dto';
+import { CacheService } from '../shared/cache.service';
 export declare class GiftsService {
     private prisma;
+    private cache;
     private readonly logger;
-    constructor(prisma: PrismaService);
+    constructor(prisma: PrismaService, cache: CacheService);
     getAllGifts(): Promise<GiftResponseDto[]>;
     getEligibleGifts(categoryIds: string[]): Promise<GiftResponseDto[]>;
     getGiftById(id: string): Promise<GiftResponseDto>;

@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WholesaleController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const catalog_service_1 = require("../catalog/catalog.service");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 let WholesaleController = class WholesaleController {
@@ -34,6 +35,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], WholesaleController.prototype, "getWholesaleProducts", null);
 exports.WholesaleController = WholesaleController = __decorate([
+    (0, swagger_1.ApiTags)('Catalog'),
     (0, common_1.Controller)('wholesale'),
     __metadata("design:paramtypes", [catalog_service_1.CatalogService])
 ], WholesaleController);

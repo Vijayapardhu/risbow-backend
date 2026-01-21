@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const admin_service_1 = require("./admin.service");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const roles_guard_1 = require("../common/guards/roles.guard");
@@ -38,12 +39,6 @@ let AdminController = class AdminController {
     }
     getStats() {
         return this.adminService.getAnalytics();
-    }
-    getDashboardKPIs(period) {
-        return this.adminService.getDashboardKPIs(period);
-    }
-    getDashboardStats(period) {
-        return this.adminService.getDashboardAnalytics(period);
     }
     getHealth() {
         return this.adminService.getSystemHealth();
@@ -149,80 +144,20 @@ let AdminController = class AdminController {
     createRoom(req, body) {
         return this.adminService.createRoom(req.user.id, body);
     }
-    getAllOrders(limit, search, status) {
-        return this.adminService.getAllOrders(limit, search, status);
-    }
-    getOrderById(id) {
-        return this.adminService.getOrderById(id);
-    }
-    updateOrderStatus(req, id, body) {
-        return this.adminService.updateOrderStatus(req.user.id, id, body.status, body.logistics);
-    }
-    getBanners() {
-        return this.adminService.getBanners();
-    }
-    createBanner(req, body) {
-        return this.adminService.createBanner(req.user.id, body);
-    }
-    toggleBanner(id, isActive) {
-        return this.adminService.toggleBannerStatus(id, isActive);
-    }
     sendBroadcast(req, body) {
         return this.adminService.sendBroadcast(req.user.id, body.title, body.body, body.audience);
     }
     getChartData() {
         return this.adminService.getAnalytics();
     }
-    getCategories() {
-        return this.adminService.getCategories();
-    }
-    createCategory(body) {
-        return this.adminService.createCategory(body);
-    }
-    getCategory(id) {
-        return this.adminService.getCategoryById(id);
-    }
-    deleteCategory(id) {
-        return this.adminService.deleteCategory(id);
-    }
-    updateCategory(id, body) {
-        return this.adminService.updateCategory(id, body);
-    }
-    updateCategoryPatch(id, body) {
-        return this.adminService.updateCategory(id, body);
-    }
     updateCommission(req, id, rate) {
         return this.adminService.updateVendorCommission(req.user.id, id, rate);
-    }
-    createProduct(body) {
-        return this.adminService.createProduct(body);
-    }
-    bulkCreateProduct(body) {
-        return this.adminService.bulkCreateProducts(body.products);
-    }
-    toggleProduct(id, isActive) {
-        return this.adminService.toggleProductStatus(id, isActive);
-    }
-    deleteBanner(id) {
-        return this.adminService.deleteBanner(id);
     }
     getSettings() {
         return this.adminService.getPlatformConfig();
     }
     updateSetting(body) {
         return this.adminService.updatePlatformConfig(body.key, body.value);
-    }
-    getCoupons() {
-        return this.adminService.getCoupons();
-    }
-    createCoupon(body) {
-        return this.adminService.createCoupon(body);
-    }
-    updateCoupon(id, body) {
-        return this.adminService.updateCoupon(id, body);
-    }
-    deleteCoupon(id) {
-        return this.adminService.deleteCoupon(id);
     }
     getCoinTransactions() {
         return this.adminService.getAllCoinTransactions();
@@ -279,20 +214,6 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "getStats", null);
-__decorate([
-    (0, common_1.Get)('dashboard/kpis'),
-    __param(0, (0, common_1.Query)('period')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "getDashboardKPIs", null);
-__decorate([
-    (0, common_1.Get)('dashboard/stats'),
-    __param(0, (0, common_1.Query)('period')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "getDashboardStats", null);
 __decorate([
     (0, common_1.Get)('health'),
     __metadata("design:type", Function),
@@ -588,53 +509,6 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "createRoom", null);
 __decorate([
-    (0, common_1.Get)('orders'),
-    __param(0, (0, common_1.Query)('limit')),
-    __param(1, (0, common_1.Query)('search')),
-    __param(2, (0, common_1.Query)('status')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, String, String]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "getAllOrders", null);
-__decorate([
-    (0, common_1.Get)('orders/:id'),
-    __param(0, (0, common_1.Param)('id')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "getOrderById", null);
-__decorate([
-    (0, common_1.Post)('orders/:id/status'),
-    __param(0, (0, common_1.Request)()),
-    __param(1, (0, common_1.Param)('id')),
-    __param(2, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, Object]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "updateOrderStatus", null);
-__decorate([
-    (0, common_1.Get)('banners'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "getBanners", null);
-__decorate([
-    (0, common_1.Post)('banners'),
-    __param(0, (0, common_1.Request)()),
-    __param(1, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "createBanner", null);
-__decorate([
-    (0, common_1.Post)('banners/:id/toggle'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)('isActive')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Boolean]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "toggleBanner", null);
-__decorate([
     (0, common_1.Post)('notifications/broadcast'),
     (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
     __param(0, (0, common_1.Request)()),
@@ -650,49 +524,6 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "getChartData", null);
 __decorate([
-    (0, common_1.Get)('categories'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "getCategories", null);
-__decorate([
-    (0, common_1.Post)('categories'),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "createCategory", null);
-__decorate([
-    (0, common_1.Get)('categories/:id'),
-    __param(0, (0, common_1.Param)('id')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "getCategory", null);
-__decorate([
-    (0, common_1.Delete)('categories/:id'),
-    __param(0, (0, common_1.Param)('id')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "deleteCategory", null);
-__decorate([
-    (0, common_1.Post)('categories/:id'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "updateCategory", null);
-__decorate([
-    (0, common_1.Patch)('categories/:id'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "updateCategoryPatch", null);
-__decorate([
     (0, common_1.Post)('vendors/:id/commission'),
     (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
     __param(0, (0, common_1.Request)()),
@@ -702,36 +533,6 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, Number]),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "updateCommission", null);
-__decorate([
-    (0, common_1.Post)('products'),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "createProduct", null);
-__decorate([
-    (0, common_1.Post)('products/bulk'),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "bulkCreateProduct", null);
-__decorate([
-    (0, common_1.Post)('products/:id/toggle'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)('isActive')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Boolean]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "toggleProduct", null);
-__decorate([
-    (0, common_1.Delete)('banners/:id'),
-    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
-    __param(0, (0, common_1.Param)('id')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "deleteBanner", null);
 __decorate([
     (0, common_1.Get)('settings'),
     __metadata("design:type", Function),
@@ -746,37 +547,6 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "updateSetting", null);
-__decorate([
-    (0, common_1.Get)('coupons'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "getCoupons", null);
-__decorate([
-    (0, common_1.Post)('coupons'),
-    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "createCoupon", null);
-__decorate([
-    (0, common_1.Patch)('coupons/:id'),
-    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "updateCoupon", null);
-__decorate([
-    (0, common_1.Delete)('coupons/:id'),
-    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
-    __param(0, (0, common_1.Param)('id')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], AdminController.prototype, "deleteCoupon", null);
 __decorate([
     (0, common_1.Get)('coins/transactions'),
     __metadata("design:type", Function),
@@ -818,6 +588,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "resolveReport", null);
 exports.AdminController = AdminController = __decorate([
+    (0, swagger_1.ApiTags)('Admin'),
     (0, common_1.Controller)('admin'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),

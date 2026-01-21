@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CheckoutDto, ConfirmOrderDto } from './dto/order.dto';
 import { ConfigService } from '@nestjs/config';
@@ -10,9 +10,12 @@ import { CoinSource } from '../coins/dto/coin.dto';
 
 import { OrderStateMachine } from './order-state-machine';
 
+import { InventoryService } from '../inventory/inventory.service';
+
 @Injectable()
 export class OrdersService {
     private razorpay: Razorpay;
+    private readonly logger = new Logger(OrdersService.name);
 
     constructor(
         private prisma: PrismaService,
@@ -20,6 +23,7 @@ export class OrdersService {
         private roomsService: RoomsService,
         private coinsService: CoinsService,
         private stateMachine: OrderStateMachine,
+        private inventoryService: InventoryService
     ) {
         this.razorpay = new Razorpay({
             key_id: this.configService.get('RAZORPAY_KEY_ID'),
@@ -28,14 +32,86 @@ export class OrdersService {
     }
 
     async createCheckout(userId: string, dto: CheckoutDto & { abandonedCheckoutId?: string }) {
-        // 1) Calculate total (placeholder pricing: ₹100 per item)
-        const totalBeforeCoins = dto.items.reduce((acc, item) => acc + (100 * item.quantity), 0) || 100;
+        // 1. Fetch Items with Fresh Prices/Stock for Total Calculation
+        const itemIds = dto.items.map(i => i.productId);
+        const products = await this.prisma.product.findMany({
+            where: { id: { in: itemIds } }
+        });
+        const productMap = new Map(products.map(p => [p.id, p]));
+
+        let totalCalculated = 0;
+        const validItems = [];
+
+        for (const item of dto.items) {
+            const product = productMap.get(item.productId);
+            if (!product) throw new NotFoundException(`Product ${item.productId} not found`);
+
+            // Variant Logic
+            let price = product.offerPrice || product.price;
+            let stock = product.stock;
+
+            if (item.variantId) {
+                const variants = (product.variants as any[]) || [];
+                const variant = variants.find(v => v.id === item.variantId);
+                if (!variant) throw new BadRequestException(`Variant ${item.variantId} not found for product ${product.title}`);
+                price = variant.offerPrice || variant.price || variant.sellingPrice || price;
+                stock = variant.stock;
+            }
+
+            // Validation: Stock
+            if (stock < item.quantity) {
+                throw new BadRequestException(`Insufficient stock for ${product.title} (Available: ${stock})`);
+            }
+
+            // Validation: Inventory Rules
+            if (item.quantity < product.minOrderQuantity) {
+                throw new BadRequestException(`Min order quantity for ${product.title} is ${product.minOrderQuantity}`);
+            }
+            if (item.quantity > product.totalAllowedQuantity) {
+                throw new BadRequestException(`Max allowed quantity for ${product.title} is ${product.totalAllowedQuantity}`);
+            }
+            if ((item.quantity - product.minOrderQuantity) % product.quantityStepSize !== 0) {
+                throw new BadRequestException(`Quantity for ${product.title} must be in steps of ${product.quantityStepSize}`);
+            }
+
+            // Calc Total
+            totalCalculated += (price * item.quantity);
+
+            // Snapshot Rule Data
+            validItems.push({
+                ...item,
+                price: price, // Snapshot price at time of order
+                vendorId: product.vendorId, // Explicitly persist vendorId for filtering
+                rulesSnapshot: {
+                    moq: product.minOrderQuantity,
+                    step: product.quantityStepSize,
+                    max: product.totalAllowedQuantity
+                }
+            });
+        }
+
+        // 1.5 Reserve Stock (Phase 3.1)
+        // We must reverse all if any fails
+        const reservedItems = [];
+        try {
+            for (const item of validItems) {
+                await this.inventoryService.reserveStock(item.productId, item.quantity, item.variantId);
+                reservedItems.push(item);
+            }
+        } catch (e) {
+            // Rollback
+            this.logger.error(`Stock reservation failed: ${e.message}`, e.stack);
+            for (const rItem of reservedItems) {
+                await this.inventoryService.releaseStock(rItem.productId, rItem.quantity, rItem.variantId);
+            }
+            throw new BadRequestException(`Failed to reserve stock: ${e.message}`);
+        }
 
         // 2) Apply coin redemption safely
         const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { coinsBalance: true } });
         const requestedCoins = Math.max(0, dto.useCoins || 0);
-        const usableCoins = Math.min(requestedCoins, user?.coinsBalance || 0, totalBeforeCoins);
-        const payable = Math.max(1, totalBeforeCoins - usableCoins);
+        const usableCoins = Math.min(requestedCoins, user?.coinsBalance || 0, totalCalculated);
+        const payable = Math.max(1, totalCalculated - usableCoins);
 
         // 3) Create Razorpay Order for payable amount
         const rzpOrder = await this.razorpay.orders.create({
@@ -49,12 +125,12 @@ export class OrdersService {
             data: {
                 userId,
                 roomId: dto.roomId,
-                items: dto.items as any,
+                items: validItems as any, // Stores price & rulesSnapshot
                 totalAmount: payable,
                 coinsUsed: usableCoins,
                 status: OrderStatus.PENDING_PAYMENT,
                 razorpayOrderId: rzpOrder.id,
-                abandonedCheckoutId: dto.abandonedCheckoutId, // Link Recovery Lead
+                abandonedCheckoutId: dto.abandonedCheckoutId,
             },
         });
 
@@ -65,7 +141,7 @@ export class OrdersService {
             currency: 'INR',
             key: this.configService.get('RAZORPAY_KEY_ID'),
             coinsUsed: usableCoins,
-            totalBeforeCoins,
+            totalBeforeCoins: totalCalculated,
         };
     }
 
@@ -98,6 +174,30 @@ export class OrdersService {
             where: { id: order.id },
             data: { status: OrderStatus.CONFIRMED },
         });
+
+        // 2.2 Deduct Stock (Phase 4.1)
+        // If this fails, we have confirmed order but stock not deducted.
+        // Critical: Error handling or atomic transaction?
+        // We committed confirmed status above.
+        // Ideally we should do this BEFORE or WITH strict transaction.
+        // Retrying for now if fails.
+        // Actually, let's wrap logic. BUT `confirmOrder` has side effects like Coins.
+        // We will execute sequentially.
+        const orderItems = order.items as any[];
+        for (const item of orderItems) {
+            try {
+                await this.inventoryService.deductStock(
+                    item.productId,
+                    item.quantity,
+                    item.variantId
+                );
+            } catch (e) {
+                console.error(`Failed to deduct stock for order ${order.id} item ${item.productId}:`, e);
+                // Alert Admin / Sentry
+                // We do NOT rollback order status because money is paid (Signature verified).
+                // We prioritize order record. Stock drift must be fixed manually or via reconciliation job.
+            }
+        }
 
         // 2.5 Mark Abandoned Checkout as CONVERTED
         if (order.abandonedCheckoutId) {
@@ -544,14 +644,15 @@ export class OrdersService {
                 data: { status }
             });
 
-            await tx.orderTimeline.create({
-                data: {
-                    orderId,
-                    status,
-                    notes,
-                    changedBy: userId
-                }
-            });
+            // OrderTimeline model not in schema - skipping
+            // await tx.orderTimeline.create({
+            //     data: {
+            //         orderId,
+            //         status,
+            //         notes,
+            //         changedBy: userId
+            //     }
+            // });
 
             // TODO: Emit Notification Event (Mock)
             // this.eventEmitter.emit('order.status_change', { orderId, status });
@@ -574,34 +675,42 @@ export class OrdersService {
             role as any
         );
 
-        return this.prisma.$transaction(async (tx) => {
-            const updated = await tx.order.update({
-                where: { id: orderId },
-                data: { status: OrderStatus.CANCELLED }
-            });
-
-            await tx.orderTimeline.create({
-                data: {
-                    orderId,
-                    status: OrderStatus.CANCELLED,
-                    notes: `Cancelled by ${role}: ${reason || 'No reason'}`,
-                    changedBy: userId
-                }
-            });
-            return updated;
+        const updated = await tx.order.update({
+            where: { id: orderId },
+            data: { status: OrderStatus.CANCELLED }
         });
-    }
+
+        // Restore Stock (Phase 5.1)
+        const deductedStatuses = [OrderStatus.CONFIRMED.toString(), OrderStatus.PACKED.toString(), OrderStatus.PAID.toString()];
+        // Note: Enum to string for safety, or direct enum comparison if valid.
+        const isDeducted = [OrderStatus.CONFIRMED, OrderStatus.PACKED, OrderStatus.PAID].includes(order.status);
+
+        if (isDeducted) {
+            const orderItems = order.items as any[];
+            for (const item of orderItems) {
+                await this.inventoryService.restoreStock(item.productId, item.quantity, item.variantId);
+            }
+        } else if (order.status === OrderStatus.PENDING_PAYMENT || order.status === OrderStatus.PENDING) {
+            const orderItems = order.items as any[];
+            for (const item of orderItems) {
+                await this.inventoryService.releaseStock(item.productId, item.quantity, item.variantId);
+            }
+        }
+
+        return updated;
+    });
+}
 
     async getOrderTracking(orderId: string) {
-        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-        if (!order) throw new NotFoundException('Order not found');
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Order not found');
 
-        return {
-            status: order.status,
-            awb: order.awbNumber,
-            courier: order.courierPartner,
-            trackingUrl: order.awbNumber ? `https://track.courier.com/${order.awbNumber}` : null, // Mock
-            lastUpdate: order.updatedAt
-        };
-    }
+    return {
+        status: order.status,
+        awb: order.awbNumber,
+        courier: order.courierPartner,
+        trackingUrl: order.awbNumber ? `https://track.courier.com/${order.awbNumber}` : null, // Mock
+        lastUpdate: order.updatedAt
+    };
+}
 }

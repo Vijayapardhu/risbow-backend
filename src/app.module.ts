@@ -20,6 +20,8 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { TelecallerModule } from './telecaller/telecaller.module';
 import { ReturnsModule } from './returns/returns.module';
 import { CartModule } from './cart/cart.module';
+import { VendorOrdersModule } from './vendor-orders/vendor-orders.module';
+import { InventoryModule } from './inventory/inventory.module';
 
 import { UploadModule } from './upload/upload.module';
 import { ReviewsModule } from './reviews/reviews.module';
@@ -28,6 +30,9 @@ import { GiftsModule } from './gifts/gifts.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { BannersModule } from './banners/banners.module';
 import { QueuesModule } from './queues/queues.module';
+import { VendorMembershipsModule } from './vendor-memberships/vendor-memberships.module';
+import { VendorStoreModule } from './vendor-store/vendor-store.module';
+import { VendorProductsModule } from './vendor-products/vendor-products.module';
 
 import { SharedModule } from './shared/shared.module';
 import { HealthController } from './common/health.controller';
@@ -37,15 +42,20 @@ import { HealthController } from './common/health.controller';
         ConfigModule.forRoot({ isGlobal: true }),
         ScheduleModule.forRoot(),
         ThrottlerModule.forRoot([{
-            ttl: 60000,
-            limit: 100,
+            ttl: parseInt(process.env.THROTTLE_TTL) || 60000,
+            limit: parseInt(process.env.THROTTLE_LIMIT) || 100,
         }]),
-        BullModule.forRoot({
-            connection: {
-                host: process.env.REDIS_HOST || 'localhost',
-                port: parseInt(process.env.REDIS_PORT) || 6379,
-            },
-        }),
+        // Redis & Queues - Disabled in Test Environment to handle missing Redis
+        ...(process.env.NODE_ENV === 'test' ? [] : [
+            BullModule.forRoot({
+                connection: {
+                    host: process.env.REDIS_HOST || 'localhost',
+                    port: parseInt(process.env.REDIS_PORT) || 6379,
+                },
+            }),
+            QueuesModule,
+            AdminModule, // Depends on QueuesModule
+        ]),
         PrismaModule,
         AuditModule,
         AnalyticsModule,
@@ -58,7 +68,7 @@ import { HealthController } from './common/health.controller';
         OrdersModule,
         VendorsModule,
         PaymentsModule,
-        AdminModule,
+        // AdminModule handled above
         CheckoutModule,
         BowModule,
         TelecallerModule,
@@ -70,7 +80,12 @@ import { HealthController } from './common/health.controller';
         GiftsModule,
         CouponsModule,
         BannersModule,
-        QueuesModule,
+        VendorMembershipsModule,
+        VendorStoreModule,
+        VendorProductsModule,
+        VendorOrdersModule,
+        InventoryModule,
+        // QueuesModule handled above in conditional import
     ],
     controllers: [HealthController],
 })

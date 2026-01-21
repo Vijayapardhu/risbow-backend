@@ -27,10 +27,10 @@ export declare class UsersController {
         valueTag: import(".prisma/client").$Enums.ValueTag;
         isCodDisabled: boolean;
         isRefundsDisabled: boolean;
-        kycStatus: string;
-        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         updatedAt: Date;
     }>;
     updateProfile(req: any, updateUserDto: UpdateUserDto): Promise<{
@@ -55,10 +55,10 @@ export declare class UsersController {
         valueTag: import(".prisma/client").$Enums.ValueTag;
         isCodDisabled: boolean;
         isRefundsDisabled: boolean;
-        kycStatus: string;
-        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         updatedAt: Date;
     }>;
     getCoins(req: any): Promise<{
@@ -82,15 +82,15 @@ export declare class UsersController {
             updatedAt: Date;
             userId: string;
             title: string | null;
-            phone: string;
             street: string | null;
-            addressLine1: string;
-            addressLine2: string | null;
             city: string;
             state: string;
             pincode: string;
-            label: string;
             isDefault: boolean;
+            addressLine1: string;
+            addressLine2: string | null;
+            label: string;
+            phone: string;
         };
         payment: {
             id: string;
@@ -119,9 +119,12 @@ export declare class UsersController {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
-        shippingCharges: number;
+        giftId: string | null;
+        couponCode: string | null;
+        discountAmount: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
+        shippingCharges: number;
     })[]>;
     getOrderDetails(req: any, orderId: string): Promise<{
         address: {
@@ -132,15 +135,15 @@ export declare class UsersController {
             updatedAt: Date;
             userId: string;
             title: string | null;
-            phone: string;
             street: string | null;
-            addressLine1: string;
-            addressLine2: string | null;
             city: string;
             state: string;
             pincode: string;
-            label: string;
             isDefault: boolean;
+            addressLine1: string;
+            addressLine2: string | null;
+            label: string;
+            phone: string;
         };
         payment: {
             id: string;
@@ -169,9 +172,12 @@ export declare class UsersController {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
-        shippingCharges: number;
+        giftId: string | null;
+        couponCode: string | null;
+        discountAmount: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
+        shippingCharges: number;
     }>;
     getWishlist(req: any): Promise<({
         product: {
@@ -227,15 +233,15 @@ export declare class UsersController {
         updatedAt: Date;
         userId: string;
         title: string | null;
-        phone: string;
         street: string | null;
-        addressLine1: string;
-        addressLine2: string | null;
         city: string;
         state: string;
         pincode: string;
-        label: string;
         isDefault: boolean;
+        addressLine1: string;
+        addressLine2: string | null;
+        label: string;
+        phone: string;
     }[]>;
     createAddress(req: any, addressData: any): Promise<{
         id: string;
@@ -245,15 +251,15 @@ export declare class UsersController {
         updatedAt: Date;
         userId: string;
         title: string | null;
-        phone: string;
         street: string | null;
-        addressLine1: string;
-        addressLine2: string | null;
         city: string;
         state: string;
         pincode: string;
-        label: string;
         isDefault: boolean;
+        addressLine1: string;
+        addressLine2: string | null;
+        label: string;
+        phone: string;
     }>;
     updateAddress(req: any, id: string, addressData: any): Promise<{
         id: string;
@@ -263,15 +269,15 @@ export declare class UsersController {
         updatedAt: Date;
         userId: string;
         title: string | null;
-        phone: string;
         street: string | null;
-        addressLine1: string;
-        addressLine2: string | null;
         city: string;
         state: string;
         pincode: string;
-        label: string;
         isDefault: boolean;
+        addressLine1: string;
+        addressLine2: string | null;
+        label: string;
+        phone: string;
     }>;
     updateAddressAlt(req: any, id: string, addressData: any): Promise<{
         id: string;
@@ -281,15 +287,15 @@ export declare class UsersController {
         updatedAt: Date;
         userId: string;
         title: string | null;
-        phone: string;
         street: string | null;
-        addressLine1: string;
-        addressLine2: string | null;
         city: string;
         state: string;
         pincode: string;
-        label: string;
         isDefault: boolean;
+        addressLine1: string;
+        addressLine2: string | null;
+        label: string;
+        phone: string;
     }>;
     deleteAddress(req: any, id: string): Promise<{
         success: boolean;

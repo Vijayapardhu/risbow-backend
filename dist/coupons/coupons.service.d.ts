@@ -1,9 +1,11 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCouponDto, UpdateCouponDto, ValidateCouponDto, CouponResponseDto, CouponValidationResponseDto } from './dto/coupon.dto';
+import { CacheService } from '../shared/cache.service';
 export declare class CouponsService {
     private prisma;
+    private cache;
     private readonly logger;
-    constructor(prisma: PrismaService);
+    constructor(prisma: PrismaService, cache: CacheService);
     getAllCoupons(): Promise<CouponResponseDto[]>;
     getActiveCoupons(): Promise<CouponResponseDto[]>;
     getCouponByCode(code: string): Promise<CouponResponseDto>;

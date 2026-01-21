@@ -12,8 +12,9 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GiftsController = exports.CategoriesController = exports.CatalogController = void 0;
+exports.CategoriesController = exports.CatalogController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const catalog_service_1 = require("./catalog.service");
 const catalog_dto_1 = require("./dto/catalog.dto");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
@@ -100,6 +101,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], CatalogController.prototype, "remove", null);
 exports.CatalogController = CatalogController = __decorate([
+    (0, swagger_1.ApiTags)('Products'),
     (0, common_1.Controller)('products'),
     __metadata("design:paramtypes", [catalog_service_1.CatalogService])
 ], CatalogController);
@@ -239,78 +241,8 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], CategoriesController.prototype, "reorderSpecs", null);
 exports.CategoriesController = CategoriesController = __decorate([
+    (0, swagger_1.ApiTags)('Catalog'),
     (0, common_1.Controller)('categories'),
     __metadata("design:paramtypes", [catalog_service_1.CatalogService])
 ], CategoriesController);
-let GiftsController = class GiftsController {
-    constructor(catalogService) {
-        this.catalogService = catalogService;
-    }
-    async getAll() {
-        return this.catalogService.getAllGifts();
-    }
-    async getEligible(cartValue, categoryIds) {
-        const val = parseInt(cartValue, 10) || 0;
-        const cats = categoryIds ? categoryIds.split(',') : [];
-        return this.catalogService.getEligibleGifts(val, cats);
-    }
-    async create(body) {
-        return this.catalogService.createGift(body);
-    }
-    async update(id, body) {
-        return this.catalogService.updateGift(id, body);
-    }
-    async remove(id) {
-        return this.catalogService.deleteGift(id);
-    }
-};
-exports.GiftsController = GiftsController;
-__decorate([
-    (0, common_1.Get)(),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
-], GiftsController.prototype, "getAll", null);
-__decorate([
-    (0, common_1.Get)('eligible'),
-    __param(0, (0, common_1.Query)('cartValue')),
-    __param(1, (0, common_1.Query)('categoryIds')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
-    __metadata("design:returntype", Promise)
-], GiftsController.prototype, "getEligible", null);
-__decorate([
-    (0, common_1.Post)(),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], GiftsController.prototype, "create", null);
-__decorate([
-    (0, common_1.Patch)(':id'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", Promise)
-], GiftsController.prototype, "update", null);
-__decorate([
-    (0, common_1.Delete)(':id'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
-    __param(0, (0, common_1.Param)('id')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], GiftsController.prototype, "remove", null);
-exports.GiftsController = GiftsController = __decorate([
-    (0, common_1.Controller)('gifts'),
-    __metadata("design:paramtypes", [catalog_service_1.CatalogService])
-], GiftsController);
 //# sourceMappingURL=catalog.controller.js.map

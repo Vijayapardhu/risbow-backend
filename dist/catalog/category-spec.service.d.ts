@@ -9,48 +9,45 @@ export declare class CategorySpecService {
         createdAt: Date;
         updatedAt: Date;
         type: import(".prisma/client").$Enums.SpecType;
+        key: string;
         label: string;
         required: boolean;
         categoryId: string;
         isActive: boolean;
-        key: string;
         labelTE: string | null;
         unit: string | null;
         options: import("@prisma/client/runtime/library").JsonValue | null;
         sortOrder: number;
-        scope: import(".prisma/client").$Enums.AttributeScope;
     }>;
     updateCategorySpec(specId: string, dto: UpdateCategorySpecDto): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         type: import(".prisma/client").$Enums.SpecType;
+        key: string;
         label: string;
         required: boolean;
         categoryId: string;
         isActive: boolean;
-        key: string;
         labelTE: string | null;
         unit: string | null;
         options: import("@prisma/client/runtime/library").JsonValue | null;
         sortOrder: number;
-        scope: import(".prisma/client").$Enums.AttributeScope;
     }>;
     deleteCategorySpec(specId: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         type: import(".prisma/client").$Enums.SpecType;
+        key: string;
         label: string;
         required: boolean;
         categoryId: string;
         isActive: boolean;
-        key: string;
         labelTE: string | null;
         unit: string | null;
         options: import("@prisma/client/runtime/library").JsonValue | null;
         sortOrder: number;
-        scope: import(".prisma/client").$Enums.AttributeScope;
     }>;
     reorderSpecs(categoryId: string, specs: Array<{
         id: string;
@@ -67,23 +64,22 @@ export declare class CategorySpecService {
             createdAt: Date;
             updatedAt: Date;
             type: import(".prisma/client").$Enums.SpecType;
+            key: string;
             label: string;
             required: boolean;
             categoryId: string;
             isActive: boolean;
-            key: string;
             labelTE: string | null;
             unit: string | null;
             options: import("@prisma/client/runtime/library").JsonValue | null;
             sortOrder: number;
-            scope: import(".prisma/client").$Enums.AttributeScope;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        value: string;
         productId: string;
         specId: string;
-        value: string;
     })[]>;
 }

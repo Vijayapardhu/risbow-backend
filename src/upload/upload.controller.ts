@@ -93,12 +93,7 @@ export class UploadController {
         return this.uploadService.uploadDocument(file, req.user.id, dto.documentType); // Use userId from paths
     }
 
-    @Delete(':path(*)') // Wildcard to capture full path if passed, usually we pass encoded path or just ID?
-    // User requirement: DELETE /upload/:id
-    // But files are stored as paths: products/{id}/{file}.webp
-    // If client sends just the filename part, we might not know context.
-    // If client sends full path, we need wildcard.
-    // Let's assume client sends the `path` returned in upload response.
+    @Delete(':path')
     @ApiOperation({ summary: 'Delete a file' })
     async deleteFile(
         @Param('path') path: string

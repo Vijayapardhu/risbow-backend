@@ -57,7 +57,7 @@ let AdminProductService = class AdminProductService {
                     orderBy: { createdAt: 'desc' },
                 });
             }
-            const totalActive = await this.prisma.product.count({ where: { visibility: 'PUBLISHED' } });
+            const totalActive = await this.prisma.product.count({ where: { isActive: true } });
             const transformedProducts = products.map(product => {
                 const reviews = Array.isArray(product.reviews) ? product.reviews : [];
                 const images = Array.isArray(product.images) ? product.images : [];
@@ -121,7 +121,7 @@ let AdminProductService = class AdminProductService {
                     multiVendor: 0,
                     priceConflicts: 0,
                     lowStock: await this.prisma.product.count({ where: { stock: { lt: 10 } } }),
-                    suppressed: await this.prisma.product.count({ where: { visibility: { in: ['DRAFT', 'BLOCKED'] } } }),
+                    suppressed: await this.prisma.product.count({ where: { isActive: false } }),
                 },
                 products: transformedProducts,
                 pagination: {
@@ -276,7 +276,6 @@ let AdminProductService = class AdminProductService {
                 include: {
                     vendor: true,
                     category: { select: { id: true, name: true } },
-                    productVariations: true,
                 },
             });
             if (productData.specs) {

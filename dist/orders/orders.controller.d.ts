@@ -12,15 +12,15 @@ export declare class OrdersController {
             updatedAt: Date;
             userId: string;
             title: string | null;
-            phone: string;
             street: string | null;
-            addressLine1: string;
-            addressLine2: string | null;
             city: string;
             state: string;
             pincode: string;
-            label: string;
             isDefault: boolean;
+            addressLine1: string;
+            addressLine2: string | null;
+            label: string;
+            phone: string;
         };
         payment: {
             id: string;
@@ -49,9 +49,12 @@ export declare class OrdersController {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
-        shippingCharges: number;
+        giftId: string | null;
+        couponCode: string | null;
+        discountAmount: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
+        shippingCharges: number;
     })[]>;
     getOrderDetails(req: any, orderId: string): Promise<{
         address: {
@@ -62,15 +65,15 @@ export declare class OrdersController {
             updatedAt: Date;
             userId: string;
             title: string | null;
-            phone: string;
             street: string | null;
-            addressLine1: string;
-            addressLine2: string | null;
             city: string;
             state: string;
             pincode: string;
-            label: string;
             isDefault: boolean;
+            addressLine1: string;
+            addressLine2: string | null;
+            label: string;
+            phone: string;
         };
         payment: {
             id: string;
@@ -99,9 +102,12 @@ export declare class OrdersController {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
-        shippingCharges: number;
+        giftId: string | null;
+        couponCode: string | null;
+        discountAmount: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
+        shippingCharges: number;
     }>;
     checkout(req: any, dto: CheckoutDto): Promise<{
         orderId: string;
@@ -139,9 +145,12 @@ export declare class OrdersController {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
-        shippingCharges: number;
+        giftId: string | null;
+        couponCode: string | null;
+        discountAmount: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
+        shippingCharges: number;
     }>;
     getAllAdminOrders(page: string, limit: string, search: string, status: any): Promise<{
         data: {
@@ -281,9 +290,12 @@ export declare class OrdersController {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
-        shippingCharges: number;
+        giftId: string | null;
+        couponCode: string | null;
+        discountAmount: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
+        shippingCharges: number;
     }>;
     cancelOrder(req: any, id: string, reason: string): Promise<{
         id: string;
@@ -300,9 +312,12 @@ export declare class OrdersController {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
-        shippingCharges: number;
+        giftId: string | null;
+        couponCode: string | null;
+        discountAmount: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
+        shippingCharges: number;
     }>;
     updateStatus(id: string, status: any, notes: string, req: any): Promise<{
         id: string;
@@ -319,9 +334,12 @@ export declare class OrdersController {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
-        shippingCharges: number;
+        giftId: string | null;
+        couponCode: string | null;
+        discountAmount: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
+        shippingCharges: number;
     }>;
     getTracking(id: string): Promise<{
         status: import(".prisma/client").$Enums.OrderStatus;

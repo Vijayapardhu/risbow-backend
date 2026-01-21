@@ -149,9 +149,7 @@ export class CatalogService {
                 metaDescription: dto.metaDescription,
                 metaKeywords: dto.metaKeywords || [],
 
-                // legacy mapping
                 isActive: dto.isActive ?? false,
-                visibility: dto.isActive ? 'PUBLISHED' : 'DRAFT',
 
                 // B2B Wholesale Fields
                 isWholesale: dto.isWholesale || false,
@@ -214,9 +212,9 @@ export class CatalogService {
 
         return await this.cache.getOrSet(
             cacheKey,
-            300, // 5 minutes TTL
+            600, // 10 minutes TTL (increased from 5)
             async () => {
-                const where: Prisma.ProductWhereInput = {};
+                const where: Prisma.ProductWhereInput = { isActive: true };
 
                 if (filters.category && filters.category !== 'All') {
                     where.categoryId = filters.category;
@@ -231,7 +229,10 @@ export class CatalogService {
                 }
 
                 if (filters.search) {
-                    where.title = { contains: filters.search, mode: 'insensitive' };
+                    where.OR = [
+                        { title: { contains: filters.search, mode: 'insensitive' } },
+                        { brandName: { contains: filters.search, mode: 'insensitive' } }
+                    ];
                 }
 
                 // Sorting
@@ -252,16 +253,12 @@ export class CatalogService {
                     select: {
                         id: true,
                         title: true,
-                        description: true,
                         price: true,
                         offerPrice: true,
                         stock: true,
                         images: true,
-                        categoryId: true,
-                        vendorId: true,
-                        isActive: true,
                         brandName: true,
-                        tags: true,
+                        isActive: true,
                         createdAt: true,
                     }
                 });
@@ -337,79 +334,84 @@ export class CatalogService {
             cacheKey,
             600, // 10 minutes TTL
             async () => {
-                const product = await this.prisma.product.findUnique({
-                    where: { id },
-                    select: {
-                        id: true,
-                        title: true,
-                        description: true,
-                        price: true,
-                        offerPrice: true,
-                        stock: true,
-                        images: true,
-                        categoryId: true,
-                        vendorId: true,
-                        isActive: true,
-                        brandName: true,
-                        tags: true,
-                        sku: true,
-                        weight: true,
-                        weightUnit: true,
-                        length: true,
-                        width: true,
-                        height: true,
-                        dimensionUnit: true,
-                        shippingClass: true,
-                        metaTitle: true,
-                        metaDescription: true,
-                        metaKeywords: true,
-                        isWholesale: true,
-                        wholesalePrice: true,
-                        moq: true,
-                        createdAt: true,
-                        updatedAt: true,
-                        vendor: {
-                            select: {
-                                id: true,
-                                name: true,
-                                tier: true,
-                            }
-                        },
-                        category: {
-                            select: {
-                                id: true,
-                                name: true,
-                            }
-                        },
-                        reviews: {
-                            take: 10,
-                            orderBy: { createdAt: 'desc' },
-                            select: {
-                                id: true,
-                                rating: true,
-                                comment: true,
-                                createdAt: true,
-                                user: {
-                                    select: { id: true, name: true }
+                const [product, reviewStats] = await Promise.all([
+                    this.prisma.product.findUnique({
+                        where: { id },
+                        select: {
+                            id: true,
+                            title: true,
+                            description: true,
+                            price: true,
+                            offerPrice: true,
+                            stock: true,
+                            images: true,
+                            categoryId: true,
+                            vendorId: true,
+                            isActive: true,
+                            brandName: true,
+                            tags: true,
+                            sku: true,
+                            weight: true,
+                            weightUnit: true,
+                            length: true,
+                            width: true,
+                            height: true,
+                            dimensionUnit: true,
+                            shippingClass: true,
+                            metaTitle: true,
+                            metaDescription: true,
+                            metaKeywords: true,
+                            isWholesale: true,
+                            wholesalePrice: true,
+                            moq: true,
+                            createdAt: true,
+                            updatedAt: true,
+                            vendor: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    tier: true,
+                                }
+                            },
+                            category: {
+                                select: {
+                                    id: true,
+                                    name: true,
                                 }
                             }
                         }
-                    }
-                });
+                    }),
+                    this.prisma.review.aggregate({
+                        where: { productId: id },
+                        _avg: { rating: true },
+                        _count: true
+                    })
+                ]);
 
                 if (!product) {
                     throw new BadRequestException('Product not found');
                 }
 
-                // Calculate average rating
-                const avgRating = product.reviews.length > 0
-                    ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / product.reviews.length
-                    : 0;
+                const recentReviews = await this.prisma.review.findMany({
+                    where: { productId: id },
+                    take: 10,
+                    orderBy: { createdAt: 'desc' },
+                    select: {
+                        id: true,
+                        rating: true,
+                        comment: true,
+                        createdAt: true,
+                        user: {
+                            select: { id: true, name: true }
+                        }
+                    }
+                });
 
                 return {
                     ...product,
-                    averageRating: Math.round(avgRating * 10) / 10,
-                    reviewCount: product.reviews.length
+                    averageRating: reviewStats._avg.rating ? Math.round(reviewStats._avg.rating * 10) / 10 : 0,
+                    reviewCount: reviewStats._count,
+                    reviews: recentReviews
                 };
             }
         );

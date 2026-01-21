@@ -143,6 +143,12 @@ let AuthService = class AuthService {
         if (existingUser) {
             throw new common_1.ConflictException('Email already registered');
         }
+        const existingMobile = await this.prisma.user.findUnique({
+            where: { mobile: registerDto.phone },
+        });
+        if (existingMobile) {
+            throw new common_1.ConflictException('Mobile number already registered');
+        }
         const hashedPassword = await bcrypt.hash(registerDto.password, 10);
         try {
             const { createClient } = require('@supabase/supabase-js');
@@ -171,6 +177,7 @@ let AuthService = class AuthService {
                 dateOfBirth: new Date(registerDto.dateOfBirth),
                 gender: registerDto.gender,
                 referralCode: Math.random().toString(36).substring(7).toUpperCase(),
+                status: 'ACTIVE'
             },
         });
         await this.prisma.cart.create({
@@ -182,8 +189,8 @@ let AuthService = class AuthService {
                     userId: user.id,
                     name: registerDto.name || '',
                     phone: registerDto.phone || '',
-                    addressLine1: registerDto.address.street || registerDto.address.addressLine1 || '',
-                    addressLine2: registerDto.address.addressLine2 || null,
+                    addressLine1: registerDto.address.line1 || registerDto.address.street || registerDto.address.addressLine1 || '',
+                    addressLine2: registerDto.address.line2 || registerDto.address.addressLine2 || null,
                     city: registerDto.address.city || '',
                     state: registerDto.address.state || '',
                     pincode: registerDto.address.postalCode || registerDto.address.pincode || '',

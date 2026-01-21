@@ -9,28 +9,16 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UpdateReturnStatusDto = exports.ReturnStatus = void 0;
+exports.UpdateReturnStatusDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
-var ReturnStatus;
-(function (ReturnStatus) {
-    ReturnStatus["RETURN_REQUESTED"] = "RETURN_REQUESTED";
-    ReturnStatus["RETURN_APPROVED"] = "RETURN_APPROVED";
-    ReturnStatus["RETURN_REJECTED"] = "RETURN_REJECTED";
-    ReturnStatus["PICKUP_SCHEDULED"] = "PICKUP_SCHEDULED";
-    ReturnStatus["PICKUP_COMPLETED"] = "PICKUP_COMPLETED";
-    ReturnStatus["QC_IN_PROGRESS"] = "QC_IN_PROGRESS";
-    ReturnStatus["QC_PASSED"] = "QC_PASSED";
-    ReturnStatus["QC_FAILED"] = "QC_FAILED";
-    ReturnStatus["REPLACEMENT_SHIPPED"] = "REPLACEMENT_SHIPPED";
-    ReturnStatus["REPLACED"] = "REPLACED";
-})(ReturnStatus || (exports.ReturnStatus = ReturnStatus = {}));
+const client_1 = require("@prisma/client");
 class UpdateReturnStatusDto {
 }
 exports.UpdateReturnStatusDto = UpdateReturnStatusDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: ReturnStatus }),
-    (0, class_validator_1.IsEnum)(ReturnStatus),
+    (0, swagger_1.ApiProperty)({ enum: client_1.ReturnStatus }),
+    (0, class_validator_1.IsEnum)(client_1.ReturnStatus),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], UpdateReturnStatusDto.prototype, "status", void 0);

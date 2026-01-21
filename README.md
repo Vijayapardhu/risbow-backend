@@ -1,124 +1,125 @@
-# Risbow Backend Platform
+# RISBOW Backend Platform 🚀
 
 <p align="center">
-	<img src="https://readme-typing-svg.demolab.com?font=Plus+Jakarta+Sans&size=28&pause=1200&color=4F46E5&center=true&vCenter=true&width=600&lines=Launch-ready+Razorpay+Compliance;SMS+Provider+Certainty;Unified+Commerce+Operations" alt="Risbow animated headline" />
+  <img src="https://readme-typing-svg.demolab.com?font=Plus+Jakarta+Sans&size=28&pause=1200&color=4F46E5&center=true&vCenter=true&width=600&lines=Omnichannel+Commerce+Engine;Multi-Vendor+Marketplace;Live+Shopping+Rooms" alt="Risbow animated headline" />
 </p>
 
-<p align="center">
-	<img src="https://svg-banners.vercel.app/api?type=glitch&text1=Ship%20with%20Confidence&width=750&height=200" alt="Animated glitch banner" />
-</p>
-
-A production-ready NestJS backend designed for the Risbow omnichannel commerce platform, bundled with a polished Next.js launch website and Render deployment templates.
+A production-ready, feature-complete **NestJS** backend for the RISBOW Super App. This platform powers an omnichannel commerce experience with real-time features, advanced logistics, and a scalable architecture.
 
 ---
 
-## Highlights
-
-- **Modular architecture** powered by NestJS with feature domains for auth, catalog, payments, rooms, vendors, and more.
-- **Prisma ORM** layer with PostgreSQL support plus health probes that ensure database readiness.
-- **Redis-backed queues** through BullMQ for background workflows and scheduled jobs.
-- **JWT authentication** and throttling guards for secure API exposure.
-- **Render blueprint** in [render.yaml](render.yaml) for one-click cloud deployment, tuned for free-tier limitations.
-- **Marketing Launch Site** built with Next.js + Tailwind in [launch-site](launch-site), showcasing Razorpay and SMS compliance messaging.
+## 📚 Documentation
+- **[Integration Guide](API_INTEGRATION_GUIDE.md)**: For Frontend/Mobile developers.
+- **[Environment Variables](ENVIRONMENT_VARIABLES.md)**: Configuration reference.
+- **[Swagger API Docs](http://localhost:3000/api/docs)**: Interactive API playground (available when server runs).
+- **[Deployment Guide](DEPLOY.md)**: Instructions for production deployment.
 
 ---
 
-## Repository Layout
+## 🌟 Key Features
 
-| Path | Description |
-| --- | --- |
-| [src](src) | NestJS source grouped by business domains (auth, users, orders, payments, vendors, etc.). |
-| [prisma](prisma) | Prisma schema and migrations. |
-| [public](public) | Static assets served by the backend. |
-| [render.yaml](render.yaml) | Render blueprint configuring web service and environment variables. |
-| [launch-site](launch-site) | Next.js + Tailwind product launch page. |
-| [.github/workflows/launch-site.yml](.github/workflows/launch-site.yml) | GitHub Actions workflow verifying the launch site build. |
+### Core Commerce
+- **🛒 Smart Cart & Checkout**: Full lifecycle from cart management to COD/Online payments (Razorpay).
+- **📦 Product Catalog**: Rich catalog with variations, specifications, and categories.
+- **🎁 Promotions**: Robust system for Coupons and "Free Gift" promotions.
+- **🏪 Multi-Vendor**: Vendor portal, product management, and payout tracking.
+
+### Engagement & Social
+- **🎥 Live Rooms**: Real-time shopping rooms with socket integrations.
+- **🪙 Coins Loyalty**: Earn/burn mechanics for user retention.
+- **🗣️ Reviews**: Verified purchase reviews with media support.
+
+### Operations
+- **🚚 Logistics**: Order logic, returns, refunds, and shipping address management.
+- **📊 Analytics**: Banner performance, sales metrics, and admin dashboards.
+- **🛡️ RBAC**: Fine-grained access control (Admin, Vendor, Customer, Telecaller).
 
 ---
 
-## Getting Started (Backend)
+## 🛠️ Architecture
+
+- **Framework**: [NestJS](https://nestjs.com/) (Modular, Scalable)
+- **Database**: PostgreSQL with [Prisma ORM](https://www.prisma.io/)
+- **Caching & Queues**: Redis + [BullMQ](https://docs.bullmq.io/)
+- **Storage**: Supabase Storage / Local
+- **Validation**: Class-Validator + DTOs
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js (v18+)
+- PostgreSQL
+- Redis (Optional for local dev, Required for Queues)
+
+### Installation
+
+1.  **Clone the repository**
+    ```bash
+    git clone https://github.com/your-org/risbow-backend.git
+    cd risbow-backend
+    ```
+
+2.  **Install Dependencies**
+    ```bash
+    npm install
+    ```
+
+3.  **Setup Environment**
+    ```bash
+    cp .env.example .env
+    # Update .env with your DB credentials. See ENVIRONMENT_VARIABLES.md
+    ```
+
+4.  **Database Setup**
+    ```bash
+    # Generate Prisma Client
+    npm run prisma:generate
+    
+    # Push Schema to DB (Dev only)
+    npm run prisma:push
+    ```
+
+5.  **Run Application**
+    ```bash
+    # Development (Watch Mode)
+    npm run start:dev
+    ```
+    Server will start at `http://localhost:3000`. Swagger UI at `/api/docs`.
+
+---
+
+## 🧪 Testing
+
+We rely on comprehensive E2E tests for stability.
 
 ```bash
-# install dependencies
-npm install
+# Run End-to-End Tests
+npm run test:e2e
 
-# generate Prisma client
-npm run prisma:generate
-
-# compile TypeScript
-npm run build
-
-# run production build locally (expects env vars)
-npm run start:prod
-
-# developer mode with hot reload
-npm run start:dev
+# Run Specific Test (e.g., Checkout)
+$env:NODE_ENV='test'; npx jest test/checkout.e2e-spec.ts --config ./test/jest-e2e.json
 ```
 
-### Environment Variables
+---
 
-Duplicate `.env.example` to `.env` and adjust values:
+## 📦 Deployment
 
-- `DATABASE_URL` – PostgreSQL connection string.
-- `JWT_SECRET` – JWT signing key (generate using Node crypto).
-- `REDIS_HOST` / `REDIS_PORT` – Redis queue host.
-- `RAZORPAY_*` – Razorpay credentials for payment operations.
+The project is optimized for **Render.com** but can be deployed anywhere with Node.js/Docker.
+See [render.yaml](render.yaml) for the infrastructure blueprint.
+
+For detailed deployment steps, refer to [DEPLOY.md](DEPLOY.md).
 
 ---
 
-## Deploying on Render
+## 🤝 Contribution
 
-1. Push the repository to GitHub and open the Render dashboard.
-2. Use **Blueprint** deploy and point to [render.yaml](render.yaml).
-3. Provide each secret requested by the service (e.g., DATABASE_URL, JWT_SECRET, Razorpay keys).
-4. Render runs `npm install`, `npm run build`, and `npx prisma migrate deploy` (via start command) before launching `npm run start:prod`.
-5. Monitor the `/health` endpoint to verify Postgres connectivity.
-
-> **Note:** Free-tier services do not support `preDeployCommand`. The blueprint already inlines migration execution into the start command.
+1.  Create a feature branch (`git checkout -b feature/amazing-feature`).
+2.  Commit your changes.
+3.  Push to the branch.
+4.  Open a Pull Request.
 
 ---
 
-## Launch Site (Next.js)
-
-Located in [launch-site](launch-site) and mirrored at [github.com/Vijayapardhu/risbow](https://github.com/Vijayapardhu/risbow.git). Ideal for a public announcement or marketing waitlist page.
-
-```bash
-cd launch-site
-npm install
-npm run dev        # local preview on http://localhost:3000
-npm run build      # production build
-npm run start      # serve built site
-```
-
-GitHub Actions automatically lint, build, and export the site on pushes/PRs touching this folder.
-
-### Launch Page Sections
-
-- Hero with Razorpay and SMS compliance positioning.
-- Compliance cards detailing Razorpay rule automation and SMS provider safeguards.
-- Animated timeline outlining the 4-week go-live plan.
-- Interactive FAQ for regulatory questions.
-- Offerings matrix highlighting support packages and policy trackers.
-
----
-
-## Testing & Quality
-
-- Run `npm run lint` for ESLint checks across the backend.
-- Execute `npm test` for Jest unit tests; `npm run test:e2e` for end-to-end coverage.
-- `npm run format` applies Prettier formatting to TypeScript sources.
-
----
-
-## Roadmap Ideas
-
-- [ ] Add integration tests covering payment and messaging flows.
-- [ ] Provision staging and production Render environments via IaC.
-- [ ] Extend Launch Site with CMS-driven content and newsletter signup.
-- [ ] Wire BullMQ queues to background processors for notification dispatch.
-
----
-
-## Support
-
-Questions or access requests? Reach out to **hello@risbow.org** or open an issue in the repository.
+**Developed for RISBOW.**

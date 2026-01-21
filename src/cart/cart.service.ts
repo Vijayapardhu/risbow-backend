@@ -56,31 +56,28 @@ export class CartService {
         // I must handle this.
 
         const enrichedItems = await Promise.all(cart.items.map(async (item) => {
-            let price = item.product.price; // Fallback
+            let price = item.product.price; 
             let stock = item.product.stock;
-            let title = item.product.title;
-            let image = item.product.images?.[0] || '';
+            // No need to redeclare title/image if unused or use item.product directly
 
+            // JSON Variant Handling
             if (item.variantId) {
-                const variant = await this.prisma.productVariation.findUnique({
-                    where: { id: item.variantId }
-                });
+                const variants = (item.product.variants as any[]) || [];
+                const variant = variants.find(v => v.id === item.variantId);
+                
                 if (variant) {
-                    price = variant.sellingPrice;
+                    price = variant.offerPrice || variant.price || variant.sellingPrice || price;
                     stock = variant.stock;
-                    // title += ` - ${variant.attributes}`; // Simplification
                 }
-            } else {
-                if (item.product.offerPrice) {
-                    price = item.product.offerPrice;
-                }
+            } else if (item.product.offerPrice) {
+                price = item.product.offerPrice;
             }
 
             return {
                 ...item,
                 price,
                 subtotal: price * item.quantity,
-                stock, // For frontend to show out of stock
+                stock, 
                 isStockAvailable: stock >= item.quantity
             };
         }));
@@ -96,6 +93,33 @@ export class CartService {
         };
     }
 
+    private validateQuantityRules(product: any, quantity: number) {
+        // 1. Min Order Quantity
+        if (quantity < product.minOrderQuantity) {
+            throw new BadRequestException(`Minimum order quantity is ${product.minOrderQuantity}`);
+        }
+
+        // 2. Max Allowed Quantity
+        if (quantity > product.totalAllowedQuantity) {
+            throw new BadRequestException(`Maximum allowed quantity is ${product.totalAllowedQuantity}`);
+        }
+
+        // 3. Step Size
+        // Logic: (Qty - MOQ) should be divisible by Step Size
+        // e.g. MOQ=2, Step=1 -> 2,3,4... OK
+        // e.g. MOQ=10, Step=5 -> 10, 15, 20... OK. 12 is (12-10)=2. 2%5 != 0.
+        const remainder = (quantity - product.minOrderQuantity) % product.quantityStepSize;
+        if (remainder !== 0) {
+            throw new BadRequestException(`Quantity must be in steps of ${product.quantityStepSize} starting from ${product.minOrderQuantity}`);
+        }
+    }
+
+    private getVariant(product: any, variantId?: string) {
+        if (!variantId) return null;
+        const variants = (product.variants as any[]) || [];
+        return variants.find(v => v.id === variantId);
+    }
+
     async addItem(userId: string, dto: AddCartItemDto) {
         const { productId, variantId, quantity } = dto;
 
@@ -103,14 +127,19 @@ export class CartService {
         const product = await this.prisma.product.findUnique({ where: { id: productId } });
         if (!product) throw new NotFoundException('Product not found');
 
+        // Validation Rules
+        this.validateQuantityRules(product, quantity);
+
         let price = product.offerPrice || product.price;
         let availableStock = product.stock;
 
+        // JSON Variation Logic
         if (variantId) {
-            const variant = await this.prisma.productVariation.findUnique({ where: { id: variantId } });
+            const variant = this.getVariant(product, variantId);
             if (!variant) throw new NotFoundException('Variant not found');
-            if (variant.productId !== productId) throw new BadRequestException('Variant does not belong to product');
-            price = variant.sellingPrice;
+
+            // Checking if variant belongs is implicit by look up in product.variants
+            price = variant.offerPrice || variant.price || variant.sellingPrice || price; // Fallback structure
             availableStock = variant.stock;
         }
 
@@ -125,19 +154,21 @@ export class CartService {
         }
 
         // 3. Check existing item
-        // Since prisma composite unique constraint usually handles this, 
-        // but CartItem doesn't seem to have a unique constraint on [cartId, productId, variantId] in the provided schema dump.
-        // using findFirst.
         const existingItem = await this.prisma.cartItem.findFirst({
             where: {
                 cartId: cart.id,
                 productId,
-                variantId: variantId || null // Handle optional
+                variantId: variantId || null
             }
         });
 
         if (existingItem) {
             const newQuantity = existingItem.quantity + quantity;
+
+            // Re-validate rules for merged quantity? 
+            // Usually step size applies to TOTAL.
+            this.validateQuantityRules(product, newQuantity);
+
             if (availableStock < newQuantity) {
                 throw new BadRequestException(`Insufficient stock for total quantity. Available: ${availableStock}`);
             }
@@ -165,17 +196,21 @@ export class CartService {
 
         const item = await this.prisma.cartItem.findUnique({
             where: { id: itemId },
-            include: { product: true } // Need to identify product to check variant
+            include: { product: true }
         });
 
         if (!item || item.cartId !== cart.id) {
             throw new NotFoundException('Cart item not found');
         }
 
+        // Validate Rules
+        this.validateQuantityRules(item.product, dto.quantity);
+
         // Stock Validation
         let availableStock = item.product.stock;
+
         if (item.variantId) {
-            const variant = await this.prisma.productVariation.findUnique({ where: { id: item.variantId } });
+            const variant = this.getVariant(item.product, item.variantId);
             if (variant) availableStock = variant.stock;
         }
 
@@ -220,28 +255,35 @@ export class CartService {
             cart = await this.prisma.cart.create({ data: { userId } });
         }
 
-        // 2. Process items (Strategies: Merge? Overwrite? Usually Merge for "Sync")
-        // We will loop through incoming items and upsert them safely.
-
+        // 2. Process items
         for (const itemDto of dto.items) {
             try {
-                // Check stock silently. If out of stock, skip adding? Or add max?
-                // Prompt says: "Ignore invalid items".
-
                 const product = await this.prisma.product.findUnique({ where: { id: itemDto.productId } });
                 if (!product) continue;
 
                 let stock = product.stock;
                 if (itemDto.variantId) {
-                    const variant = await this.prisma.productVariation.findUnique({ where: { id: itemDto.variantId } });
+                    const variant = this.getVariant(product, itemDto.variantId);
                     if (!variant) continue;
                     stock = variant.stock;
                 }
 
-                if (stock < 1) continue; // Skip out of stock entirely
+                if (stock < 1) continue;
 
-                const quantity = Math.min(itemDto.quantity, stock); // Cap at available stock? Or fail? Prompt rule: "Validate stock". 
-                // Behavior: "Valid items merged".
+                // Rules Check (Silent correction or Skip?)
+                // Sync usually implies "Take my local state".
+                // We should validate. If invalid, maybe we snap to nearest valid or skip?
+                // Rules: MOQ enforced. Step enforced.
+                // Let's standardise: if Qty < MOQ, set to MOQ? If > Stock, set to Stock?
+                // Simplest: If invalid, SKIP.
+
+                if (itemDto.quantity < product.minOrderQuantity) continue;
+                if (itemDto.quantity > product.totalAllowedQuantity) continue;
+                const remainder = (itemDto.quantity - product.minOrderQuantity) % product.quantityStepSize;
+                if (remainder !== 0) continue;
+
+                // Cap at stock
+                const quantity = Math.min(itemDto.quantity, stock);
 
                 const existing = await this.prisma.cartItem.findFirst({
                     where: {
@@ -252,9 +294,6 @@ export class CartService {
                 });
 
                 if (existing) {
-                    // Check existing + new vs Stock? Or just ensure total is valid?
-                    // Let's ensure strict sync replacement for simplicity, or max(existing, new)?
-                    // Client usually sends "Current Local State". So we should overwrite quantity, but ensure it doesn't exceed stock.
                     await this.prisma.cartItem.update({
                         where: { id: existing.id },
                         data: { quantity: quantity }
@@ -285,8 +324,6 @@ export class CartService {
             return null;
         }
 
-        // Group by Vendor for Split Orders (if logic requires)
-        // Returning flat list for now but ensuring all prices are authoritative
         return {
             cartId: cartData.id,
             items: cartData.items.map(i => ({
@@ -296,7 +333,11 @@ export class CartService {
                 price: i.price,
                 subtotal: i.subtotal,
                 vendorId: i.product.vendorId,
-                productTitle: i.product.title
+                productTitle: i.product.title,
+                // Pass rules snapshot capability inputs
+                minOrderQuantity: i.product.minOrderQuantity,
+                quantityStepSize: i.product.quantityStepSize,
+                totalAllowedQuantity: i.product.totalAllowedQuantity
             })),
             totalAmount: cartData.totalAmount
         };

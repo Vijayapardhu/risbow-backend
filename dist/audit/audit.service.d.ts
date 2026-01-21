@@ -4,13 +4,13 @@ export declare class AuditLogService {
     constructor(prisma: PrismaService);
     logAdminAction(adminId: string, action: string, entity: string, entityId: string, details?: any, ipAddress?: string, userAgent?: string): Promise<{
         id: string;
-        action: string;
         entity: string;
-        entityId: string;
+        action: string;
         details: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
+        entityId: string;
         ipAddress: string | null;
         userAgent: string | null;
-        createdAt: Date;
         adminId: string;
     }>;
     getLogs(params: {
@@ -27,13 +27,13 @@ export declare class AuditLogService {
             };
         } & {
             id: string;
-            action: string;
             entity: string;
-            entityId: string;
+            action: string;
             details: import("@prisma/client/runtime/library").JsonValue | null;
+            createdAt: Date;
+            entityId: string;
             ipAddress: string | null;
             userAgent: string | null;
-            createdAt: Date;
             adminId: string;
         })[];
         meta: {

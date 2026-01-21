@@ -17,7 +17,7 @@ let CatalogModule = class CatalogModule {
 exports.CatalogModule = CatalogModule;
 exports.CatalogModule = CatalogModule = __decorate([
     (0, common_1.Module)({
-        controllers: [catalog_controller_1.CatalogController, catalog_controller_1.CategoriesController, catalog_controller_1.GiftsController],
+        controllers: [catalog_controller_1.CatalogController, catalog_controller_1.CategoriesController],
         providers: [catalog_service_1.CatalogService, category_spec_service_1.CategorySpecService, prisma_service_1.PrismaService],
         exports: [catalog_service_1.CatalogService, category_spec_service_1.CategorySpecService],
     })

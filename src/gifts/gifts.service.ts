@@ -7,11 +7,16 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateGiftDto, UpdateGiftDto, GiftResponseDto } from './dto/gift.dto';
 
+import { CacheService } from '../shared/cache.service';
+
 @Injectable()
 export class GiftsService {
     private readonly logger = new Logger(GiftsService.name);
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private cache: CacheService
+    ) { }
 
     /**
      * Get all gift SKUs (admin)
@@ -30,17 +35,24 @@ export class GiftsService {
     async getEligibleGifts(categoryIds: string[]): Promise<GiftResponseDto[]> {
         this.logger.log(`Checking eligible gifts for categories: ${categoryIds.join(', ')}`);
 
-        // Get all gifts with stock > 0
-        const gifts = await this.prisma.giftSKU.findMany({
-            where: {
-                stock: { gt: 0 },
-            },
-        });
+        // Cache the list of ALL available gifts (stock > 0)
+        // We filter in-memory to avoid generating infinite cache keys based on category combinations
+        const gifts = await this.cache.getOrSet(
+            'gifts:available',
+            300, // 5 mins
+            async () => {
+                return await this.prisma.giftSKU.findMany({
+                    where: {
+                        stock: { gt: 0 },
+                    },
+                });
+            }
+        );
 
         // Filter gifts based on eligible categories
         const eligibleGifts = gifts.filter((gift) => {
             // If no eligible categories specified, gift is available for all
-            if (!gift.eligibleCategories || Array.isArray(gift.eligibleCategories) && gift.eligibleCategories.length === 0) {
+            if (!gift.eligibleCategories || (Array.isArray(gift.eligibleCategories) && gift.eligibleCategories.length === 0)) {
                 return true;
             }
 
@@ -49,7 +61,7 @@ export class GiftsService {
                 ? gift.eligibleCategories
                 : [];
 
-            return categoryIds.some((catId) => eligibleCats.includes(catId));
+            return categoryIds.some((catId) => eligibleCats.includes(catId as string));
         });
 
         this.logger.log(`Found ${eligibleGifts.length} eligible gifts`);
@@ -64,15 +76,23 @@ export class GiftsService {
      * Get gift by ID
      */
     async getGiftById(id: string): Promise<GiftResponseDto> {
-        const gift = await this.prisma.giftSKU.findUnique({
-            where: { id },
-        });
+        const cacheKey = `gift:${id}`;
 
-        if (!gift) {
-            throw new NotFoundException(`Gift with ID ${id} not found`);
-        }
+        return await this.cache.getOrSet(
+            cacheKey,
+            600, // 10 mins
+            async () => {
+                const gift = await this.prisma.giftSKU.findUnique({
+                    where: { id },
+                });
 
-        return this.mapToResponseDto(gift);
+                if (!gift) {
+                    throw new NotFoundException(`Gift with ID ${id} not found`);
+                }
+
+                return this.mapToResponseDto(gift);
+            }
+        );
     }
 
     /**
@@ -91,6 +111,10 @@ export class GiftsService {
         });
 
         this.logger.log(`Gift created with ID: ${gift.id}`);
+
+        // Invalidate available gifts list
+        await this.cache.del('gifts:available');
+
         return this.mapToResponseDto(gift);
     }
 
@@ -113,6 +137,10 @@ export class GiftsService {
             },
         });
 
+        // Invalidate specific gift and available list
+        await this.cache.del(`gift:${id}`);
+        await this.cache.del('gifts:available');
+
         return this.mapToResponseDto(gift);
     }
 
@@ -128,12 +156,17 @@ export class GiftsService {
         await this.prisma.giftSKU.delete({
             where: { id },
         });
+
+        // Invalidate specific gift and available list
+        await this.cache.del(`gift:${id}`);
+        await this.cache.del('gifts:available');
     }
 
     /**
      * Validate gift selection
      */
     async validateGiftSelection(giftId: string, categoryIds: string[]): Promise<boolean> {
+        // We bypass cache here to ensure stock is strictly correct at checkout
         const gift = await this.prisma.giftSKU.findUnique({
             where: { id: giftId },
         });
@@ -188,6 +221,10 @@ export class GiftsService {
         });
 
         this.logger.log(`Gift stock decremented successfully`);
+
+        // Invalidate cache
+        await this.cache.del(`gift:${giftId}`);
+        await this.cache.del('gifts:available');
     }
 
     /**

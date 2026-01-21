@@ -25,10 +25,10 @@ export declare class UsersService {
         valueTag: import(".prisma/client").$Enums.ValueTag;
         isCodDisabled: boolean;
         isRefundsDisabled: boolean;
-        kycStatus: string;
-        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         updatedAt: Date;
     }>;
     update(id: string, updateUserDto: UpdateUserDto): Promise<{
@@ -53,10 +53,10 @@ export declare class UsersService {
         valueTag: import(".prisma/client").$Enums.ValueTag;
         isCodDisabled: boolean;
         isRefundsDisabled: boolean;
-        kycStatus: string;
-        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         updatedAt: Date;
     }>;
     claimReferral(userId: string, refCode: string): Promise<{
@@ -72,15 +72,15 @@ export declare class UsersService {
         updatedAt: Date;
         userId: string;
         title: string | null;
-        phone: string;
         street: string | null;
-        addressLine1: string;
-        addressLine2: string | null;
         city: string;
         state: string;
         pincode: string;
-        label: string;
         isDefault: boolean;
+        addressLine1: string;
+        addressLine2: string | null;
+        label: string;
+        phone: string;
     }[]>;
     createAddress(userId: string, addressData: any): Promise<{
         id: string;
@@ -90,15 +90,15 @@ export declare class UsersService {
         updatedAt: Date;
         userId: string;
         title: string | null;
-        phone: string;
         street: string | null;
-        addressLine1: string;
-        addressLine2: string | null;
         city: string;
         state: string;
         pincode: string;
-        label: string;
         isDefault: boolean;
+        addressLine1: string;
+        addressLine2: string | null;
+        label: string;
+        phone: string;
     }>;
     updateAddress(userId: string, addressId: string, addressData: any): Promise<{
         id: string;
@@ -108,15 +108,15 @@ export declare class UsersService {
         updatedAt: Date;
         userId: string;
         title: string | null;
-        phone: string;
         street: string | null;
-        addressLine1: string;
-        addressLine2: string | null;
         city: string;
         state: string;
         pincode: string;
-        label: string;
         isDefault: boolean;
+        addressLine1: string;
+        addressLine2: string | null;
+        label: string;
+        phone: string;
     }>;
     deleteAddress(userId: string, addressId: string): Promise<{
         success: boolean;
@@ -131,15 +131,15 @@ export declare class UsersService {
             updatedAt: Date;
             userId: string;
             title: string | null;
-            phone: string;
             street: string | null;
-            addressLine1: string;
-            addressLine2: string | null;
             city: string;
             state: string;
             pincode: string;
-            label: string;
             isDefault: boolean;
+            addressLine1: string;
+            addressLine2: string | null;
+            label: string;
+            phone: string;
         };
         payment: {
             id: string;
@@ -168,9 +168,12 @@ export declare class UsersService {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
-        shippingCharges: number;
+        giftId: string | null;
+        couponCode: string | null;
+        discountAmount: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
+        shippingCharges: number;
     })[]>;
     getOrderById(userId: string, orderId: string): Promise<{
         address: {
@@ -181,15 +184,15 @@ export declare class UsersService {
             updatedAt: Date;
             userId: string;
             title: string | null;
-            phone: string;
             street: string | null;
-            addressLine1: string;
-            addressLine2: string | null;
             city: string;
             state: string;
             pincode: string;
-            label: string;
             isDefault: boolean;
+            addressLine1: string;
+            addressLine2: string | null;
+            label: string;
+            phone: string;
         };
         payment: {
             id: string;
@@ -218,9 +221,12 @@ export declare class UsersService {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
-        shippingCharges: number;
+        giftId: string | null;
+        couponCode: string | null;
+        discountAmount: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
+        shippingCharges: number;
     }>;
     getWishlist(userId: string): Promise<({
         product: {
@@ -313,10 +319,10 @@ export declare class UsersService {
         valueTag: import(".prisma/client").$Enums.ValueTag;
         isCodDisabled: boolean;
         isRefundsDisabled: boolean;
-        kycStatus: string;
-        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         updatedAt: Date;
     }>;
 }

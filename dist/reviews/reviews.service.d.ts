@@ -1,21 +1,23 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReviewDto, UpdateReviewDto, ReportReviewDto } from './dto/review.dto';
+import { CacheService } from '../shared/cache.service';
 export declare class ReviewsService {
     private prisma;
-    constructor(prisma: PrismaService);
+    private cache;
+    constructor(prisma: PrismaService, cache: CacheService);
     create(userId: string, productId: string, dto: CreateReviewDto): Promise<{
         id: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.ReviewStatus;
+        status: string;
         updatedAt: Date;
         userId: string;
         productId: string | null;
         vendorId: string | null;
         images: string[];
         rating: number;
+        helpfulCount: number;
         comment: string | null;
         isVerified: boolean;
-        helpfulCount: number;
     }>;
     findAllByProduct(productId: string, page?: number, limit?: number): Promise<{
         data: ({
@@ -26,16 +28,16 @@ export declare class ReviewsService {
         } & {
             id: string;
             createdAt: Date;
-            status: import(".prisma/client").$Enums.ReviewStatus;
+            status: string;
             updatedAt: Date;
             userId: string;
             productId: string | null;
             vendorId: string | null;
             images: string[];
             rating: number;
+            helpfulCount: number;
             comment: string | null;
             isVerified: boolean;
-            helpfulCount: number;
         })[];
         meta: {
             total: number;
@@ -52,71 +54,71 @@ export declare class ReviewsService {
     findOne(id: string): Promise<{
         id: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.ReviewStatus;
+        status: string;
         updatedAt: Date;
         userId: string;
         productId: string | null;
         vendorId: string | null;
         images: string[];
         rating: number;
+        helpfulCount: number;
         comment: string | null;
         isVerified: boolean;
-        helpfulCount: number;
     }>;
     update(userId: string, id: string, dto: UpdateReviewDto): Promise<{
         id: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.ReviewStatus;
+        status: string;
         updatedAt: Date;
         userId: string;
         productId: string | null;
         vendorId: string | null;
         images: string[];
         rating: number;
+        helpfulCount: number;
         comment: string | null;
         isVerified: boolean;
-        helpfulCount: number;
     }>;
     remove(userId: string, id: string): Promise<{
         id: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.ReviewStatus;
+        status: string;
         updatedAt: Date;
         userId: string;
         productId: string | null;
         vendorId: string | null;
         images: string[];
         rating: number;
+        helpfulCount: number;
         comment: string | null;
         isVerified: boolean;
-        helpfulCount: number;
     }>;
     voteHelpful(userId: string, id: string): Promise<{
         id: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.ReviewStatus;
+        status: string;
         updatedAt: Date;
         userId: string;
         productId: string | null;
         vendorId: string | null;
         images: string[];
         rating: number;
+        helpfulCount: number;
         comment: string | null;
         isVerified: boolean;
-        helpfulCount: number;
     }>;
     report(userId: string, id: string, dto: ReportReviewDto): Promise<{
         id: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.ReviewStatus;
+        status: string;
         updatedAt: Date;
         userId: string;
         productId: string | null;
         vendorId: string | null;
         images: string[];
         rating: number;
+        helpfulCount: number;
         comment: string | null;
         isVerified: boolean;
-        helpfulCount: number;
     }>;
 }

@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RoomsController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const rooms_service_1 = require("./rooms.service");
 const create_room_dto_1 = require("./dto/create-room.dto");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
@@ -125,6 +126,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], RoomsController.prototype, "findOne", null);
 exports.RoomsController = RoomsController = __decorate([
+    (0, swagger_1.ApiTags)('Rooms'),
     (0, common_1.Controller)('rooms'),
     __metadata("design:paramtypes", [rooms_service_1.RoomsService,
         prisma_service_1.PrismaService])

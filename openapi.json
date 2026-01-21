@@ -1,0 +1,4522 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/audit-logs": {
+      "get": {
+        "operationId": "AuditController_getLogs",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "adminId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entity",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Audit"
+        ]
+      }
+    },
+    "/analytics/dashboard": {
+      "get": {
+        "operationId": "AnalyticsController_getDashboardStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/analytics/sales": {
+      "get": {
+        "operationId": "AnalyticsController_getSalesChart",
+        "parameters": [
+          {
+            "name": "period",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/auth/otp-send": {
+      "post": {
+        "operationId": "AuthController_sendOtp",
+        "summary": "Send OTP to mobile number",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendOtpDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP sent successfully"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/otp-verify": {
+      "post": {
+        "operationId": "AuthController_verifyOtp",
+        "summary": "Verify OTP",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyOtpDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP verified, returns token if user exists"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "summary": "Register a new user",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User successfully registered"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "summary": "Login with Email/Password",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Returns access token"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "operationId": "AuthController_forgotPassword",
+        "summary": "Request password reset",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/users/me": {
+      "get": {
+        "operationId": "UsersController_getProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users": {
+      "post": {
+        "operationId": "UsersController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/me/coins": {
+      "get": {
+        "operationId": "UsersController_getCoins",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/me/orders": {
+      "get": {
+        "operationId": "UsersController_getOrders",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/me/orders/{id}": {
+      "get": {
+        "operationId": "UsersController_getOrderDetails",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/me/wishlist": {
+      "get": {
+        "operationId": "UsersController_getWishlist",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/me/wishlist/{productId}": {
+      "post": {
+        "operationId": "UsersController_addToWishlist",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      },
+      "delete": {
+        "operationId": "UsersController_removeFromWishlist",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/me/notifications": {
+      "get": {
+        "operationId": "UsersController_getNotifications",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/me/notifications/{id}/read": {
+      "post": {
+        "operationId": "UsersController_markNotificationRead",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/me/addresses": {
+      "get": {
+        "operationId": "UsersController_getAddresses",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      },
+      "post": {
+        "operationId": "UsersController_createAddress",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/me/addresses/{id}": {
+      "patch": {
+        "operationId": "UsersController_updateAddress",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      },
+      "post": {
+        "operationId": "UsersController_updateAddressAlt",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/me/addresses/{id}/delete": {
+      "post": {
+        "operationId": "UsersController_deleteAddress",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "operationId": "UsersAdminController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/users/{id}/status": {
+      "patch": {
+        "operationId": "UsersAdminController_updateStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/referrals/me": {
+      "get": {
+        "operationId": "ReferralsController_getReferralInfo",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/referrals/share": {
+      "get": {
+        "operationId": "ReferralsController_share",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/referrals/claim": {
+      "post": {
+        "operationId": "ReferralsController_claimReferral",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferralClaimDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/coins/credit": {
+      "post": {
+        "operationId": "CoinsController_credit",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreditCoinDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Coins"
+        ]
+      }
+    },
+    "/coins/debit": {
+      "post": {
+        "operationId": "CoinsController_debit",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DebitCoinDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Coins"
+        ]
+      }
+    },
+    "/coins/redeem": {
+      "post": {
+        "operationId": "CoinsController_redeem",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Coins"
+        ]
+      }
+    },
+    "/rooms": {
+      "post": {
+        "operationId": "RoomsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoomDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Rooms"
+        ]
+      },
+      "get": {
+        "operationId": "RoomsController_findAll",
+        "parameters": [
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Rooms"
+        ]
+      }
+    },
+    "/rooms/{id}/join": {
+      "post": {
+        "operationId": "RoomsController_join",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Rooms"
+        ]
+      }
+    },
+    "/rooms/{id}/order/{orderId}": {
+      "post": {
+        "operationId": "RoomsController_linkOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Rooms"
+        ]
+      }
+    },
+    "/rooms/{id}/unlock": {
+      "post": {
+        "operationId": "RoomsController_forceUnlock",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Rooms"
+        ]
+      }
+    },
+    "/rooms/{id}/expire": {
+      "post": {
+        "operationId": "RoomsController_expireRoom",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Rooms"
+        ]
+      }
+    },
+    "/rooms/{id}": {
+      "get": {
+        "operationId": "RoomsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Rooms"
+        ]
+      }
+    },
+    "/products": {
+      "get": {
+        "operationId": "CatalogController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Products"
+        ]
+      },
+      "post": {
+        "operationId": "CatalogController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/products/{id}": {
+      "get": {
+        "operationId": "CatalogController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Products"
+        ]
+      },
+      "patch": {
+        "operationId": "CatalogController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Products"
+        ]
+      },
+      "delete": {
+        "operationId": "CatalogController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/products/bulk": {
+      "post": {
+        "operationId": "CatalogController_bulkUpload",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/categories": {
+      "get": {
+        "operationId": "CategoriesController_getAll",
+        "parameters": [
+          {
+            "name": "includeInactive",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Catalog"
+        ]
+      },
+      "post": {
+        "operationId": "CategoriesController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/categories/{id}": {
+      "get": {
+        "operationId": "CategoriesController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Catalog"
+        ]
+      },
+      "patch": {
+        "operationId": "CategoriesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Catalog"
+        ]
+      },
+      "delete": {
+        "operationId": "CategoriesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/categories/{id}/rules": {
+      "get": {
+        "operationId": "CategoriesController_getRules",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/categories/{id}/specs": {
+      "get": {
+        "operationId": "CategoriesController_getCategorySpecs",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeInactive",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Catalog"
+        ]
+      },
+      "post": {
+        "operationId": "CategoriesController_createCategorySpec",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/categories/specs/{specId}": {
+      "patch": {
+        "operationId": "CategoriesController_updateCategorySpec",
+        "parameters": [
+          {
+            "name": "specId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Catalog"
+        ]
+      },
+      "delete": {
+        "operationId": "CategoriesController_deleteCategorySpec",
+        "parameters": [
+          {
+            "name": "specId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/categories/{id}/specs/reorder": {
+      "put": {
+        "operationId": "CategoriesController_reorderSpecs",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/gifts": {
+      "get": {
+        "operationId": "GiftsController_getAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Gifts"
+        ]
+      },
+      "post": {
+        "operationId": "GiftsController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Gifts"
+        ]
+      }
+    },
+    "/gifts/eligible": {
+      "get": {
+        "operationId": "GiftsController_getEligibleGifts",
+        "summary": "Get eligible gifts for current cart",
+        "description": "Returns gifts that are eligible based on cart categories and have stock available",
+        "parameters": [
+          {
+            "name": "categories",
+            "required": false,
+            "in": "query",
+            "description": "Comma-separated category IDs from cart",
+            "schema": {
+              "example": "cat_electronics,cat_mobiles",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of eligible gifts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GiftResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Gifts"
+        ]
+      }
+    },
+    "/gifts/{id}": {
+      "patch": {
+        "operationId": "GiftsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Gifts"
+        ]
+      },
+      "delete": {
+        "operationId": "GiftsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Gifts"
+        ]
+      }
+    },
+    "/orders": {
+      "get": {
+        "operationId": "OrdersController_getMyOrders",
+        "summary": "Get current user's orders",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/orders/{id}": {
+      "get": {
+        "operationId": "OrdersController_getOrderDetails",
+        "summary": "Get order details by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/orders/checkout": {
+      "post": {
+        "operationId": "OrdersController_checkout",
+        "summary": "Complete checkout (Create Order)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/orders/confirm": {
+      "post": {
+        "operationId": "OrdersController_confirm",
+        "summary": "Confirm Razorpay payment",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/orders/{id}/gift": {
+      "post": {
+        "operationId": "OrdersController_addGift",
+        "summary": "Add a free gift to an eligible order",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/orders/create": {
+      "post": {
+        "operationId": "OrdersController_createOrder",
+        "summary": "Create direct order (e.g. COD)",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/orders/admin/all": {
+      "get": {
+        "operationId": "OrdersController_getAllAdminOrders",
+        "summary": "Admin: Get all orders",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/orders/admin/{id}": {
+      "get": {
+        "operationId": "OrdersController_getAdminOrderDetails",
+        "summary": "Admin: Get order details",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/orders/admin/pos/orders": {
+      "post": {
+        "operationId": "OrdersController_createPosOrder",
+        "summary": "Admin: Create POS order",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/orders/{id}/cancel": {
+      "post": {
+        "operationId": "OrdersController_cancelOrder",
+        "summary": "Cancel an order",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "example": "Changed mind"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/orders/{id}/status": {
+      "patch": {
+        "operationId": "OrdersController_updateStatus",
+        "summary": "Update order status (Admin/Vendor)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "example": "SHIPPED",
+                    "enum": [
+                      "PACKED",
+                      "SHIPPED",
+                      "DELIVERED",
+                      "PAID"
+                    ]
+                  },
+                  "notes": {
+                    "type": "string",
+                    "example": "Shipped via BlueDart"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/orders/{id}/tracking": {
+      "get": {
+        "operationId": "OrdersController_getTracking",
+        "summary": "Get order tracking info",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Orders"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/admin/orders": {
+      "get": {
+        "operationId": "OrdersAdminController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/orders/{id}": {
+      "get": {
+        "operationId": "OrdersAdminController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/orders/{id}/status": {
+      "patch": {
+        "operationId": "OrdersAdminController_updateStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/vendors/register": {
+      "post": {
+        "operationId": "VendorsController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterVendorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Vendors"
+        ]
+      }
+    },
+    "/vendors/banner": {
+      "post": {
+        "operationId": "VendorsController_purchaseBanner",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Vendors"
+        ]
+      }
+    },
+    "/vendors": {
+      "get": {
+        "operationId": "VendorsController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Vendors"
+        ]
+      }
+    },
+    "/vendors/stats": {
+      "get": {
+        "operationId": "VendorsController_getVendorStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Vendors"
+        ]
+      }
+    },
+    "/payments/create-order": {
+      "post": {
+        "operationId": "PaymentsController_createPaymentOrder",
+        "summary": "Create a Razorpay order and persist payment intent",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Order created successfully"
+          },
+          "400": {
+            "description": "Invalid input or order not found"
+          }
+        },
+        "tags": [
+          "Payments"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/payments/verify": {
+      "post": {
+        "operationId": "PaymentsController_verifyPayment",
+        "summary": "Verify Razorpay payment signature and update status",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyPaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment verified successfully"
+          },
+          "400": {
+            "description": "Invalid signature or payment not found"
+          }
+        },
+        "tags": [
+          "Payments"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/payments/webhook/razorpay": {
+      "post": {
+        "operationId": "PaymentsController_handleWebhook",
+        "summary": "Handle Razorpay Webhooks (Public)",
+        "parameters": [
+          {
+            "name": "x-razorpay-signature",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook processed"
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/checkout": {
+      "post": {
+        "operationId": "CheckoutController_checkout",
+        "summary": "Process checkout (COD or ONLINE)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Order created successfully"
+          },
+          "400": {
+            "description": "Bad Request (Empty Cart, Stock Issue)"
+          }
+        },
+        "tags": [
+          "Checkout"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/checkout/select-gift": {
+      "post": {
+        "operationId": "CheckoutController_selectGift",
+        "summary": "Select gift for checkout",
+        "description": "Attach a selected gift to the checkout snapshot. Gift will be added to order on confirmation.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectGiftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Gift selected successfully"
+          },
+          "400": {
+            "description": "Gift not eligible or out of stock"
+          }
+        },
+        "tags": [
+          "Checkout"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/checkout/apply-coupon": {
+      "post": {
+        "operationId": "CheckoutController_applyCoupon",
+        "summary": "Apply coupon to checkout",
+        "description": "Validates and applies a coupon code to the current cart",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyCouponDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Coupon applied successfully"
+          },
+          "400": {
+            "description": "Invalid or expired coupon"
+          }
+        },
+        "tags": [
+          "Checkout"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/checkout/remove-coupon": {
+      "delete": {
+        "operationId": "CheckoutController_removeCoupon",
+        "summary": "Remove applied coupon",
+        "description": "Removes the currently applied coupon from checkout",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Coupon removed successfully"
+          }
+        },
+        "tags": [
+          "Checkout"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/cart": {
+      "get": {
+        "operationId": "CartController_getCart",
+        "summary": "Get current user cart",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Cart"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "CartController_clearCart",
+        "summary": "Clear entire cart",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Cart"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/cart/items": {
+      "post": {
+        "operationId": "CartController_addItem",
+        "summary": "Add item to cart",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCartItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Cart"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/cart/items/{id}": {
+      "patch": {
+        "operationId": "CartController_updateItem",
+        "summary": "Update cart item quantity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCartItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Cart"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "CartController_removeItem",
+        "summary": "Remove item from cart",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Cart"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/cart/sync": {
+      "post": {
+        "operationId": "CartController_syncCart",
+        "summary": "Sync local cart with server",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncCartDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Cart"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/admin/gifts": {
+      "get": {
+        "operationId": "GiftsController_getAllGifts",
+        "summary": "Get all gift SKUs (Admin)",
+        "description": "Returns all gift SKUs in the system",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "List of all gifts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GiftResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Gifts"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "GiftsController_createGift",
+        "summary": "Create new gift SKU (Admin)",
+        "description": "Creates a new gift SKU with stock and eligibility rules",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGiftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Gift created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiftResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Gifts"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/admin/gifts/inventory": {
+      "get": {
+        "operationId": "GiftsController_getInventoryReport",
+        "summary": "Get gift inventory report (Admin)",
+        "description": "Returns inventory overview with stock levels and alerts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Inventory report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "totalGifts": 10,
+                    "outOfStock": 2,
+                    "lowStock": 3,
+                    "gifts": []
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Gifts"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/admin/gifts/{id}": {
+      "get": {
+        "operationId": "GiftsController_getGiftById",
+        "summary": "Get gift by ID (Admin)",
+        "description": "Returns a specific gift SKU",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Gift details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiftResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Gift not found"
+          }
+        },
+        "tags": [
+          "Gifts"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "GiftsController_updateGift",
+        "summary": "Update gift SKU (Admin)",
+        "description": "Updates an existing gift SKU",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGiftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Gift updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiftResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Gift not found"
+          }
+        },
+        "tags": [
+          "Gifts"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "GiftsController_deleteGift",
+        "summary": "Delete gift SKU (Admin)",
+        "description": "Deletes a gift SKU from the system",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Gift deleted successfully"
+          },
+          "404": {
+            "description": "Gift not found"
+          }
+        },
+        "tags": [
+          "Gifts"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/coupons/validate": {
+      "post": {
+        "operationId": "CouponsController_validateCoupon",
+        "summary": "Validate coupon without applying",
+        "description": "Validates a coupon code and returns discount details without applying it",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateCouponDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouponValidationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Coupons"
+        ]
+      }
+    },
+    "/users/me/coupons": {
+      "get": {
+        "operationId": "CouponsController_getActiveCoupons",
+        "summary": "Get available coupons for user",
+        "description": "Returns active coupons that are currently valid and available",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "List of available coupons",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CouponResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Coupons"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/admin/coupons": {
+      "get": {
+        "operationId": "CouponsController_getAllCoupons",
+        "summary": "Get all coupons (Admin)",
+        "description": "Returns all coupons in the system",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "List of all coupons",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CouponResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Coupons"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "CouponsController_createCoupon",
+        "summary": "Create new coupon (Admin)",
+        "description": "Creates a new coupon with specified rules and limits",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCouponDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Coupon created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouponResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Coupon code already exists"
+          }
+        },
+        "tags": [
+          "Coupons"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/admin/coupons/{id}": {
+      "get": {
+        "operationId": "CouponsController_getCouponById",
+        "summary": "Get coupon by ID (Admin)",
+        "description": "Returns a specific coupon",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Coupon details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouponResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Coupon not found"
+          }
+        },
+        "tags": [
+          "Coupons"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "CouponsController_updateCoupon",
+        "summary": "Update coupon (Admin)",
+        "description": "Updates an existing coupon",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCouponDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Coupon updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouponResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Coupon not found"
+          }
+        },
+        "tags": [
+          "Coupons"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "CouponsController_deleteCoupon",
+        "summary": "Delete coupon (Admin)",
+        "description": "Deletes a coupon from the system",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Coupon deleted successfully"
+          },
+          "404": {
+            "description": "Coupon not found"
+          }
+        },
+        "tags": [
+          "Coupons"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/bow/chat": {
+      "post": {
+        "operationId": "BowController_chat",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Bow"
+        ]
+      }
+    },
+    "/bow/tryon": {
+      "post": {
+        "operationId": "BowController_tryOn",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Bow"
+        ]
+      }
+    },
+    "/telecaller/dashboard": {
+      "get": {
+        "operationId": "TelecallerController_getDashboard",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Telecaller"
+        ]
+      }
+    },
+    "/telecaller/expiring-coins": {
+      "get": {
+        "operationId": "TelecallerController_getExpiringCoins",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Telecaller"
+        ]
+      }
+    },
+    "/telecaller/checkout-recovery": {
+      "get": {
+        "operationId": "TelecallerController_getCheckoutRecoveryLeads",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Telecaller"
+        ]
+      }
+    },
+    "/telecaller/support-tickets": {
+      "get": {
+        "operationId": "TelecallerController_getSupportTickets",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Telecaller"
+        ]
+      }
+    },
+    "/returns": {
+      "post": {
+        "operationId": "ReturnsController_create",
+        "summary": "Create a new return request for a customer",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReturnDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Returns"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "ReturnsController_findAll",
+        "summary": "Get my returns (Customer) or All Returns (Admin)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Returns"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/returns/{id}": {
+      "get": {
+        "operationId": "ReturnsController_findOne",
+        "summary": "Get detailed return info",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Returns"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/returns/{id}/status": {
+      "patch": {
+        "operationId": "ReturnsController_updateStatus",
+        "summary": "Admin: Update return status",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReturnStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Returns"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/returns/{id}/ship-replacement": {
+      "patch": {
+        "operationId": "ReturnsController_shipReplacement",
+        "summary": "Admin: Mark replacement as shipped with tracking",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Returns"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/upload/image": {
+      "post": {
+        "operationId": "UploadController_uploadImage",
+        "summary": "Upload a single image (optimized to WebP)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "context": {
+                    "type": "string",
+                    "example": "products"
+                  },
+                  "contextId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Upload"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/upload/images": {
+      "post": {
+        "operationId": "UploadController_uploadMultipleImages",
+        "summary": "Upload multiple images",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  },
+                  "context": {
+                    "type": "string",
+                    "example": "products"
+                  },
+                  "contextId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Upload"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/upload/document": {
+      "post": {
+        "operationId": "UploadController_uploadDocument",
+        "summary": "Upload a document (PDF, Image)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "documentType": {
+                    "type": "string",
+                    "example": "KYC"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Upload"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/upload/{path}": {
+      "delete": {
+        "operationId": "UploadController_deleteFile",
+        "summary": "Delete a file",
+        "parameters": [
+          {
+            "name": "path",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Upload"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/products/{productId}/reviews": {
+      "post": {
+        "operationId": "ReviewsController_create",
+        "summary": "Create a review for a product (Verified Buyers Only)",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reviews"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "ReviewsController_findAll",
+        "summary": "Get reviews for a product",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reviews"
+        ]
+      }
+    },
+    "/vendors/{vendorId}/reviews": {
+      "get": {
+        "operationId": "ReviewsController_getVendorReviews",
+        "summary": "Get aggregated reviews for a vendor",
+        "parameters": [
+          {
+            "name": "vendorId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reviews"
+        ]
+      }
+    },
+    "/reviews/{id}": {
+      "patch": {
+        "operationId": "ReviewsController_update",
+        "summary": "Update a review",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reviews"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "ReviewsController_remove",
+        "summary": "Delete a review",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reviews"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/reviews/{id}/helpful": {
+      "post": {
+        "operationId": "ReviewsController_voteHelpful",
+        "summary": "Vote a review as helpful",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reviews"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/reviews/{id}/report": {
+      "post": {
+        "operationId": "ReviewsController_report",
+        "summary": "Report a review",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reviews"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/refunds/request": {
+      "post": {
+        "operationId": "RefundsController_requestRefund",
+        "summary": "Request a refund for an order",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRefundRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Refunds"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/refunds/my-refunds": {
+      "get": {
+        "operationId": "RefundsController_getMyRefunds",
+        "summary": "Get current user refunds",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Refunds"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/refunds/{id}/process": {
+      "post": {
+        "operationId": "RefundsController_processRefund",
+        "summary": "Process a refund (Admin)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcessRefundDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Refunds"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "RISBOW API",
+    "description": "\n# RISBOW Ecommerce Super App API\n\nWelcome to the RISBOW API documentation!\n\n## Key Features:\n- 🔐 **Authentication** - OTP & Email/Password login\n- 🛒 **Orders** - Complete order lifecycle\n- 📦 **Products** - Rich catalog\n- 💳 **Payments** - Razorpay integration\n- 🎁 **Promotions** - Gifts & Coupons\n- 👥 **Rooms** - Live shopping\n\n## Usage:\nRefer to 'API_INTEGRATION_GUIDE.md' for flow details.\n        ",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "🔐 Authentication - Login, Register, OTP verification"
+    },
+    {
+      "name": "Users",
+      "description": "👤 User Management - Profile, Addresses, Preferences"
+    },
+    {
+      "name": "Cart",
+      "description": "🛒 Shopping Cart - Add, Update, Remove items"
+    },
+    {
+      "name": "Checkout",
+      "description": "💳 Checkout Flow - Process orders with COD/Online payment"
+    },
+    {
+      "name": "Products",
+      "description": "📦 Product Catalog - Browse, Search, Filter products"
+    },
+    {
+      "name": "Catalog",
+      "description": "🗂️ Categories & Specifications - Product organization"
+    },
+    {
+      "name": "Vendors",
+      "description": "🏪 Vendor Management - Multi-vendor marketplace"
+    },
+    {
+      "name": "Orders",
+      "description": "📋 Order Management - Create, Track, Update orders"
+    },
+    {
+      "name": "Payments",
+      "description": "💰 Payment Processing - Razorpay integration, COD"
+    },
+    {
+      "name": "Refunds",
+      "description": "💸 Refund Management - Request and process refunds"
+    },
+    {
+      "name": "Returns",
+      "description": "↩️ Returns & Replacements - Return requests and QC"
+    },
+    {
+      "name": "Gifts",
+      "description": "🎁 Gift SKU System - Free gifts based on cart eligibility"
+    },
+    {
+      "name": "Coupons",
+      "description": "🎟️ Coupon Management - Discount codes and validation"
+    },
+    {
+      "name": "Banners",
+      "description": "🖼️ Banner System - Promotional banners with slot management"
+    },
+    {
+      "name": "Reviews",
+      "description": "⭐ Reviews & Ratings - Product and vendor reviews"
+    },
+    {
+      "name": "Rooms",
+      "description": "👥 Live Shopping Rooms - Group buying and live sessions"
+    },
+    {
+      "name": "Coins",
+      "description": "🪙 Loyalty Coins - Earn and redeem coins"
+    },
+    {
+      "name": "Admin",
+      "description": "⚙️ Admin Operations - Platform management"
+    },
+    {
+      "name": "Analytics",
+      "description": "📊 Analytics & Reports - Business insights"
+    },
+    {
+      "name": "Telecaller",
+      "description": "📞 Telecaller Dashboard - Abandoned cart recovery"
+    },
+    {
+      "name": "Audit",
+      "description": "📝 Audit Logs - System activity tracking"
+    },
+    {
+      "name": "Upload",
+      "description": "📤 File Upload - Image and document uploads"
+    },
+    {
+      "name": "Health",
+      "description": "🏥 Health Check - System status"
+    }
+  ],
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local Development"
+    },
+    {
+      "url": "https://api.risbow.com",
+      "description": "Production"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "name": "Authorization",
+        "description": "Enter your JWT token from /auth/login",
+        "in": "header"
+      }
+    },
+    "schemas": {
+      "SendOtpDto": {
+        "type": "object",
+        "properties": {
+          "mobile": {
+            "type": "string",
+            "example": "9988776655",
+            "description": "Indian mobile number"
+          }
+        },
+        "required": [
+          "mobile"
+        ]
+      },
+      "VerifyOtpDto": {
+        "type": "object",
+        "properties": {
+          "mobile": {
+            "type": "string",
+            "example": "9988776655"
+          },
+          "otp": {
+            "type": "string",
+            "example": "123456",
+            "description": "6-digit OTP"
+          }
+        },
+        "required": [
+          "mobile",
+          "otp"
+        ]
+      },
+      "RegisterDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "John Doe"
+          },
+          "email": {
+            "type": "string",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "Password@123",
+            "description": "Min 8 chars, 1 Upper, 1 Lower, 1 Number"
+          },
+          "phone": {
+            "type": "string",
+            "example": "9876543210"
+          },
+          "address": {
+            "type": "object",
+            "example": {
+              "line1": "123 Main St",
+              "line2": "Apt 4B",
+              "city": "Mumbai",
+              "state": "Maharashtra",
+              "postalCode": "400001",
+              "country": "India"
+            }
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "example": "1990-01-01",
+            "description": "ISO Date String"
+          },
+          "gender": {
+            "type": "string",
+            "example": "Male",
+            "enum": [
+              "Male",
+              "Female",
+              "Other"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "password",
+          "phone",
+          "address",
+          "dateOfBirth",
+          "gender"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "admin@risbow.com",
+            "description": "Admin email for testing"
+          },
+          "password": {
+            "type": "string",
+            "example": "Password@123",
+            "description": "Valid password"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ReferralClaimDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreditCoinDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "DebitCoinDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateRoomDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateProductDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateProductDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "OrderItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "example": "product_id_123",
+            "description": "ID of the product"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 2,
+            "description": "Quantity to order",
+            "minimum": 1
+          },
+          "vendorId": {
+            "type": "string",
+            "example": "vendor_id_abc"
+          }
+        },
+        "required": [
+          "productId",
+          "quantity"
+        ]
+      },
+      "CheckoutDto": {
+        "type": "object",
+        "properties": {
+          "paymentMode": {
+            "type": "string",
+            "enum": [
+              "COD",
+              "ONLINE"
+            ],
+            "example": "ONLINE",
+            "description": "Payment mode: ONLINE (Razorpay) or COD"
+          },
+          "shippingAddressId": {
+            "type": "string",
+            "example": "addr_123456",
+            "description": "ID of the shipping address"
+          },
+          "notes": {
+            "type": "string",
+            "example": "Leave at front door",
+            "description": "Optional delivery notes"
+          },
+          "giftId": {
+            "type": "string",
+            "example": "gift_123456",
+            "description": "Optional gift SKU ID to include with order"
+          },
+          "couponCode": {
+            "type": "string",
+            "example": "SAVE50",
+            "description": "Optional coupon code to apply discount"
+          }
+        },
+        "required": [
+          "paymentMode",
+          "shippingAddressId"
+        ]
+      },
+      "ConfirmOrderDto": {
+        "type": "object",
+        "properties": {
+          "razorpayOrderId": {
+            "type": "string",
+            "example": "order_rcl..."
+          },
+          "razorpayPaymentId": {
+            "type": "string",
+            "example": "pay_..."
+          },
+          "razorpaySignature": {
+            "type": "string",
+            "example": "signature_hash"
+          }
+        },
+        "required": [
+          "razorpayOrderId",
+          "razorpayPaymentId",
+          "razorpaySignature"
+        ]
+      },
+      "RegisterVendorDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreatePaymentOrderDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "description": "Amount in smallest currency unit (e.g., paise)",
+            "example": 50000
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency code",
+            "default": "INR",
+            "example": "INR"
+          },
+          "orderId": {
+            "type": "string",
+            "description": "Internal Order ID to link payment to",
+            "example": "clx..."
+          }
+        },
+        "required": [
+          "amount",
+          "currency",
+          "orderId"
+        ]
+      },
+      "VerifyPaymentDto": {
+        "type": "object",
+        "properties": {
+          "razorpay_order_id": {
+            "type": "string",
+            "description": "Razorpay Order ID received from create-order",
+            "example": "order_Ekj..."
+          },
+          "razorpay_payment_id": {
+            "type": "string",
+            "description": "Razorpay Payment ID from client SDK",
+            "example": "pay_Ekj..."
+          },
+          "razorpay_signature": {
+            "type": "string",
+            "description": "Razorpay Signature from client SDK",
+            "example": "e2a..."
+          }
+        },
+        "required": [
+          "razorpay_order_id",
+          "razorpay_payment_id",
+          "razorpay_signature"
+        ]
+      },
+      "SelectGiftDto": {
+        "type": "object",
+        "properties": {
+          "giftId": {
+            "type": "string",
+            "example": "gift_123",
+            "description": "Gift SKU ID to select"
+          }
+        },
+        "required": [
+          "giftId"
+        ]
+      },
+      "ApplyCouponDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "NEWUSER50",
+            "description": "Coupon code to apply"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "AddCartItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "example": "prod_123",
+            "description": "ID of the product"
+          },
+          "variantId": {
+            "type": "string",
+            "example": "var_456",
+            "description": "ID of the product variation (optional)"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 1,
+            "description": "Quantity to add",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "productId",
+          "quantity"
+        ]
+      },
+      "UpdateCartItemDto": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "example": 2,
+            "description": "New quantity",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "quantity"
+        ]
+      },
+      "SyncCartItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string"
+          },
+          "variantId": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "productId",
+          "quantity"
+        ]
+      },
+      "SyncCartDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncCartItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "GiftResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "gift_123"
+          },
+          "title": {
+            "type": "string",
+            "example": "Premium Headphones"
+          },
+          "stock": {
+            "type": "number",
+            "example": 100
+          },
+          "cost": {
+            "type": "number",
+            "example": 500
+          },
+          "eligibleCategories": {
+            "example": [
+              "cat_electronics",
+              "cat_mobiles"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "isEligible": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether this gift is eligible for current cart"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "stock",
+          "cost",
+          "eligibleCategories",
+          "isEligible",
+          "createdAt"
+        ]
+      },
+      "CreateGiftDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Premium Headphones",
+            "description": "Gift title"
+          },
+          "stock": {
+            "type": "number",
+            "example": 100,
+            "description": "Initial stock quantity"
+          },
+          "cost": {
+            "type": "number",
+            "example": 500,
+            "description": "Cost of the gift in INR"
+          },
+          "eligibleCategories": {
+            "example": [
+              "cat_electronics",
+              "cat_mobiles"
+            ],
+            "description": "Array of category IDs eligible for this gift",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "stock",
+          "cost"
+        ]
+      },
+      "UpdateGiftDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Premium Headphones - Updated"
+          },
+          "stock": {
+            "type": "number",
+            "example": 50
+          },
+          "cost": {
+            "type": "number",
+            "example": 600
+          },
+          "eligibleCategories": {
+            "example": [
+              "cat_electronics"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ValidateCouponDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "NEWUSER50",
+            "description": "Coupon code to validate"
+          },
+          "cartTotal": {
+            "type": "number",
+            "example": 1200,
+            "description": "Cart total amount"
+          }
+        },
+        "required": [
+          "code",
+          "cartTotal"
+        ]
+      },
+      "CouponResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "coupon_123"
+          },
+          "code": {
+            "type": "string",
+            "example": "NEWUSER50"
+          },
+          "description": {
+            "type": "string",
+            "example": "50% off for new users"
+          },
+          "discountType": {
+            "type": "string",
+            "example": "PERCENTAGE"
+          },
+          "discountValue": {
+            "type": "number",
+            "example": 50
+          },
+          "minOrderAmount": {
+            "type": "number",
+            "example": 500
+          },
+          "maxDiscount": {
+            "type": "number",
+            "example": 200
+          },
+          "validFrom": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "validUntil": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "usageLimit": {
+            "type": "number",
+            "example": 100
+          },
+          "usedCount": {
+            "type": "number",
+            "example": 25
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "description",
+          "discountType",
+          "discountValue",
+          "minOrderAmount",
+          "maxDiscount",
+          "validFrom",
+          "validUntil",
+          "usageLimit",
+          "usedCount",
+          "isActive",
+          "createdAt"
+        ]
+      },
+      "CouponValidationResponseDto": {
+        "type": "object",
+        "properties": {
+          "isValid": {
+            "type": "boolean",
+            "example": true,
+            "description": "Is coupon valid"
+          },
+          "message": {
+            "type": "string",
+            "example": "Coupon applied successfully",
+            "description": "Validation message"
+          },
+          "discountAmount": {
+            "type": "number",
+            "example": 100,
+            "description": "Discount amount in INR"
+          },
+          "finalAmount": {
+            "type": "number",
+            "example": 1100,
+            "description": "Final amount after discount"
+          },
+          "coupon": {
+            "description": "Coupon details if valid",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CouponResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "isValid",
+          "message"
+        ]
+      },
+      "CreateCouponDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "NEWUSER50",
+            "description": "Unique coupon code"
+          },
+          "description": {
+            "type": "string",
+            "example": "50% off for new users",
+            "description": "Coupon description"
+          },
+          "discountType": {
+            "type": "string",
+            "example": "PERCENTAGE",
+            "enum": [
+              "PERCENTAGE",
+              "FLAT"
+            ],
+            "description": "Discount type"
+          },
+          "discountValue": {
+            "type": "number",
+            "example": 50,
+            "description": "Discount value (percentage or flat amount)"
+          },
+          "minOrderAmount": {
+            "type": "number",
+            "example": 500,
+            "description": "Minimum order amount required"
+          },
+          "maxDiscount": {
+            "type": "number",
+            "example": 200,
+            "description": "Maximum discount cap (for percentage)"
+          },
+          "validFrom": {
+            "type": "string",
+            "example": "2026-01-21T00:00:00Z",
+            "description": "Valid from date"
+          },
+          "validUntil": {
+            "type": "string",
+            "example": "2026-02-21T23:59:59Z",
+            "description": "Valid until date"
+          },
+          "usageLimit": {
+            "type": "number",
+            "example": 100,
+            "description": "Maximum usage limit globally"
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true,
+            "description": "Is coupon active"
+          }
+        },
+        "required": [
+          "code",
+          "discountType",
+          "discountValue"
+        ]
+      },
+      "UpdateCouponDto": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "example": "Updated description"
+          },
+          "discountValue": {
+            "type": "number",
+            "example": 60
+          },
+          "minOrderAmount": {
+            "type": "number",
+            "example": 600
+          },
+          "maxDiscount": {
+            "type": "number",
+            "example": 250
+          },
+          "validUntil": {
+            "type": "string",
+            "example": "2026-03-21T23:59:59Z"
+          },
+          "usageLimit": {
+            "type": "number",
+            "example": 200
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": false
+          }
+        }
+      },
+      "ReturnItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "condition": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "DAMAGED_PRODUCT",
+              "WRONG_ITEM",
+              "MISSING_PARTS",
+              "QUALITY_ISSUE",
+              "SIZE_FIT_ISSUE",
+              "OTHER"
+            ]
+          }
+        },
+        "required": [
+          "productId",
+          "quantity"
+        ]
+      },
+      "CreateReturnDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "DAMAGED_PRODUCT",
+              "WRONG_ITEM",
+              "MISSING_PARTS",
+              "QUALITY_ISSUE",
+              "SIZE_FIT_ISSUE",
+              "OTHER"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "evidenceImages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidenceVideo": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReturnItemDto"
+            }
+          },
+          "pickupAddress": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "orderId",
+          "reason",
+          "items"
+        ]
+      },
+      "UpdateReturnStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "RETURN_REQUESTED",
+              "RETURN_APPROVED",
+              "RETURN_REJECTED",
+              "PICKUP_SCHEDULED",
+              "PICKUP_COMPLETED",
+              "QC_IN_PROGRESS",
+              "QC_PASSED",
+              "QC_FAILED",
+              "REPLACEMENT_SHIPPED",
+              "REPLACED"
+            ]
+          },
+          "adminNotes": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "CreateReviewDto": {
+        "type": "object",
+        "properties": {
+          "rating": {
+            "type": "number",
+            "description": "Rating from 1 to 5",
+            "minimum": 1,
+            "maximum": 5,
+            "example": 5
+          },
+          "comment": {
+            "type": "string",
+            "description": "Review comment",
+            "maxLength": 2000,
+            "example": "Great product!"
+          },
+          "images": {
+            "description": "Array of image URLs",
+            "example": [
+              "https://example.com/img.jpg"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "rating"
+        ]
+      },
+      "UpdateReviewDto": {
+        "type": "object",
+        "properties": {
+          "rating": {
+            "type": "number",
+            "description": "Rating from 1 to 5",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "comment": {
+            "type": "string",
+            "description": "Review comment",
+            "maxLength": 2000
+          }
+        }
+      },
+      "ReportReviewDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Reason for reporting",
+            "example": "Inappropriate content"
+          },
+          "details": {
+            "type": "string",
+            "description": "Additional details",
+            "example": "Contains spam link"
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "CreateRefundRequestDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "Order ID to refund"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason for refund"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount to refund (in paise). If empty, defaults to full order total."
+          },
+          "refundMethod": {
+            "type": "string",
+            "enum": [
+              "ORIGINAL_PAYMENT",
+              "COINS",
+              "BANK_TRANSFER"
+            ],
+            "default": "ORIGINAL_PAYMENT"
+          }
+        },
+        "required": [
+          "orderId",
+          "reason"
+        ]
+      },
+      "ProcessRefundDto": {
+        "type": "object",
+        "properties": {
+          "adminNotes": {
+            "type": "string",
+            "description": "Admin notes"
+          },
+          "approvedAmount": {
+            "type": "number",
+            "description": "Approved Refund Amount (in paise)"
+          }
+        },
+        "required": [
+          "adminNotes",
+          "approvedAmount"
+        ]
+      }
+    }
+  }
+}

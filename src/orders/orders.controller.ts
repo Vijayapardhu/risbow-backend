@@ -43,6 +43,7 @@ export class OrdersController {
     }
 
     @Post('confirm')
+    @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Confirm Razorpay payment' })
     async confirm(@Body() dto: ConfirmOrderDto) {
         // Typically webhook, but can be called from client success handler for simplicity in Phase 1

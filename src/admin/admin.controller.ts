@@ -46,16 +46,6 @@ export class AdminController {
         return this.adminService.getAnalytics();
     }
 
-    @Get('dashboard/kpis')
-    getDashboardKPIs(@Query('period') period: string) {
-        return this.adminService.getDashboardKPIs(period);
-    }
-
-    @Get('dashboard/stats')
-    getDashboardStats(@Query('period') period: string) {
-        return this.adminService.getDashboardAnalytics(period);
-    }
-
     @Get('health')
     getHealth() {
         return this.adminService.getSystemHealth();
@@ -331,46 +321,7 @@ export class AdminController {
         return this.adminService.createRoom(req.user.id, body);
     }
 
-
-    @Get('orders')
-    getAllOrders(
-        @Query('limit') limit: number,
-        @Query('search') search: string,
-        @Query('status') status: string
-    ) {
-        return this.adminService.getAllOrders(limit, search, status);
-    }
-
-    @Get('orders/:id')
-    getOrderById(@Param('id') id: string) {
-        return this.adminService.getOrderById(id);
-    }
-
-    @Post('orders/:id/status')
-    updateOrderStatus(
-        @Request() req,
-        @Param('id') id: string,
-        @Body() body: { status: string, logistics?: any }
-    ) {
-        return this.adminService.updateOrderStatus(req.user.id, id, body.status, body.logistics);
-    }
-
     // --- MARKETING ---
-
-    @Get('banners')
-    getBanners() {
-        return this.adminService.getBanners();
-    }
-
-    @Post('banners')
-    createBanner(@Request() req, @Body() body: any) {
-        return this.adminService.createBanner(req.user.id, body);
-    }
-
-    @Post('banners/:id/toggle')
-    toggleBanner(@Param('id') id: string, @Body('isActive') isActive: boolean) {
-        return this.adminService.toggleBannerStatus(id, isActive);
-    }
 
     @Post('notifications/broadcast')
     @Roles('ADMIN', 'SUPER_ADMIN')
@@ -385,62 +336,10 @@ export class AdminController {
         return this.adminService.getAnalytics();
     }
 
-    @Get('categories')
-    getCategories() {
-        return this.adminService.getCategories();
-    }
-
-    @Post('categories')
-    createCategory(@Body() body: { name: string, parentId?: string, image?: string }) {
-        return this.adminService.createCategory(body);
-    }
-
-    @Get('categories/:id')
-    getCategory(@Param('id') id: string) {
-        return this.adminService.getCategoryById(id);
-    }
-
-    @Delete('categories/:id')
-    deleteCategory(@Param('id') id: string) {
-        return this.adminService.deleteCategory(id);
-    }
-
-    @Post('categories/:id')
-    updateCategory(@Param('id') id: string, @Body() body: any) {
-        return this.adminService.updateCategory(id, body);
-    }
-
-    @Patch('categories/:id')
-    updateCategoryPatch(@Param('id') id: string, @Body() body: any) {
-        return this.adminService.updateCategory(id, body);
-    }
-
     @Post('vendors/:id/commission')
     @Roles('ADMIN', 'SUPER_ADMIN')
     updateCommission(@Request() req, @Param('id') id: string, @Body('rate') rate: number) {
         return this.adminService.updateVendorCommission(req.user.id, id, rate);
-    }
-
-    @Post('products')
-    createProduct(@Body() body: any) {
-        return this.adminService.createProduct(body);
-    }
-
-    @Post('products/bulk')
-    bulkCreateProduct(@Body() body: { products: any[] }) {
-        return this.adminService.bulkCreateProducts(body.products);
-    }
-
-    @Post('products/:id/toggle')
-    toggleProduct(@Param('id') id: string, @Body('isActive') isActive: boolean) {
-        return this.adminService.toggleProductStatus(id, isActive);
-    }
-
-    @Delete('banners/:id')
-    @Roles('ADMIN', 'SUPER_ADMIN')
-    deleteBanner(@Param('id') id: string) {
-        // Assume deleteBanner exists in service or needs to be added back if I removed it erroneously
-        return this.adminService.deleteBanner(id);
     }
 
     // --- SETTINGS ---
@@ -454,31 +353,6 @@ export class AdminController {
     @Roles('ADMIN', 'SUPER_ADMIN')
     updateSetting(@Body() body: { key: string, value: string }) {
         return this.adminService.updatePlatformConfig(body.key, body.value);
-    }
-
-    // --- COUPONS ---
-
-    @Get('coupons')
-    getCoupons() {
-        return this.adminService.getCoupons();
-    }
-
-    @Post('coupons')
-    @Roles('ADMIN', 'SUPER_ADMIN')
-    createCoupon(@Body() body: any) {
-        return this.adminService.createCoupon(body);
-    }
-
-    @Patch('coupons/:id')
-    @Roles('ADMIN', 'SUPER_ADMIN')
-    updateCoupon(@Param('id') id: string, @Body() body: any) {
-        return this.adminService.updateCoupon(id, body);
-    }
-
-    @Delete('coupons/:id')
-    @Roles('ADMIN', 'SUPER_ADMIN')
-    deleteCoupon(@Param('id') id: string) {
-        return this.adminService.deleteCoupon(id);
     }
 
     // --- COINS ---

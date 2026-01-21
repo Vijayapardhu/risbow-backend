@@ -52,7 +52,7 @@ let OrdersService = class OrdersService {
                 items: dto.items,
                 totalAmount: payable,
                 coinsUsed: usableCoins,
-                status: client_1.OrderStatus.PENDING_PAYMENT,
+                status: client_1.OrderStatus.PENDING,
                 razorpayOrderId: rzpOrder.id,
                 abandonedCheckoutId: dto.abandonedCheckoutId,
             },
@@ -176,7 +176,7 @@ let OrdersService = class OrdersService {
                 user: { connect: { id: userId } },
                 items: data.items,
                 totalAmount: data.totalAmount,
-                status: client_1.OrderStatus.PENDING_PAYMENT,
+                status: client_1.OrderStatus.PENDING,
                 payment: {
                     create: {
                         provider: data.paymentMethod || 'COD',
@@ -433,14 +433,6 @@ let OrdersService = class OrdersService {
                 where: { id: orderId },
                 data: { status }
             });
-            await tx.orderTimeline.create({
-                data: {
-                    orderId,
-                    status,
-                    notes,
-                    changedBy: userId
-                }
-            });
             return updated;
         });
     }
@@ -456,14 +448,6 @@ let OrdersService = class OrdersService {
             const updated = await tx.order.update({
                 where: { id: orderId },
                 data: { status: client_1.OrderStatus.CANCELLED }
-            });
-            await tx.orderTimeline.create({
-                data: {
-                    orderId,
-                    status: client_1.OrderStatus.CANCELLED,
-                    notes: `Cancelled by ${role}: ${reason || 'No reason'}`,
-                    changedBy: userId
-                }
             });
             return updated;
         });

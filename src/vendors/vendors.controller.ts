@@ -25,9 +25,9 @@ export class VendorsController {
         return this.vendorsService.findAll();
     }
 
-    @Get('stats')
+    @Get('dashboard')
     @UseGuards(JwtAuthGuard)
-    async getVendorStats(@Request() req) {
+    async getDashboard(@Request() req) {
         return this.vendorsService.getVendorStats(req.user.id);
     }
 }

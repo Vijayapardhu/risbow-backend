@@ -36,7 +36,7 @@ export class ReturnsService {
                 evidenceImages: dto.evidenceImages || [],
                 evidenceVideo: dto.evidenceVideo,
                 pickupAddress: dto.pickupAddress,
-                status: 'RETURN_REQUESTED',
+                status: 'PENDING_APPROVAL',
                 items: {
                     create: dto.items.map((item) => ({
                         productId: item.productId,
@@ -47,7 +47,7 @@ export class ReturnsService {
                 },
                 timeline: {
                     create: {
-                        status: 'RETURN_REQUESTED',
+                        status: 'PENDING_APPROVAL',
                         action: 'RETURN_REQUESTED',
                         performedBy: 'CUSTOMER',
                         notes: 'Return request submitted by customer',
@@ -143,7 +143,7 @@ export class ReturnsService {
         });
 
         // NOTIFICATION LOGIC: Alert Vendor if Approved
-        if (dto.status === 'RETURN_APPROVED' && returnReq.vendor) {
+        if (dto.status === 'APPROVED' && returnReq.vendor) {
             // Find User associated with Vendor Mobile
             const vendorUser = await this.prisma.user.findUnique({
                 where: { mobile: returnReq.vendor.mobile }

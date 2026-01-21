@@ -73,14 +73,14 @@ export declare class RoomsController {
         _count: {
             members: number;
         };
+        createdBy: {
+            name: string;
+        };
         members: {
             status: import(".prisma/client").$Enums.MemberStatus;
             userId: string;
             roomId: string;
         }[];
-        createdBy: {
-            name: string;
-        };
     } & {
         id: string;
         createdAt: Date;

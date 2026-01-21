@@ -85,7 +85,6 @@ export class QueuesService {
                     type: 'exponential',
                     delay: 2000,
                 },
-                timeout: 30000, // 30 seconds
             });
             this.logger.debug(`Queued order ${job.action}: ${job.orderId}`);
         } catch (error) {

@@ -117,7 +117,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], UploadController.prototype, "uploadDocument", null);
 __decorate([
-    (0, common_1.Delete)(':path(*)'),
+    (0, common_1.Delete)(':path'),
     (0, swagger_1.ApiOperation)({ summary: 'Delete a file' }),
     __param(0, (0, common_1.Param)('path')),
     __metadata("design:type", Function),

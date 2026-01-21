@@ -128,8 +128,11 @@ export declare class OrdersAdminController {
         razorpayOrderId: string | null;
         awbNumber: string | null;
         courierPartner: string | null;
-        shippingCharges: number;
+        giftId: string | null;
+        couponCode: string | null;
+        discountAmount: number;
         abandonedCheckoutId: string | null;
         agentId: string | null;
+        shippingCharges: number;
     }>;
 }

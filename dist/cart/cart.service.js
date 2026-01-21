@@ -49,19 +49,8 @@ let CartService = CartService_1 = class CartService {
             let stock = item.product.stock;
             let title = item.product.title;
             let image = item.product.images?.[0] || '';
-            if (item.variantId) {
-                const variant = await this.prisma.productVariation.findUnique({
-                    where: { id: item.variantId }
-                });
-                if (variant) {
-                    price = variant.sellingPrice;
-                    stock = variant.stock;
-                }
-            }
-            else {
-                if (item.product.offerPrice) {
-                    price = item.product.offerPrice;
-                }
+            if (item.product.offerPrice) {
+                price = item.product.offerPrice;
             }
             return {
                 ...item,
@@ -87,15 +76,6 @@ let CartService = CartService_1 = class CartService {
             throw new common_1.NotFoundException('Product not found');
         let price = product.offerPrice || product.price;
         let availableStock = product.stock;
-        if (variantId) {
-            const variant = await this.prisma.productVariation.findUnique({ where: { id: variantId } });
-            if (!variant)
-                throw new common_1.NotFoundException('Variant not found');
-            if (variant.productId !== productId)
-                throw new common_1.BadRequestException('Variant does not belong to product');
-            price = variant.sellingPrice;
-            availableStock = variant.stock;
-        }
         if (availableStock < quantity) {
             throw new common_1.BadRequestException(`Insufficient stock. Available: ${availableStock}`);
         }
@@ -144,11 +124,6 @@ let CartService = CartService_1 = class CartService {
             throw new common_1.NotFoundException('Cart item not found');
         }
         let availableStock = item.product.stock;
-        if (item.variantId) {
-            const variant = await this.prisma.productVariation.findUnique({ where: { id: item.variantId } });
-            if (variant)
-                availableStock = variant.stock;
-        }
         if (availableStock < dto.quantity) {
             throw new common_1.BadRequestException(`Insufficient stock. Available: ${availableStock}`);
         }
@@ -187,12 +162,6 @@ let CartService = CartService_1 = class CartService {
                 if (!product)
                     continue;
                 let stock = product.stock;
-                if (itemDto.variantId) {
-                    const variant = await this.prisma.productVariation.findUnique({ where: { id: itemDto.variantId } });
-                    if (!variant)
-                        continue;
-                    stock = variant.stock;
-                }
                 if (stock < 1)
                     continue;
                 const quantity = Math.min(itemDto.quantity, stock);

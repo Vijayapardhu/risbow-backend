@@ -13,43 +13,50 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BannersService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const cache_service_1 = require("../shared/cache.service");
+const queues_service_1 = require("../queues/queues.service");
 let BannersService = BannersService_1 = class BannersService {
-    constructor(prisma) {
+    constructor(prisma, cache, queues) {
         this.prisma = prisma;
+        this.cache = cache;
+        this.queues = queues;
         this.logger = new common_1.Logger(BannersService_1.name);
     }
     async getActiveBanners(slotType, slotKey) {
         this.logger.log(`Fetching active banners for slotType: ${slotType}, slotKey: ${slotKey}`);
-        const now = new Date();
-        const banners = await this.prisma.banner.findMany({
-            where: {
-                slotType,
-                isActive: true,
-                startDate: { lte: now },
-                endDate: { gte: now },
-            },
-        });
-        let filteredBanners = banners;
-        if (slotKey) {
-            filteredBanners = banners.filter((banner) => {
-                const metadata = this.parseMetadata(banner);
-                return metadata.slotKey === slotKey;
+        const cacheKey = `banners:${slotType}:${slotKey || 'all'}`;
+        return await this.cache.getOrSet(cacheKey, 60, async () => {
+            const now = new Date();
+            const banners = await this.prisma.banner.findMany({
+                where: {
+                    slotType,
+                    isActive: true,
+                    startDate: { lte: now },
+                    endDate: { gte: now },
+                },
             });
-        }
-        const sortedBanners = filteredBanners.sort((a, b) => {
-            const metaA = this.parseMetadata(a);
-            const metaB = this.parseMetadata(b);
-            if (!a.vendorId && b.vendorId)
-                return -1;
-            if (a.vendorId && !b.vendorId)
-                return 1;
-            const priorityA = metaA.priority || 0;
-            const priorityB = metaB.priority || 0;
-            if (priorityA !== priorityB)
-                return priorityB - priorityA;
-            return metaA.slotIndex - metaB.slotIndex;
+            let filteredBanners = banners;
+            if (slotKey) {
+                filteredBanners = banners.filter((banner) => {
+                    const metadata = this.parseMetadata(banner);
+                    return metadata.slotKey === slotKey;
+                });
+            }
+            const sortedBanners = filteredBanners.sort((a, b) => {
+                const metaA = this.parseMetadata(a);
+                const metaB = this.parseMetadata(b);
+                if (!a.vendorId && b.vendorId)
+                    return -1;
+                if (a.vendorId && !b.vendorId)
+                    return 1;
+                const priorityA = metaA.priority || 0;
+                const priorityB = metaB.priority || 0;
+                if (priorityA !== priorityB)
+                    return priorityB - priorityA;
+                return metaA.slotIndex - metaB.slotIndex;
+            });
+            return sortedBanners.map((banner) => this.mapToResponseDto(banner));
         });
-        return sortedBanners.map((banner) => this.mapToResponseDto(banner));
     }
     async getAllBanners() {
         const banners = await this.prisma.banner.findMany({
@@ -112,6 +119,7 @@ let BannersService = BannersService_1 = class BannersService {
             where: { id },
             data: updateData,
         });
+        await this.cache.delPattern('banners:*');
         return this.mapToResponseDto(banner);
     }
     async deleteBanner(id) {
@@ -182,18 +190,25 @@ let BannersService = BannersService_1 = class BannersService {
                 isActive: true,
             },
         });
+        await this.cache.delPattern('banners:*');
         return this.mapToResponseDto(updatedBanner);
     }
     async trackBannerEvent(id, event) {
         this.logger.log(`Tracking ${event} for banner ${id}`);
         const banner = await this.prisma.banner.findUnique({
             where: { id },
+            select: { id: true },
         });
         if (!banner) {
             this.logger.warn(`Banner ${id} not found, skipping tracking`);
             return;
         }
-        this.logger.log(`${event} tracked for banner ${id}`);
+        await this.queues.addBannerAnalytics({
+            bannerId: id,
+            eventType: event,
+            timestamp: new Date(),
+        });
+        this.logger.debug(`${event} queued for banner ${id}`);
     }
     async getBannerAnalytics(id) {
         const banner = await this.getBannerById(id);
@@ -250,6 +265,8 @@ let BannersService = BannersService_1 = class BannersService {
 exports.BannersService = BannersService;
 exports.BannersService = BannersService = BannersService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        cache_service_1.CacheService,
+        queues_service_1.QueuesService])
 ], BannersService);
 //# sourceMappingURL=banners.service.js.map

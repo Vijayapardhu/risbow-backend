@@ -11,16 +11,21 @@ export declare class CheckoutController {
     constructor(checkoutService: CheckoutService, giftsService: GiftsService, couponsService: CouponsService);
     checkout(req: any, dto: CheckoutDto): Promise<{
         message: string;
+        id: string;
         orderId: string;
         status: string;
         paymentMode: string;
         totalAmount: number;
+        discountAmount: number;
+        giftId: string;
+        couponCode: string;
         razorpayOrderId?: undefined;
         amount?: undefined;
         currency?: undefined;
         key?: undefined;
     } | {
         message: string;
+        id: string;
         orderId: string;
         status: string;
         paymentMode: string;
@@ -28,7 +33,10 @@ export declare class CheckoutController {
         amount: string | number;
         currency: string;
         key: string;
-        totalAmount?: undefined;
+        totalAmount: number;
+        discountAmount: number;
+        giftId: string;
+        couponCode: string;
     }>;
     selectGift(req: any, dto: SelectGiftDto): Promise<{
         message: string;

@@ -16,11 +16,13 @@ const coins_service_1 = require("../coins/coins.service");
 const audit_service_1 = require("../audit/audit.service");
 const coin_dto_1 = require("../coins/dto/coin.dto");
 const client_1 = require("@prisma/client");
+const redis_service_1 = require("../shared/redis.service");
 let VendorsService = class VendorsService {
-    constructor(prisma, coinsService, audit) {
+    constructor(prisma, coinsService, audit, redis) {
         this.prisma = prisma;
         this.coinsService = coinsService;
         this.audit = audit;
+        this.redis = redis;
     }
     async register(dto) {
         const existing = await this.prisma.vendor.findUnique({
@@ -34,8 +36,18 @@ let VendorsService = class VendorsService {
                 mobile: dto.mobile,
                 email: dto.email,
                 kycStatus: 'PENDING',
-                tier: 'BASIC',
+                tier: dto.tier || 'FREE',
                 role: dto.role || client_1.VendorRole.RETAILER,
+                VendorMembership: {
+                    create: {
+                        tier: dto.tier || client_1.MembershipTier.FREE,
+                        price: 0,
+                        skuLimit: 10,
+                        imageLimit: 3,
+                        commissionRate: 0.15,
+                        payoutCycle: 'MONTHLY'
+                    }
+                }
             },
         });
     }
@@ -47,68 +59,112 @@ let VendorsService = class VendorsService {
         return this.prisma.vendor.findMany();
     }
     async getVendorStats(userId) {
+        const CACHE_KEY = `vendor:dashboard:${userId}`;
+        const cached = await this.redis.get(CACHE_KEY);
+        if (cached) {
+            return JSON.parse(cached);
+        }
         const vendor = await this.prisma.vendor.findFirst({
-            where: {
-                OR: [
-                    { id: userId },
-                    { email: { not: null } }
-                ]
-            },
+            where: { OR: [{ id: userId }, { email: { not: null } }] }
         });
-        if (!vendor) {
+        if (!vendor)
+            return { message: 'Vendor profile not found the user' };
+        const products = await this.prisma.product.findMany({
+            where: { vendorId: vendor.id },
+            select: { id: true, title: true, images: true, price: true }
+        });
+        const productMap = new Map();
+        products.forEach(p => productMap.set(p.id, p));
+        const productIds = new Set(products.map(p => p.id));
+        if (productIds.size === 0) {
             return {
-                totalProducts: 0,
-                totalOrders: 0,
-                totalRevenue: 0,
+                todaySales: 0,
                 pendingOrders: 0,
-                message: 'No vendor profile found',
+                coinsBalance: vendor.coinsBalance,
+                followersCount: vendor.followCount,
+                topProducts: [],
+                recentOrders: []
             };
         }
-        const totalProducts = await this.prisma.product.count({
-            where: { vendorId: vendor.id },
-        });
-        const vendorProducts = await this.prisma.product.findMany({
-            where: { vendorId: vendor.id },
-            select: { id: true, price: true },
-        });
-        const vendorProductIds = vendorProducts.map(p => p.id);
-        const allOrders = await this.prisma.order.findMany({
-            select: {
-                id: true,
-                status: true,
-                items: true,
-                totalAmount: true,
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayOrders = await this.prisma.order.findMany({
+            where: {
+                createdAt: { gte: todayStart },
+                status: { in: ['CONFIRMED', 'PAID', 'PACKED', 'SHIPPED', 'DELIVERED'] }
             },
+            select: { items: true }
         });
-        const vendorOrders = allOrders.filter(order => {
-            const items = order.items;
-            if (!Array.isArray(items))
-                return false;
-            return items.some(item => vendorProductIds.includes(item.productId));
+        let todaySales = 0;
+        for (const order of todayOrders) {
+            const items = Array.isArray(order.items) ? order.items : [];
+            for (const item of items) {
+                if (productIds.has(item.productId)) {
+                    todaySales += (Number(item.price || item.unitPrice || 0)) * (Number(item.quantity || 1));
+                }
+            }
+        }
+        const pendingOrdersAll = await this.prisma.order.findMany({
+            where: { status: { in: ['PENDING', 'PENDING_PAYMENT', 'CONFIRMED'] } },
+            select: { items: true }
         });
-        const totalOrders = vendorOrders.length;
-        const pendingOrders = vendorOrders.filter(o => ['CREATED', 'PENDING_PAYMENT', 'CONFIRMED'].includes(o.status)).length;
-        const totalRevenue = vendorOrders.reduce((sum, order) => {
-            const items = order.items;
-            if (!Array.isArray(items))
-                return sum;
-            const vendorItemsTotal = items
-                .filter(item => vendorProductIds.includes(item.productId))
-                .reduce((itemSum, item) => {
-                return itemSum + (Number(item.price || 0) * (item.quantity || 1));
-            }, 0);
-            return sum + vendorItemsTotal;
-        }, 0);
-        return {
-            totalProducts,
-            totalOrders,
-            totalRevenue,
+        let pendingOrders = 0;
+        for (const order of pendingOrdersAll) {
+            const items = Array.isArray(order.items) ? order.items : [];
+            if (items.some(item => productIds.has(item.productId))) {
+                pendingOrders++;
+            }
+        }
+        const recentActivityOrdersRaw = await this.prisma.order.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 300,
+            select: { id: true, status: true, items: true, createdAt: true, user: { select: { name: true } }, totalAmount: true }
+        });
+        const recentOrders = [];
+        const productSalesCount = new Map();
+        for (const order of recentActivityOrdersRaw) {
+            const items = Array.isArray(order.items) ? order.items : [];
+            const vendorItemsInOrder = items.filter(item => productIds.has(item.productId));
+            if (vendorItemsInOrder.length > 0) {
+                if (recentOrders.length < 5) {
+                    recentOrders.push({
+                        id: order.id,
+                        customer: order.user?.name || 'Guest',
+                        orderTotal: order.totalAmount,
+                        status: order.status,
+                        createdAt: order.createdAt
+                    });
+                }
+                for (const item of vendorItemsInOrder) {
+                    const pid = item.productId;
+                    const qty = Number(item.quantity || 1);
+                    productSalesCount.set(pid, (productSalesCount.get(pid) || 0) + qty);
+                }
+            }
+        }
+        const topProducts = Array.from(productSalesCount.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([pid, qty]) => {
+            const p = productMap.get(pid);
+            return {
+                id: pid,
+                title: p?.title || 'Unknown',
+                image: p?.images?.[0] || '',
+                price: p?.price || 0,
+                sold: qty
+            };
+        });
+        const stats = {
+            todaySales,
             pendingOrders,
-            vendorId: vendor.id,
-            vendorName: vendor.name,
-            tier: vendor.tier,
-            kycStatus: vendor.kycStatus,
+            coinsBalance: vendor.coinsBalance,
+            followersCount: vendor.followCount || 0,
+            topProducts,
+            recentOrders: recentOrders.slice(0, 5)
         };
+        await this.redis.set(CACHE_KEY, JSON.stringify(stats), 300);
+        return stats;
     }
     async approveVendor(adminId, vendorId) {
         const vendor = await this.prisma.vendor.update({
@@ -171,6 +227,7 @@ exports.VendorsService = VendorsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         coins_service_1.CoinsService,
-        audit_service_1.AuditLogService])
+        audit_service_1.AuditLogService,
+        redis_service_1.RedisService])
 ], VendorsService);
 //# sourceMappingURL=vendors.service.js.map

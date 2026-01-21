@@ -35,6 +35,8 @@ const refunds_module_1 = require("./refunds/refunds.module");
 const gifts_module_1 = require("./gifts/gifts.module");
 const coupons_module_1 = require("./coupons/coupons.module");
 const banners_module_1 = require("./banners/banners.module");
+const queues_module_1 = require("./queues/queues.module");
+const vendor_memberships_module_1 = require("./vendor-memberships/vendor-memberships.module");
 const shared_module_1 = require("./shared/shared.module");
 const health_controller_1 = require("./common/health.controller");
 let AppModule = class AppModule {
@@ -46,15 +48,19 @@ exports.AppModule = AppModule = __decorate([
             config_1.ConfigModule.forRoot({ isGlobal: true }),
             schedule_1.ScheduleModule.forRoot(),
             throttler_1.ThrottlerModule.forRoot([{
-                    ttl: 60000,
-                    limit: 100,
+                    ttl: parseInt(process.env.THROTTLE_TTL) || 60000,
+                    limit: parseInt(process.env.THROTTLE_LIMIT) || 100,
                 }]),
-            bullmq_1.BullModule.forRoot({
-                connection: {
-                    host: process.env.REDIS_HOST || 'localhost',
-                    port: parseInt(process.env.REDIS_PORT) || 6379,
-                },
-            }),
+            ...(process.env.NODE_ENV === 'test' ? [] : [
+                bullmq_1.BullModule.forRoot({
+                    connection: {
+                        host: process.env.REDIS_HOST || 'localhost',
+                        port: parseInt(process.env.REDIS_PORT) || 6379,
+                    },
+                }),
+                queues_module_1.QueuesModule,
+                admin_module_1.AdminModule,
+            ]),
             prisma_module_1.PrismaModule,
             audit_module_1.AuditModule,
             analytics_module_1.AnalyticsModule,
@@ -67,7 +73,6 @@ exports.AppModule = AppModule = __decorate([
             orders_module_1.OrdersModule,
             vendors_module_1.VendorsModule,
             payments_module_1.PaymentsModule,
-            admin_module_1.AdminModule,
             checkout_module_1.CheckoutModule,
             bow_module_1.BowModule,
             telecaller_module_1.TelecallerModule,
@@ -79,6 +84,7 @@ exports.AppModule = AppModule = __decorate([
             gifts_module_1.GiftsModule,
             coupons_module_1.CouponsModule,
             banners_module_1.BannersModule,
+            vendor_memberships_module_1.VendorMembershipsModule,
         ],
         controllers: [health_controller_1.HealthController],
     })

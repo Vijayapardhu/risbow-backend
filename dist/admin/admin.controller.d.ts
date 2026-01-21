@@ -29,13 +29,13 @@ export declare class AdminController {
     }>;
     getAuditLogs(limit: number): Promise<{
         id: string;
-        action: string;
         entity: string;
-        entityId: string;
+        action: string;
         details: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
+        entityId: string;
         ipAddress: string | null;
         userAgent: string | null;
-        createdAt: Date;
         adminId: string;
     }[]>;
     getStats(): Promise<{
@@ -73,47 +73,6 @@ export declare class AdminController {
             orders: string;
             vendors: string;
         };
-    }>;
-    getDashboardKPIs(period: string): Promise<{
-        totalRevenue: number;
-        totalOrders: number;
-        activeCustomers: number;
-        conversionRate: number;
-        averageOrderValue: number;
-        totalProducts: number;
-        totalShops: number;
-        totalCustomers: number;
-    }>;
-    getDashboardStats(period: string): Promise<{
-        orderData: {
-            name: string;
-            orders: number;
-        }[];
-        userData: {
-            name: string;
-            value: number;
-        }[];
-        topProducts: {
-            name: string;
-            stock: string;
-            price: number;
-            status: string;
-            earnings: string;
-        }[];
-        recentOrders: {
-            id: string;
-            title: string;
-            subtitle: string;
-            type: string;
-            status: string;
-            time: Date;
-        }[];
-        trendingShops: {
-            id: string;
-            name: string;
-            orders: number;
-            rating: number;
-        }[];
     }>;
     getHealth(): Promise<{
         status: string;
@@ -167,10 +126,10 @@ export declare class AdminController {
         valueTag: import(".prisma/client").$Enums.ValueTag;
         isCodDisabled: boolean;
         isRefundsDisabled: boolean;
-        kycStatus: string;
-        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         updatedAt: Date;
     }[]>;
     getUserDetails(id: string): Promise<{
@@ -191,6 +150,35 @@ export declare class AdminController {
             cancellationRate: number;
             derivedRiskTag: import(".prisma/client").$Enums.RiskTag;
         };
+        addresses: {
+            id: string;
+            createdAt: Date;
+            name: string;
+            mobile: string | null;
+            updatedAt: Date;
+            userId: string;
+            title: string | null;
+            street: string | null;
+            city: string;
+            state: string;
+            pincode: string;
+            isDefault: boolean;
+            addressLine1: string;
+            addressLine2: string | null;
+            label: string;
+            phone: string;
+        }[];
+        receivedNotes: ({
+            admin: {
+                email: string;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            adminId: string;
+            userId: string;
+            note: string;
+        })[];
         orders: ({
             payment: {
                 id: string;
@@ -219,53 +207,27 @@ export declare class AdminController {
             razorpayOrderId: string | null;
             awbNumber: string | null;
             courierPartner: string | null;
-            shippingCharges: number;
+            giftId: string | null;
+            couponCode: string | null;
+            discountAmount: number;
             abandonedCheckoutId: string | null;
             agentId: string | null;
+            shippingCharges: number;
         })[];
-        addresses: {
-            id: string;
-            createdAt: Date;
-            name: string;
-            mobile: string | null;
-            updatedAt: Date;
-            userId: string;
-            title: string | null;
-            phone: string;
-            street: string | null;
-            addressLine1: string;
-            addressLine2: string | null;
-            city: string;
-            state: string;
-            pincode: string;
-            label: string;
-            isDefault: boolean;
-        }[];
         reviews: {
             id: string;
             createdAt: Date;
-            status: import(".prisma/client").$Enums.ReviewStatus;
+            status: string;
             updatedAt: Date;
             userId: string;
             productId: string | null;
             vendorId: string | null;
             images: string[];
             rating: number;
+            helpfulCount: number;
             comment: string | null;
             isVerified: boolean;
-            helpfulCount: number;
         }[];
-        receivedNotes: ({
-            admin: {
-                email: string;
-            };
-        } & {
-            id: string;
-            createdAt: Date;
-            adminId: string;
-            userId: string;
-            note: string;
-        })[];
         id: string;
         createdAt: Date;
         name: string | null;
@@ -287,10 +249,10 @@ export declare class AdminController {
         valueTag: import(".prisma/client").$Enums.ValueTag;
         isCodDisabled: boolean;
         isRefundsDisabled: boolean;
-        kycStatus: string;
-        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         updatedAt: Date;
     }>;
     updateUser(req: any, userId: string, body: any): Promise<{
@@ -315,10 +277,10 @@ export declare class AdminController {
         valueTag: import(".prisma/client").$Enums.ValueTag;
         isCodDisabled: boolean;
         isRefundsDisabled: boolean;
-        kycStatus: string;
-        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         updatedAt: Date;
     }>;
     updateKyc(req: any, userId: string, body: {
@@ -346,10 +308,10 @@ export declare class AdminController {
         valueTag: import(".prisma/client").$Enums.ValueTag;
         isCodDisabled: boolean;
         isRefundsDisabled: boolean;
-        kycStatus: string;
-        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         updatedAt: Date;
     }>;
     forceLogout(req: any, userId: string): Promise<{
@@ -380,10 +342,10 @@ export declare class AdminController {
         valueTag: import(".prisma/client").$Enums.ValueTag;
         isCodDisabled: boolean;
         isRefundsDisabled: boolean;
-        kycStatus: string;
-        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         updatedAt: Date;
     }>;
     toggleCod(req: any, userId: string, body: {
@@ -410,10 +372,10 @@ export declare class AdminController {
         valueTag: import(".prisma/client").$Enums.ValueTag;
         isCodDisabled: boolean;
         isRefundsDisabled: boolean;
-        kycStatus: string;
-        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         updatedAt: Date;
     }>;
     updateRiskTag(req: any, userId: string, body: {
@@ -440,10 +402,10 @@ export declare class AdminController {
         valueTag: import(".prisma/client").$Enums.ValueTag;
         isCodDisabled: boolean;
         isRefundsDisabled: boolean;
-        kycStatus: string;
-        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         updatedAt: Date;
     }>;
     updateValueTag(req: any, userId: string, body: {
@@ -470,10 +432,10 @@ export declare class AdminController {
         valueTag: import(".prisma/client").$Enums.ValueTag;
         isCodDisabled: boolean;
         isRefundsDisabled: boolean;
-        kycStatus: string;
-        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         updatedAt: Date;
     }>;
     addAdminNote(req: any, userId: string, body: {
@@ -534,10 +496,10 @@ export declare class AdminController {
         valueTag: import(".prisma/client").$Enums.ValueTag;
         isCodDisabled: boolean;
         isRefundsDisabled: boolean;
-        kycStatus: string;
-        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         updatedAt: Date;
     }>;
     updateUserStatus(req: any, userId: string, body: {
@@ -567,10 +529,10 @@ export declare class AdminController {
             valueTag: import(".prisma/client").$Enums.ValueTag;
             isCodDisabled: boolean;
             isRefundsDisabled: boolean;
-            kycStatus: string;
-            kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-            miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             forceLogoutAt: Date | null;
+            kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+            kycStatus: string;
+            miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             updatedAt: Date;
         };
         message: string;
@@ -601,10 +563,10 @@ export declare class AdminController {
             valueTag: import(".prisma/client").$Enums.ValueTag;
             isCodDisabled: boolean;
             isRefundsDisabled: boolean;
-            kycStatus: string;
-            kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-            miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             forceLogoutAt: Date | null;
+            kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+            kycStatus: string;
+            miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             updatedAt: Date;
         };
         message: string;
@@ -633,10 +595,10 @@ export declare class AdminController {
             valueTag: import(".prisma/client").$Enums.ValueTag;
             isCodDisabled: boolean;
             isRefundsDisabled: boolean;
-            kycStatus: string;
-            kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-            miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             forceLogoutAt: Date | null;
+            kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+            kycStatus: string;
+            miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             updatedAt: Date;
         };
         message: string;
@@ -667,10 +629,10 @@ export declare class AdminController {
             valueTag: import(".prisma/client").$Enums.ValueTag;
             isCodDisabled: boolean;
             isRefundsDisabled: boolean;
-            kycStatus: string;
-            kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-            miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             forceLogoutAt: Date | null;
+            kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+            kycStatus: string;
+            miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
             updatedAt: Date;
         };
         message: string;
@@ -689,15 +651,15 @@ export declare class AdminController {
                 updatedAt: Date;
                 userId: string;
                 title: string | null;
-                phone: string;
                 street: string | null;
-                addressLine1: string;
-                addressLine2: string | null;
                 city: string;
                 state: string;
                 pincode: string;
-                label: string;
                 isDefault: boolean;
+                addressLine1: string;
+                addressLine2: string | null;
+                label: string;
+                phone: string;
             };
             payment: {
                 id: string;
@@ -726,9 +688,12 @@ export declare class AdminController {
             razorpayOrderId: string | null;
             awbNumber: string | null;
             courierPartner: string | null;
-            shippingCharges: number;
+            giftId: string | null;
+            couponCode: string | null;
+            discountAmount: number;
             abandonedCheckoutId: string | null;
             agentId: string | null;
+            shippingCharges: number;
         })[];
         stats: {
             totalOrders: number;
@@ -764,15 +729,15 @@ export declare class AdminController {
             updatedAt: Date;
             userId: string;
             title: string | null;
-            phone: string;
             street: string | null;
-            addressLine1: string;
-            addressLine2: string | null;
             city: string;
             state: string;
             pincode: string;
-            label: string;
             isDefault: boolean;
+            addressLine1: string;
+            addressLine2: string | null;
+            label: string;
+            phone: string;
         }[];
         total: number;
     }>;
@@ -817,20 +782,27 @@ export declare class AdminController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
-        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
-        kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
         updatedAt: Date;
         vendorCode: string | null;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
-        strikes: number;
         followCount: number;
         commissionRate: number;
-        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
+        strikes: number;
+        storeName: string | null;
+        storeLogo: string | null;
+        storeBanner: string | null;
+        storeTimings: import("@prisma/client/runtime/library").JsonValue | null;
+        pickupEnabled: boolean;
+        pickupTimings: import("@prisma/client/runtime/library").JsonValue | null;
+        lastPayoutDate: Date | null;
+        pendingEarnings: number;
+        performanceScore: number;
     }[]>;
     approveVendor(req: any, id: string, body: {
         approved: boolean;
@@ -842,20 +814,27 @@ export declare class AdminController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
-        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
-        kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
         updatedAt: Date;
         vendorCode: string | null;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
-        strikes: number;
         followCount: number;
         commissionRate: number;
-        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
+        strikes: number;
+        storeName: string | null;
+        storeLogo: string | null;
+        storeBanner: string | null;
+        storeTimings: import("@prisma/client/runtime/library").JsonValue | null;
+        pickupEnabled: boolean;
+        pickupTimings: import("@prisma/client/runtime/library").JsonValue | null;
+        lastPayoutDate: Date | null;
+        pendingEarnings: number;
+        performanceScore: number;
     }>;
     rejectVendor(req: any, id: string, body: {
         reason: string;
@@ -866,20 +845,27 @@ export declare class AdminController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
-        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
-        kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
         updatedAt: Date;
         vendorCode: string | null;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
-        strikes: number;
         followCount: number;
         commissionRate: number;
-        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
+        strikes: number;
+        storeName: string | null;
+        storeLogo: string | null;
+        storeBanner: string | null;
+        storeTimings: import("@prisma/client/runtime/library").JsonValue | null;
+        pickupEnabled: boolean;
+        pickupTimings: import("@prisma/client/runtime/library").JsonValue | null;
+        lastPayoutDate: Date | null;
+        pendingEarnings: number;
+        performanceScore: number;
     }>;
     suspendVendor(req: any, id: string, body: {
         reason?: string;
@@ -890,20 +876,27 @@ export declare class AdminController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
-        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
-        kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
         updatedAt: Date;
         vendorCode: string | null;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
-        strikes: number;
         followCount: number;
         commissionRate: number;
-        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
+        strikes: number;
+        storeName: string | null;
+        storeLogo: string | null;
+        storeBanner: string | null;
+        storeTimings: import("@prisma/client/runtime/library").JsonValue | null;
+        pickupEnabled: boolean;
+        pickupTimings: import("@prisma/client/runtime/library").JsonValue | null;
+        lastPayoutDate: Date | null;
+        pendingEarnings: number;
+        performanceScore: number;
     }>;
     activateVendor(req: any, id: string): Promise<{
         id: string;
@@ -912,20 +905,27 @@ export declare class AdminController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
-        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
-        kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
         updatedAt: Date;
         vendorCode: string | null;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
-        strikes: number;
         followCount: number;
         commissionRate: number;
-        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
+        strikes: number;
+        storeName: string | null;
+        storeLogo: string | null;
+        storeBanner: string | null;
+        storeTimings: import("@prisma/client/runtime/library").JsonValue | null;
+        pickupEnabled: boolean;
+        pickupTimings: import("@prisma/client/runtime/library").JsonValue | null;
+        lastPayoutDate: Date | null;
+        pendingEarnings: number;
+        performanceScore: number;
     }>;
     strikeVendor(req: any, id: string, body: {
         reason: string;
@@ -936,20 +936,27 @@ export declare class AdminController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
-        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
-        kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
         updatedAt: Date;
         vendorCode: string | null;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
-        strikes: number;
         followCount: number;
         commissionRate: number;
-        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
+        strikes: number;
+        storeName: string | null;
+        storeLogo: string | null;
+        storeBanner: string | null;
+        storeTimings: import("@prisma/client/runtime/library").JsonValue | null;
+        pickupEnabled: boolean;
+        pickupTimings: import("@prisma/client/runtime/library").JsonValue | null;
+        lastPayoutDate: Date | null;
+        pendingEarnings: number;
+        performanceScore: number;
     }>;
     getAllRooms(): Promise<{
         id: string;
@@ -978,148 +985,6 @@ export declare class AdminController {
         offerId: string;
         isSystemRoom: boolean;
         createdById: string | null;
-    }>;
-    getAllOrders(limit: number, search: string, status: string): Promise<({
-        user: {
-            name: string;
-            mobile: string;
-            email: string;
-        };
-        address: {
-            id: string;
-            createdAt: Date;
-            name: string;
-            mobile: string | null;
-            updatedAt: Date;
-            userId: string;
-            title: string | null;
-            phone: string;
-            street: string | null;
-            addressLine1: string;
-            addressLine2: string | null;
-            city: string;
-            state: string;
-            pincode: string;
-            label: string;
-            isDefault: boolean;
-        };
-    } & {
-        id: string;
-        createdAt: Date;
-        status: import(".prisma/client").$Enums.OrderStatus;
-        updatedAt: Date;
-        items: import("@prisma/client/runtime/library").JsonValue;
-        userId: string;
-        roomId: string | null;
-        addressId: string | null;
-        totalAmount: number;
-        coinsUsed: number;
-        coinsUsedDebited: boolean;
-        razorpayOrderId: string | null;
-        awbNumber: string | null;
-        courierPartner: string | null;
-        shippingCharges: number;
-        abandonedCheckoutId: string | null;
-        agentId: string | null;
-    })[]>;
-    getOrderById(id: string): Promise<{
-        user: {
-            id: string;
-            name: string;
-            mobile: string;
-            email: string;
-        };
-        address: {
-            id: string;
-            createdAt: Date;
-            name: string;
-            mobile: string | null;
-            updatedAt: Date;
-            userId: string;
-            title: string | null;
-            phone: string;
-            street: string | null;
-            addressLine1: string;
-            addressLine2: string | null;
-            city: string;
-            state: string;
-            pincode: string;
-            label: string;
-            isDefault: boolean;
-        };
-    } & {
-        id: string;
-        createdAt: Date;
-        status: import(".prisma/client").$Enums.OrderStatus;
-        updatedAt: Date;
-        items: import("@prisma/client/runtime/library").JsonValue;
-        userId: string;
-        roomId: string | null;
-        addressId: string | null;
-        totalAmount: number;
-        coinsUsed: number;
-        coinsUsedDebited: boolean;
-        razorpayOrderId: string | null;
-        awbNumber: string | null;
-        courierPartner: string | null;
-        shippingCharges: number;
-        abandonedCheckoutId: string | null;
-        agentId: string | null;
-    }>;
-    updateOrderStatus(req: any, id: string, body: {
-        status: string;
-        logistics?: any;
-    }): Promise<{
-        id: string;
-        createdAt: Date;
-        status: import(".prisma/client").$Enums.OrderStatus;
-        updatedAt: Date;
-        items: import("@prisma/client/runtime/library").JsonValue;
-        userId: string;
-        roomId: string | null;
-        addressId: string | null;
-        totalAmount: number;
-        coinsUsed: number;
-        coinsUsedDebited: boolean;
-        razorpayOrderId: string | null;
-        awbNumber: string | null;
-        courierPartner: string | null;
-        shippingCharges: number;
-        abandonedCheckoutId: string | null;
-        agentId: string | null;
-    }>;
-    getBanners(): Promise<{
-        id: string;
-        createdAt: Date;
-        vendorId: string | null;
-        isActive: boolean;
-        imageUrl: string;
-        redirectUrl: string | null;
-        slotType: string;
-        startDate: Date;
-        endDate: Date;
-    }[]>;
-    createBanner(req: any, body: any): Promise<{
-        id: string;
-        createdAt: Date;
-        vendorId: string | null;
-        isActive: boolean;
-        imageUrl: string;
-        redirectUrl: string | null;
-        slotType: string;
-        startDate: Date;
-        endDate: Date;
-    }>;
-    toggleBanner(id: string, isActive: boolean): Promise<{
-        id: string;
-        createdAt: Date;
-        vendorId: string | null;
-        isActive: boolean;
-        imageUrl: string;
-        redirectUrl: string | null;
-        slotType: string;
-        startDate: Date;
-        endDate: Date;
     }>;
     sendBroadcast(req: any, body: {
         title: string;
@@ -1171,56 +1036,6 @@ export declare class AdminController {
             vendors: string;
         };
     }>;
-    getCategories(): Promise<{
-        id: string;
-        createdAt: Date;
-        name: string;
-        updatedAt: Date;
-        isActive: boolean;
-        image: string | null;
-        nameTE: string | null;
-        parentId: string | null;
-        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
-    }[]>;
-    createCategory(body: {
-        name: string;
-        parentId?: string;
-        image?: string;
-    }): Promise<{
-        id: string;
-        createdAt: Date;
-        name: string;
-        updatedAt: Date;
-        isActive: boolean;
-        image: string | null;
-        nameTE: string | null;
-        parentId: string | null;
-        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
-    }>;
-    getCategory(id: string): Promise<{
-        id: string;
-        createdAt: Date;
-        name: string;
-        updatedAt: Date;
-        isActive: boolean;
-        image: string | null;
-        nameTE: string | null;
-        parentId: string | null;
-        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
-    }>;
-    deleteCategory(id: string): Promise<{
-        id: string;
-        createdAt: Date;
-        name: string;
-        updatedAt: Date;
-        isActive: boolean;
-        image: string | null;
-        nameTE: string | null;
-        parentId: string | null;
-        attributeSchema: import("@prisma/client/runtime/library").JsonValue | null;
-    }>;
-    updateCategory(id: string, body: any): Promise<any>;
-    updateCategoryPatch(id: string, body: any): Promise<any>;
     updateCommission(req: any, id: string, rate: number): Promise<{
         id: string;
         createdAt: Date;
@@ -1228,149 +1043,34 @@ export declare class AdminController {
         mobile: string;
         email: string | null;
         role: import(".prisma/client").$Enums.VendorRole;
-        status: import(".prisma/client").$Enums.VendorStatus;
         coinsBalance: number;
-        kycStatus: string;
         kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
         updatedAt: Date;
         vendorCode: string | null;
         tier: string;
         gstNumber: string | null;
         isGstVerified: boolean;
         skuLimit: number;
-        strikes: number;
         followCount: number;
         commissionRate: number;
-        commissionOverrides: import("@prisma/client/runtime/library").JsonValue | null;
-    }>;
-    createProduct(body: any): Promise<{
-        id: string;
-        createdAt: Date;
-        length: number | null;
-        updatedAt: Date;
-        title: string;
-        description: string | null;
-        tags: string[];
-        vendorId: string;
-        price: number;
-        offerPrice: number | null;
-        stock: number;
-        categoryId: string;
-        visibility: import(".prisma/client").$Enums.ProductVisibility;
-        defaultVariationId: string | null;
-        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
-        variants: import("@prisma/client/runtime/library").JsonValue | null;
-        images: string[];
-        isActive: boolean;
-        isWholesale: boolean;
-        wholesalePrice: number | null;
-        moq: number;
-        sku: string | null;
-        brandName: string | null;
-        weight: number | null;
-        weightUnit: string | null;
-        width: number | null;
-        height: number | null;
-        dimensionUnit: string | null;
-        shippingClass: string | null;
-        metaTitle: string | null;
-        metaDescription: string | null;
-        metaKeywords: string[];
-        isCancelable: boolean;
-        isReturnable: boolean;
-        requiresOTP: boolean;
-        isInclusiveTax: boolean;
-        isAttachmentRequired: boolean;
-        minOrderQuantity: number;
-        quantityStepSize: number;
-        totalAllowedQuantity: number;
-        basePreparationTime: number;
-        storageInstructions: string | null;
-        allergenInformation: string | null;
-        attributes: import("@prisma/client/runtime/library").JsonValue | null;
-        costPrice: number | null;
-        rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
-        shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
-        videos: string[];
-        hasVariations: boolean;
-        variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
-    }>;
-    bulkCreateProduct(body: {
-        products: any[];
-    }): Promise<{
-        success: number;
-        failed: number;
-        errors: any[];
-    }>;
-    toggleProduct(id: string, isActive: boolean): Promise<{
-        id: string;
-        createdAt: Date;
-        length: number | null;
-        updatedAt: Date;
-        title: string;
-        description: string | null;
-        tags: string[];
-        vendorId: string;
-        price: number;
-        offerPrice: number | null;
-        stock: number;
-        categoryId: string;
-        visibility: import(".prisma/client").$Enums.ProductVisibility;
-        defaultVariationId: string | null;
-        mediaGallery: import("@prisma/client/runtime/library").JsonValue | null;
-        variants: import("@prisma/client/runtime/library").JsonValue | null;
-        images: string[];
-        isActive: boolean;
-        isWholesale: boolean;
-        wholesalePrice: number | null;
-        moq: number;
-        sku: string | null;
-        brandName: string | null;
-        weight: number | null;
-        weightUnit: string | null;
-        width: number | null;
-        height: number | null;
-        dimensionUnit: string | null;
-        shippingClass: string | null;
-        metaTitle: string | null;
-        metaDescription: string | null;
-        metaKeywords: string[];
-        isCancelable: boolean;
-        isReturnable: boolean;
-        requiresOTP: boolean;
-        isInclusiveTax: boolean;
-        isAttachmentRequired: boolean;
-        minOrderQuantity: number;
-        quantityStepSize: number;
-        totalAllowedQuantity: number;
-        basePreparationTime: number;
-        storageInstructions: string | null;
-        allergenInformation: string | null;
-        attributes: import("@prisma/client/runtime/library").JsonValue | null;
-        costPrice: number | null;
-        rulesSnapshot: import("@prisma/client/runtime/library").JsonValue | null;
-        shippingDetails: import("@prisma/client/runtime/library").JsonValue | null;
-        videos: string[];
-        hasVariations: boolean;
-        variationOptions: import("@prisma/client/runtime/library").JsonValue | null;
-    }>;
-    deleteBanner(id: string): Promise<{
-        id: string;
-        createdAt: Date;
-        vendorId: string | null;
-        isActive: boolean;
-        imageUrl: string;
-        redirectUrl: string | null;
-        slotType: string;
-        startDate: Date;
-        endDate: Date;
+        strikes: number;
+        storeName: string | null;
+        storeLogo: string | null;
+        storeBanner: string | null;
+        storeTimings: import("@prisma/client/runtime/library").JsonValue | null;
+        pickupEnabled: boolean;
+        pickupTimings: import("@prisma/client/runtime/library").JsonValue | null;
+        lastPayoutDate: Date | null;
+        pendingEarnings: number;
+        performanceScore: number;
     }>;
     getSettings(): Promise<{
         id: string;
         updatedAt: Date;
-        description: string | null;
         key: string;
         value: string;
+        description: string | null;
     }[]>;
     updateSetting(body: {
         key: string;
@@ -1378,73 +1078,9 @@ export declare class AdminController {
     }): Promise<{
         id: string;
         updatedAt: Date;
-        description: string | null;
         key: string;
         value: string;
-    }>;
-    getCoupons(): Promise<{
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
         description: string | null;
-        isActive: boolean;
-        code: string;
-        discountType: string;
-        discountValue: number;
-        minOrderAmount: number | null;
-        maxDiscount: number | null;
-        validFrom: Date;
-        validUntil: Date | null;
-        usageLimit: number | null;
-        usedCount: number;
-    }[]>;
-    createCoupon(body: any): Promise<{
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        description: string | null;
-        isActive: boolean;
-        code: string;
-        discountType: string;
-        discountValue: number;
-        minOrderAmount: number | null;
-        maxDiscount: number | null;
-        validFrom: Date;
-        validUntil: Date | null;
-        usageLimit: number | null;
-        usedCount: number;
-    }>;
-    updateCoupon(id: string, body: any): Promise<{
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        description: string | null;
-        isActive: boolean;
-        code: string;
-        discountType: string;
-        discountValue: number;
-        minOrderAmount: number | null;
-        maxDiscount: number | null;
-        validFrom: Date;
-        validUntil: Date | null;
-        usageLimit: number | null;
-        usedCount: number;
-    }>;
-    deleteCoupon(id: string): Promise<{
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        description: string | null;
-        isActive: boolean;
-        code: string;
-        discountType: string;
-        discountValue: number;
-        minOrderAmount: number | null;
-        maxDiscount: number | null;
-        validFrom: Date;
-        validUntil: Date | null;
-        usageLimit: number | null;
-        usedCount: number;
     }>;
     getCoinTransactions(): Promise<{
         id: string;
@@ -1469,30 +1105,30 @@ export declare class AdminController {
     } & {
         id: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.ReviewStatus;
+        status: string;
         updatedAt: Date;
         userId: string;
         productId: string | null;
         vendorId: string | null;
         images: string[];
         rating: number;
+        helpfulCount: number;
         comment: string | null;
         isVerified: boolean;
-        helpfulCount: number;
     })[]>;
     deleteReview(id: string): Promise<{
         id: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.ReviewStatus;
+        status: string;
         updatedAt: Date;
         userId: string;
         productId: string | null;
         vendorId: string | null;
         images: string[];
         rating: number;
+        helpfulCount: number;
         comment: string | null;
         isVerified: boolean;
-        helpfulCount: number;
     }>;
     getReports(status: string): Promise<({
         reporter: {

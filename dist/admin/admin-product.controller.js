@@ -14,14 +14,17 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminProductController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const admin_product_service_1 = require("./admin-product.service");
+const admin_service_1 = require("./admin.service");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const roles_guard_1 = require("../auth/roles.guard");
 const roles_decorator_1 = require("../auth/roles.decorator");
 const catalog_dto_1 = require("../catalog/dto/catalog.dto");
 let AdminProductController = class AdminProductController {
-    constructor(productService) {
+    constructor(productService, adminService) {
         this.productService = productService;
+        this.adminService = adminService;
     }
     async getProductList(search, period, page = 1, limit = 50) {
         return this.productService.getProductList({ search, period, page, limit });
@@ -43,6 +46,12 @@ let AdminProductController = class AdminProductController {
     }
     async getProductAnalytics(id, period) {
         return this.productService.getProductAnalytics(id, period);
+    }
+    async bulkCreateProduct(body) {
+        return this.adminService.bulkCreateProducts(body.products);
+    }
+    async toggleProduct(id, isActive) {
+        return this.adminService.toggleProductStatus(id, isActive);
     }
 };
 exports.AdminProductController = AdminProductController;
@@ -100,10 +109,27 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], AdminProductController.prototype, "getProductAnalytics", null);
+__decorate([
+    (0, common_1.Post)('bulk'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AdminProductController.prototype, "bulkCreateProduct", null);
+__decorate([
+    (0, common_1.Post)(':id/toggle'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)('isActive')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Boolean]),
+    __metadata("design:returntype", Promise)
+], AdminProductController.prototype, "toggleProduct", null);
 exports.AdminProductController = AdminProductController = __decorate([
+    (0, swagger_1.ApiTags)('Admin'),
     (0, common_1.Controller)('admin/products'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
-    __metadata("design:paramtypes", [admin_product_service_1.AdminProductService])
+    __metadata("design:paramtypes", [admin_product_service_1.AdminProductService,
+        admin_service_1.AdminService])
 ], AdminProductController);
 //# sourceMappingURL=admin-product.controller.js.map

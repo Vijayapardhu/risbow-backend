@@ -4,14 +4,16 @@ import { RegisterVendorDto } from './dto/vendor.dto';
 import { CoinsService } from '../coins/coins.service';
 import { AuditLogService } from '../audit/audit.service';
 import { CoinSource } from '../coins/dto/coin.dto';
-import { VendorRole } from '@prisma/client';
+import { VendorRole, MembershipTier } from '@prisma/client';
+import { RedisService } from '../shared/redis.service';
 
 @Injectable()
 export class VendorsService {
     constructor(
         private prisma: PrismaService,
         private coinsService: CoinsService,
-        private audit: AuditLogService
+        private audit: AuditLogService,
+        private redis: RedisService
     ) { }
 
     async register(dto: RegisterVendorDto) {
@@ -26,13 +28,21 @@ export class VendorsService {
                 mobile: dto.mobile,
                 email: dto.email,
                 kycStatus: 'PENDING',
-                tier: 'BASIC',
+                tier: (dto.tier as any) || 'FREE',
                 role: (dto.role as any) || VendorRole.RETAILER,
+                VendorMembership: {
+                    create: {
+                        tier: dto.tier || MembershipTier.FREE,
+                        price: 0, // Default FREE price
+                        skuLimit: 10, // Default FREE limit
+                        imageLimit: 3,
+                        commissionRate: 0.15,
+                        payoutCycle: 'MONTHLY'
+                    }
+                }
             },
         });
     }
-
-
 
     async purchaseBannerSlot(userId: string, image: string) {
         // SRS FR-6: 2000 coins for 1 week banner.
@@ -50,86 +60,146 @@ export class VendorsService {
     }
 
     async getVendorStats(userId: string) {
-        // Get vendor by user ID
+        const CACHE_KEY = `vendor:dashboard:${userId}`;
+        const cached = await this.redis.get(CACHE_KEY);
+        if (cached) {
+            return JSON.parse(cached);
+        }
+
+        // 1. Get Vendor
         const vendor = await this.prisma.vendor.findFirst({
-            where: {
-                OR: [
-                    { id: userId },
-                    // Also check if user has a vendor profile linked
-                    { email: { not: null } }
-                ]
-            },
+            where: { OR: [{ id: userId }, { email: { not: null } }] }
         });
 
-        if (!vendor) {
+        if (!vendor) return { message: 'Vendor profile not found the user' };
+
+        // 2. Get Vendor Product IDs (cached in memory set for fast lookup)
+        const products = await this.prisma.product.findMany({
+            where: { vendorId: vendor.id },
+            select: { id: true, title: true, images: true, price: true }
+        });
+
+        // Explicit typing to avoid 'unknown' errors
+        type ProductData = { id: string; title: string; images: string[]; price: number | null };
+        const productMap = new Map<string, ProductData>();
+        products.forEach(p => productMap.set(p.id, p));
+
+        const productIds = new Set(products.map(p => p.id));
+
+        if (productIds.size === 0) {
             return {
-                totalProducts: 0,
-                totalOrders: 0,
-                totalRevenue: 0,
+                todaySales: 0,
                 pendingOrders: 0,
-                message: 'No vendor profile found',
+                coinsBalance: vendor.coinsBalance,
+                followersCount: vendor.followCount,
+                topProducts: [],
+                recentOrders: []
             };
         }
 
-        // Get product count for this vendor
-        const totalProducts = await this.prisma.product.count({
-            where: { vendorId: vendor.id },
-        });
+        // 3. Today's Sales
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
 
-        // Get all vendor's product IDs
-        const vendorProducts = await this.prisma.product.findMany({
-            where: { vendorId: vendor.id },
-            select: { id: true, price: true },
-        });
-        const vendorProductIds = vendorProducts.map(p => p.id);
-
-        // Get all orders and filter those containing vendor's products
-        // Since items is Json, we need to fetch all orders and filter in app
-        const allOrders = await this.prisma.order.findMany({
-            select: {
-                id: true,
-                status: true,
-                items: true,
-                totalAmount: true,
+        const todayOrders = await this.prisma.order.findMany({
+            where: {
+                createdAt: { gte: todayStart },
+                status: { in: ['CONFIRMED', 'PAID', 'PACKED', 'SHIPPED', 'DELIVERED'] }
             },
+            select: { items: true }
         });
 
-        // Filter orders containing vendor's products
-        const vendorOrders = allOrders.filter(order => {
-            const items = order.items as any[];
-            if (!Array.isArray(items)) return false;
-            return items.some(item => vendorProductIds.includes(item.productId));
+        let todaySales = 0;
+        for (const order of todayOrders) {
+            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            for (const item of items) {
+                if (productIds.has(item.productId)) {
+                    todaySales += (Number(item.price || item.unitPrice || 0)) * (Number(item.quantity || 1));
+                }
+            }
+        }
+
+        // 4. Pending Orders (Fetch ALL active orders to ensure accuracy)
+        // Optimization: Only fetch items for in-memory filtering.
+        const pendingOrdersAll = await this.prisma.order.findMany({
+            where: { status: { in: ['PENDING', 'PENDING_PAYMENT', 'CONFIRMED'] as any[] } }, // Cast to avoid strict enum match issues if any
+            select: { items: true }
         });
 
-        const totalOrders = vendorOrders.length;
-        const pendingOrders = vendorOrders.filter(o =>
-            ['CREATED', 'PENDING_PAYMENT', 'CONFIRMED'].includes(o.status)
-        ).length;
+        let pendingOrders = 0;
+        for (const order of pendingOrdersAll) {
+            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            if (items.some(item => productIds.has(item.productId))) {
+                pendingOrders++;
+            }
+        }
 
-        // Calculate revenue from this vendor's items
-        const totalRevenue = vendorOrders.reduce((sum, order) => {
-            const items = order.items as any[];
-            if (!Array.isArray(items)) return sum;
+        // 5. Recent Orders & Top Products (Scanning recent history)
+        const recentActivityOrdersRaw = await this.prisma.order.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 300, // Scan last 300 orders for "Recent" list and "Top Products" sample
+            select: { id: true, status: true, items: true, createdAt: true, user: { select: { name: true } }, totalAmount: true }
+        });
 
-            const vendorItemsTotal = items
-                .filter(item => vendorProductIds.includes(item.productId))
-                .reduce((itemSum, item) => {
-                    return itemSum + (Number(item.price || 0) * (item.quantity || 1));
-                }, 0);
-            return sum + vendorItemsTotal;
-        }, 0);
+        const recentOrders = [];
+        const productSalesCount = new Map<string, number>();
 
-        return {
-            totalProducts,
-            totalOrders,
-            totalRevenue,
+        for (const order of recentActivityOrdersRaw) {
+            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            const vendorItemsInOrder = items.filter(item => productIds.has(item.productId));
+
+            if (vendorItemsInOrder.length > 0) {
+                // Recent Orders List (Max 5)
+                if (recentOrders.length < 5) {
+                    recentOrders.push({
+                        id: order.id,
+                        customer: order.user?.name || 'Guest',
+                        orderTotal: order.totalAmount, // Showing full order total for context
+                        status: order.status,
+                        createdAt: order.createdAt
+                    });
+                }
+
+                // Top Products Aggregation (Sampled from recent activity)
+                for (const item of vendorItemsInOrder) {
+                    const pid = item.productId;
+                    const qty = Number(item.quantity || 1);
+                    productSalesCount.set(pid, (productSalesCount.get(pid) || 0) + qty);
+                }
+            }
+        }
+
+        // Sort Top Products
+        const topProducts = Array.from(productSalesCount.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([pid, qty]) => {
+                const p = productMap.get(pid);
+                // Handle potential undefined product in map (though unlikely given filter)
+                return {
+                    id: pid,
+                    title: p?.title || 'Unknown',
+                    image: p?.images?.[0] || '',
+                    price: p?.price || 0,
+                    sold: qty
+                };
+            });
+
+        const stats = {
+            todaySales,
             pendingOrders,
-            vendorId: vendor.id,
-            vendorName: vendor.name,
-            tier: vendor.tier,
-            kycStatus: vendor.kycStatus,
+            coinsBalance: vendor.coinsBalance,
+            followersCount: vendor.followCount || 0,
+            topProducts,
+            recentOrders: recentOrders.slice(0, 5)
         };
+
+        // Cache for 5 minutes
+        await this.redis.set(CACHE_KEY, JSON.stringify(stats), 300);
+
+        return stats;
     }
+
     async approveVendor(adminId: string, vendorId: string) {
         const vendor = await this.prisma.vendor.update({
             where: { id: vendorId },

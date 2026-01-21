@@ -138,6 +138,15 @@ export class AuthService {
             throw new ConflictException('Email already registered');
         }
 
+        // Check if mobile already exists
+        const existingMobile = await this.prisma.user.findUnique({
+            where: { mobile: registerDto.phone },
+        });
+
+        if (existingMobile) {
+            throw new ConflictException('Mobile number already registered');
+        }
+
         // Hash password
         const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
@@ -174,6 +183,7 @@ export class AuthService {
                 dateOfBirth: new Date(registerDto.dateOfBirth),
                 gender: registerDto.gender,
                 referralCode: Math.random().toString(36).substring(7).toUpperCase(),
+                status: 'ACTIVE' // Explicitly set status matching schema enum
             } as any,
         }) as any;
 
@@ -189,8 +199,8 @@ export class AuthService {
                     userId: user.id,
                     name: registerDto.name || '',
                     phone: registerDto.phone || '',
-                    addressLine1: registerDto.address.street || registerDto.address.addressLine1 || '',
-                    addressLine2: registerDto.address.addressLine2 || null,
+                    addressLine1: registerDto.address.line1 || registerDto.address.street || registerDto.address.addressLine1 || '',
+                    addressLine2: registerDto.address.line2 || registerDto.address.addressLine2 || null,
                     city: registerDto.address.city || '',
                     state: registerDto.address.state || '',
                     pincode: registerDto.address.postalCode || registerDto.address.pincode || '',

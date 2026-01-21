@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HealthController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const prisma_service_1 = require("../prisma/prisma.service");
 let HealthController = class HealthController {
     constructor(prisma) {
@@ -34,6 +35,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], HealthController.prototype, "check", null);
 exports.HealthController = HealthController = __decorate([
+    (0, swagger_1.ApiTags)('Health'),
     (0, common_1.Controller)('health'),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], HealthController);

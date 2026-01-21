@@ -3,42 +3,67 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { GlobalExceptionsFilter } from './common/filters/http-exception.filter';
-import { NestExpressApplication } from '@nestjs/platform-express';
+import {
+    FastifyAdapter,
+    NestFastifyApplication,
+} from '@nestjs/platform-fastify';
 import { join } from 'path';
-import helmet from 'helmet';
+import fastifyHelmet from '@fastify/helmet';
+import compression from '@fastify/compress';
 
-// Trigger deployment update - v4 - Trigger restart for AdminService fix
+// Trigger deployment update - v6 - Fastify Migration
 async function bootstrap() {
-    const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
-    console.log("🚀 BOOTSTRAP V5 - VERIFICATION MODE");
+    // Switch to Fastify Adapter for High Performance (25k+ Req/Sec capability)
+    // Casting to unknown/NestFastifyApplication to bypass strict generic constraints if versions mismatch
+    const app = await NestFactory.create(
+        AppModule,
+        new FastifyAdapter() as any
+    ) as unknown as NestFastifyApplication;
+    console.log("🚀 BOOTSTRAP V6 - FASTIFY EDITION");
 
 
-    // Security middleware
-    app.use(helmet({
-        crossOriginEmbedderPolicy: false, // Allow embedding for Flutter web
-        contentSecurityPolicy: false, // Disable CSP for API server
-    }));
+    // Security headers (Fastify Helmet)
+    // Cast plugin to any to avoid TS definition conflicts between Fastify versions
+    await app.register(fastifyHelmet as any, {
+        crossOriginEmbedderPolicy: false,
+        contentSecurityPolicy: false,
+    });
 
-    // Serve static files from public directory
-    app.useStaticAssets(join(__dirname, '..', 'public'));
+    // Compression (Gzip/Brotli)
+    await app.register(compression as any);
+
+    // Serve static files (Fastify)
+    app.useStaticAssets({
+        root: join(__dirname, '..', 'public'),
+        prefix: '/public/',
+    });
 
     // Global Config
     app.setGlobalPrefix('api/v1');
 
-    // CORS configuration - allow localhost for Flutter web development
+    // CORS configuration
+    const corsOrigins = process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) || [];
+    if (process.env.FRONTEND_URL) corsOrigins.push(process.env.FRONTEND_URL);
+
     app.enableCors({
-        origin: true, // Allow all origins (will be restricted in production)
+        origin: (origin, callback) => {
+            if (!origin) return callback(null, true);
+            if (process.env.NODE_ENV !== 'production') return callback(null, true);
+            if (corsOrigins.indexOf(origin) !== -1) {
+                callback(null, true);
+            } else {
+                callback(new Error('Not allowed by CORS'), false);
+            }
+        },
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-        optionsSuccessStatus: 200, // For legacy browsers
-        preflightContinue: false,
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'sentry-trace', 'baggage'],
     });
 
     app.useGlobalPipes(new ValidationPipe({
         whitelist: true,
-        forbidNonWhitelisted: true, // Reject requests with unknown properties
-        transform: true, // Auto-transform payloads to DTO instances
+        forbidNonWhitelisted: true,
+        transform: true,
     }));
     app.useGlobalFilters(new GlobalExceptionsFilter());
 
@@ -117,8 +142,8 @@ Welcome to the RISBOW API documentation! This API powers the RISBOW platform wit
         .addTag('Health', '🏥 Health Check - System status')
 
         .build();
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api/docs', app, document, {
+    const document = SwaggerModule.createDocument(app as any, config);
+    SwaggerModule.setup('api/docs', app as any, document, {
         customSiteTitle: 'RISBOW API Docs',
         customfavIcon: 'https://risbow.com/favicon.ico',
         customCss: '.swagger-ui .topbar { display: none }',
@@ -126,6 +151,31 @@ Welcome to the RISBOW API documentation! This API powers the RISBOW platform wit
 
     const port = process.env.PORT || 3000;
     await app.listen(port, '0.0.0.0');
-    console.log(`Application is running on: http://0.0.0.0:${port}`);
+    console.log(`Worker ${process.pid} started on: http://0.0.0.0:${port}`);
 }
-bootstrap();
+
+import * as os from 'os';
+
+// Cluster Support for High Concurrency (10k req/sec goal)
+if (process.env.CLUSTER_MODE === 'true') {
+    const cluster = require('cluster');
+    if (cluster.isPrimary) {
+        const numCPUs = os.cpus().length;
+        console.log(`🚀 Primary ${process.pid} is running. Forking ${numCPUs} workers for maximum performance...`);
+
+        // Fork workers
+        for (let i = 0; i < numCPUs; i++) {
+            cluster.fork();
+        }
+
+        cluster.on('exit', (worker, code, signal) => {
+            console.log(`❌ Worker ${worker.process.pid} died. Restarting...`);
+            cluster.fork();
+        });
+    } else {
+        // Worker processes run the app
+        bootstrap();
+    }
+} else {
+    bootstrap();
+}

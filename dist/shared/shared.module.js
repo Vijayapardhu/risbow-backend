@@ -12,14 +12,15 @@ const scheduler_service_1 = require("../common/scheduler.service");
 const notifications_service_1 = require("./notifications.service");
 const redis_service_1 = require("./redis.service");
 const supabase_service_1 = require("./supabase.service");
+const cache_service_1 = require("./cache.service");
 let SharedModule = class SharedModule {
 };
 exports.SharedModule = SharedModule;
 exports.SharedModule = SharedModule = __decorate([
     (0, common_1.Global)(),
     (0, common_1.Module)({
-        providers: [scheduler_service_1.SchedulerService, notifications_service_1.NotificationsService, redis_service_1.RedisService, supabase_service_1.SupabaseService],
-        exports: [scheduler_service_1.SchedulerService, notifications_service_1.NotificationsService, redis_service_1.RedisService, supabase_service_1.SupabaseService],
+        providers: [scheduler_service_1.SchedulerService, notifications_service_1.NotificationsService, redis_service_1.RedisService, supabase_service_1.SupabaseService, cache_service_1.CacheService],
+        exports: [scheduler_service_1.SchedulerService, notifications_service_1.NotificationsService, redis_service_1.RedisService, supabase_service_1.SupabaseService, cache_service_1.CacheService],
     })
 ], SharedModule);
 //# sourceMappingURL=shared.module.js.map

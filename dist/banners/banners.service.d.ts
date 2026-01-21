@@ -1,9 +1,13 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBannerDto, UpdateBannerDto, PurchaseBannerDto, UploadBannerCreativeDto, BannerResponseDto } from './dto/banner.dto';
+import { CacheService } from '../shared/cache.service';
+import { QueuesService } from '../queues/queues.service';
 export declare class BannersService {
     private prisma;
+    private cache;
+    private queues;
     private readonly logger;
-    constructor(prisma: PrismaService);
+    constructor(prisma: PrismaService, cache: CacheService, queues: QueuesService);
     getActiveBanners(slotType: string, slotKey?: string): Promise<BannerResponseDto[]>;
     getAllBanners(): Promise<BannerResponseDto[]>;
     getBannerById(id: string): Promise<BannerResponseDto>;

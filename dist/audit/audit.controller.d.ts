@@ -10,13 +10,13 @@ export declare class AuditController {
             };
         } & {
             id: string;
-            action: string;
             entity: string;
-            entityId: string;
+            action: string;
             details: import("@prisma/client/runtime/library").JsonValue | null;
+            createdAt: Date;
+            entityId: string;
             ipAddress: string | null;
             userAgent: string | null;
-            createdAt: Date;
             adminId: string;
         })[];
         meta: {

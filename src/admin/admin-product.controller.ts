@@ -1,6 +1,7 @@
 import { Controller, Get, Query, UseGuards, Param, Post, Body, Patch, Delete } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AdminProductService } from './admin-product.service';
+import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -11,7 +12,10 @@ import { CreateProductDto, UpdateProductDto } from '../catalog/dto/catalog.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'SUPER_ADMIN')
 export class AdminProductController {
-    constructor(private readonly productService: AdminProductService) { }
+    constructor(
+        private readonly productService: AdminProductService,
+        private readonly adminService: AdminService
+    ) { }
 
     @Get()
     async getProductList(
@@ -51,5 +55,25 @@ export class AdminProductController {
     @Get(':id/analytics')
     async getProductAnalytics(@Param('id') id: string, @Query('period') period?: string) {
         return this.productService.getProductAnalytics(id, period);
+    }
+
+    @Post('bulk')
+    async bulkCreateProduct(@Body() body: { products: any[] }) {
+        return this.adminService.bulkCreateProducts(body.products);
+    }
+
+    @Post(':id/toggle')
+    async toggleProduct(@Param('id') id: string, @Body('isActive') isActive: boolean) {
+        return this.adminService.toggleProductStatus(id, isActive);
+    }
+
+    @Post(':id/approve')
+    async approveProduct(@Param('id') id: string) {
+        return this.productService.approveProduct(id);
+    }
+
+    @Post(':id/block')
+    async blockProduct(@Param('id') id: string) {
+        return this.productService.blockProduct(id);
     }
 }

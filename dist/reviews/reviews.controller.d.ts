@@ -6,16 +6,16 @@ export declare class ReviewsController {
     create(req: any, productId: string, dto: CreateReviewDto): Promise<{
         id: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.ReviewStatus;
+        status: string;
         updatedAt: Date;
         userId: string;
         productId: string | null;
         vendorId: string | null;
         images: string[];
         rating: number;
+        helpfulCount: number;
         comment: string | null;
         isVerified: boolean;
-        helpfulCount: number;
     }>;
     findAll(productId: string, page?: number, limit?: number): Promise<{
         data: ({
@@ -26,16 +26,16 @@ export declare class ReviewsController {
         } & {
             id: string;
             createdAt: Date;
-            status: import(".prisma/client").$Enums.ReviewStatus;
+            status: string;
             updatedAt: Date;
             userId: string;
             productId: string | null;
             vendorId: string | null;
             images: string[];
             rating: number;
+            helpfulCount: number;
             comment: string | null;
             isVerified: boolean;
-            helpfulCount: number;
         })[];
         meta: {
             total: number;
@@ -52,57 +52,57 @@ export declare class ReviewsController {
     update(req: any, id: string, dto: UpdateReviewDto): Promise<{
         id: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.ReviewStatus;
+        status: string;
         updatedAt: Date;
         userId: string;
         productId: string | null;
         vendorId: string | null;
         images: string[];
         rating: number;
+        helpfulCount: number;
         comment: string | null;
         isVerified: boolean;
-        helpfulCount: number;
     }>;
     remove(req: any, id: string): Promise<{
         id: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.ReviewStatus;
+        status: string;
         updatedAt: Date;
         userId: string;
         productId: string | null;
         vendorId: string | null;
         images: string[];
         rating: number;
+        helpfulCount: number;
         comment: string | null;
         isVerified: boolean;
-        helpfulCount: number;
     }>;
     voteHelpful(req: any, id: string): Promise<{
         id: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.ReviewStatus;
+        status: string;
         updatedAt: Date;
         userId: string;
         productId: string | null;
         vendorId: string | null;
         images: string[];
         rating: number;
+        helpfulCount: number;
         comment: string | null;
         isVerified: boolean;
-        helpfulCount: number;
     }>;
     report(req: any, id: string, dto: ReportReviewDto): Promise<{
         id: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.ReviewStatus;
+        status: string;
         updatedAt: Date;
         userId: string;
         productId: string | null;
         vendorId: string | null;
         images: string[];
         rating: number;
+        helpfulCount: number;
         comment: string | null;
         isVerified: boolean;
-        helpfulCount: number;
     }>;
 }

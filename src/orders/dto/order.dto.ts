@@ -18,6 +18,11 @@ class OrderItemDto {
     @IsOptional()
     @IsString()
     vendorId?: string;
+
+    @ApiProperty({ required: false, example: 'variant_id_123', description: 'ID of the product variant' })
+    @IsOptional()
+    @IsString()
+    variantId?: string;
 }
 
 export class CheckoutDto {

@@ -12,12 +12,16 @@ import {
     CouponResponseDto,
     CouponValidationResponseDto,
 } from './dto/coupon.dto';
+import { CacheService } from '../shared/cache.service';
 
 @Injectable()
 export class CouponsService {
     private readonly logger = new Logger(CouponsService.name);
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private cache: CacheService
+    ) { }
 
     /**
      * Get all coupons (admin)
@@ -34,42 +38,62 @@ export class CouponsService {
      * Get active coupons for user
      */
     async getActiveCoupons(): Promise<CouponResponseDto[]> {
-        const now = new Date();
+        const cacheKey = 'coupons:active';
 
-        const coupons = await this.prisma.coupon.findMany({
-            where: {
-                isActive: true,
-                validFrom: { lte: now },
-                OR: [
-                    { validUntil: null },
-                    { validUntil: { gte: now } },
-                ],
-            },
-            orderBy: { createdAt: 'desc' },
-        });
+        return await this.cache.getOrSet(
+            cacheKey,
+            300, // 5 mins
+            async () => {
+                const now = new Date();
 
-        // Filter out coupons that have reached usage limit
-        const availableCoupons = coupons.filter((coupon) => {
-            if (coupon.usageLimit === null) return true;
-            return coupon.usedCount < coupon.usageLimit;
-        });
+                const coupons = await this.prisma.coupon.findMany({
+                    where: {
+                        isActive: true,
+                        validFrom: { lte: now },
+                        OR: [
+                            { validUntil: null },
+                            { validUntil: { gte: now } },
+                        ],
+                    },
+                    orderBy: { createdAt: 'desc' },
+                });
 
-        return availableCoupons.map((coupon) => this.mapToResponseDto(coupon));
+                // Filter out coupons that have reached usage limit
+                // Note: Usage limit filtering is dynamic (transactional), but for listing we cache it.
+                // Strict correctness would require not caching this or invalidating heavily.
+                // For performance, we cache this list, but validateCoupon checks DB.
+                const availableCoupons = coupons.filter((coupon) => {
+                    if (coupon.usageLimit === null) return true;
+                    return coupon.usedCount < coupon.usageLimit;
+                });
+
+                return availableCoupons.map((coupon) => this.mapToResponseDto(coupon));
+            }
+        );
     }
 
     /**
      * Get coupon by code
      */
     async getCouponByCode(code: string): Promise<CouponResponseDto> {
-        const coupon = await this.prisma.coupon.findUnique({
-            where: { code: code.toUpperCase() },
-        });
+        const normalizedCode = code.toUpperCase();
+        const cacheKey = `coupon:${normalizedCode}`;
 
-        if (!coupon) {
-            throw new NotFoundException(`Coupon with code ${code} not found`);
-        }
+        return await this.cache.getOrSet(
+            cacheKey,
+            600, // 10 mins
+            async () => {
+                const coupon = await this.prisma.coupon.findUnique({
+                    where: { code: normalizedCode },
+                });
 
-        return this.mapToResponseDto(coupon);
+                if (!coupon) {
+                    throw new NotFoundException(`Coupon with code ${code} not found`);
+                }
+
+                return this.mapToResponseDto(coupon);
+            }
+        );
     }
 
     /**
@@ -238,6 +262,10 @@ export class CouponsService {
         });
 
         this.logger.log(`Coupon created with ID: ${coupon.id}`);
+
+        // Invalidate active coupons list
+        await this.cache.del('coupons:active');
+
         return this.mapToResponseDto(coupon);
     }
 
@@ -269,6 +297,10 @@ export class CouponsService {
             },
         });
 
+        // Invalidate specific coupon and active list
+        await this.cache.del(`coupon:${existing.code}`);
+        await this.cache.del('coupons:active');
+
         return this.mapToResponseDto(coupon);
     }
 
@@ -290,6 +322,10 @@ export class CouponsService {
         await this.prisma.coupon.delete({
             where: { id },
         });
+
+        // Invalidate specific coupon and active list
+        await this.cache.del(`coupon:${existing.code}`);
+        await this.cache.del('coupons:active');
     }
 
     /**

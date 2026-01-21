@@ -28,10 +28,10 @@ export declare class JwtStrategy extends JwtStrategy_base {
         valueTag: import(".prisma/client").$Enums.ValueTag;
         isCodDisabled: boolean;
         isRefundsDisabled: boolean;
-        kycStatus: string;
-        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         forceLogoutAt: Date | null;
+        kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
+        kycStatus: string;
+        miscDocuments: import("@prisma/client/runtime/library").JsonValue | null;
         updatedAt: Date;
     }>;
 }

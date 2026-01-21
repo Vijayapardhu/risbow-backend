@@ -38,4 +38,16 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CheckoutDto.prototype, "notes", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'gift_123456', description: 'Optional gift SKU ID to include with order' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CheckoutDto.prototype, "giftId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'SAVE50', description: 'Optional coupon code to apply discount' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CheckoutDto.prototype, "couponCode", void 0);
 //# sourceMappingURL=checkout.dto.js.map

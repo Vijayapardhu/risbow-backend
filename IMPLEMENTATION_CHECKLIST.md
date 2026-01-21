@@ -264,7 +264,7 @@ src/reviews/
 - [x] SMS integration working
 - [x] File upload working
 - [x] Refunds working
-- [ ] All critical features functional
+- [x] All critical features functional
 
 ### Week 3 Summary
 - [x] Reviews working

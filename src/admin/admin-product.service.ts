@@ -61,7 +61,7 @@ export class AdminProductService {
                 });
             }
 
-            const totalActive = await this.prisma.product.count({ where: { visibility: 'PUBLISHED' } });
+            const totalActive = await this.prisma.product.count({ where: { isActive: true } });
 
             const transformedProducts = products.map(product => {
                 const reviews = Array.isArray((product as any).reviews) ? (product as any).reviews : [];
@@ -130,7 +130,7 @@ export class AdminProductService {
                     multiVendor: 0,
                     priceConflicts: 0,
                     lowStock: await this.prisma.product.count({ where: { stock: { lt: 10 } } }),
-                    suppressed: await this.prisma.product.count({ where: { visibility: { in: ['DRAFT', 'BLOCKED'] } } }),
+                    suppressed: await this.prisma.product.count({ where: { isActive: false } }),
                 },
                 products: transformedProducts,
                 pagination: {
@@ -340,7 +340,6 @@ export class AdminProductService {
                 include: {
                     vendor: true,
                     category: { select: { id: true, name: true } },
-                    productVariations: true, // Include variations in response
                 },
             });
 
@@ -391,5 +390,25 @@ export class AdminProductService {
             revenue: 45000,
             avgOrderValue: 1000,
         };
+    }
+
+    async approveProduct(id: string) {
+        const product = await this.prisma.product.findUnique({ where: { id } });
+        if (!product) throw new NotFoundException('Product not found');
+
+        return this.prisma.product.update({
+            where: { id },
+            data: { visibility: 'PUBLISHED', isActive: true }
+        });
+    }
+
+    async blockProduct(id: string) {
+        const product = await this.prisma.product.findUnique({ where: { id } });
+        if (!product) throw new NotFoundException('Product not found');
+
+        return this.prisma.product.update({
+            where: { id },
+            data: { visibility: 'BLOCKED', isActive: false }
+        });
     }
 }

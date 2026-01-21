@@ -111,6 +111,76 @@ let RedisService = RedisService_1 = class RedisService {
         }
         await this.client.del(key);
     }
+    async mget(keys) {
+        if (this.useMemory) {
+            return keys.map(key => {
+                const entry = this.inMemoryStore.get(key);
+                if (!entry)
+                    return null;
+                if (entry.expiresAt < Date.now()) {
+                    this.inMemoryStore.delete(key);
+                    return null;
+                }
+                return entry.value;
+            });
+        }
+        return this.client.mget(...keys);
+    }
+    async mset(keyValues, ttlSeconds) {
+        if (this.useMemory) {
+            Object.entries(keyValues).forEach(([key, value]) => {
+                this.inMemoryStore.set(key, {
+                    value,
+                    expiresAt: Date.now() + (ttlSeconds * 1000)
+                });
+            });
+            return;
+        }
+        const pipeline = this.client.pipeline();
+        Object.entries(keyValues).forEach(([key, value]) => {
+            pipeline.set(key, value, 'EX', ttlSeconds);
+        });
+        await pipeline.exec();
+    }
+    async delPattern(pattern) {
+        if (this.useMemory) {
+            const regex = new RegExp('^' + pattern.replace('*', '.*') + '$');
+            let count = 0;
+            for (const key of this.inMemoryStore.keys()) {
+                if (regex.test(key)) {
+                    this.inMemoryStore.delete(key);
+                    count++;
+                }
+            }
+            return count;
+        }
+        let cursor = '0';
+        let deletedCount = 0;
+        do {
+            const [newCursor, keys] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+            cursor = newCursor;
+            if (keys.length > 0) {
+                deletedCount += await this.client.del(...keys);
+            }
+        } while (cursor !== '0');
+        return deletedCount;
+    }
+    async exists(key) {
+        if (this.useMemory) {
+            const entry = this.inMemoryStore.get(key);
+            if (!entry)
+                return false;
+            if (entry.expiresAt < Date.now()) {
+                this.inMemoryStore.delete(key);
+                return false;
+            }
+            return true;
+        }
+        return (await this.client.exists(key)) === 1;
+    }
+    isConnected() {
+        return !this.useMemory && this.client?.status === 'ready';
+    }
 };
 exports.RedisService = RedisService;
 exports.RedisService = RedisService = RedisService_1 = __decorate([

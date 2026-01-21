@@ -12,4 +12,9 @@ export declare class RedisService implements OnModuleInit, OnModuleDestroy {
     get(key: string): Promise<string | null>;
     set(key: string, value: string, ttlSeconds: number): Promise<void>;
     del(key: string): Promise<void>;
+    mget(keys: string[]): Promise<(string | null)[]>;
+    mset(keyValues: Record<string, string>, ttlSeconds: number): Promise<void>;
+    delPattern(pattern: string): Promise<number>;
+    exists(key: string): Promise<boolean>;
+    isConnected(): boolean;
 }

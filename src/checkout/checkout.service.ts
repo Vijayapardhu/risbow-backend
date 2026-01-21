@@ -56,17 +56,17 @@ export class CheckoutService {
                 let stock = product.stock;
                 let variantSnapshot = null;
 
-                if (item.variantId) {
-                    const variant = await tx.productVariation.findUnique({ where: { id: item.variantId } });
-                    if (!variant) throw new NotFoundException(`Variant ${item.variantId} not found`);
-
-                    price = variant.sellingPrice;
-                    stock = variant.stock;
-                    variantSnapshot = {
-                        attributes: variant.attributes,
-                        sku: variant.sku
-                    };
-                }
+                // Variant handling disabled - ProductVariation model not in schema
+                // if (item.variantId) {
+                //     const variant = await tx.productVariation.findUnique({ where: { id: item.variantId } });
+                //     if (!variant) throw new NotFoundException(`Variant ${item.variantId} not found`);
+                //     price = variant.sellingPrice;
+                //     stock = variant.stock;
+                //     variantSnapshot = {
+                //         attributes: variant.attributes,
+                //         sku: variant.sku
+                //     };
+                // }
 
                 if (stock < item.quantity) {
                     throw new BadRequestException(`Insufficient stock for ${product.title}`);
@@ -87,17 +87,10 @@ export class CheckoutService {
                 });
 
                 // Decrement stock
-                if (item.variantId) {
-                    await tx.productVariation.update({
-                        where: { id: item.variantId },
-                        data: { stock: { decrement: item.quantity } }
-                    });
-                } else {
-                    await tx.product.update({
-                        where: { id: product.id },
-                        data: { stock: { decrement: item.quantity } }
-                    });
-                }
+                await tx.product.update({
+                    where: { id: product.id },
+                    data: { stock: { decrement: item.quantity } }
+                });
             }
 
             // 4. Validate and Apply Gift (if provided)

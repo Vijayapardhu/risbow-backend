@@ -56,7 +56,7 @@ export async function loginAsAdmin(application: INestApplication): Promise<strin
             email: 'admin@risbow.com',
             password: 'password123'
         })
-        .expect(200);
+        .expect(201);
 
     return response.body.accessToken;
 }
@@ -65,6 +65,9 @@ export async function loginAsCustomer(application: INestApplication, email: stri
     const prismaService = application.get<PrismaService>(PrismaService);
     const bcrypt = require('bcrypt');
 
+    // Generate unique mobile number based on email to avoid conflicts
+    const uniqueMobile = `98765${email.split('@')[0].slice(0, 5).padEnd(5, '0')}`;
+
     // Ensure customer user exists
     await prismaService.user.upsert({
         where: { email },
@@ -72,7 +75,7 @@ export async function loginAsCustomer(application: INestApplication, email: stri
             email,
             password: await bcrypt.hash('password123', 10),
             name: 'Test Customer',
-            mobile: '9876543210',
+            mobile: uniqueMobile,
             role: 'CUSTOMER',
             status: 'ACTIVE'
         },
@@ -94,9 +97,10 @@ export async function loginAsCustomer(application: INestApplication, email: stri
  */
 export async function cleanDatabase(prismaService: PrismaService) {
     // Delete in correct order to avoid foreign key constraints
-    await prismaService.order.deleteMany();
-    await prismaService.refund.deleteMany();
     await prismaService.payment.deleteMany();
+    await prismaService.refund.deleteMany();
+    await prismaService.orderTimeline.deleteMany();
+    await prismaService.order.deleteMany();
     await prismaService.cartItem.deleteMany();
     await prismaService.cart.deleteMany();
     await prismaService.review.deleteMany();
@@ -110,6 +114,19 @@ export async function cleanDatabase(prismaService: PrismaService) {
  * Test data factories
  */
 export async function createTestProduct(prismaService: PrismaService, overrides: any = {}) {
+    // Create or get a test vendor first
+    const vendor = await prismaService.vendor.upsert({
+        where: { mobile: '9999999999' },
+        create: {
+            name: 'Test Vendor',
+            email: 'testvendor@test.com',
+            mobile: '9999999999',
+            vendorCode: 'TEST001',
+            status: 'ACTIVE'
+        },
+        update: {}
+    });
+
     return prismaService.product.create({
         data: {
             title: overrides.title || overrides.name || 'Test Product',
@@ -119,6 +136,7 @@ export async function createTestProduct(prismaService: PrismaService, overrides:
             categoryId: overrides.categoryId || 'cat_test',
             images: ['https://example.com/test.jpg'],
             isActive: true,
+            vendorId: vendor.id,
             ...overrides
         }
     });

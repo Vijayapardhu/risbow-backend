@@ -1,4 +1,5 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsPhoneNumber, IsString } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsPhoneNumber, IsString } from 'class-validator';
+import { MembershipTier } from '@prisma/client';
 
 export class RegisterVendorDto {
     @IsNotEmpty()
@@ -15,6 +16,10 @@ export class RegisterVendorDto {
     @IsOptional()
     @IsString()
     role?: string; // RETAILER | WHOLESALER
+
+    @IsOptional()
+    @IsEnum(MembershipTier)
+    tier?: MembershipTier;
 
     // In real app: GSTIN, Pan, etc.
 }

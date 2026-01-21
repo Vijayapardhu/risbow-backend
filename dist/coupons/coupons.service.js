@@ -13,9 +13,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CouponsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const cache_service_1 = require("../shared/cache.service");
 let CouponsService = CouponsService_1 = class CouponsService {
-    constructor(prisma) {
+    constructor(prisma, cache) {
         this.prisma = prisma;
+        this.cache = cache;
         this.logger = new common_1.Logger(CouponsService_1.name);
     }
     async getAllCoupons() {
@@ -25,33 +27,40 @@ let CouponsService = CouponsService_1 = class CouponsService {
         return coupons.map((coupon) => this.mapToResponseDto(coupon));
     }
     async getActiveCoupons() {
-        const now = new Date();
-        const coupons = await this.prisma.coupon.findMany({
-            where: {
-                isActive: true,
-                validFrom: { lte: now },
-                OR: [
-                    { validUntil: null },
-                    { validUntil: { gte: now } },
-                ],
-            },
-            orderBy: { createdAt: 'desc' },
+        const cacheKey = 'coupons:active';
+        return await this.cache.getOrSet(cacheKey, 300, async () => {
+            const now = new Date();
+            const coupons = await this.prisma.coupon.findMany({
+                where: {
+                    isActive: true,
+                    validFrom: { lte: now },
+                    OR: [
+                        { validUntil: null },
+                        { validUntil: { gte: now } },
+                    ],
+                },
+                orderBy: { createdAt: 'desc' },
+            });
+            const availableCoupons = coupons.filter((coupon) => {
+                if (coupon.usageLimit === null)
+                    return true;
+                return coupon.usedCount < coupon.usageLimit;
+            });
+            return availableCoupons.map((coupon) => this.mapToResponseDto(coupon));
         });
-        const availableCoupons = coupons.filter((coupon) => {
-            if (coupon.usageLimit === null)
-                return true;
-            return coupon.usedCount < coupon.usageLimit;
-        });
-        return availableCoupons.map((coupon) => this.mapToResponseDto(coupon));
     }
     async getCouponByCode(code) {
-        const coupon = await this.prisma.coupon.findUnique({
-            where: { code: code.toUpperCase() },
+        const normalizedCode = code.toUpperCase();
+        const cacheKey = `coupon:${normalizedCode}`;
+        return await this.cache.getOrSet(cacheKey, 600, async () => {
+            const coupon = await this.prisma.coupon.findUnique({
+                where: { code: normalizedCode },
+            });
+            if (!coupon) {
+                throw new common_1.NotFoundException(`Coupon with code ${code} not found`);
+            }
+            return this.mapToResponseDto(coupon);
         });
-        if (!coupon) {
-            throw new common_1.NotFoundException(`Coupon with code ${code} not found`);
-        }
-        return this.mapToResponseDto(coupon);
     }
     async validateCoupon(dto) {
         this.logger.log(`Validating coupon: ${dto.code} for cart total: ${dto.cartTotal}`);
@@ -168,6 +177,7 @@ let CouponsService = CouponsService_1 = class CouponsService {
             },
         });
         this.logger.log(`Coupon created with ID: ${coupon.id}`);
+        await this.cache.del('coupons:active');
         return this.mapToResponseDto(coupon);
     }
     async updateCoupon(id, dto) {
@@ -190,6 +200,8 @@ let CouponsService = CouponsService_1 = class CouponsService {
                 ...(dto.isActive !== undefined && { isActive: dto.isActive }),
             },
         });
+        await this.cache.del(`coupon:${existing.code}`);
+        await this.cache.del('coupons:active');
         return this.mapToResponseDto(coupon);
     }
     async deleteCoupon(id) {
@@ -203,6 +215,8 @@ let CouponsService = CouponsService_1 = class CouponsService {
         await this.prisma.coupon.delete({
             where: { id },
         });
+        await this.cache.del(`coupon:${existing.code}`);
+        await this.cache.del('coupons:active');
     }
     mapToResponseDto(coupon) {
         return {
@@ -225,6 +239,7 @@ let CouponsService = CouponsService_1 = class CouponsService {
 exports.CouponsService = CouponsService;
 exports.CouponsService = CouponsService = CouponsService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        cache_service_1.CacheService])
 ], CouponsService);
 //# sourceMappingURL=coupons.service.js.map

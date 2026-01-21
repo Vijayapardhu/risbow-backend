@@ -13,9 +13,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GiftsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const cache_service_1 = require("../shared/cache.service");
 let GiftsService = GiftsService_1 = class GiftsService {
-    constructor(prisma) {
+    constructor(prisma, cache) {
         this.prisma = prisma;
+        this.cache = cache;
         this.logger = new common_1.Logger(GiftsService_1.name);
     }
     async getAllGifts() {
@@ -26,13 +28,15 @@ let GiftsService = GiftsService_1 = class GiftsService {
     }
     async getEligibleGifts(categoryIds) {
         this.logger.log(`Checking eligible gifts for categories: ${categoryIds.join(', ')}`);
-        const gifts = await this.prisma.giftSKU.findMany({
-            where: {
-                stock: { gt: 0 },
-            },
+        const gifts = await this.cache.getOrSet('gifts:available', 300, async () => {
+            return await this.prisma.giftSKU.findMany({
+                where: {
+                    stock: { gt: 0 },
+                },
+            });
         });
         const eligibleGifts = gifts.filter((gift) => {
-            if (!gift.eligibleCategories || Array.isArray(gift.eligibleCategories) && gift.eligibleCategories.length === 0) {
+            if (!gift.eligibleCategories || (Array.isArray(gift.eligibleCategories) && gift.eligibleCategories.length === 0)) {
                 return true;
             }
             const eligibleCats = Array.isArray(gift.eligibleCategories)
@@ -47,13 +51,16 @@ let GiftsService = GiftsService_1 = class GiftsService {
         }));
     }
     async getGiftById(id) {
-        const gift = await this.prisma.giftSKU.findUnique({
-            where: { id },
+        const cacheKey = `gift:${id}`;
+        return await this.cache.getOrSet(cacheKey, 600, async () => {
+            const gift = await this.prisma.giftSKU.findUnique({
+                where: { id },
+            });
+            if (!gift) {
+                throw new common_1.NotFoundException(`Gift with ID ${id} not found`);
+            }
+            return this.mapToResponseDto(gift);
         });
-        if (!gift) {
-            throw new common_1.NotFoundException(`Gift with ID ${id} not found`);
-        }
-        return this.mapToResponseDto(gift);
     }
     async createGift(dto) {
         this.logger.log(`Creating new gift: ${dto.title}`);
@@ -66,6 +73,7 @@ let GiftsService = GiftsService_1 = class GiftsService {
             },
         });
         this.logger.log(`Gift created with ID: ${gift.id}`);
+        await this.cache.del('gifts:available');
         return this.mapToResponseDto(gift);
     }
     async updateGift(id, dto) {
@@ -80,6 +88,8 @@ let GiftsService = GiftsService_1 = class GiftsService {
                 ...(dto.eligibleCategories && { eligibleCategories: dto.eligibleCategories }),
             },
         });
+        await this.cache.del(`gift:${id}`);
+        await this.cache.del('gifts:available');
         return this.mapToResponseDto(gift);
     }
     async deleteGift(id) {
@@ -88,6 +98,8 @@ let GiftsService = GiftsService_1 = class GiftsService {
         await this.prisma.giftSKU.delete({
             where: { id },
         });
+        await this.cache.del(`gift:${id}`);
+        await this.cache.del('gifts:available');
     }
     async validateGiftSelection(giftId, categoryIds) {
         const gift = await this.prisma.giftSKU.findUnique({
@@ -128,6 +140,8 @@ let GiftsService = GiftsService_1 = class GiftsService {
             },
         });
         this.logger.log(`Gift stock decremented successfully`);
+        await this.cache.del(`gift:${giftId}`);
+        await this.cache.del('gifts:available');
     }
     async getInventoryReport() {
         const gifts = await this.prisma.giftSKU.findMany({
@@ -159,6 +173,7 @@ let GiftsService = GiftsService_1 = class GiftsService {
 exports.GiftsService = GiftsService;
 exports.GiftsService = GiftsService = GiftsService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        cache_service_1.CacheService])
 ], GiftsService);
 //# sourceMappingURL=gifts.service.js.map

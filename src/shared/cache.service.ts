@@ -12,6 +12,7 @@ export interface CacheMetrics {
 export class CacheService {
     private readonly logger = new Logger(CacheService.name);
     private metrics = new Map<string, { hits: number; misses: number }>();
+    private pendingPromises = new Map<string, Promise<any>>();
 
     constructor(private redis: RedisService) { }
 
@@ -113,13 +114,29 @@ export class CacheService {
             return cached;
         }
 
-        // Cache miss - fetch from source
-        const value = await fetchFn();
+        // Cache miss - check if already fetching
+        if (this.pendingPromises.has(key)) {
+            // this.logger.debug(`Joining pending fetch for ${key}`); // Optional: Un-comment for deep debugging
+            return this.pendingPromises.get(key) as Promise<T>;
+        }
 
-        // Store in cache for next time
-        await this.set(key, value, ttlSeconds);
+        // Create new fetch promise
+        const promise = (async () => {
+            try {
+                const value = await fetchFn();
+                // Store in cache for next time
+                await this.set(key, value, ttlSeconds);
+                return value;
+            } catch (error) {
+                // If fetch fails, don't cache error, just throw
+                throw error;
+            } finally {
+                this.pendingPromises.delete(key);
+            }
+        })();
 
-        return value;
+        this.pendingPromises.set(key, promise);
+        return promise;
     }
 
     /**

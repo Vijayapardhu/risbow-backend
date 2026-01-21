@@ -15,6 +15,7 @@ import {
     BannerMetadataDto,
 } from './dto/banner.dto';
 import { CacheService } from '../shared/cache.service';
+import { QueuesService } from '../queues/queues.service';
 
 @Injectable()
 export class BannersService {
@@ -22,7 +23,8 @@ export class BannersService {
 
     constructor(
         private prisma: PrismaService,
-        private cache: CacheService
+        private cache: CacheService,
+        private queues: QueuesService
     ) { }
 
     /**
@@ -286,12 +288,15 @@ export class BannersService {
 
     /**
      * Track banner event (impression or click)
+     * Now uses background queue for non-blocking analytics
      */
     async trackBannerEvent(id: string, event: string): Promise<void> {
         this.logger.log(`Tracking ${event} for banner ${id}`);
 
+        // Verify banner exists (quick check)
         const banner = await this.prisma.banner.findUnique({
             where: { id },
+            select: { id: true },
         });
 
         if (!banner) {
@@ -299,12 +304,14 @@ export class BannersService {
             return;
         }
 
-        // In a real implementation, you would update the metadata JSON field
-        // For now, we'll just log it
-        this.logger.log(`${event} tracked for banner ${id}`);
+        // Queue analytics event for background processing
+        await this.queues.addBannerAnalytics({
+            bannerId: id,
+            eventType: event as 'impression' | 'click',
+            timestamp: new Date(),
+        });
 
-        // TODO: Update metadata.analytics in database
-        // This requires the Banner model to have a metadata Json field
+        this.logger.debug(`${event} queued for banner ${id}`);
     }
 
     /**
