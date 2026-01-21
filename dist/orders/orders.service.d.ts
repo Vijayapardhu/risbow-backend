@@ -5,14 +5,17 @@ import { OrderStatus } from '@prisma/client';
 import { RoomsService } from '../rooms/rooms.service';
 import { CoinsService } from '../coins/coins.service';
 import { OrderStateMachine } from './order-state-machine';
+import { InventoryService } from '../inventory/inventory.service';
 export declare class OrdersService {
     private prisma;
     private configService;
     private roomsService;
     private coinsService;
     private stateMachine;
+    private inventoryService;
     private razorpay;
-    constructor(prisma: PrismaService, configService: ConfigService, roomsService: RoomsService, coinsService: CoinsService, stateMachine: OrderStateMachine);
+    private readonly logger;
+    constructor(prisma: PrismaService, configService: ConfigService, roomsService: RoomsService, coinsService: CoinsService, stateMachine: OrderStateMachine, inventoryService: InventoryService);
     createCheckout(userId: string, dto: CheckoutDto & {
         abandonedCheckoutId?: string;
     }): Promise<{

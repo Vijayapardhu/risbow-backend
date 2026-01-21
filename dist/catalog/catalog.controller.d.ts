@@ -84,6 +84,7 @@ export declare class CatalogController {
         wholesalePrice: number | null;
         moq: number;
         isActive: boolean;
+        visibility: import(".prisma/client").$Enums.ProductVisibility;
         brandName: string | null;
         dimensionUnit: string | null;
         height: number | null;
@@ -136,6 +137,7 @@ export declare class CatalogController {
         wholesalePrice: number | null;
         moq: number;
         isActive: boolean;
+        visibility: import(".prisma/client").$Enums.ProductVisibility;
         brandName: string | null;
         dimensionUnit: string | null;
         height: number | null;
@@ -184,6 +186,7 @@ export declare class CatalogController {
         wholesalePrice: number | null;
         moq: number;
         isActive: boolean;
+        visibility: import(".prisma/client").$Enums.ProductVisibility;
         brandName: string | null;
         dimensionUnit: string | null;
         height: number | null;

@@ -6,21 +6,21 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ReturnsModule = void 0;
+exports.InventoryModule = void 0;
 const common_1 = require("@nestjs/common");
-const returns_service_1 = require("./returns.service");
-const returns_controller_1 = require("./returns.controller");
+const inventory_service_1 = require("./inventory.service");
+const inventory_controller_1 = require("./inventory.controller");
 const prisma_module_1 = require("../prisma/prisma.module");
 const shared_module_1 = require("../shared/shared.module");
-const inventory_module_1 = require("../inventory/inventory.module");
-let ReturnsModule = class ReturnsModule {
+let InventoryModule = class InventoryModule {
 };
-exports.ReturnsModule = ReturnsModule;
-exports.ReturnsModule = ReturnsModule = __decorate([
+exports.InventoryModule = InventoryModule;
+exports.InventoryModule = InventoryModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, shared_module_1.SharedModule, inventory_module_1.InventoryModule],
-        controllers: [returns_controller_1.ReturnsController],
-        providers: [returns_service_1.ReturnsService],
+        imports: [prisma_module_1.PrismaModule, shared_module_1.SharedModule],
+        controllers: [inventory_controller_1.InventoryController],
+        providers: [inventory_service_1.InventoryService],
+        exports: [inventory_service_1.InventoryService]
     })
-], ReturnsModule);
-//# sourceMappingURL=returns.module.js.map
+], InventoryModule);
+//# sourceMappingURL=inventory.module.js.map

@@ -53,6 +53,12 @@ let AdminProductController = class AdminProductController {
     async toggleProduct(id, isActive) {
         return this.adminService.toggleProductStatus(id, isActive);
     }
+    async approveProduct(id) {
+        return this.productService.approveProduct(id);
+    }
+    async blockProduct(id) {
+        return this.productService.blockProduct(id);
+    }
 };
 exports.AdminProductController = AdminProductController;
 __decorate([
@@ -124,6 +130,20 @@ __decorate([
     __metadata("design:paramtypes", [String, Boolean]),
     __metadata("design:returntype", Promise)
 ], AdminProductController.prototype, "toggleProduct", null);
+__decorate([
+    (0, common_1.Post)(':id/approve'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminProductController.prototype, "approveProduct", null);
+__decorate([
+    (0, common_1.Post)(':id/block'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminProductController.prototype, "blockProduct", null);
 exports.AdminProductController = AdminProductController = __decorate([
     (0, swagger_1.ApiTags)('Admin'),
     (0, common_1.Controller)('admin/products'),

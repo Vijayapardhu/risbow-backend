@@ -62,6 +62,7 @@ export declare class CartService {
                 wholesalePrice: number | null;
                 moq: number;
                 isActive: boolean;
+                visibility: import(".prisma/client").$Enums.ProductVisibility;
                 brandName: string | null;
                 dimensionUnit: string | null;
                 height: number | null;
@@ -100,6 +101,8 @@ export declare class CartService {
         totalAmount: number;
         totalItems: number;
     }>;
+    private validateQuantityRules;
+    private getVariant;
     addItem(userId: string, dto: AddCartItemDto): Promise<{
         id: string;
         items: {
@@ -156,6 +159,7 @@ export declare class CartService {
                 wholesalePrice: number | null;
                 moq: number;
                 isActive: boolean;
+                visibility: import(".prisma/client").$Enums.ProductVisibility;
                 brandName: string | null;
                 dimensionUnit: string | null;
                 height: number | null;
@@ -250,6 +254,7 @@ export declare class CartService {
                 wholesalePrice: number | null;
                 moq: number;
                 isActive: boolean;
+                visibility: import(".prisma/client").$Enums.ProductVisibility;
                 brandName: string | null;
                 dimensionUnit: string | null;
                 height: number | null;
@@ -344,6 +349,7 @@ export declare class CartService {
                 wholesalePrice: number | null;
                 moq: number;
                 isActive: boolean;
+                visibility: import(".prisma/client").$Enums.ProductVisibility;
                 brandName: string | null;
                 dimensionUnit: string | null;
                 height: number | null;
@@ -441,6 +447,7 @@ export declare class CartService {
                 wholesalePrice: number | null;
                 moq: number;
                 isActive: boolean;
+                visibility: import(".prisma/client").$Enums.ProductVisibility;
                 brandName: string | null;
                 dimensionUnit: string | null;
                 height: number | null;
@@ -489,6 +496,9 @@ export declare class CartService {
             subtotal: number;
             vendorId: string;
             productTitle: string;
+            minOrderQuantity: number;
+            quantityStepSize: number;
+            totalAllowedQuantity: number;
         }[];
         totalAmount: number;
     }>;

@@ -321,6 +321,24 @@ let AdminProductService = class AdminProductService {
             avgOrderValue: 1000,
         };
     }
+    async approveProduct(id) {
+        const product = await this.prisma.product.findUnique({ where: { id } });
+        if (!product)
+            throw new common_1.NotFoundException('Product not found');
+        return this.prisma.product.update({
+            where: { id },
+            data: { visibility: 'PUBLISHED', isActive: true }
+        });
+    }
+    async blockProduct(id) {
+        const product = await this.prisma.product.findUnique({ where: { id } });
+        if (!product)
+            throw new common_1.NotFoundException('Product not found');
+        return this.prisma.product.update({
+            where: { id },
+            data: { visibility: 'BLOCKED', isActive: false }
+        });
+    }
 };
 exports.AdminProductService = AdminProductService;
 exports.AdminProductService = AdminProductService = __decorate([

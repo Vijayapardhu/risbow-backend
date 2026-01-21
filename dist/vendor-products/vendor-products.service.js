@@ -282,6 +282,62 @@ let VendorProductsService = class VendorProductsService {
             }
         });
     }
+    async publishProduct(vendorId, productId) {
+        const product = await this.prisma.product.findFirst({
+            where: { id: productId, vendorId },
+            include: { specValues: true }
+        });
+        if (!product)
+            throw new common_1.BadRequestException('Product not found or access denied');
+        if (product.price <= 0)
+            throw new common_1.BadRequestException('Product price must be greater than 0');
+        const variants = product.variants || [];
+        const activeVariants = variants.filter(v => v.status === 'ACTIVE');
+        if (variants.length > 0) {
+            if (activeVariants.length === 0) {
+                throw new common_1.BadRequestException('Product must have at least one active variation to publish');
+            }
+        }
+        else {
+            if (product.stock <= 0) {
+                throw new common_1.BadRequestException('Product must have stock greater than 0 or active variations');
+            }
+        }
+        if (!product.images || product.images.length === 0) {
+            throw new common_1.BadRequestException('Product must have at least one image');
+        }
+        const requiredSpecs = await this.prisma.categorySpec.findMany({
+            where: { categoryId: product.categoryId, isActive: true, required: true }
+        });
+        if (requiredSpecs.length > 0) {
+            const existingSpecIds = new Set(product.specValues.map(sv => sv.specId));
+            const missingSpecs = requiredSpecs.filter(rs => !existingSpecIds.has(rs.id));
+            if (missingSpecs.length > 0) {
+                throw new common_1.BadRequestException(`Missing required specifications: ${missingSpecs.map(s => s.label).join(', ')}`);
+            }
+        }
+        return this.prisma.product.update({
+            where: { id: productId },
+            data: {
+                visibility: 'PUBLISHED',
+                isActive: true
+            }
+        });
+    }
+    async unpublishProduct(vendorId, productId) {
+        const product = await this.prisma.product.findFirst({
+            where: { id: productId, vendorId }
+        });
+        if (!product)
+            throw new common_1.BadRequestException('Product not found or access denied');
+        return this.prisma.product.update({
+            where: { id: productId },
+            data: {
+                visibility: 'DRAFT',
+                isActive: false
+            }
+        });
+    }
 };
 exports.VendorProductsService = VendorProductsService;
 exports.VendorProductsService = VendorProductsService = __decorate([

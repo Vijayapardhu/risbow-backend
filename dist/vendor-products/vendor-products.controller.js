@@ -66,6 +66,12 @@ let VendorProductsController = class VendorProductsController {
     async deleteVariation(req, id, variationId) {
         return this.productsService.deleteVariation(req.user.id, id, variationId);
     }
+    async publish(req, id) {
+        return this.productsService.publishProduct(req.user.id, id);
+    }
+    async unpublish(req, id) {
+        return this.productsService.unpublishProduct(req.user.id, id);
+    }
 };
 exports.VendorProductsController = VendorProductsController;
 __decorate([
@@ -202,6 +208,28 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, String]),
     __metadata("design:returntype", Promise)
 ], VendorProductsController.prototype, "deleteVariation", null);
+__decorate([
+    (0, common_1.Post)(':id/publish'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Publish a product (Draft -> Published)' }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], VendorProductsController.prototype, "publish", null);
+__decorate([
+    (0, common_1.Post)(':id/unpublish'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Unpublish a product (Published -> Draft)' }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], VendorProductsController.prototype, "unpublish", null);
 exports.VendorProductsController = VendorProductsController = __decorate([
     (0, swagger_1.ApiTags)('Vendor Products'),
     (0, common_1.Controller)('api/v1/vendor-products'),

@@ -2,10 +2,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateReturnDto } from './dto/create-return.dto';
 import { UpdateReturnStatusDto } from './dto/update-return.dto';
 import { NotificationsService } from '../shared/notifications.service';
+import { InventoryService } from '../inventory/inventory.service';
 export declare class ReturnsService {
     private prisma;
     private notificationsService;
-    constructor(prisma: PrismaService, notificationsService: NotificationsService);
+    private inventoryService;
+    constructor(prisma: PrismaService, notificationsService: NotificationsService, inventoryService: InventoryService);
     create(userId: string, dto: CreateReturnDto): Promise<{
         items: {
             id: string;
@@ -69,6 +71,7 @@ export declare class ReturnsService {
                     wholesalePrice: number | null;
                     moq: number;
                     isActive: boolean;
+                    visibility: import(".prisma/client").$Enums.ProductVisibility;
                     brandName: string | null;
                     dimensionUnit: string | null;
                     height: number | null;
@@ -236,6 +239,7 @@ export declare class ReturnsService {
                 wholesalePrice: number | null;
                 moq: number;
                 isActive: boolean;
+                visibility: import(".prisma/client").$Enums.ProductVisibility;
                 brandName: string | null;
                 dimensionUnit: string | null;
                 height: number | null;

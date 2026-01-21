@@ -6,21 +6,20 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ReturnsModule = void 0;
+exports.VendorOrdersModule = void 0;
 const common_1 = require("@nestjs/common");
-const returns_service_1 = require("./returns.service");
-const returns_controller_1 = require("./returns.controller");
+const vendor_orders_service_1 = require("./vendor-orders.service");
+const vendor_orders_controller_1 = require("./vendor-orders.controller");
+const order_state_machine_1 = require("../orders/order-state-machine");
 const prisma_module_1 = require("../prisma/prisma.module");
-const shared_module_1 = require("../shared/shared.module");
-const inventory_module_1 = require("../inventory/inventory.module");
-let ReturnsModule = class ReturnsModule {
+let VendorOrdersModule = class VendorOrdersModule {
 };
-exports.ReturnsModule = ReturnsModule;
-exports.ReturnsModule = ReturnsModule = __decorate([
+exports.VendorOrdersModule = VendorOrdersModule;
+exports.VendorOrdersModule = VendorOrdersModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, shared_module_1.SharedModule, inventory_module_1.InventoryModule],
-        controllers: [returns_controller_1.ReturnsController],
-        providers: [returns_service_1.ReturnsService],
+        imports: [prisma_module_1.PrismaModule],
+        controllers: [vendor_orders_controller_1.VendorOrdersController],
+        providers: [vendor_orders_service_1.VendorOrdersService, order_state_machine_1.OrderStateMachine],
     })
-], ReturnsModule);
-//# sourceMappingURL=returns.module.js.map
+], VendorOrdersModule);
+//# sourceMappingURL=vendor-orders.module.js.map

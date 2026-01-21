@@ -13,10 +13,13 @@ exports.ReturnsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const notifications_service_1 = require("../shared/notifications.service");
+const inventory_service_1 = require("../inventory/inventory.service");
+const client_1 = require("@prisma/client");
 let ReturnsService = class ReturnsService {
-    constructor(prisma, notificationsService) {
+    constructor(prisma, notificationsService, inventoryService) {
         this.prisma = prisma;
         this.notificationsService = notificationsService;
+        this.inventoryService = inventoryService;
     }
     async create(userId, dto) {
         const order = await this.prisma.order.findUnique({
@@ -38,7 +41,7 @@ let ReturnsService = class ReturnsService {
                 evidenceImages: dto.evidenceImages || [],
                 evidenceVideo: dto.evidenceVideo,
                 pickupAddress: dto.pickupAddress,
-                status: 'PENDING_APPROVAL',
+                status: client_1.ReturnStatus.PENDING_APPROVAL,
                 items: {
                     create: dto.items.map((item) => ({
                         productId: item.productId,
@@ -49,7 +52,7 @@ let ReturnsService = class ReturnsService {
                 },
                 timeline: {
                     create: {
-                        status: 'PENDING_APPROVAL',
+                        status: client_1.ReturnStatus.PENDING_APPROVAL,
                         action: 'RETURN_REQUESTED',
                         performedBy: 'CUSTOMER',
                         notes: 'Return request submitted by customer',
@@ -116,7 +119,7 @@ let ReturnsService = class ReturnsService {
     async updateStatus(id, dto, adminId) {
         const returnReq = await this.prisma.returnRequest.findUnique({
             where: { id },
-            include: { vendor: true }
+            include: { vendor: true, items: true }
         });
         if (!returnReq)
             throw new common_1.NotFoundException('Return request not found');
@@ -137,7 +140,12 @@ let ReturnsService = class ReturnsService {
             },
             include: { timeline: true },
         });
-        if (dto.status === 'APPROVED' && returnReq.vendor) {
+        if (dto.status === client_1.ReturnStatus.QC_PASSED && returnReq.status !== client_1.ReturnStatus.QC_PASSED) {
+            for (const item of returnReq.items) {
+                await this.inventoryService.restoreStock(item.productId, item.quantity);
+            }
+        }
+        if (dto.status === client_1.ReturnStatus.APPROVED && returnReq.vendor) {
             const vendorUser = await this.prisma.user.findUnique({
                 where: { mobile: returnReq.vendor.mobile }
             });
@@ -154,11 +162,11 @@ let ReturnsService = class ReturnsService {
         return this.prisma.returnRequest.update({
             where: { id },
             data: {
-                status: 'REPLACEMENT_SHIPPED',
+                status: client_1.ReturnStatus.REPLACEMENT_SHIPPED,
                 replacementTrackingId: trackingId,
                 timeline: {
                     create: {
-                        status: 'REPLACEMENT_SHIPPED',
+                        status: client_1.ReturnStatus.REPLACEMENT_SHIPPED,
                         action: 'REPLACEMENT_DISPATCHED',
                         performedBy: 'ADMIN',
                         notes: `Tracking ID: ${trackingId}`
@@ -172,6 +180,7 @@ exports.ReturnsService = ReturnsService;
 exports.ReturnsService = ReturnsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        notifications_service_1.NotificationsService])
+        notifications_service_1.NotificationsService,
+        inventory_service_1.InventoryService])
 ], ReturnsService);
 //# sourceMappingURL=returns.service.js.map

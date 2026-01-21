@@ -33,6 +33,12 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], OrderItemDto.prototype, "vendorId", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, example: 'variant_id_123', description: 'ID of the product variant' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], OrderItemDto.prototype, "variantId", void 0);
 class CheckoutDto {
 }
 exports.CheckoutDto = CheckoutDto;

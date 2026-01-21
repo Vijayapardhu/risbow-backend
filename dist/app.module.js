@@ -29,6 +29,8 @@ const analytics_module_1 = require("./analytics/analytics.module");
 const telecaller_module_1 = require("./telecaller/telecaller.module");
 const returns_module_1 = require("./returns/returns.module");
 const cart_module_1 = require("./cart/cart.module");
+const vendor_orders_module_1 = require("./vendor-orders/vendor-orders.module");
+const inventory_module_1 = require("./inventory/inventory.module");
 const upload_module_1 = require("./upload/upload.module");
 const reviews_module_1 = require("./reviews/reviews.module");
 const refunds_module_1 = require("./refunds/refunds.module");
@@ -37,6 +39,8 @@ const coupons_module_1 = require("./coupons/coupons.module");
 const banners_module_1 = require("./banners/banners.module");
 const queues_module_1 = require("./queues/queues.module");
 const vendor_memberships_module_1 = require("./vendor-memberships/vendor-memberships.module");
+const vendor_store_module_1 = require("./vendor-store/vendor-store.module");
+const vendor_products_module_1 = require("./vendor-products/vendor-products.module");
 const shared_module_1 = require("./shared/shared.module");
 const health_controller_1 = require("./common/health.controller");
 let AppModule = class AppModule {
@@ -85,6 +89,10 @@ exports.AppModule = AppModule = __decorate([
             coupons_module_1.CouponsModule,
             banners_module_1.BannersModule,
             vendor_memberships_module_1.VendorMembershipsModule,
+            vendor_store_module_1.VendorStoreModule,
+            vendor_products_module_1.VendorProductsModule,
+            vendor_orders_module_1.VendorOrdersModule,
+            inventory_module_1.InventoryModule,
         ],
         controllers: [health_controller_1.HealthController],
     })

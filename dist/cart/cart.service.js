@@ -47,9 +47,15 @@ let CartService = CartService_1 = class CartService {
         const enrichedItems = await Promise.all(cart.items.map(async (item) => {
             let price = item.product.price;
             let stock = item.product.stock;
-            let title = item.product.title;
-            let image = item.product.images?.[0] || '';
-            if (item.product.offerPrice) {
+            if (item.variantId) {
+                const variants = item.product.variants || [];
+                const variant = variants.find(v => v.id === item.variantId);
+                if (variant) {
+                    price = variant.offerPrice || variant.price || variant.sellingPrice || price;
+                    stock = variant.stock;
+                }
+            }
+            else if (item.product.offerPrice) {
                 price = item.product.offerPrice;
             }
             return {
@@ -69,13 +75,39 @@ let CartService = CartService_1 = class CartService {
             totalItems
         };
     }
+    validateQuantityRules(product, quantity) {
+        if (quantity < product.minOrderQuantity) {
+            throw new common_1.BadRequestException(`Minimum order quantity is ${product.minOrderQuantity}`);
+        }
+        if (quantity > product.totalAllowedQuantity) {
+            throw new common_1.BadRequestException(`Maximum allowed quantity is ${product.totalAllowedQuantity}`);
+        }
+        const remainder = (quantity - product.minOrderQuantity) % product.quantityStepSize;
+        if (remainder !== 0) {
+            throw new common_1.BadRequestException(`Quantity must be in steps of ${product.quantityStepSize} starting from ${product.minOrderQuantity}`);
+        }
+    }
+    getVariant(product, variantId) {
+        if (!variantId)
+            return null;
+        const variants = product.variants || [];
+        return variants.find(v => v.id === variantId);
+    }
     async addItem(userId, dto) {
         const { productId, variantId, quantity } = dto;
         const product = await this.prisma.product.findUnique({ where: { id: productId } });
         if (!product)
             throw new common_1.NotFoundException('Product not found');
+        this.validateQuantityRules(product, quantity);
         let price = product.offerPrice || product.price;
         let availableStock = product.stock;
+        if (variantId) {
+            const variant = this.getVariant(product, variantId);
+            if (!variant)
+                throw new common_1.NotFoundException('Variant not found');
+            price = variant.offerPrice || variant.price || variant.sellingPrice || price;
+            availableStock = variant.stock;
+        }
         if (availableStock < quantity) {
             throw new common_1.BadRequestException(`Insufficient stock. Available: ${availableStock}`);
         }
@@ -92,6 +124,7 @@ let CartService = CartService_1 = class CartService {
         });
         if (existingItem) {
             const newQuantity = existingItem.quantity + quantity;
+            this.validateQuantityRules(product, newQuantity);
             if (availableStock < newQuantity) {
                 throw new common_1.BadRequestException(`Insufficient stock for total quantity. Available: ${availableStock}`);
             }
@@ -123,7 +156,13 @@ let CartService = CartService_1 = class CartService {
         if (!item || item.cartId !== cart.id) {
             throw new common_1.NotFoundException('Cart item not found');
         }
+        this.validateQuantityRules(item.product, dto.quantity);
         let availableStock = item.product.stock;
+        if (item.variantId) {
+            const variant = this.getVariant(item.product, item.variantId);
+            if (variant)
+                availableStock = variant.stock;
+        }
         if (availableStock < dto.quantity) {
             throw new common_1.BadRequestException(`Insufficient stock. Available: ${availableStock}`);
         }
@@ -162,7 +201,20 @@ let CartService = CartService_1 = class CartService {
                 if (!product)
                     continue;
                 let stock = product.stock;
+                if (itemDto.variantId) {
+                    const variant = this.getVariant(product, itemDto.variantId);
+                    if (!variant)
+                        continue;
+                    stock = variant.stock;
+                }
                 if (stock < 1)
+                    continue;
+                if (itemDto.quantity < product.minOrderQuantity)
+                    continue;
+                if (itemDto.quantity > product.totalAllowedQuantity)
+                    continue;
+                const remainder = (itemDto.quantity - product.minOrderQuantity) % product.quantityStepSize;
+                if (remainder !== 0)
                     continue;
                 const quantity = Math.min(itemDto.quantity, stock);
                 const existing = await this.prisma.cartItem.findFirst({
@@ -209,7 +261,10 @@ let CartService = CartService_1 = class CartService {
                 price: i.price,
                 subtotal: i.subtotal,
                 vendorId: i.product.vendorId,
-                productTitle: i.product.title
+                productTitle: i.product.title,
+                minOrderQuantity: i.product.minOrderQuantity,
+                quantityStepSize: i.product.quantityStepSize,
+                totalAllowedQuantity: i.product.totalAllowedQuantity
             })),
             totalAmount: cartData.totalAmount
         };

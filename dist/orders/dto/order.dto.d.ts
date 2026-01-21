@@ -2,6 +2,7 @@ declare class OrderItemDto {
     productId: string;
     quantity: number;
     vendorId?: string;
+    variantId?: string;
 }
 export declare class CheckoutDto {
     items: OrderItemDto[];

@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
+var OrdersService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OrdersService = void 0;
 const common_1 = require("@nestjs/common");
@@ -22,24 +23,85 @@ const rooms_service_1 = require("../rooms/rooms.service");
 const coins_service_1 = require("../coins/coins.service");
 const coin_dto_1 = require("../coins/dto/coin.dto");
 const order_state_machine_1 = require("./order-state-machine");
-let OrdersService = class OrdersService {
-    constructor(prisma, configService, roomsService, coinsService, stateMachine) {
+const inventory_service_1 = require("../inventory/inventory.service");
+let OrdersService = OrdersService_1 = class OrdersService {
+    constructor(prisma, configService, roomsService, coinsService, stateMachine, inventoryService) {
         this.prisma = prisma;
         this.configService = configService;
         this.roomsService = roomsService;
         this.coinsService = coinsService;
         this.stateMachine = stateMachine;
+        this.inventoryService = inventoryService;
+        this.logger = new common_1.Logger(OrdersService_1.name);
         this.razorpay = new razorpay_1.default({
             key_id: this.configService.get('RAZORPAY_KEY_ID'),
             key_secret: this.configService.get('RAZORPAY_KEY_SECRET'),
         });
     }
     async createCheckout(userId, dto) {
-        const totalBeforeCoins = dto.items.reduce((acc, item) => acc + (100 * item.quantity), 0) || 100;
+        const itemIds = dto.items.map(i => i.productId);
+        const products = await this.prisma.product.findMany({
+            where: { id: { in: itemIds } }
+        });
+        const productMap = new Map(products.map(p => [p.id, p]));
+        let totalCalculated = 0;
+        const validItems = [];
+        for (const item of dto.items) {
+            const product = productMap.get(item.productId);
+            if (!product)
+                throw new common_1.NotFoundException(`Product ${item.productId} not found`);
+            let price = product.offerPrice || product.price;
+            let stock = product.stock;
+            if (item.variantId) {
+                const variants = product.variants || [];
+                const variant = variants.find(v => v.id === item.variantId);
+                if (!variant)
+                    throw new common_1.BadRequestException(`Variant ${item.variantId} not found for product ${product.title}`);
+                price = variant.offerPrice || variant.price || variant.sellingPrice || price;
+                stock = variant.stock;
+            }
+            if (stock < item.quantity) {
+                throw new common_1.BadRequestException(`Insufficient stock for ${product.title} (Available: ${stock})`);
+            }
+            if (item.quantity < product.minOrderQuantity) {
+                throw new common_1.BadRequestException(`Min order quantity for ${product.title} is ${product.minOrderQuantity}`);
+            }
+            if (item.quantity > product.totalAllowedQuantity) {
+                throw new common_1.BadRequestException(`Max allowed quantity for ${product.title} is ${product.totalAllowedQuantity}`);
+            }
+            if ((item.quantity - product.minOrderQuantity) % product.quantityStepSize !== 0) {
+                throw new common_1.BadRequestException(`Quantity for ${product.title} must be in steps of ${product.quantityStepSize}`);
+            }
+            totalCalculated += (price * item.quantity);
+            validItems.push({
+                ...item,
+                price: price,
+                vendorId: product.vendorId,
+                rulesSnapshot: {
+                    moq: product.minOrderQuantity,
+                    step: product.quantityStepSize,
+                    max: product.totalAllowedQuantity
+                }
+            });
+        }
+        const reservedItems = [];
+        try {
+            for (const item of validItems) {
+                await this.inventoryService.reserveStock(item.productId, item.quantity, item.variantId);
+                reservedItems.push(item);
+            }
+        }
+        catch (e) {
+            this.logger.error(`Stock reservation failed: ${e.message}`, e.stack);
+            for (const rItem of reservedItems) {
+                await this.inventoryService.releaseStock(rItem.productId, rItem.quantity, rItem.variantId);
+            }
+            throw new common_1.BadRequestException(`Failed to reserve stock: ${e.message}`);
+        }
         const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { coinsBalance: true } });
         const requestedCoins = Math.max(0, dto.useCoins || 0);
-        const usableCoins = Math.min(requestedCoins, user?.coinsBalance || 0, totalBeforeCoins);
-        const payable = Math.max(1, totalBeforeCoins - usableCoins);
+        const usableCoins = Math.min(requestedCoins, user?.coinsBalance || 0, totalCalculated);
+        const payable = Math.max(1, totalCalculated - usableCoins);
         const rzpOrder = await this.razorpay.orders.create({
             amount: payable * 100,
             currency: 'INR',
@@ -49,10 +111,10 @@ let OrdersService = class OrdersService {
             data: {
                 userId,
                 roomId: dto.roomId,
-                items: dto.items,
+                items: validItems,
                 totalAmount: payable,
                 coinsUsed: usableCoins,
-                status: client_1.OrderStatus.PENDING,
+                status: client_1.OrderStatus.PENDING_PAYMENT,
                 razorpayOrderId: rzpOrder.id,
                 abandonedCheckoutId: dto.abandonedCheckoutId,
             },
@@ -64,7 +126,7 @@ let OrdersService = class OrdersService {
             currency: 'INR',
             key: this.configService.get('RAZORPAY_KEY_ID'),
             coinsUsed: usableCoins,
-            totalBeforeCoins,
+            totalBeforeCoins: totalCalculated,
         };
     }
     async confirmOrder(dto) {
@@ -88,6 +150,15 @@ let OrdersService = class OrdersService {
             where: { id: order.id },
             data: { status: client_1.OrderStatus.CONFIRMED },
         });
+        const orderItems = order.items;
+        for (const item of orderItems) {
+            try {
+                await this.inventoryService.deductStock(item.productId, item.quantity, item.variantId);
+            }
+            catch (e) {
+                console.error(`Failed to deduct stock for order ${order.id} item ${item.productId}:`, e);
+            }
+        }
         if (order.abandonedCheckoutId) {
             await this.prisma.abandonedCheckout.update({
                 where: { id: order.abandonedCheckoutId },
@@ -176,7 +247,7 @@ let OrdersService = class OrdersService {
                 user: { connect: { id: userId } },
                 items: data.items,
                 totalAmount: data.totalAmount,
-                status: client_1.OrderStatus.PENDING,
+                status: client_1.OrderStatus.PENDING_PAYMENT,
                 payment: {
                     create: {
                         provider: data.paymentMethod || 'COD',
@@ -449,6 +520,19 @@ let OrdersService = class OrdersService {
                 where: { id: orderId },
                 data: { status: client_1.OrderStatus.CANCELLED }
             });
+            const isDeducted = [client_1.OrderStatus.CONFIRMED.toString(), client_1.OrderStatus.PACKED.toString(), client_1.OrderStatus.PAID.toString()].includes(order.status);
+            if (isDeducted) {
+                const orderItems = order.items;
+                for (const item of orderItems) {
+                    await this.inventoryService.restoreStock(item.productId, item.quantity, item.variantId);
+                }
+            }
+            else if (order.status === client_1.OrderStatus.PENDING_PAYMENT) {
+                const orderItems = order.items;
+                for (const item of orderItems) {
+                    await this.inventoryService.releaseStock(item.productId, item.quantity, item.variantId);
+                }
+            }
             return updated;
         });
     }
@@ -466,12 +550,13 @@ let OrdersService = class OrdersService {
     }
 };
 exports.OrdersService = OrdersService;
-exports.OrdersService = OrdersService = __decorate([
+exports.OrdersService = OrdersService = OrdersService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         config_1.ConfigService,
         rooms_service_1.RoomsService,
         coins_service_1.CoinsService,
-        order_state_machine_1.OrderStateMachine])
+        order_state_machine_1.OrderStateMachine,
+        inventory_service_1.InventoryService])
 ], OrdersService);
 //# sourceMappingURL=orders.service.js.map

@@ -165,6 +165,26 @@ let RedisService = RedisService_1 = class RedisService {
         } while (cursor !== '0');
         return deletedCount;
     }
+    async incr(key) {
+        if (!this.client)
+            return 0;
+        return this.client.incr(key);
+    }
+    async incrBy(key, value) {
+        if (!this.client)
+            return 0;
+        return this.client.incrby(key, value);
+    }
+    async decrBy(key, value) {
+        if (!this.client)
+            return 0;
+        return this.client.decrby(key, value);
+    }
+    async expire(key, seconds) {
+        if (!this.client)
+            return 0;
+        return this.client.expire(key, seconds);
+    }
     async exists(key) {
         if (this.useMemory) {
             const entry = this.inMemoryStore.get(key);
