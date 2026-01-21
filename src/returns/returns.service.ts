@@ -3,12 +3,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateReturnDto } from './dto/create-return.dto';
 import { UpdateReturnStatusDto } from './dto/update-return.dto';
 import { NotificationsService } from '../shared/notifications.service';
+import { InventoryService } from '../inventory/inventory.service';
+import { ReturnStatus } from '@prisma/client';
 
 @Injectable()
 export class ReturnsService {
     constructor(
         private prisma: PrismaService,
-        private notificationsService: NotificationsService
+        private notificationsService: NotificationsService,
+        private inventoryService: InventoryService
     ) { }
 
     // ... existing create and findAll methods ...
@@ -36,7 +39,8 @@ export class ReturnsService {
                 evidenceImages: dto.evidenceImages || [],
                 evidenceVideo: dto.evidenceVideo,
                 pickupAddress: dto.pickupAddress,
-                status: 'PENDING_APPROVAL',
+                pickupAddress: dto.pickupAddress,
+                status: ReturnStatus.PENDING_APPROVAL,
                 items: {
                     create: dto.items.map((item) => ({
                         productId: item.productId,
@@ -47,7 +51,7 @@ export class ReturnsService {
                 },
                 timeline: {
                     create: {
-                        status: 'PENDING_APPROVAL',
+                        status: ReturnStatus.PENDING_APPROVAL,
                         action: 'RETURN_REQUESTED',
                         performedBy: 'CUSTOMER',
                         notes: 'Return request submitted by customer',
@@ -118,7 +122,7 @@ export class ReturnsService {
     async updateStatus(id: string, dto: UpdateReturnStatusDto, adminId: string) {
         const returnReq = await this.prisma.returnRequest.findUnique({
             where: { id },
-            include: { vendor: true }
+            include: { vendor: true, items: true }
         });
         if (!returnReq) throw new NotFoundException('Return request not found');
 
@@ -142,8 +146,17 @@ export class ReturnsService {
             include: { timeline: true },
         });
 
+        // INVENTORY LOGIC: Phase 6.1 (Restock on QC Pass)
+        if (dto.status === ReturnStatus.QC_PASSED && returnReq.status !== ReturnStatus.QC_PASSED) {
+            for (const item of returnReq.items) {
+                // Note: ReturnItem currently lacks variantId. Restocking main product stock only.
+                // This acts as a fallback. Future: Add variantId to ReturnItem.
+                await this.inventoryService.restoreStock(item.productId, item.quantity);
+            }
+        }
+
         // NOTIFICATION LOGIC: Alert Vendor if Approved
-        if (dto.status === 'APPROVED' && returnReq.vendor) {
+        if (dto.status === ReturnStatus.APPROVED && returnReq.vendor) {
             // Find User associated with Vendor Mobile
             const vendorUser = await this.prisma.user.findUnique({
                 where: { mobile: returnReq.vendor.mobile }
@@ -154,8 +167,8 @@ export class ReturnsService {
                     vendorUser.id,
                     'Return Approved',
                     `Return Request #${returnReq.returnNumber} has been approved. Please prepare for pickup/action.`,
-                    'RETURN',
-                    'VENDOR'
+                    'RETURN', // NotificationType.RETURN ideally
+                    'VENDOR'  // NotificationRole.VENDOR ideally
                 );
             }
         }
@@ -170,11 +183,11 @@ export class ReturnsService {
         return this.prisma.returnRequest.update({
             where: { id },
             data: {
-                status: 'REPLACEMENT_SHIPPED',
+                status: ReturnStatus.REPLACEMENT_SHIPPED,
                 replacementTrackingId: trackingId,
                 timeline: {
                     create: {
-                        status: 'REPLACEMENT_SHIPPED',
+                        status: ReturnStatus.REPLACEMENT_SHIPPED,
                         action: 'REPLACEMENT_DISPATCHED',
                         performedBy: 'ADMIN',
                         notes: `Tracking ID: ${trackingId}`

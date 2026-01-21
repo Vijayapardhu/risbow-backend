@@ -675,42 +675,40 @@ export class OrdersService {
             role as any
         );
 
-        const updated = await tx.order.update({
-            where: { id: orderId },
-            data: { status: OrderStatus.CANCELLED }
+        return this.prisma.$transaction(async (tx) => {
+            const updated = await tx.order.update({
+                where: { id: orderId },
+                data: { status: OrderStatus.CANCELLED }
+            });
+
+            const isDeducted = [OrderStatus.CONFIRMED.toString(), OrderStatus.PACKED.toString(), OrderStatus.PAID.toString()].includes(order.status);
+
+            if (isDeducted) {
+                const orderItems = order.items as any[];
+                for (const item of orderItems) {
+                    await this.inventoryService.restoreStock(item.productId, item.quantity, item.variantId);
+                }
+            } else if (order.status === OrderStatus.PENDING_PAYMENT) {
+                const orderItems = order.items as any[];
+                for (const item of orderItems) {
+                    await this.inventoryService.releaseStock(item.productId, item.quantity, item.variantId);
+                }
+            }
+
+            return updated;
         });
-
-        // Restore Stock (Phase 5.1)
-        const deductedStatuses = [OrderStatus.CONFIRMED.toString(), OrderStatus.PACKED.toString(), OrderStatus.PAID.toString()];
-        // Note: Enum to string for safety, or direct enum comparison if valid.
-        const isDeducted = [OrderStatus.CONFIRMED, OrderStatus.PACKED, OrderStatus.PAID].includes(order.status);
-
-        if (isDeducted) {
-            const orderItems = order.items as any[];
-            for (const item of orderItems) {
-                await this.inventoryService.restoreStock(item.productId, item.quantity, item.variantId);
-            }
-        } else if (order.status === OrderStatus.PENDING_PAYMENT || order.status === OrderStatus.PENDING) {
-            const orderItems = order.items as any[];
-            for (const item of orderItems) {
-                await this.inventoryService.releaseStock(item.productId, item.quantity, item.variantId);
-            }
-        }
-
-        return updated;
-    });
-}
+    }
 
     async getOrderTracking(orderId: string) {
-    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-    if (!order) throw new NotFoundException('Order not found');
+        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+        if (!order) throw new NotFoundException('Order not found');
 
-    return {
-        status: order.status,
-        awb: order.awbNumber,
-        courier: order.courierPartner,
-        trackingUrl: order.awbNumber ? `https://track.courier.com/${order.awbNumber}` : null, // Mock
-        lastUpdate: order.updatedAt
-    };
-}
+        return {
+            status: order.status,
+            awb: order.awbNumber,
+            courier: order.courierPartner,
+            trackingUrl: order.awbNumber ? `https://track.courier.com/${order.awbNumber}` : null, // Mock
+            lastUpdate: order.updatedAt
+        };
+    }
 }
