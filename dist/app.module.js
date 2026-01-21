@@ -32,6 +32,9 @@ const cart_module_1 = require("./cart/cart.module");
 const upload_module_1 = require("./upload/upload.module");
 const reviews_module_1 = require("./reviews/reviews.module");
 const refunds_module_1 = require("./refunds/refunds.module");
+const gifts_module_1 = require("./gifts/gifts.module");
+const coupons_module_1 = require("./coupons/coupons.module");
+const banners_module_1 = require("./banners/banners.module");
 const shared_module_1 = require("./shared/shared.module");
 const health_controller_1 = require("./common/health.controller");
 let AppModule = class AppModule {
@@ -73,6 +76,9 @@ exports.AppModule = AppModule = __decorate([
             upload_module_1.UploadModule,
             reviews_module_1.ReviewsModule,
             refunds_module_1.RefundsModule,
+            gifts_module_1.GiftsModule,
+            coupons_module_1.CouponsModule,
+            banners_module_1.BannersModule,
         ],
         controllers: [health_controller_1.HealthController],
     })

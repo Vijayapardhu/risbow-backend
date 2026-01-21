@@ -97,9 +97,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
     async set(key: string, value: string, ttlSeconds: number) {
         if (this.useMemory) {
-            this.inMemoryStore.set(key, { 
-                value, 
-                expiresAt: Date.now() + (ttlSeconds * 1000) 
+            this.inMemoryStore.set(key, {
+                value,
+                expiresAt: Date.now() + (ttlSeconds * 1000)
             });
             return;
         }
@@ -112,5 +112,95 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             return;
         }
         await this.client.del(key);
+    }
+
+    // Batch operations for performance
+    async mget(keys: string[]): Promise<(string | null)[]> {
+        if (this.useMemory) {
+            return keys.map(key => {
+                const entry = this.inMemoryStore.get(key);
+                if (!entry) return null;
+                if (entry.expiresAt < Date.now()) {
+                    this.inMemoryStore.delete(key);
+                    return null;
+                }
+                return entry.value;
+            });
+        }
+        return this.client.mget(...keys);
+    }
+
+    async mset(keyValues: Record<string, string>, ttlSeconds: number) {
+        if (this.useMemory) {
+            Object.entries(keyValues).forEach(([key, value]) => {
+                this.inMemoryStore.set(key, {
+                    value,
+                    expiresAt: Date.now() + (ttlSeconds * 1000)
+                });
+            });
+            return;
+        }
+
+        // Use pipeline for atomic multi-set with TTL
+        const pipeline = this.client.pipeline();
+        Object.entries(keyValues).forEach(([key, value]) => {
+            pipeline.set(key, value, 'EX', ttlSeconds);
+        });
+        await pipeline.exec();
+    }
+
+    // Delete keys by pattern (e.g., "products:*")
+    async delPattern(pattern: string): Promise<number> {
+        if (this.useMemory) {
+            const regex = new RegExp('^' + pattern.replace('*', '.*') + '$');
+            let count = 0;
+            for (const key of this.inMemoryStore.keys()) {
+                if (regex.test(key)) {
+                    this.inMemoryStore.delete(key);
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        // Use SCAN to avoid blocking
+        let cursor = '0';
+        let deletedCount = 0;
+
+        do {
+            const [newCursor, keys] = await this.client.scan(
+                cursor,
+                'MATCH',
+                pattern,
+                'COUNT',
+                100
+            );
+            cursor = newCursor;
+
+            if (keys.length > 0) {
+                deletedCount += await this.client.del(...keys);
+            }
+        } while (cursor !== '0');
+
+        return deletedCount;
+    }
+
+    // Check if key exists
+    async exists(key: string): Promise<boolean> {
+        if (this.useMemory) {
+            const entry = this.inMemoryStore.get(key);
+            if (!entry) return false;
+            if (entry.expiresAt < Date.now()) {
+                this.inMemoryStore.delete(key);
+                return false;
+            }
+            return true;
+        }
+        return (await this.client.exists(key)) === 1;
+    }
+
+    // Get connection status
+    isConnected(): boolean {
+        return !this.useMemory && this.client?.status === 'ready';
     }
 }

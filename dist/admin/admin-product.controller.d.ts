@@ -85,12 +85,12 @@ export declare class AdminProductController {
                 updatedAt: Date;
                 type: import(".prisma/client").$Enums.SpecType;
                 label: string;
+                required: boolean;
                 categoryId: string;
                 isActive: boolean;
                 key: string;
                 labelTE: string | null;
                 unit: string | null;
-                required: boolean;
                 options: import("@prisma/client/runtime/library").JsonValue | null;
                 sortOrder: number;
                 scope: import(".prisma/client").$Enums.AttributeScope;
@@ -108,8 +108,9 @@ export declare class AdminProductController {
         length: number | null;
         updatedAt: Date;
         title: string;
-        vendorId: string;
         description: string | null;
+        tags: string[];
+        vendorId: string;
         price: number;
         offerPrice: number | null;
         stock: number;
@@ -125,7 +126,6 @@ export declare class AdminProductController {
         moq: number;
         sku: string | null;
         brandName: string | null;
-        tags: string[];
         weight: number | null;
         weightUnit: string | null;
         width: number | null;
@@ -160,8 +160,9 @@ export declare class AdminProductController {
         length: number | null;
         updatedAt: Date;
         title: string;
-        vendorId: string;
         description: string | null;
+        tags: string[];
+        vendorId: string;
         price: number;
         offerPrice: number | null;
         stock: number;
@@ -177,7 +178,6 @@ export declare class AdminProductController {
         moq: number;
         sku: string | null;
         brandName: string | null;
-        tags: string[];
         weight: number | null;
         weightUnit: string | null;
         width: number | null;
@@ -256,8 +256,9 @@ export declare class AdminProductController {
         length: number | null;
         updatedAt: Date;
         title: string;
-        vendorId: string;
         description: string | null;
+        tags: string[];
+        vendorId: string;
         price: number;
         offerPrice: number | null;
         stock: number;
@@ -273,7 +274,6 @@ export declare class AdminProductController {
         moq: number;
         sku: string | null;
         brandName: string | null;
-        tags: string[];
         weight: number | null;
         weightUnit: string | null;
         width: number | null;
@@ -308,8 +308,9 @@ export declare class AdminProductController {
         length: number | null;
         updatedAt: Date;
         title: string;
-        vendorId: string;
         description: string | null;
+        tags: string[];
+        vendorId: string;
         price: number;
         offerPrice: number | null;
         stock: number;
@@ -325,7 +326,6 @@ export declare class AdminProductController {
         moq: number;
         sku: string | null;
         brandName: string | null;
-        tags: string[];
         weight: number | null;
         weightUnit: string | null;
         width: number | null;

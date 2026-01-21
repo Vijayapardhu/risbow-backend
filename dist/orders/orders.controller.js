@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OrdersController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const orders_service_1 = require("./orders.service");
 const order_dto_1 = require("./dto/order.dto");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
@@ -69,6 +70,7 @@ exports.OrdersController = OrdersController;
 __decorate([
     (0, common_1.Get)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiOperation)({ summary: 'Get current user\'s orders' }),
     __param(0, (0, common_1.Request)()),
     __param(1, (0, common_1.Query)('page')),
     __param(2, (0, common_1.Query)('limit')),
@@ -79,6 +81,7 @@ __decorate([
 __decorate([
     (0, common_1.Get)(':id'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiOperation)({ summary: 'Get order details by ID' }),
     __param(0, (0, common_1.Request)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -88,6 +91,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)('checkout'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiOperation)({ summary: 'Complete checkout (Create Order)' }),
     __param(0, (0, common_1.Request)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -96,6 +100,7 @@ __decorate([
 ], OrdersController.prototype, "checkout", null);
 __decorate([
     (0, common_1.Post)('confirm'),
+    (0, swagger_1.ApiOperation)({ summary: 'Confirm Razorpay payment' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [order_dto_1.ConfirmOrderDto]),
@@ -104,6 +109,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)(':id/gift'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiOperation)({ summary: 'Add a free gift to an eligible order' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)('giftId')),
     __param(2, (0, common_1.Request)()),
@@ -114,6 +120,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)('create'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiOperation)({ summary: 'Create direct order (e.g. COD)' }),
     __param(0, (0, common_1.Request)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -124,6 +131,7 @@ __decorate([
     (0, common_1.Get)('admin/all'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    (0, swagger_1.ApiOperation)({ summary: 'Admin: Get all orders' }),
     __param(0, (0, common_1.Query)('page')),
     __param(1, (0, common_1.Query)('limit')),
     __param(2, (0, common_1.Query)('search')),
@@ -136,6 +144,7 @@ __decorate([
     (0, common_1.Get)('admin/:id'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    (0, swagger_1.ApiOperation)({ summary: 'Admin: Get order details' }),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
@@ -145,6 +154,7 @@ __decorate([
     (0, common_1.Post)('admin/pos/orders'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN'),
+    (0, swagger_1.ApiOperation)({ summary: 'Admin: Create POS order' }),
     __param(0, (0, common_1.Request)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -154,6 +164,8 @@ __decorate([
 __decorate([
     (0, common_1.Post)(':id/cancel'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiOperation)({ summary: 'Cancel an order' }),
+    (0, swagger_1.ApiBody)({ schema: { type: 'object', properties: { reason: { type: 'string', example: 'Changed mind' } } } }),
     __param(0, (0, common_1.Request)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)('reason')),
@@ -165,6 +177,16 @@ __decorate([
     (0, common_1.Patch)(':id/status'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('ADMIN', 'SUPER_ADMIN', 'VENDOR'),
+    (0, swagger_1.ApiOperation)({ summary: 'Update order status (Admin/Vendor)' }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            type: 'object',
+            properties: {
+                status: { type: 'string', example: 'SHIPPED', enum: ['PACKED', 'SHIPPED', 'DELIVERED', 'PAID'] },
+                notes: { type: 'string', example: 'Shipped via BlueDart' }
+            }
+        }
+    }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)('status')),
     __param(2, (0, common_1.Body)('notes')),
@@ -176,12 +198,15 @@ __decorate([
 __decorate([
     (0, common_1.Get)(':id/tracking'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiOperation)({ summary: 'Get order tracking info' }),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "getTracking", null);
 exports.OrdersController = OrdersController = __decorate([
+    (0, swagger_1.ApiTags)('Orders'),
+    (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.Controller)('orders'),
     __metadata("design:paramtypes", [orders_service_1.OrdersService])
 ], OrdersController);

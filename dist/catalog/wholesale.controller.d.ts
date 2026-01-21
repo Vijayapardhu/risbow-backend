@@ -8,8 +8,9 @@ export declare class WholesaleController {
         length: number | null;
         updatedAt: Date;
         title: string;
-        vendorId: string;
         description: string | null;
+        tags: string[];
+        vendorId: string;
         price: number;
         offerPrice: number | null;
         stock: number;
@@ -25,7 +26,6 @@ export declare class WholesaleController {
         moq: number;
         sku: string | null;
         brandName: string | null;
-        tags: string[];
         weight: number | null;
         weightUnit: string | null;
         width: number | null;

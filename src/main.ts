@@ -45,12 +45,84 @@ async function bootstrap() {
     // Swagger Setup
     const config = new DocumentBuilder()
         .setTitle('RISBOW API')
-        .setDescription('The RISBOW Ecommerce Super App API description')
+        .setDescription(`
+# RISBOW Ecommerce Super App API
+
+Welcome to the RISBOW API documentation! This API powers the RISBOW platform with features including:
+
+- 🔐 **Authentication** - OTP & Email/Password login
+- 🛒 **Orders** - Complete order lifecycle management with state machine
+- 📦 **Products** - Product catalog and inventory
+- 💳 **Payments** - Razorpay integration for online payments
+- 🎁 **Gifts & Coupons** - Promotional features
+- ⭐ **Reviews** - Product reviews and ratings
+- 🏪 **Vendors** - Multi-vendor marketplace
+- 👥 **Rooms** - Live shopping rooms
+
+## Getting Started
+
+1. **Authenticate**: Use \`POST /auth/login\` with credentials \`admin@risbow.com\` / \`password123\`
+2. **Authorize**: Click the 🔓 button above and paste your access token
+3. **Test**: Try any endpoint - all have example values pre-filled!
+
+📖 **Full Testing Guide**: See \`SWAGGER_TESTING_GUIDE.md\` in the project root
+        `)
         .setVersion('1.0')
-        .addBearerAuth()
+        .addBearerAuth({
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+            name: 'Authorization',
+            description: 'Enter your JWT token from /auth/login',
+            in: 'header',
+        })
+        .addServer('http://localhost:3001', 'Local Development')
+        .addServer('https://api.risbow.com', 'Production')
+
+        // Core Features
+        .addTag('Auth', '🔐 Authentication - Login, Register, OTP verification')
+        .addTag('Users', '👤 User Management - Profile, Addresses, Preferences')
+        .addTag('Cart', '🛒 Shopping Cart - Add, Update, Remove items')
+        .addTag('Checkout', '💳 Checkout Flow - Process orders with COD/Online payment')
+
+        // Catalog & Products
+        .addTag('Products', '📦 Product Catalog - Browse, Search, Filter products')
+        .addTag('Catalog', '🗂️ Categories & Specifications - Product organization')
+        .addTag('Vendors', '🏪 Vendor Management - Multi-vendor marketplace')
+
+        // Orders & Fulfillment
+        .addTag('Orders', '📋 Order Management - Create, Track, Update orders')
+        .addTag('Payments', '💰 Payment Processing - Razorpay integration, COD')
+        .addTag('Refunds', '💸 Refund Management - Request and process refunds')
+        .addTag('Returns', '↩️ Returns & Replacements - Return requests and QC')
+
+        // Promotions & Marketing
+        .addTag('Gifts', '🎁 Gift SKU System - Free gifts based on cart eligibility')
+        .addTag('Coupons', '🎟️ Coupon Management - Discount codes and validation')
+        .addTag('Banners', '🖼️ Banner System - Promotional banners with slot management')
+
+        // Social & Engagement
+        .addTag('Reviews', '⭐ Reviews & Ratings - Product and vendor reviews')
+        .addTag('Rooms', '👥 Live Shopping Rooms - Group buying and live sessions')
+        .addTag('Coins', '🪙 Loyalty Coins - Earn and redeem coins')
+
+        // Admin & Analytics
+        .addTag('Admin', '⚙️ Admin Operations - Platform management')
+        .addTag('Analytics', '📊 Analytics & Reports - Business insights')
+        .addTag('Telecaller', '📞 Telecaller Dashboard - Abandoned cart recovery')
+        .addTag('Audit', '📝 Audit Logs - System activity tracking')
+
+        // Utilities
+        .addTag('Upload', '📤 File Upload - Image and document uploads')
+        .addTag('Health', '🏥 Health Check - System status')
+
         .build();
     const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api/docs', app, document);
+    SwaggerModule.setup('api/docs', app, document, {
+        customSiteTitle: 'RISBOW API Docs',
+        customfavIcon: 'https://risbow.com/favicon.ico',
+        customCss: '.swagger-ui .topbar { display: none }',
+    });
 
     const port = process.env.PORT || 3000;
     await app.listen(port, '0.0.0.0');

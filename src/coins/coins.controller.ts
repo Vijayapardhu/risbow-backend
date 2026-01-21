@@ -1,10 +1,12 @@
 import { Controller, UseGuards, Request, Post, Body, ParseIntPipe, BadRequestException } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { CoinsService } from './coins.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CreditCoinDto, DebitCoinDto, CoinSource } from './dto/coin.dto';
 
+@ApiTags('Coins')
 @Controller('coins')
 @UseGuards(JwtAuthGuard)
 export class CoinsController {

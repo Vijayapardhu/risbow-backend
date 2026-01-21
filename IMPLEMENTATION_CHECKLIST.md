@@ -162,36 +162,36 @@ src/reviews/
 - [x] Test order lifecycle
 
 ### 🎁 Days 22-23: Complete Gift SKU
-- [ ] Update `admin.service.ts` gift methods
-- [ ] Add eligibility check in checkout
-- [ ] Create gift selection endpoint
-- [ ] Add inventory management
-- [ ] Implement:
-  - [ ] GET /gifts/eligible
-  - [ ] POST /checkout/select-gift
-  - [ ] GET /admin/gifts/inventory
-- [ ] Test gift selection flow
+- [x] Update `admin.service.ts` gift methods
+- [x] Add eligibility check in checkout
+- [x] Create gift selection endpoint
+- [x] Add inventory management
+- [x] Implement:
+  - [x] GET /gifts/eligible
+  - [x] POST /checkout/select-gift
+  - [x] GET /admin/gifts/inventory
+- [x] Test gift selection flow
 
 ### 🎟️ Days 24-25: Coupon Application
-- [ ] Update `checkout.service.ts`
-- [ ] Add coupon validation logic
-- [ ] Create endpoints:
-  - [ ] POST /coupons/validate
-  - [ ] POST /checkout/apply-coupon
-  - [ ] GET /users/me/coupons
-- [ ] Add usage tracking
-- [ ] Test coupon flow
+- [x] Update `checkout.service.ts`
+- [x] Add coupon validation logic
+- [x] Create endpoints:
+  - [x] POST /coupons/validate
+  - [x] POST /checkout/apply-coupon
+  - [x] GET /users/me/coupons
+- [x] Add usage tracking
+- [x] Test coupon flow
 
 ### 🖼️ Days 26-27: Complete Banner Management
-- [ ] Update `admin.service.ts` banner methods
-- [ ] Integrate with upload service
-- [ ] Add active banners endpoint
-- [ ] Add analytics tracking
-- [ ] Implement:
-  - [ ] GET /banners/active
-  - [ ] POST /admin/banners (with image)
-  - [ ] POST /admin/banners/:id/analytics
-- [ ] Test banner display
+- [x] Update `admin.service.ts` banner methods
+- [x] Integrate with upload service
+- [x] Add active banners endpoint
+- [x] Add analytics tracking
+- [x] Implement:
+  - [x] GET /banners/active
+  - [x] POST /admin/banners (with image)
+  - [x] POST /admin/banners/:id/analytics
+- [x] Test banner display
 
 ### 🧪 Day 28: Integration Testing
 - [ ] Test complete checkout flow

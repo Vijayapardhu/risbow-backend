@@ -1,8 +1,14 @@
 import { CheckoutService } from './checkout.service';
 import { CheckoutDto } from './dto/checkout.dto';
+import { GiftsService } from '../gifts/gifts.service';
+import { CouponsService } from '../coupons/coupons.service';
+import { SelectGiftDto } from '../gifts/dto/gift.dto';
+import { ApplyCouponDto } from '../coupons/dto/coupon.dto';
 export declare class CheckoutController {
     private readonly checkoutService;
-    constructor(checkoutService: CheckoutService);
+    private readonly giftsService;
+    private readonly couponsService;
+    constructor(checkoutService: CheckoutService, giftsService: GiftsService, couponsService: CouponsService);
     checkout(req: any, dto: CheckoutDto): Promise<{
         message: string;
         orderId: string;
@@ -23,5 +29,19 @@ export declare class CheckoutController {
         currency: string;
         key: string;
         totalAmount?: undefined;
+    }>;
+    selectGift(req: any, dto: SelectGiftDto): Promise<{
+        message: string;
+        giftId: string;
+    }>;
+    applyCoupon(req: any, dto: ApplyCouponDto): Promise<{
+        isValid: boolean;
+        message: string;
+        discountAmount?: number;
+        finalAmount?: number;
+        coupon?: import("../coupons/dto/coupon.dto").CouponResponseDto;
+    }>;
+    removeCoupon(req: any): Promise<{
+        message: string;
     }>;
 }

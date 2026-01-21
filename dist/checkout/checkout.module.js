@@ -13,12 +13,14 @@ const checkout_controller_1 = require("./checkout.controller");
 const prisma_module_1 = require("../prisma/prisma.module");
 const cart_module_1 = require("../cart/cart.module");
 const payments_module_1 = require("../payments/payments.module");
+const gifts_module_1 = require("../gifts/gifts.module");
+const coupons_module_1 = require("../coupons/coupons.module");
 let CheckoutModule = class CheckoutModule {
 };
 exports.CheckoutModule = CheckoutModule;
 exports.CheckoutModule = CheckoutModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, cart_module_1.CartModule, payments_module_1.PaymentsModule],
+        imports: [prisma_module_1.PrismaModule, cart_module_1.CartModule, payments_module_1.PaymentsModule, gifts_module_1.GiftsModule, coupons_module_1.CouponsModule],
         controllers: [checkout_controller_1.CheckoutController],
         providers: [checkout_service_1.CheckoutService],
         exports: [checkout_service_1.CheckoutService],

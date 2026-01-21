@@ -18,9 +18,9 @@ export declare class ReturnsController {
         status: import(".prisma/client").$Enums.ReturnStatus;
         updatedAt: Date;
         userId: string;
+        description: string | null;
         courierPartner: string | null;
         vendorId: string | null;
-        description: string | null;
         orderId: string;
         reason: import(".prisma/client").$Enums.ReturnReason;
         evidenceImages: string[];
@@ -54,8 +54,9 @@ export declare class ReturnsController {
                     length: number | null;
                     updatedAt: Date;
                     title: string;
-                    vendorId: string;
                     description: string | null;
+                    tags: string[];
+                    vendorId: string;
                     price: number;
                     offerPrice: number | null;
                     stock: number;
@@ -71,7 +72,6 @@ export declare class ReturnsController {
                     moq: number;
                     sku: string | null;
                     brandName: string | null;
-                    tags: string[];
                     weight: number | null;
                     weightUnit: string | null;
                     width: number | null;
@@ -113,9 +113,9 @@ export declare class ReturnsController {
             status: import(".prisma/client").$Enums.ReturnStatus;
             updatedAt: Date;
             userId: string;
+            description: string | null;
             courierPartner: string | null;
             vendorId: string | null;
-            description: string | null;
             orderId: string;
             reason: import(".prisma/client").$Enums.ReturnReason;
             evidenceImages: string[];
@@ -215,8 +215,9 @@ export declare class ReturnsController {
                 length: number | null;
                 updatedAt: Date;
                 title: string;
-                vendorId: string;
                 description: string | null;
+                tags: string[];
+                vendorId: string;
                 price: number;
                 offerPrice: number | null;
                 stock: number;
@@ -232,7 +233,6 @@ export declare class ReturnsController {
                 moq: number;
                 sku: string | null;
                 brandName: string | null;
-                tags: string[];
                 weight: number | null;
                 weightUnit: string | null;
                 width: number | null;
@@ -292,9 +292,9 @@ export declare class ReturnsController {
         status: import(".prisma/client").$Enums.ReturnStatus;
         updatedAt: Date;
         userId: string;
+        description: string | null;
         courierPartner: string | null;
         vendorId: string | null;
-        description: string | null;
         orderId: string;
         reason: import(".prisma/client").$Enums.ReturnReason;
         evidenceImages: string[];
@@ -325,9 +325,9 @@ export declare class ReturnsController {
         status: import(".prisma/client").$Enums.ReturnStatus;
         updatedAt: Date;
         userId: string;
+        description: string | null;
         courierPartner: string | null;
         vendorId: string | null;
-        description: string | null;
         orderId: string;
         reason: import(".prisma/client").$Enums.ReturnReason;
         evidenceImages: string[];
@@ -350,9 +350,9 @@ export declare class ReturnsController {
         status: import(".prisma/client").$Enums.ReturnStatus;
         updatedAt: Date;
         userId: string;
+        description: string | null;
         courierPartner: string | null;
         vendorId: string | null;
-        description: string | null;
         orderId: string;
         reason: import(".prisma/client").$Enums.ReturnReason;
         evidenceImages: string[];

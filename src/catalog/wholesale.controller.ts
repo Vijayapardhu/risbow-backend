@@ -1,8 +1,10 @@
 import { Controller, Get, Post, Body, UseGuards, Request, ForbiddenException } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { CatalogService } from '../catalog/catalog.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ProductFilterDto } from '../catalog/dto/catalog.dto';
 
+@ApiTags('Catalog')
 @Controller('wholesale')
 export class WholesaleController {
     constructor(private readonly catalogService: CatalogService) { }

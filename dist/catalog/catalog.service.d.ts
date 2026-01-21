@@ -116,8 +116,9 @@ export declare class CatalogService {
         length: number | null;
         updatedAt: Date;
         title: string;
-        vendorId: string;
         description: string | null;
+        tags: string[];
+        vendorId: string;
         price: number;
         offerPrice: number | null;
         stock: number;
@@ -133,7 +134,6 @@ export declare class CatalogService {
         moq: number;
         sku: string | null;
         brandName: string | null;
-        tags: string[];
         weight: number | null;
         weightUnit: string | null;
         width: number | null;
@@ -168,8 +168,9 @@ export declare class CatalogService {
         length: number | null;
         updatedAt: Date;
         title: string;
-        vendorId: string;
         description: string | null;
+        tags: string[];
+        vendorId: string;
         price: number;
         offerPrice: number | null;
         stock: number;
@@ -185,7 +186,6 @@ export declare class CatalogService {
         moq: number;
         sku: string | null;
         brandName: string | null;
-        tags: string[];
         weight: number | null;
         weightUnit: string | null;
         width: number | null;
@@ -220,8 +220,9 @@ export declare class CatalogService {
         length: number | null;
         updatedAt: Date;
         title: string;
-        vendorId: string;
         description: string | null;
+        tags: string[];
+        vendorId: string;
         price: number;
         offerPrice: number | null;
         stock: number;
@@ -237,7 +238,6 @@ export declare class CatalogService {
         moq: number;
         sku: string | null;
         brandName: string | null;
-        tags: string[];
         weight: number | null;
         weightUnit: string | null;
         width: number | null;
@@ -272,8 +272,9 @@ export declare class CatalogService {
         length: number | null;
         updatedAt: Date;
         title: string;
-        vendorId: string;
         description: string | null;
+        tags: string[];
+        vendorId: string;
         price: number;
         offerPrice: number | null;
         stock: number;
@@ -289,7 +290,6 @@ export declare class CatalogService {
         moq: number;
         sku: string | null;
         brandName: string | null;
-        tags: string[];
         weight: number | null;
         weightUnit: string | null;
         width: number | null;
@@ -421,8 +421,9 @@ export declare class CatalogService {
         length: number | null;
         updatedAt: Date;
         title: string;
-        vendorId: string;
         description: string | null;
+        tags: string[];
+        vendorId: string;
         price: number;
         offerPrice: number | null;
         stock: number;
@@ -438,7 +439,6 @@ export declare class CatalogService {
         moq: number;
         sku: string | null;
         brandName: string | null;
-        tags: string[];
         weight: number | null;
         weightUnit: string | null;
         width: number | null;
@@ -478,12 +478,12 @@ export declare class CatalogService {
         updatedAt: Date;
         type: import(".prisma/client").$Enums.SpecType;
         label: string;
+        required: boolean;
         categoryId: string;
         isActive: boolean;
         key: string;
         labelTE: string | null;
         unit: string | null;
-        required: boolean;
         options: Prisma.JsonValue | null;
         sortOrder: number;
         scope: import(".prisma/client").$Enums.AttributeScope;
@@ -494,12 +494,12 @@ export declare class CatalogService {
         updatedAt: Date;
         type: import(".prisma/client").$Enums.SpecType;
         label: string;
+        required: boolean;
         categoryId: string;
         isActive: boolean;
         key: string;
         labelTE: string | null;
         unit: string | null;
-        required: boolean;
         options: Prisma.JsonValue | null;
         sortOrder: number;
         scope: import(".prisma/client").$Enums.AttributeScope;
@@ -510,12 +510,12 @@ export declare class CatalogService {
         updatedAt: Date;
         type: import(".prisma/client").$Enums.SpecType;
         label: string;
+        required: boolean;
         categoryId: string;
         isActive: boolean;
         key: string;
         labelTE: string | null;
         unit: string | null;
-        required: boolean;
         options: Prisma.JsonValue | null;
         sortOrder: number;
         scope: import(".prisma/client").$Enums.AttributeScope;

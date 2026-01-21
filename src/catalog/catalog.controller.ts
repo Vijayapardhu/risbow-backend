@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Patch, Delete, Put, Body, Query, Param, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { CatalogService } from './catalog.service';
 import { CreateProductDto, ProductFilterDto, UpdateProductDto } from './dto/catalog.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -6,6 +7,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 
+@ApiTags('Products')
 @Controller('products')
 export class CatalogController {
     constructor(private readonly catalogService: CatalogService) { }
@@ -52,6 +54,7 @@ export class CatalogController {
     }
 }
 
+@ApiTags('Catalog')
 @Controller('categories')
 export class CategoriesController {
     constructor(private readonly catalogService: CatalogService) { }

@@ -1,23 +1,27 @@
-import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CheckoutDto, PaymentMode } from './dto/checkout.dto';
 import { PaymentsService } from '../payments/payments.service';
+import { GiftsService } from '../gifts/gifts.service';
+import { CouponsService } from '../coupons/coupons.service';
 
 @Injectable()
 export class CheckoutService {
     constructor(
         private readonly prisma: PrismaService,
-        private readonly paymentsService: PaymentsService
+        private readonly paymentsService: PaymentsService,
+        private readonly giftsService: GiftsService,
+        private readonly couponsService: CouponsService,
     ) { }
 
     async checkout(userId: string, dto: CheckoutDto) {
-        const { paymentMode, shippingAddressId, notes } = dto;
+        const { paymentMode, shippingAddressId, notes, giftId, couponCode } = dto;
 
         return this.prisma.$transaction(async (tx) => {
             // 1. Fetch Cart
             const cart = await tx.cart.findUnique({
                 where: { userId },
-                include: { items: true }
+                include: { items: { include: { product: true } } }
             });
 
             if (!cart || cart.items.length === 0) {
@@ -40,10 +44,13 @@ export class CheckoutService {
             // 3. Prepare Order Items (Re-verify Stock & Price)
             let totalAmount = 0;
             const orderItems = [];
+            const categoryIds = new Set<string>();
 
             for (const item of cart.items) {
                 const product = await tx.product.findUnique({ where: { id: item.productId } });
                 if (!product) throw new NotFoundException(`Product ${item.productId} not found`);
+
+                categoryIds.add(product.categoryId);
 
                 let price = product.offerPrice || product.price;
                 let stock = product.stock;
@@ -71,76 +78,175 @@ export class CheckoutService {
                 orderItems.push({
                     productId: product.id,
                     variantId: item.variantId,
-                    vendorId: product.vendorId, // Important for grouping later if needed
+                    vendorId: product.vendorId,
                     productTitle: product.title,
                     quantity: item.quantity,
                     price: price,
                     subtotal: subtotal,
                     variantSnapshot
                 });
+
+                // Decrement stock
+                if (item.variantId) {
+                    await tx.productVariation.update({
+                        where: { id: item.variantId },
+                        data: { stock: { decrement: item.quantity } }
+                    });
+                } else {
+                    await tx.product.update({
+                        where: { id: product.id },
+                        data: { stock: { decrement: item.quantity } }
+                    });
+                }
             }
 
-            // 4. Create Order
+            // 4. Validate and Apply Gift (if provided)
+            let selectedGiftId: string | null = null;
+            if (giftId) {
+                const gift = await tx.giftSKU.findUnique({ where: { id: giftId } });
+                if (!gift) {
+                    throw new NotFoundException('Gift not found');
+                }
+
+                if (gift.stock <= 0) {
+                    throw new BadRequestException('Gift out of stock');
+                }
+
+                // Validate gift eligibility
+                const eligibleCategories = gift.eligibleCategories as string[];
+                const cartCategories = Array.from(categoryIds);
+                const hasEligibleCategory = eligibleCategories.some(cat => cartCategories.includes(cat));
+
+                if (!hasEligibleCategory && eligibleCategories.length > 0) {
+                    throw new BadRequestException('Gift not eligible for cart items');
+                }
+
+                if (totalAmount < gift.cost) {
+                    throw new BadRequestException(`Minimum cart value of ₹${gift.cost} required for this gift`);
+                }
+
+                // Decrement gift stock
+                await tx.giftSKU.update({
+                    where: { id: giftId },
+                    data: { stock: { decrement: 1 } }
+                });
+
+                selectedGiftId = giftId;
+            }
+
+            // 5. Validate and Apply Coupon (if provided)
+            let discountAmount = 0;
+            let appliedCouponCode: string | null = null;
+
+            if (couponCode) {
+                const coupon = await tx.coupon.findUnique({
+                    where: { code: couponCode }
+                });
+
+                if (!coupon) {
+                    throw new NotFoundException('Coupon not found');
+                }
+
+                if (!coupon.isActive) {
+                    throw new BadRequestException('Coupon is inactive');
+                }
+
+                if (coupon.validUntil && new Date() > coupon.validUntil) {
+                    throw new BadRequestException('Coupon has expired');
+                }
+
+                if (coupon.minOrderAmount && totalAmount < coupon.minOrderAmount) {
+                    throw new BadRequestException(`Minimum order amount of ₹${coupon.minOrderAmount} required`);
+                }
+
+                if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+                    throw new BadRequestException('Coupon usage limit exceeded');
+                }
+
+                // Calculate discount
+                if (coupon.discountType === 'PERCENTAGE') {
+                    discountAmount = Math.floor((totalAmount * coupon.discountValue) / 100);
+                    if (coupon.maxDiscount && discountAmount > coupon.maxDiscount) {
+                        discountAmount = coupon.maxDiscount;
+                    }
+                } else if (coupon.discountType === 'FLAT') {
+                    discountAmount = coupon.discountValue;
+                }
+
+                // Ensure discount doesn't exceed total
+                if (discountAmount > totalAmount) {
+                    discountAmount = totalAmount;
+                }
+
+                // Increment coupon usage
+                await tx.coupon.update({
+                    where: { id: coupon.id },
+                    data: { usedCount: { increment: 1 } }
+                });
+
+                appliedCouponCode = couponCode;
+            }
+
+            // Calculate final amount
+            const finalAmount = totalAmount - discountAmount;
+
+            // 6. Create Order
             const orderStatus = paymentMode === PaymentMode.COD ? 'CONFIRMED' : 'PENDING_PAYMENT';
 
             const order = await tx.order.create({
                 data: {
                     userId,
                     addressId: shippingAddressId,
-                    totalAmount,
+                    totalAmount: finalAmount,
                     status: orderStatus,
-                    items: orderItems, // Storing strict snapshot
-                    // notes: notes // Schema doesn't have notes field on Order yet
+                    items: orderItems,
+                    giftId: selectedGiftId,
+                    couponCode: appliedCouponCode,
+                    discountAmount,
                 }
             });
 
-            // 5. Handle Payment Mode
+            // 7. Handle Payment Mode
             if (paymentMode === PaymentMode.COD) {
                 // COD Flow
                 await tx.payment.create({
                     data: {
                         orderId: order.id,
-                        amount: totalAmount,
+                        amount: finalAmount,
                         currency: 'INR',
                         provider: 'COD',
-                        status: 'PENDING', // COD payment is pending until delivery
+                        status: 'PENDING',
                     }
                 });
 
-                // Clear Cart ONLY for COD success immediately
+                // Clear Cart
                 await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
 
                 return {
                     message: 'Order placed successfully',
+                    id: order.id,
                     orderId: order.id,
                     status: 'CONFIRMED',
                     paymentMode: 'COD',
-                    totalAmount
+                    totalAmount: finalAmount,
+                    discountAmount,
+                    giftId: selectedGiftId,
+                    couponCode: appliedCouponCode,
                 };
 
             } else {
                 // ONLINE Flow (Razorpay)
-
-                // A. Generate Razorpay Order via external API (using helper)
                 const razorpayOrder = await this.paymentsService.generateRazorpayOrder(
-                    totalAmount * 100, // Amount in paise
+                    finalAmount * 100, // Amount in paise
                     'INR',
                     order.id,
                     { userId, internalOrderId: order.id }
                 );
 
-                // B. Create local payment record
                 await tx.payment.create({
                     data: {
                         orderId: order.id,
-                        amount: totalAmount * 100, // Store in paise for consistency with Razorpay? 
-                        // Wait, previous Payment implementation seemed to store amount in some unit. 
-                        // PaymentsService stores `amount: amount` passed to it. Razorpay takes paise.
-                        // Ideally store in lowest unit or database standard. 
-                        // Let's check `CreatePaymentOrderDto` usage in `PaymentsService`.
-                        // It takes `amount`.
-                        // Prims schema says `Int`. Usually means paise if integer.
-                        // I will store exactly what Razorpay expects: paise.
+                        amount: finalAmount * 100,
                         currency: 'INR',
                         provider: 'RAZORPAY',
                         providerOrderId: razorpayOrder.id,
@@ -148,7 +254,6 @@ export class CheckoutService {
                     }
                 });
 
-                // Update Order with Razorpay Order ID
                 await tx.order.update({
                     where: { id: order.id },
                     data: { razorpayOrderId: razorpayOrder.id }
@@ -156,13 +261,18 @@ export class CheckoutService {
 
                 return {
                     message: 'Order created, proceed to payment',
+                    id: order.id,
                     orderId: order.id,
                     status: 'PENDING_PAYMENT',
                     paymentMode: 'ONLINE',
                     razorpayOrderId: razorpayOrder.id,
                     amount: razorpayOrder.amount,
                     currency: razorpayOrder.currency,
-                    key: process.env.RAZORPAY_KEY_ID // Helper to client
+                    key: process.env.RAZORPAY_KEY_ID,
+                    totalAmount: finalAmount,
+                    discountAmount,
+                    giftId: selectedGiftId,
+                    couponCode: appliedCouponCode,
                 };
             }
         });

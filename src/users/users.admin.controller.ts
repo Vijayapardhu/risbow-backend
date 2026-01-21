@@ -1,9 +1,11 @@
 import { Controller, Get, Patch, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 
+@ApiTags('Admin')
 @Controller('admin/users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'SUPER_ADMIN')

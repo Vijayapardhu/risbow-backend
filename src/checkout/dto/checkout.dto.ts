@@ -21,4 +21,14 @@ export class CheckoutDto {
     @IsOptional()
     @IsString()
     notes?: string;
+
+    @ApiPropertyOptional({ example: 'gift_123456', description: 'Optional gift SKU ID to include with order' })
+    @IsOptional()
+    @IsString()
+    giftId?: string;
+
+    @ApiPropertyOptional({ example: 'SAVE50', description: 'Optional coupon code to apply discount' })
+    @IsOptional()
+    @IsString()
+    couponCode?: string;
 }

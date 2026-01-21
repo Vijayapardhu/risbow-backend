@@ -1,9 +1,11 @@
 import { Controller, Get, Post, Body, Patch, Param, Query, UseGuards, Request, Delete } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UpdateUserDto, ReferralClaimDto } from './dto/user.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CoinsService } from '../coins/coins.service';
 
+@ApiTags('Users')
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
@@ -99,6 +101,7 @@ export class UsersController {
     }
 }
 
+@ApiTags('Users')
 @Controller('referrals')
 @UseGuards(JwtAuthGuard)
 export class ReferralsController {

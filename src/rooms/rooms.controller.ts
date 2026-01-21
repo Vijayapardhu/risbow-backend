@@ -1,4 +1,5 @@
 import { Controller, Post, Body, Param, UseGuards, Request, Get, Query } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { RoomsService } from './rooms.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -8,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service'; // Direct access for s
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 
+@ApiTags('Rooms')
 @Controller('rooms')
 export class RoomsController {
     constructor(

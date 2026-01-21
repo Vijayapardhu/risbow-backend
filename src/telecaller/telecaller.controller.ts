@@ -1,9 +1,11 @@
 import { Controller, Get, UseGuards, Request } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { TelecallerService } from './telecaller.service';
 
+@ApiTags('Telecaller')
 @Controller('telecaller')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('TELECALLER', 'ADMIN', 'SUPER_ADMIN')

@@ -1,10 +1,12 @@
 import { Controller, Get, Query, UseGuards, Param, Post, Body, Patch, Delete } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { AdminProductService } from './admin-product.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CreateProductDto, UpdateProductDto } from '../catalog/dto/catalog.dto';
 
+@ApiTags('Admin')
 @Controller('admin/products')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'SUPER_ADMIN')

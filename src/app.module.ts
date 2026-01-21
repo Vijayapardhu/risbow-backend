@@ -24,6 +24,10 @@ import { CartModule } from './cart/cart.module';
 import { UploadModule } from './upload/upload.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { RefundsModule } from './refunds/refunds.module';
+import { GiftsModule } from './gifts/gifts.module';
+import { CouponsModule } from './coupons/coupons.module';
+import { BannersModule } from './banners/banners.module';
+import { QueuesModule } from './queues/queues.module';
 
 import { SharedModule } from './shared/shared.module';
 import { HealthController } from './common/health.controller';
@@ -63,6 +67,10 @@ import { HealthController } from './common/health.controller';
         UploadModule,
         ReviewsModule,
         RefundsModule,
+        GiftsModule,
+        CouponsModule,
+        BannersModule,
+        QueuesModule,
     ],
     controllers: [HealthController],
 })

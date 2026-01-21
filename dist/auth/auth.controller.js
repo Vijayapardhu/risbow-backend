@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const common_1 = require("@nestjs/common");
 const throttler_1 = require("@nestjs/throttler");
+const swagger_1 = require("@nestjs/swagger");
 const auth_service_1 = require("./auth.service");
 const auth_dto_1 = require("./dto/auth.dto");
 let AuthController = class AuthController {
@@ -40,6 +41,8 @@ let AuthController = class AuthController {
 exports.AuthController = AuthController;
 __decorate([
     (0, common_1.Post)('otp-send'),
+    (0, swagger_1.ApiOperation)({ summary: 'Send OTP to mobile number' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'OTP sent successfully' }),
     (0, throttler_1.Throttle)({ default: { limit: 3, ttl: 60000 } }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -48,6 +51,8 @@ __decorate([
 ], AuthController.prototype, "sendOtp", null);
 __decorate([
     (0, common_1.Post)('otp-verify'),
+    (0, swagger_1.ApiOperation)({ summary: 'Verify OTP' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'OTP verified, returns token if user exists' }),
     (0, throttler_1.Throttle)({ default: { limit: 5, ttl: 60000 } }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -56,6 +61,8 @@ __decorate([
 ], AuthController.prototype, "verifyOtp", null);
 __decorate([
     (0, common_1.Post)('register'),
+    (0, swagger_1.ApiOperation)({ summary: 'Register a new user' }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'User successfully registered' }),
     (0, throttler_1.Throttle)({ default: { limit: 5, ttl: 60000 } }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -64,6 +71,9 @@ __decorate([
 ], AuthController.prototype, "register", null);
 __decorate([
     (0, common_1.Post)('login'),
+    (0, swagger_1.ApiOperation)({ summary: 'Login with Email/Password' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Returns access token' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid credentials' }),
     (0, throttler_1.Throttle)({ default: { limit: 5, ttl: 60000 } }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -72,6 +82,7 @@ __decorate([
 ], AuthController.prototype, "login", null);
 __decorate([
     (0, common_1.Post)('forgot-password'),
+    (0, swagger_1.ApiOperation)({ summary: 'Request password reset' }),
     (0, throttler_1.Throttle)({ default: { limit: 3, ttl: 60000 } }),
     __param(0, (0, common_1.Body)('email')),
     __metadata("design:type", Function),
@@ -79,6 +90,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "forgotPassword", null);
 exports.AuthController = AuthController = __decorate([
+    (0, swagger_1.ApiTags)('Auth'),
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])
 ], AuthController);

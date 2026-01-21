@@ -1,7 +1,9 @@
 import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { BowService } from './bow.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+@ApiTags('Bow')
 @Controller('bow')
 export class BowController {
     constructor(private readonly bowService: BowService) { }

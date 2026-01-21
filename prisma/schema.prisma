@@ -335,6 +335,9 @@ model Review {
 }
 
 enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
   ACTIVE
   REPORTED
   HIDDEN
@@ -373,6 +376,7 @@ model Banner {
   startDate   DateTime
   endDate     DateTime
   isActive    Boolean  @default(true)
+  metadata    Json? // Stores slotKey, slotIndex, priority, isPaid, analytics
   createdAt   DateTime @default(now())
 
   @@index([slotType, isActive])
@@ -410,6 +414,11 @@ model Order {
   awbNumber        String?
   courierPartner   String?
   shippingCharges  Int         @default(0)
+
+  // Gift & Coupon Integration
+  giftId          String? // Selected gift SKU ID
+  couponCode      String? // Applied coupon code
+  discountAmount  Int     @default(0) // Coupon discount amount
 
   // Recovery Fields
   abandonedCheckoutId String?

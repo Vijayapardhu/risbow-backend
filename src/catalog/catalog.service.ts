@@ -3,12 +3,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto, ProductFilterDto, UpdateProductDto } from './dto/catalog.dto';
 import { CategorySpecService } from './category-spec.service';
 import { Prisma } from '@prisma/client';
+import { CacheService } from '../shared/cache.service';
 
 @Injectable()
 export class CatalogService {
     constructor(
         private prisma: PrismaService,
-        private categorySpecService: CategorySpecService
+        private categorySpecService: CategorySpecService,
+        private cache: CacheService
     ) { }
 
     async createCategory(data: { name: string; parentId?: string; image?: string; attributeSchema?: any }) {
@@ -36,7 +38,7 @@ export class CatalogService {
     }
 
     async updateCategory(id: string, data: { name?: string; parentId?: string; image?: string; attributeSchema?: any; isActive?: boolean }) {
-        return this.prisma.category.update({
+        const updated = await this.prisma.category.update({
             where: { id },
             data: {
                 name: data.name,
@@ -46,6 +48,12 @@ export class CatalogService {
                 isActive: data.isActive
             },
         });
+
+        // Invalidate category cache
+        await this.cache.delPattern('categories:*');
+        await this.cache.delPattern(`category:specs:${id}`);
+
+        return updated;
     }
 
     async deleteCategory(id: string) {
@@ -58,20 +66,38 @@ export class CatalogService {
 
     async getCategories(includeInactive = false) {
         try {
-            const categories = await this.prisma.category.findMany({
-                where: includeInactive ? {} : { isActive: true },
-                orderBy: { name: 'asc' },
-                include: {
-                    parent: true,
-                    _count: {
-                        select: { products: true }
-                    }
-                }
-            });
+            const cacheKey = `categories:tree:${includeInactive}`;
 
-            // Return flat array of all categories (including children)
-            // Frontend will handle filtering parent/child categories
-            return categories;
+            // Try cache first
+            return await this.cache.getOrSet(
+                cacheKey,
+                3600, // 1 hour TTL
+                async () => {
+                    const categories = await this.prisma.category.findMany({
+                        where: includeInactive ? {} : { isActive: true },
+                        orderBy: { name: 'asc' },
+                        select: {
+                            id: true,
+                            name: true,
+                            image: true,
+                            nameTE: true,
+                            parentId: true,
+                            isActive: true,
+                            parent: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                }
+                            },
+                            _count: {
+                                select: { products: true }
+                            }
+                        }
+                    });
+
+                    return categories;
+                }
+            );
         } catch (error) {
             console.error('Error fetching categories:', error);
             throw error;
@@ -165,10 +191,16 @@ export class CatalogService {
         if (data.moq !== undefined) updateData.moq = data.moq;
         if (data.variants !== undefined) updateData.variants = data.variants;
 
-        return this.prisma.product.update({
+        const updated = await this.prisma.product.update({
             where: { id },
             data: updateData
         });
+
+        // Invalidate product caches
+        await this.cache.delPattern('products:list:*');
+        await this.cache.del(`product:detail:${id}`);
+
+        return updated;
     }
 
     async deleteProduct(id: string) {
@@ -178,40 +210,63 @@ export class CatalogService {
     }
 
     async findAll(filters: ProductFilterDto) {
-        const where: Prisma.ProductWhereInput = {};
+        const cacheKey = this.cache.generateKey('products:list', filters);
 
-        if (filters.category && filters.category !== 'All') { // Handle 'All'
-            where.categoryId = filters.category;
-        }
+        return await this.cache.getOrSet(
+            cacheKey,
+            300, // 5 minutes TTL
+            async () => {
+                const where: Prisma.ProductWhereInput = {};
 
-        // Price Range
-        if (filters.price_min !== undefined || filters.price_max !== undefined || filters.price_lt !== undefined) {
-            where.price = {};
-            if (filters.price_min !== undefined) where.price.gte = filters.price_min;
-            if (filters.price_max !== undefined) where.price.lte = filters.price_max;
-            if (filters.price_lt !== undefined) where.price.lt = filters.price_lt;
-        }
+                if (filters.category && filters.category !== 'All') {
+                    where.categoryId = filters.category;
+                }
 
-        if (filters.search) {
-            where.title = { contains: filters.search, mode: 'insensitive' };
-        }
+                // Price Range
+                if (filters.price_min !== undefined || filters.price_max !== undefined || filters.price_lt !== undefined) {
+                    where.price = {};
+                    if (filters.price_min !== undefined) where.price.gte = filters.price_min;
+                    if (filters.price_max !== undefined) where.price.lte = filters.price_max;
+                    if (filters.price_lt !== undefined) where.price.lt = filters.price_lt;
+                }
 
-        // Sorting
-        let orderBy: Prisma.ProductOrderByWithRelationInput = { createdAt: 'desc' };
-        if (filters.sort) {
-            switch (filters.sort) {
-                case 'price_asc': orderBy = { price: 'asc' }; break;
-                case 'price_desc': orderBy = { price: 'desc' }; break;
-                case 'newest': orderBy = { createdAt: 'desc' }; break;
-                default: orderBy = { createdAt: 'desc' };
+                if (filters.search) {
+                    where.title = { contains: filters.search, mode: 'insensitive' };
+                }
+
+                // Sorting
+                let orderBy: Prisma.ProductOrderByWithRelationInput = { createdAt: 'desc' };
+                if (filters.sort) {
+                    switch (filters.sort) {
+                        case 'price_asc': orderBy = { price: 'asc' }; break;
+                        case 'price_desc': orderBy = { price: 'desc' }; break;
+                        case 'newest': orderBy = { createdAt: 'desc' }; break;
+                        default: orderBy = { createdAt: 'desc' };
+                    }
+                }
+
+                return this.prisma.product.findMany({
+                    where,
+                    orderBy,
+                    take: 50,
+                    select: {
+                        id: true,
+                        title: true,
+                        description: true,
+                        price: true,
+                        offerPrice: true,
+                        stock: true,
+                        images: true,
+                        categoryId: true,
+                        vendorId: true,
+                        isActive: true,
+                        brandName: true,
+                        tags: true,
+                        createdAt: true,
+                    }
+                });
             }
-        }
-
-        return this.prisma.product.findMany({
-            where,
-            orderBy,
-            take: 50,
-        });
+        );
     }
 
     async getEligibleGifts(cartValue: number, categoryIds: string[] = []) {
@@ -276,42 +331,88 @@ export class CatalogService {
     }
 
     async findOne(id: string) {
-        const product = await this.prisma.product.findUnique({
-            where: { id },
-            include: {
-                vendor: true,
-                category: {
+        const cacheKey = `product:detail:${id}`;
+
+        return await this.cache.getOrSet(
+            cacheKey,
+            600, // 10 minutes TTL
+            async () => {
+                const product = await this.prisma.product.findUnique({
+                    where: { id },
                     select: {
                         id: true,
-                        name: true,
-                    }
-                },
-                reviews: {
-                    take: 10,
-                    orderBy: { createdAt: 'desc' },
-                    include: {
-                        user: {
-                            select: { id: true, name: true }
+                        title: true,
+                        description: true,
+                        price: true,
+                        offerPrice: true,
+                        stock: true,
+                        images: true,
+                        categoryId: true,
+                        vendorId: true,
+                        isActive: true,
+                        brandName: true,
+                        tags: true,
+                        sku: true,
+                        weight: true,
+                        weightUnit: true,
+                        length: true,
+                        width: true,
+                        height: true,
+                        dimensionUnit: true,
+                        shippingClass: true,
+                        metaTitle: true,
+                        metaDescription: true,
+                        metaKeywords: true,
+                        isWholesale: true,
+                        wholesalePrice: true,
+                        moq: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        vendor: {
+                            select: {
+                                id: true,
+                                name: true,
+                                tier: true,
+                            }
+                        },
+                        category: {
+                            select: {
+                                id: true,
+                                name: true,
+                            }
+                        },
+                        reviews: {
+                            take: 10,
+                            orderBy: { createdAt: 'desc' },
+                            select: {
+                                id: true,
+                                rating: true,
+                                comment: true,
+                                createdAt: true,
+                                user: {
+                                    select: { id: true, name: true }
+                                }
+                            }
                         }
                     }
+                });
+
+                if (!product) {
+                    throw new BadRequestException('Product not found');
                 }
+
+                // Calculate average rating
+                const avgRating = product.reviews.length > 0
+                    ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / product.reviews.length
+                    : 0;
+
+                return {
+                    ...product,
+                    averageRating: Math.round(avgRating * 10) / 10,
+                    reviewCount: product.reviews.length
+                };
             }
-        });
-
-        if (!product) {
-            throw new BadRequestException('Product not found');
-        }
-
-        // Calculate average rating
-        const avgRating = product.reviews.length > 0
-            ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / product.reviews.length
-            : 0;
-
-        return {
-            ...product,
-            averageRating: Math.round(avgRating * 10) / 10,
-            reviewCount: product.reviews.length
-        };
+        );
     }
 
 
@@ -343,15 +444,33 @@ export class CatalogService {
     // --- Category Specification Methods (Proxy to CategorySpecService) ---
 
     async getCategorySpecs(categoryId: string, includeInactive = false) {
-        return this.categorySpecService.getCategorySpecs(categoryId, includeInactive);
+        const cacheKey = `category:specs:${categoryId}:${includeInactive}`;
+
+        return await this.cache.getOrSet(
+            cacheKey,
+            3600, // 1 hour TTL
+            async () => {
+                return this.categorySpecService.getCategorySpecs(categoryId, includeInactive);
+            }
+        );
     }
 
     async createCategorySpec(categoryId: string, dto: any) {
-        return this.categorySpecService.createCategorySpec(categoryId, dto);
+        const result = await this.categorySpecService.createCategorySpec(categoryId, dto);
+
+        // Invalidate category specs cache
+        await this.cache.delPattern(`category:specs:${categoryId}:*`);
+
+        return result;
     }
 
     async updateCategorySpec(specId: string, dto: any) {
-        return this.categorySpecService.updateCategorySpec(specId, dto);
+        const result = await this.categorySpecService.updateCategorySpec(specId, dto);
+
+        // Invalidate all category specs caches (we don't know which category)
+        await this.cache.delPattern('category:specs:*');
+
+        return result;
     }
 
     async deleteCategorySpec(specId: string) {
