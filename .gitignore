@@ -10,3 +10,7 @@ node_modules
 **/.npmrc
 
 /launch-site
+
+# Build output
+dist
+*.tsbuildinfo

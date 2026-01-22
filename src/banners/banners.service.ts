@@ -3,6 +3,7 @@ import {
     NotFoundException,
     BadRequestException,
     Logger,
+    Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -24,7 +25,7 @@ export class BannersService {
     constructor(
         private prisma: PrismaService,
         private cache: CacheService,
-        private queues: QueuesService
+        @Optional() private queues?: QueuesService
     ) { }
 
     /**
@@ -304,14 +305,17 @@ export class BannersService {
             return;
         }
 
-        // Queue analytics event for background processing
-        await this.queues.addBannerAnalytics({
-            bannerId: id,
-            eventType: event as 'impression' | 'click',
-            timestamp: new Date(),
-        });
-
-        this.logger.debug(`${event} queued for banner ${id}`);
+        // Queue analytics event for background processing if queues are available
+        if (this.queues) {
+            await this.queues.addBannerAnalytics({
+                bannerId: id,
+                eventType: event as 'impression' | 'click',
+                timestamp: new Date(),
+            });
+            this.logger.debug(`${event} queued for banner ${id}`);
+        } else {
+            this.logger.debug(`${event} tracked for banner ${id} (queues not available, skipping background processing)`);
+        }
     }
 
     /**

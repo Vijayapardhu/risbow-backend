@@ -3,7 +3,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 @Injectable()
 export class SupabaseService {
-    private supabase: SupabaseClient;
+    private supabase?: SupabaseClient;
+    private isEnabled = false;
 
     constructor() {
         const supabaseUrl = process.env.SUPABASE_URL || '';
@@ -11,6 +12,7 @@ export class SupabaseService {
 
         if (!supabaseUrl || !supabaseKey) {
             console.warn('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY not set. Supabase Auth integration disabled.');
+            return;
         }
 
         this.supabase = createClient(supabaseUrl, supabaseKey, {
@@ -19,9 +21,14 @@ export class SupabaseService {
                 persistSession: false
             }
         });
+        this.isEnabled = true;
     }
 
     async createAuthUser(email: string, password: string) {
+        if (!this.isEnabled || !this.supabase) {
+            throw new Error('Supabase is not configured');
+        }
+
         const { data, error } = await this.supabase.auth.admin.createUser({
             email,
             password,
@@ -36,6 +43,10 @@ export class SupabaseService {
     }
 
     async deleteAuthUser(userId: string) {
+        if (!this.isEnabled || !this.supabase) {
+            throw new Error('Supabase is not configured');
+        }
+
         const { error } = await this.supabase.auth.admin.deleteUser(userId);
 
         if (error) {
