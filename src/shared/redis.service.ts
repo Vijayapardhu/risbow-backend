@@ -69,7 +69,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
     async setOtp(mobile: string, otp: string) {
         // TTL 5 mins = 300s
-        if (this.useMemory) {
+        if (this.useMemory || !this.client) {
             this.inMemoryStore.set(mobile, { value: otp, expiresAt: Date.now() + 300_000 });
             return;
         }
@@ -77,7 +77,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
 
     async getOtp(mobile: string): Promise<string | null> {
-        if (this.useMemory) {
+        if (this.useMemory || !this.client) {
             const entry = this.inMemoryStore.get(mobile);
             if (!entry) return null;
             if (entry.expiresAt < Date.now()) {
@@ -90,7 +90,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
 
     async delOtp(mobile: string) {
-        if (this.useMemory) {
+        if (this.useMemory || !this.client) {
             this.inMemoryStore.delete(mobile);
             return;
         }
@@ -99,7 +99,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
     // Generic methods for caching
     async get(key: string): Promise<string | null> {
-        if (this.useMemory) {
+        if (this.useMemory || !this.client) {
             const entry = this.inMemoryStore.get(key);
             if (!entry) return null;
             if (entry.expiresAt < Date.now()) {
@@ -112,7 +112,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
 
     async set(key: string, value: string, ttlSeconds: number) {
-        if (this.useMemory) {
+        if (this.useMemory || !this.client) {
             this.inMemoryStore.set(key, {
                 value,
                 expiresAt: Date.now() + (ttlSeconds * 1000)
@@ -123,7 +123,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
 
     async del(key: string) {
-        if (this.useMemory) {
+        if (this.useMemory || !this.client) {
             this.inMemoryStore.delete(key);
             return;
         }
@@ -132,7 +132,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
     // Batch operations for performance
     async mget(keys: string[]): Promise<(string | null)[]> {
-        if (this.useMemory) {
+        if (this.useMemory || !this.client) {
             return keys.map(key => {
                 const entry = this.inMemoryStore.get(key);
                 if (!entry) return null;
@@ -147,7 +147,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
 
     async mset(keyValues: Record<string, string>, ttlSeconds: number) {
-        if (this.useMemory) {
+        if (this.useMemory || !this.client) {
             Object.entries(keyValues).forEach(([key, value]) => {
                 this.inMemoryStore.set(key, {
                     value,
@@ -167,7 +167,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
     // Delete keys by pattern (e.g., "products:*")
     async delPattern(pattern: string): Promise<number> {
-        if (this.useMemory) {
+        if (this.useMemory || !this.client) {
             const regex = new RegExp('^' + pattern.replace('*', '.*') + '$');
             let count = 0;
             for (const key of this.inMemoryStore.keys()) {
@@ -202,7 +202,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
 
     async incr(key: string): Promise<number> {
-        if (!this.client) return 0; // Fallback?
+        if (!this.client) return 0; // Fallback
         return this.client.incr(key);
     }
 
@@ -222,7 +222,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
 
     async exists(key: string): Promise<boolean> {
-        if (this.useMemory) {
+        if (this.useMemory || !this.client) {
             const entry = this.inMemoryStore.get(key);
             if (!entry) return false;
             if (entry.expiresAt < Date.now()) {
