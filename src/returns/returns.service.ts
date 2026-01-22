@@ -39,7 +39,6 @@ export class ReturnsService {
                 evidenceImages: dto.evidenceImages || [],
                 evidenceVideo: dto.evidenceVideo,
                 pickupAddress: dto.pickupAddress,
-                pickupAddress: dto.pickupAddress,
                 status: ReturnStatus.PENDING_APPROVAL,
                 items: {
                     create: dto.items.map((item) => ({
