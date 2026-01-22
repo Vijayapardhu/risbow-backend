@@ -18,9 +18,6 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             return;
         }
 
-        // Track if we've already logged the error to avoid spam
-        let errorLogged = false;
-
         this.client = new Redis({
             host,
             port,
@@ -32,6 +29,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             autoResubscribe: false,
             autoResendUnfulfilledCommands: false,
         });
+
+        let errorLogged = false; // Track if we've already logged the error to avoid spam
 
         this.client.on('error', (err) => {
             if (!errorLogged && !this.useMemory) {

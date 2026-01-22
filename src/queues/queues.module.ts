@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { AnalyticsProcessor } from './processors/analytics.processor';
 import { NotificationProcessor } from './processors/notification.processor';
@@ -7,6 +7,7 @@ import { CleanupProcessor } from './processors/cleanup.processor';
 import { QueuesService } from './queues.service';
 import { PrismaModule } from '../prisma/prisma.module';
 
+@Global()
 @Module({
     imports: [
         PrismaModule,

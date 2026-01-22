@@ -175,15 +175,9 @@ export class AuthService {
         const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
         // Create user in Supabase Auth first (if enabled)
-        if (this.supabaseEnabled) {
+        if (this.supabaseEnabled && this.supabase) {
             try {
-                const { createClient } = require('@supabase/supabase-js');
-                const supabase = createClient(
-                    process.env.SUPABASE_URL,
-                    process.env.SUPABASE_SERVICE_ROLE_KEY
-                );
-
-                const { data: authUser, error } = await supabase.auth.admin.createUser({
+                const { data: authUser, error } = await this.supabase.auth.admin.createUser({
                     email: registerDto.email,
                     password: registerDto.password,
                     email_confirm: true,
