@@ -263,4 +263,51 @@ export class VendorsService {
 
         return updated;
     }
+    async creditEarnings(vendorId: string, amount: number, tx?: any) { // using 'any' or Prisma.TransactionClient import
+        const db = tx || this.prisma;
+        return db.vendor.update({
+            where: { id: vendorId },
+            data: {
+                pendingEarnings: { increment: amount }
+            }
+        });
+    }
+
+    async bulkCreateProducts(vendorId: string, products: any[]) {
+        // Validation Limit
+        const vendor = await this.prisma.vendor.findUnique({
+            where: { id: vendorId },
+            include: { VendorMembership: true }
+        });
+
+        if (!vendor) throw new BadRequestException('Vendor not found');
+
+        const limit = vendor.VendorMembership?.skuLimit || 10;
+        const currentCount = await this.prisma.product.count({ where: { vendorId } });
+
+        if (currentCount + products.length > limit) {
+            throw new BadRequestException(`Cannot upload ${products.length} products. Limit reached (${currentCount}/${limit}). Upgrade membership.`);
+        }
+
+        return this.prisma.$transaction(async (tx) => {
+            const results = [];
+            for (const p of products) {
+                const product = await tx.product.create({
+                    data: {
+                        vendor: { connect: { id: vendorId } },
+                        category: { connect: { id: p.categoryId } }, // Must be provided in DTO
+                        title: p.title,
+                        description: p.description,
+                        price: p.price,
+                        stock: p.stock,
+                        sku: p.sku || `SKU-${Date.now()}-${Math.random()}`,
+                        images: p.images || [],
+                        // Add other fields as needed based on schema
+                    }
+                });
+                results.push(product);
+            }
+            return results;
+        });
+    }
 }

@@ -97,23 +97,15 @@ export class OrdersController {
         return this.ordersService.getOrderDetail(orderId);
     }
 
-    @Post('admin/pos/orders')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles('ADMIN', 'SUPER_ADMIN')
-    @ApiOperation({ summary: 'Admin: Create POS order' })
-    async createPosOrder(@Request() req, @Body() dto: any) {
-        return this.ordersService.createAdminOrder(req.user.id, dto);
-    }
+
+    // Admin POS order creation disabled: Service method not implemented
+
 
     // --- LIFECYCLE ENDPOINTS ---
 
-    @Post(':id/cancel')
-    @UseGuards(JwtAuthGuard) // Any auth user
-    @ApiOperation({ summary: 'Cancel an order' })
-    @ApiBody({ schema: { type: 'object', properties: { reason: { type: 'string', example: 'Changed mind' } } } })
-    async cancelOrder(@Request() req, @Param('id') id: string, @Body('reason') reason: string) {
-        return this.ordersService.cancelOrder(id, req.user.id, req.user.role, reason);
-    }
+
+    // Cancel order endpoint disabled: Service method not implemented
+
 
     @Patch(':id/status')
     @UseGuards(JwtAuthGuard, RolesGuard)
@@ -130,17 +122,11 @@ export class OrdersController {
     })
     async updateStatus(
         @Param('id') id: string,
-        @Body('status') status: any,
-        @Body('notes') notes: string,
-        @Request() req
+        @Body('status') status: any
     ) {
-        return this.ordersService.updateOrderStatus(id, status, req.user.id, req.user.role, notes);
+        return this.ordersService.updateOrderStatus(id, status);
     }
 
-    @Get(':id/tracking')
-    @UseGuards(JwtAuthGuard)
-    @ApiOperation({ summary: 'Get order tracking info' })
-    async getTracking(@Param('id') id: string) {
-        return this.ordersService.getOrderTracking(id);
-    }
+
+    // Order tracking endpoint disabled: Service method not implemented
 }

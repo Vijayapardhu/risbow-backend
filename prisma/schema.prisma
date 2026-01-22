@@ -1,3 +1,63 @@
+// 1️⃣ ProductSearchMiss: Tracks failed searches with analytics for demand mining
+model ProductSearchMiss {
+  id                 String    @id @default(cuid())
+  query              String
+  normalizedQuery    String
+  keywords           String[]
+  inferredCategoryId String?
+  userId             String?
+  count              Int       @default(1)
+  firstSearchedAt    DateTime  @default(now())
+  lastSearchedAt     DateTime  @updatedAt
+  resolved           Boolean   @default(false)
+  resolvedProductId  String?
+  metadata           Json?
+
+  user     User?     @relation(fields: [userId], references: [id])
+  category Category? @relation(fields: [inferredCategoryId], references: [id])
+
+  @@index([normalizedQuery])
+  @@index([count])
+  @@index([resolved])
+  @@index([lastSearchedAt])
+}
+
+// 2️⃣ CartInsight: Analyzes cart state for behavioral patterns and risk
+model CartInsight {
+  id              String   @id @default(cuid())
+  userId          String
+  cartValue       Int
+  itemCount       Int
+  categories      String[]
+  cartPattern     String // SINGLE_ITEM, VALUE_BUYER, BUNDLE_POTENTIAL, etc.
+  hesitationScore Float
+  abandonRisk     Float
+  detectedAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([cartPattern])
+  @@index([detectedAt])
+}
+
+// 3️⃣ RecommendationEvent: Tracks AI/System recommendations and their conversion
+model RecommendationEvent {
+  id              String   @id @default(cuid())
+  userId          String
+  source          String // BOW, CART_PAGE, SEARCH
+  strategy        String // BUNDLE, THRESHOLD, LOOK, ALTERNATIVE
+  productIds      String[]
+  accepted        Boolean?
+  cartValueBefore Int
+  cartValueAfter  Int?
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([strategy])
+  @@index([accepted])
+}
 generator client {
   provider = "prisma-client-js"
 }
@@ -58,6 +118,10 @@ model User {
   VendorFollower                                     VendorFollower[]
   wishlist                                           Wishlist[]
 
+  productSearchMisses                                ProductSearchMiss[]
+  cartInsights                                       CartInsight[]
+  recommendationEvents                               RecommendationEvent[]
+
   @@index([role])
   @@index([status])
   @@index([referredBy])
@@ -114,6 +178,7 @@ model Category {
   children        Category[]     @relation("CategoryHierarchy")
   specs           CategorySpec[]
   products        Product[]
+  productSearchMisses ProductSearchMiss[]
 
   @@index([parentId])
   @@index([isActive])
@@ -167,6 +232,7 @@ model Vendor {
   storeTimings     Json?
   pickupEnabled    Boolean           @default(false)
   pickupTimings    Json?
+  bankDetails      Json?
   lastPayoutDate   DateTime?
   pendingEarnings  Int               @default(0)
   performanceScore Float             @default(0.0)
@@ -219,6 +285,8 @@ model Cart {
   updatedAt DateTime   @updatedAt
   user      User       @relation(fields: [userId], references: [id])
   items     CartItem[]
+
+  @@index([userId])
 }
 
 model CartItem {
@@ -660,21 +728,39 @@ model ProductSpecValue {
 }
 
 model BowInteraction {
-  id        String          @id @default(cuid())
-  userId    String
-  sessionId String
-  type      InteractionType
-  query     String?
-  response  String?
-  context   Json?
-  sentiment String?
-  escalated Boolean         @default(false)
-  createdAt DateTime        @default(now())
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String        @id @default(cuid())
+  userId        String
+  sessionId     String
+  type          InteractionType
+  query         String?
+  response      String?
+  intent        String?       // ADD_TO_CART, etc.
+  confidence    Float?        // 0.0 to 1.0
+  actionType    BowActionType?
+  actionPayload Json?
+  metadata      Json?
+  context       Json?
+  sentiment     String?
+  conversionEvent String?       // ADD_TO_CART, CHECKOUT_STARTED, ORDER_PLACED
+  conversionValue Int?          // Value attributed to this interaction
+  escalated     Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([escalated])
   @@index([sessionId])
   @@index([userId])
+}
+
+enum BowActionType {
+  ADD_TO_CART
+  REMOVE_FROM_CART
+  UPDATE_QUANTITY
+  APPLY_COUPON
+  SELECT_GIFT
+  NAVIGATE
+  VIEW_CART
+  GET_RECOMMENDATIONS
 }
 
 model ReferralTracking {
@@ -980,6 +1066,7 @@ enum InteractionType {
   CHAT
   VOICE
   RECOMMENDATION
+  ACTION
 }
 
 enum ReferralStatus {

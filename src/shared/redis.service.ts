@@ -153,6 +153,42 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         await pipeline.exec();
     }
 
+    async lpush(key: string, value: string): Promise<number> {
+        if (this.useMemory) {
+            // In-memory lists are not directly supported with lpush semantics
+            // For simplicity, we'll just store the last value for the key
+            // A more robust in-memory implementation would need a Map<string, string[]>
+            this.inMemoryStore.set(key, { value, expiresAt: Infinity }); // No expiry for list items
+            return 1; // Indicate one item pushed
+        }
+        return this.client.lpush(key, value);
+    }
+
+    async ltrim(key: string, start: number, stop: number): Promise<string> {
+        if (this.useMemory) {
+            // In-memory lists are not directly supported with ltrim semantics
+            // This method would effectively do nothing or clear the key if start/stop implies empty
+            if (start > stop || start < 0) {
+                this.inMemoryStore.delete(key);
+            }
+            return 'OK';
+        }
+        return this.client.ltrim(key, start, stop);
+    }
+
+    async lrange(key: string, start: number, stop: number): Promise<string[]> {
+        if (this.useMemory) {
+            // In-memory lists are not directly supported with lrange semantics
+            // Return an array containing the single stored value if it exists
+            const entry = this.inMemoryStore.get(key);
+            if (entry && entry.expiresAt >= Date.now()) {
+                return [entry.value];
+            }
+            return [];
+        }
+        return this.client.lrange(key, start, stop);
+    }
+
     // Delete keys by pattern (e.g., "products:*")
     async delPattern(pattern: string): Promise<number> {
         if (this.useMemory) {

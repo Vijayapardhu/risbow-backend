@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateGiftDto, UpdateGiftDto, GiftResponseDto } from './dto/gift.dto';
 
 import { CacheService } from '../shared/cache.service';
+import { RedisService } from '../shared/redis.service';
 
 @Injectable()
 export class GiftsService {
@@ -15,7 +16,8 @@ export class GiftsService {
 
     constructor(
         private prisma: PrismaService,
-        private cache: CacheService
+        private cache: CacheService,
+        private redis: RedisService
     ) { }
 
     /**
@@ -245,6 +247,41 @@ export class GiftsService {
             lowStock,
             gifts: gifts.map((gift) => this.mapToResponseDto(gift)),
         };
+    }
+
+    /**
+     * Reserve gift stock (Redis)
+     */
+    async reserveGift(giftId: string) {
+        const key = `reservation:gift:${giftId}`;
+        const gift = await this.getGiftById(giftId);
+
+        if (gift.stock <= 0) {
+            throw new BadRequestException('Gift out of stock');
+        }
+
+        const reservedStr = await this.redis.get(key);
+        const reserved = parseInt(reservedStr || '0', 10);
+
+        if (gift.stock - reserved <= 0) {
+            throw new BadRequestException('Gift out of stock (Reserved)');
+        }
+
+        const newReserved = await this.redis.incrBy(key, 1);
+        if (newReserved > gift.stock) {
+            await this.redis.decrBy(key, 1);
+            throw new BadRequestException('Gift out of stock');
+        }
+        await this.redis.expire(key, 900); // 15 mins
+        return true;
+    }
+
+    async releaseGift(giftId: string) {
+        const key = `reservation:gift:${giftId}`;
+        const newReserved = await this.redis.decrBy(key, 1);
+        if (newReserved <= 0) {
+            await this.redis.del(key);
+        }
     }
 
     /**

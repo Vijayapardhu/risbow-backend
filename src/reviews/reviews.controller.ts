@@ -45,7 +45,7 @@ export class ReviewsController {
     @ApiOperation({ summary: 'Delete a review' })
     remove(@Request() req, @Param('id') id: string) {
         // Pass full user for role check
-        return this.reviewsService.remove(req.user, id);
+        return this.reviewsService.remove(req.user.id, id);
     }
 
     @Post('reviews/:id/helpful')

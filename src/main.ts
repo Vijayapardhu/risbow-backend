@@ -27,9 +27,13 @@ async function bootstrap() {
     // Casting to unknown/NestFastifyApplication to bypass strict generic constraints if versions mismatch
     const app = await NestFactory.create(
         AppModule,
-        new FastifyAdapter() as any
+        new FastifyAdapter() as any,
+        { rawBody: true }
     ) as unknown as NestFastifyApplication;
     console.log("🚀 BOOTSTRAP V6 - FASTIFY EDITION");
+
+    // Enable graceful shutdown
+    app.enableShutdownHooks();
 
 
     // Security headers (Fastify Helmet)

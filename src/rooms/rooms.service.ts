@@ -3,12 +3,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { RoomStatus, MemberStatus, OrderStatus } from '@prisma/client';
 import { RoomsGateway } from './rooms.gateway';
+import { RedisService } from '../shared/redis.service'; // Fix path to match shared module
 
 @Injectable()
 export class RoomsService {
     constructor(
         private prisma: PrismaService,
         private roomsGateway: RoomsGateway,
+        private redis: RedisService,
     ) { }
 
 
@@ -89,50 +91,38 @@ export class RoomsService {
     }
 
     async checkUnlockStatus(roomId: string) {
-        const room = await this.prisma.room.findUnique({
-            where: { id: roomId },
-            include: { members: true },
+        // Robust Check: Count distinct users who ordered? Or Orders?
+
+        const room = await this.prisma.room.findUnique({ where: { id: roomId } });
+        if (!room || room.status === 'UNLOCKED' || room.status === 'EXPIRED') return;
+
+        const stats = await this.prisma.order.aggregate({
+            where: {
+                roomId,
+                status: { in: ['CONFIRMED', 'DELIVERED', 'SHIPPED', 'PACKED'] }
+            },
+            _count: { id: true },
+            _sum: { totalAmount: true }
         });
 
-        if (!room) return;
+        const orderedCount = stats._count.id;
+        const totalOrderValue = stats._sum.totalAmount || 0;
 
-        // SRS 1.6: Weekly Offer Logic - check if room is in valid window
-        // const offer = ...; if (now > offer.endAt) return; // Expired 
-
-        // Logic: Count members with ORDERED status
-        // Note: In real app, we need to link Orders to Rooms to calculate total value.
-        // For now, assuming MemberStatus.ORDERED implies they met criteria.
-
-        // This is a simplified check. Real check would query Orders table aggregating value.
-        const orderedMembers = room.members.filter(m => m.status === MemberStatus.ORDERED || m.status === MemberStatus.CONFIRMED);
-        const orderedCount = orderedMembers.length;
-
-        // Calculate Total Value
-        const orders = await this.prisma.order.findMany({
-            where: { roomId, status: { in: [OrderStatus.CONFIRMED, OrderStatus.SHIPPED, OrderStatus.DELIVERED] } }
-        });
-        const totalOrderValue = orders.reduce((sum, o) => sum + o.totalAmount, 0);
-
+        // Unlock Condition
         if (orderedCount >= room.unlockMinOrders && totalOrderValue >= room.unlockMinValue) {
+            // UNLOCK
             await this.prisma.room.update({
                 where: { id: roomId },
-                data: { status: RoomStatus.UNLOCKED },
+                data: { status: 'UNLOCKED' }
             });
 
-            this.roomsGateway.server.to(roomId).emit('room_update', {
-                type: 'UNLOCKED',
-                status: RoomStatus.UNLOCKED,
-            });
+            const message = `Congratulation! Room unlocked with ${orderedCount} orders and ₹${totalOrderValue} value!`;
+            await this.addActivity(roomId, 'UNLOCK', message);
         } else {
-            // Send progress update
-            this.roomsGateway.server.to(roomId).emit('room_update', {
-                type: 'PROGRESS',
-                ordered: orderedCount,
-                neededOrders: room.unlockMinOrders,
-                currentValue: totalOrderValue,
-                neededValue: room.unlockMinValue
-            });
+            // Progress update?
         }
+
+        return { orderedCount, totalOrderValue, unlocked: orderedCount >= room.unlockMinOrders && totalOrderValue >= room.unlockMinValue };
     }
 
     async linkOrder(roomId: string, userId: string, orderId: string) {
@@ -202,5 +192,27 @@ export class RoomsService {
         });
 
         return updated;
+    }
+
+    // Activity Feed (Redis)
+    async addActivity(roomId: string, type: string, message: string, meta?: any) {
+        const key = `room:feed:${roomId}`;
+        const activity = {
+            id: Date.now().toString(),
+            type,
+            message,
+            timestamp: new Date().toISOString(),
+            meta
+        };
+        // LPush to Keep latest first
+        await this.redis.lpush(key, JSON.stringify(activity));
+        // Trim to keep last 50
+        await this.redis.ltrim(key, 0, 49);
+    }
+
+    async getFeed(roomId: string) {
+        const key = `room:feed:${roomId}`;
+        const items = await this.redis.lrange(key, 0, -1);
+        return items.map(i => JSON.parse(i));
     }
 }
