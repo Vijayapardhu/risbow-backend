@@ -11,6 +11,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     async onModuleInit() {
         const host = process.env.REDIS_HOST;
         const port = parseInt(process.env.REDIS_PORT) || 6379;
+        const username = process.env.REDIS_USERNAME;
+        const password = process.env.REDIS_PASSWORD;
 
         if (!host) {
             this.useMemory = true;
@@ -21,6 +23,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         this.client = new Redis({
             host,
             port,
+            username,
+            password,
             lazyConnect: true,
             maxRetriesPerRequest: 1,
             retryStrategy: () => null, // Do not spam reconnect attempts
