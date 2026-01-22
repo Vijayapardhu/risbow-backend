@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { RedisService } from '../shared/redis.service';
 
 @Injectable()
@@ -92,15 +93,12 @@ export class InventoryService {
     }
 
     // Phase 4.1: Final Deduction
-    async deductStock(productId: string, quantity: number, variationId?: string) {
-        // We need to handle this atomically in DB.
-        // We accept that this might run outside the main order transaction if called from service,
-        // BUT ideally it should be part of it. 
-        // For MVP, we run direct updates.
+    async deductStock(productId: string, quantity: number, variationId?: string, tx?: Prisma.TransactionClient) {
+        const db = tx || this.prisma;
 
         if (variationId) {
             // 1. Fetch Product to get current variants
-            const product = await this.prisma.product.findUnique({ where: { id: productId } });
+            const product = await db.product.findUnique({ where: { id: productId } });
             if (!product) throw new NotFoundException('Product not found');
 
             const variants = (product.variants as any[]) || [];
@@ -108,26 +106,18 @@ export class InventoryService {
 
             if (variantIndex === -1) throw new NotFoundException('Variant not found');
 
-            // 2. Update memory array (Postgres JSONB update is tricky for specific index without raw query)
-            // We will update the array and save back. Concurrency unsafe? Yes.
-            // Better: use raw query or accept risk for now.
-            // Risk: Two orders updating same product different variants -> overwrite? 
-            // Yes, overwriting whole `variants` array is bad.
-            // FIX: We MUST use PostgreSQL JSONB specific update or lock.
-            // For Node/Prisma, simple approach:
+            // 2. Validate Stock
+            if (variants[variantIndex].stock < quantity) {
+                throw new BadRequestException(`Insufficient stock for variant. Available: ${variants[variantIndex].stock}`);
+            }
 
-            // Option A: Optimistic Locking with version? (Not in schema).
-            // Option B: Raw Query.
-
+            // 3. Update memory array 
             variants[variantIndex].stock -= quantity;
-            if (variants[variantIndex].stock < 0) throw new BadRequestException('Stock went negative'); // Should not happen if reserved properly
 
             // Update Product + Variants
-            // Also update main stock if we track it? Main stock is sum of active variants?
-            // If we rely on syncing, we should update main stock too.
             const newTotalStock = variants.reduce((acc, v) => acc + (v.isActive ? v.stock : 0), 0);
 
-            await this.prisma.product.update({
+            await db.product.update({
                 where: { id: productId },
                 data: {
                     variants: variants as any,
@@ -135,22 +125,39 @@ export class InventoryService {
                 }
             });
         } else {
-            // Simple Product Stock
-            await this.prisma.product.update({
-                where: { id: productId },
+            // Simple Product Stock - Atomic decrement handles race conditions better here
+            // We check for negative after update or rely on check constraint (if exists)
+            // But Prisma/Postgres won't throw on negative int unless constraint exists.
+            // So we should verify. 
+            // For high concurrency, 'decrement' is safe but we need to ensure it didn't go below 0.
+
+            // Using updateMany to allow 'where' clause checking stock >= quantity could be safer but 'id' is unique.
+            // Alternative: update where stock >= quantity.
+            const result = await db.product.updateMany({
+                where: {
+                    id: productId,
+                    stock: { gte: quantity }
+                },
                 data: {
                     stock: { decrement: quantity }
                 }
             });
+
+            if (result.count === 0) {
+                throw new BadRequestException('Insufficient stock or product not found');
+            }
         }
 
         // Also release reservation as we have consumed it physically
         await this.releaseStock(productId, quantity, variationId);
     }
+
     // Phase 5.1: Stock Rollback
-    async restoreStock(productId: string, quantity: number, variationId?: string) {
+    async restoreStock(productId: string, quantity: number, variationId?: string, tx?: Prisma.TransactionClient) {
+        const db = tx || this.prisma;
+
         if (variationId) {
-            const product = await this.prisma.product.findUnique({ where: { id: productId } });
+            const product = await db.product.findUnique({ where: { id: productId } });
             if (!product) return;
 
             const variants = (product.variants as any[]) || [];
@@ -162,7 +169,7 @@ export class InventoryService {
 
             const newTotalStock = variants.reduce((acc, v) => acc + (v.isActive ? v.stock : 0), 0);
 
-            await this.prisma.product.update({
+            await db.product.update({
                 where: { id: productId },
                 data: {
                     variants: variants as any,
@@ -170,7 +177,7 @@ export class InventoryService {
                 }
             });
         } else {
-            await this.prisma.product.update({
+            await db.product.update({
                 where: { id: productId },
                 data: {
                     stock: { increment: quantity }

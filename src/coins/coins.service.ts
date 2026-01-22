@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CoinSource } from './dto/coin.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class CoinsService {
@@ -22,10 +23,10 @@ export class CoinsService {
         });
     }
 
-    async credit(userId: string, amount: number, source: CoinSource, referenceId?: string) {
-        return this.prisma.$transaction(async (tx) => {
+    async credit(userId: string, amount: number, source: CoinSource, referenceId?: string, tx?: Prisma.TransactionClient) {
+        const execute = async (db: Prisma.TransactionClient) => {
             // Create Ledger Entry
-            await tx.coinLedger.create({
+            await db.coinLedger.create({
                 data: {
                     userId,
                     amount,
@@ -37,25 +38,30 @@ export class CoinsService {
             });
 
             // Update User Balance
-            const updatedUser = await tx.user.update({
+            const updatedUser = await db.user.update({
                 where: { id: userId },
                 data: { coinsBalance: { increment: amount } },
             });
 
             return updatedUser;
-        });
+        };
+
+        if (tx) {
+            return execute(tx);
+        } else {
+            return this.prisma.$transaction(execute);
+        }
     }
 
-    async debit(userId: string, amount: number, source: CoinSource, referenceId?: string) {
-        return this.prisma.$transaction(async (tx) => {
-            const user = await tx.user.findUnique({ where: { id: userId } });
+    async debit(userId: string, amount: number, source: CoinSource, referenceId?: string, tx?: Prisma.TransactionClient) {
+        const execute = async (db: Prisma.TransactionClient) => {
+            const user = await db.user.findUnique({ where: { id: userId } });
             if (!user || user.coinsBalance < amount) {
                 throw new BadRequestException('Insufficient coin balance');
             }
 
-            // Create Ledger Entry (negative amount for debit? Schema says amount, usually helpful to store sign or type. 
-            // SRS says amount(+earn/-spend). So we store negative for spend.
-            await tx.coinLedger.create({
+            // Create Ledger Entry
+            await db.coinLedger.create({
                 data: {
                     userId,
                     amount: -amount,
@@ -65,12 +71,18 @@ export class CoinsService {
             });
 
             // Update User Balance
-            const updatedUser = await tx.user.update({
+            const updatedUser = await db.user.update({
                 where: { id: userId },
                 data: { coinsBalance: { decrement: amount } },
             });
 
             return updatedUser;
-        });
+        };
+
+        if (tx) {
+            return execute(tx);
+        } else {
+            return this.prisma.$transaction(execute);
+        }
     }
 }

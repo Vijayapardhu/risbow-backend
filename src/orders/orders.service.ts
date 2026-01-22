@@ -170,80 +170,83 @@ export class OrdersService {
             return { status: 'success', orderId: order.id, message: 'Already confirmed' };
         }
 
-        const updatedOrder = await this.prisma.order.update({
-            where: { id: order.id },
-            data: { status: OrderStatus.CONFIRMED },
-        });
+        // 3. Atomic Transaction
+        try {
+            await this.prisma.$transaction(async (tx) => {
+                // 3.1 Update Order Status
+                await tx.order.update({
+                    where: { id: order.id },
+                    data: { status: OrderStatus.CONFIRMED },
+                });
 
-        // 2.2 Deduct Stock (Phase 4.1)
-        // If this fails, we have confirmed order but stock not deducted.
-        // Critical: Error handling or atomic transaction?
-        // We committed confirmed status above.
-        // Ideally we should do this BEFORE or WITH strict transaction.
-        // Retrying for now if fails.
-        // Actually, let's wrap logic. BUT `confirmOrder` has side effects like Coins.
-        // We will execute sequentially.
-        const orderItems = order.items as any[];
-        for (const item of orderItems) {
-            try {
-                await this.inventoryService.deductStock(
-                    item.productId,
-                    item.quantity,
-                    item.variantId
-                );
-            } catch (e) {
-                console.error(`Failed to deduct stock for order ${order.id} item ${item.productId}:`, e);
-                // Alert Admin / Sentry
-                // We do NOT rollback order status because money is paid (Signature verified).
-                // We prioritize order record. Stock drift must be fixed manually or via reconciliation job.
-            }
-        }
-
-        // 2.5 Mark Abandoned Checkout as CONVERTED
-        if (order.abandonedCheckoutId) {
-            await this.prisma.abandonedCheckout.update({
-                where: { id: order.abandonedCheckoutId },
-                data: {
-                    status: 'CONVERTED',
-                    agentId: order.agentId // Ensure attribution is finalized? actually already linked via relation
+                // 3.2 Deduct Stock (Phase 4.1)
+                const orderItems = order.items as any[];
+                for (const item of orderItems) {
+                    await this.inventoryService.deductStock(
+                        item.productId,
+                        item.quantity,
+                        item.variantId,
+                        tx
+                    );
                 }
-            }).catch(e => console.log("Failed to update status", e));
-        }
 
-        // 3. Debit coins if used and not yet debited
-        if (order.coinsUsed > 0 && !order.coinsUsedDebited) {
-            await this.coinsService.debit(order.userId, order.coinsUsed, CoinSource.SPEND_ORDER, order.id);
-            await this.prisma.order.update({
-                where: { id: order.id },
-                data: { coinsUsedDebited: true },
+                // 3.3 Mark Abandoned Checkout as CONVERTED
+                if (order.abandonedCheckoutId) {
+                    await tx.abandonedCheckout.update({
+                        where: { id: order.abandonedCheckoutId },
+                        data: {
+                            status: 'CONVERTED',
+                            agentId: order.agentId
+                        }
+                    }).catch(e => console.log("Failed to update status", e));
+                }
+
+                // 3.4 Debit coins if used and not yet debited
+                if (order.coinsUsed > 0 && !order.coinsUsedDebited) {
+                    await this.coinsService.debit(order.userId, order.coinsUsed, CoinSource.SPEND_ORDER, order.id, tx);
+                    await tx.order.update({
+                        where: { id: order.id },
+                        data: { coinsUsedDebited: true },
+                    });
+                }
+
+                // 3.5 Referral credit on first successful order
+                const user = await tx.user.findUnique({ where: { id: order.userId } });
+                if (user?.referredBy) {
+                    const alreadyCredited = await tx.coinLedger.findFirst({
+                        where: { referenceId: order.id, source: CoinSource.REFERRAL },
+                    });
+                    if (!alreadyCredited) {
+                        const reward = 100;
+                        // Process sequentially within tx
+                        await this.coinsService.credit(order.userId, reward, CoinSource.REFERRAL, order.id, tx);
+                        await this.coinsService.credit(user.referredBy, reward, CoinSource.REFERRAL, order.id, tx);
+                    }
+                }
+
+                // 3.6 Room Member Update (Link to Room if applicable)
+                if (order.roomId) {
+                    // Update RoomMember status using updateMany (safe in tx)
+                    await tx.roomMember.updateMany({
+                        where: { roomId: order.roomId, userId: order.userId },
+                        data: { status: MemberStatus.ORDERED }
+                    });
+                }
             });
+        } catch (e) {
+            this.logger.error(`Failed to confirm order ${order.id}: ${e.message}`, e.stack);
+            throw e; // Re-throw to inform caller/webhook of failure (trigger retry)
         }
 
-        // 4. Referral credit on first successful order
-        const user = await this.prisma.user.findUnique({ where: { id: order.userId } });
-        if (user?.referredBy) {
-            const alreadyCredited = await this.prisma.coinLedger.findFirst({
-                where: { referenceId: order.id, source: CoinSource.REFERRAL },
-            });
-            if (!alreadyCredited) {
-                const reward = 100;
-                await Promise.all([
-                    this.coinsService.credit(order.userId, reward, CoinSource.REFERRAL, order.id),
-                    this.coinsService.credit(user.referredBy, reward, CoinSource.REFERRAL, order.id),
-                ]);
-            }
-        }
-
-        // 5. Room Logic: If order belongs to a room
+        // 4. Post-Transaction Side Effects
+        // Room Logic check (Read-only / Event emission, so safe outside valid tx)
         if (order.roomId) {
-            await this.prisma.roomMember.updateMany({
-                where: { roomId: order.roomId, userId: order.userId },
-                data: { status: MemberStatus.ORDERED }
-            });
-            await this.roomsService.checkUnlockStatus(order.roomId);
+            this.roomsService.checkUnlockStatus(order.roomId).catch(e =>
+                this.logger.error(`Room unlock check failed for ${order.roomId}`, e)
+            );
         }
 
-        return { status: 'success', orderId: updatedOrder.id };
+        return { status: 'success', orderId: order.id };
     }
 
     /* Fixed Method Structure */
