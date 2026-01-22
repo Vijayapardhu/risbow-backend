@@ -10,6 +10,36 @@ import { BowOptimizationService } from './bow-optimization.service';
 import { BowRecommendationEngine } from './bow-recommendation.service';
 import { BowPriceTracker } from './bow-price-tracker.service';
 import { BowSmartReminders } from './bow-smart-reminders.service';
+import { BowOutfitRecommender } from './bow-outfit-recommender.service';
+import { RecommendationService } from './recommendation.service';
+import { BowMessageDto, BowResponse, BowActionExecuteDto } from './dto/bow.dto';
+import { BowActionType } from '@prisma/client';
+
+// Inline types for missing BowProduct and BowStockCheckResult
+type BowProduct = {
+    id: string;
+    title: string;
+    price: number;
+    images?: string[];
+    category?: { name: string };
+    description?: string;
+    stock?: number;
+    vendorId?: string;
+};
+type BowStockCheckResult = {
+    productId: string;
+    inStock: boolean;
+    stock: number;
+};
+
+// Simple text normalization and stopword removal (fallback)
+function normalizeText(text: string): string {
+    return text.toLowerCase().replace(/[^a-z0-9 ]/gi, '').trim();
+}
+function removeStopwords(text: string): string {
+    const stopwords = ['the', 'a', 'an', 'for', 'to', 'of', 'in', 'on', 'at', 'by', 'with', 'and', 'or', 'is', 'are', 'was', 'were', 'be', 'been', 'has', 'have', 'had', 'do', 'does', 'did', 'from', 'as', 'that', 'this', 'it', 'my', 'your', 'our', 'their', 'his', 'her', 'its', 'but', 'if', 'so', 'not', 'can', 'will', 'just', 'me', 'you', 'stock', 'available', 'inventory', 'check', 'there', 'please', 'know'];
+    return text.split(' ').filter(w => w && !stopwords.includes(w)).join(' ');
+}
 
 @Injectable()
 export class BowService {
