@@ -46,11 +46,17 @@ import { HealthController } from './common/health.controller';
             limit: parseInt(process.env.THROTTLE_LIMIT) || 100,
         }]),
         // Redis & Queues - Disabled in Test Environment to handle missing Redis
-        ...(process.env.NODE_ENV === 'test' ? [] : [
+        // Also disabled if REDIS_HOST is not configured
+        ...(process.env.NODE_ENV === 'test' || !process.env.REDIS_HOST ? [] : [
             BullModule.forRoot({
                 connection: {
-                    host: process.env.REDIS_HOST || 'localhost',
+                    host: process.env.REDIS_HOST,
                     port: parseInt(process.env.REDIS_PORT) || 6379,
+                    maxRetriesPerRequest: 0,
+                    retryStrategy: () => null,
+                    enableOfflineQueue: false,
+                    connectTimeout: 2000,
+                    lazyConnect: true,
                 },
             }),
             QueuesModule,

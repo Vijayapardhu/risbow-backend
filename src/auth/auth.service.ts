@@ -7,18 +7,22 @@ import * as bcrypt from 'bcrypt';
 @Injectable()
 export class AuthService {
     private supabase: any;
+    private supabaseEnabled = false;
 
     constructor(
         private prisma: PrismaService,
         private jwtService: JwtService,
         private redisService: RedisService,
     ) {
-        // Initialize Supabase client
-        const { createClient } = require('@supabase/supabase-js');
-        this.supabase = createClient(
-            process.env.SUPABASE_URL,
-            process.env.SUPABASE_SERVICE_ROLE_KEY
-        );
+        // Initialize Supabase client only if configured
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (supabaseUrl && supabaseKey) {
+            const { createClient } = require('@supabase/supabase-js');
+            this.supabase = createClient(supabaseUrl, supabaseKey);
+            this.supabaseEnabled = true;
+        }
     }
 
     async sendOtp(mobile: string) {
@@ -32,18 +36,25 @@ export class AuthService {
                 throw new BadRequestException(`Please wait ${remainingTime} seconds before requesting a new OTP`);
             }
 
-            // Use Supabase to send OTP via SMS
-            const { data, error } = await this.supabase.auth.signInWithOtp({
-                phone: mobile,
-            });
+            if (this.supabaseEnabled) {
+                // Use Supabase to send OTP via SMS
+                const { data, error } = await this.supabase.auth.signInWithOtp({
+                    phone: mobile,
+                });
 
-            if (error) {
-                console.error('Supabase OTP send error:', error);
-                const status = (error as any)?.status ?? HttpStatus.CONFLICT;
-                throw new HttpException(`Failed to send OTP: ${error.message}`, status);
+                if (error) {
+                    console.error('Supabase OTP send error:', error);
+                    const status = (error as any)?.status ?? HttpStatus.CONFLICT;
+                    throw new HttpException(`Failed to send OTP: ${error.message}`, status);
+                }
+
+                console.log(`[Supabase] OTP sent to ${mobile}`);
+            } else {
+                // Fallback: Generate and store OTP locally (for development/testing)
+                const otp = Math.floor(100000 + Math.random() * 900000).toString();
+                await this.redisService.setOtp(mobile, otp);
+                console.log(`[DEV MODE] OTP for ${mobile}: ${otp}`);
             }
-
-            console.log(`[Supabase] OTP sent to ${mobile}`);
 
             // Set rate limit - OTP can be resent after 60 seconds
             await this.redisService.set(rateLimitKey, Date.now().toString(), 60);
@@ -69,31 +80,44 @@ export class AuthService {
                 return JSON.parse(recentVerification);
             }
 
-            // Verify OTP with Supabase
-            const { data, error } = await this.supabase.auth.verifyOtp({
-                phone: mobile,
-                token: otp,
-                type: 'sms',
-            });
+            if (this.supabaseEnabled) {
+                // Verify OTP with Supabase
+                const { data, error } = await this.supabase.auth.verifyOtp({
+                    phone: mobile,
+                    token: otp,
+                    type: 'sms',
+                });
 
-            if (error) {
-                console.error('Supabase OTP verification error:', error);
+                if (error) {
+                    console.error('Supabase OTP verification error:', error);
 
-                // Provide more specific error messages
-                if (error.code === 'otp_expired') {
-                    throw new UnauthorizedException('OTP has expired. Please request a new OTP.');
-                } else if (error.code === 'otp_disabled') {
-                    throw new UnauthorizedException('OTP verification is currently disabled.');
-                } else {
+                    // Provide more specific error messages
+                    if (error.code === 'otp_expired') {
+                        throw new UnauthorizedException('OTP has expired. Please request a new OTP.');
+                    } else if (error.code === 'otp_disabled') {
+                        throw new UnauthorizedException('OTP verification is currently disabled.');
+                    } else {
+                        throw new UnauthorizedException('Invalid OTP. Please check and try again.');
+                    }
+                }
+
+                if (!data.user) {
+                    throw new UnauthorizedException('Verification failed');
+                }
+
+                console.log(`[Supabase] OTP verified for ${mobile}, user ID: ${data.user.id}`);
+            } else {
+                // Fallback: Verify OTP from local storage
+                const storedOtp = await this.redisService.getOtp(mobile);
+                
+                if (!storedOtp || storedOtp !== otp) {
                     throw new UnauthorizedException('Invalid OTP. Please check and try again.');
                 }
-            }
 
-            if (!data.user) {
-                throw new UnauthorizedException('Verification failed');
+                // Delete OTP after successful verification
+                await this.redisService.delOtp(mobile);
+                console.log(`[DEV MODE] OTP verified for ${mobile}`);
             }
-
-            console.log(`[Supabase] OTP verified for ${mobile}, user ID: ${data.user.id}`);
 
             // Check if user exists in our database
             const user = await this.prisma.user.findUnique({
@@ -150,27 +174,29 @@ export class AuthService {
         // Hash password
         const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
-        // Create user in Supabase Auth first
-        try {
-            const { createClient } = require('@supabase/supabase-js');
-            const supabase = createClient(
-                process.env.SUPABASE_URL,
-                process.env.SUPABASE_SERVICE_ROLE_KEY
-            );
+        // Create user in Supabase Auth first (if enabled)
+        if (this.supabaseEnabled) {
+            try {
+                const { createClient } = require('@supabase/supabase-js');
+                const supabase = createClient(
+                    process.env.SUPABASE_URL,
+                    process.env.SUPABASE_SERVICE_ROLE_KEY
+                );
 
-            const { data: authUser, error } = await supabase.auth.admin.createUser({
-                email: registerDto.email,
-                password: registerDto.password,
-                email_confirm: true,
-            });
+                const { data: authUser, error } = await supabase.auth.admin.createUser({
+                    email: registerDto.email,
+                    password: registerDto.password,
+                    email_confirm: true,
+                });
 
-            if (error) {
-                console.error('Supabase auth creation failed:', error.message);
-            } else {
-                console.log('Created Supabase auth user:', authUser.user?.id);
+                if (error) {
+                    console.error('Supabase auth creation failed:', error.message);
+                } else {
+                    console.log('Created Supabase auth user:', authUser.user?.id);
+                }
+            } catch (error) {
+                console.error('Failed to create Supabase auth user:', error);
             }
-        } catch (error) {
-            console.error('Failed to create Supabase auth user:', error);
         }
 
         // Create user with all details
@@ -252,6 +278,10 @@ export class AuthService {
     }
 
     async forgotPassword(email: string) {
+        if (!this.supabaseEnabled) {
+            throw new ConflictException('Password reset functionality requires Supabase configuration');
+        }
+
         try {
             const { error } = await this.supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: `${process.env.APP_BASE_URL || 'http://localhost:3000'}/auth/reset-password`,

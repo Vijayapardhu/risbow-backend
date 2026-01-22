@@ -18,18 +18,25 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             return;
         }
 
+        // Track if we've already logged the error to avoid spam
+        let errorLogged = false;
+
         this.client = new Redis({
             host,
             port,
             lazyConnect: true,
-            maxRetriesPerRequest: 1,
+            maxRetriesPerRequest: 0, // Fail fast, no retries
             retryStrategy: () => null, // Do not spam reconnect attempts
             enableOfflineQueue: false,
+            connectTimeout: 1000, // 1 second timeout for connection
+            autoResubscribe: false,
+            autoResendUnfulfilledCommands: false,
         });
 
         this.client.on('error', (err) => {
-            if (!this.useMemory) {
-                this.logger.warn(`Redis unavailable, using in-memory store. Error: ${err.message}`);
+            if (!errorLogged && !this.useMemory) {
+                this.logger.warn(`Redis connection failed, switching to in-memory store`);
+                errorLogged = true;
                 this.useMemory = true;
             }
         });
@@ -38,10 +45,20 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             await this.client.connect();
             this.logger.log(`Connected to Redis at ${host}:${port}`);
         } catch (err) {
-            this.logger.warn(`Redis connect failed, switching to in-memory store: ${err.message}`);
+            if (!errorLogged) {
+                this.logger.warn(`Redis connection failed, switching to in-memory store`);
+            }
             this.useMemory = true;
-            await this.client.quit().catch(() => undefined);
-            this.client = undefined;
+            // Disconnect and cleanup to prevent further connection attempts
+            if (this.client) {
+                this.client.removeAllListeners();
+                try {
+                    this.client.disconnect(false); // Disconnect without retry
+                } catch (e) {
+                    // Ignore disconnect errors
+                }
+                this.client = undefined;
+            }
         }
     }
 
