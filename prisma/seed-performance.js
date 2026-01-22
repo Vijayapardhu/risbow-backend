@@ -1,29 +1,55 @@
-import { PrismaClient, UserRole, UserStatus, RoomStatus } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
-
-const prisma = new PrismaClient();
-
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+const client_1 = require("@prisma/client");
+const bcrypt = __importStar(require("bcrypt"));
+const prisma = new client_1.PrismaClient();
 async function main() {
     console.log('🚀 Starting Performance Database Seeding...\n');
-
-    // Helper to get random item from array
-    const random = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
-    // Helper to get random subset
-    const randomSubset = <T>(arr: T[], count: number): T[] => {
+    const random = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const randomSubset = (arr, count) => {
         const shuffled = [...arr].sort(() => 0.5 - Math.random());
         return shuffled.slice(0, count);
     };
-
-    // ==================== 1. USERS (ADMINS & SUPPORT) ====================
     console.log('👤 Creating Admin Users...');
     const passwordHash = await bcrypt.hash('password123', 10);
     const superAdminEmail = 'superadmin@risbow.com';
     const superAdminMobile = '9999999999';
-
     let superAdmin = await prisma.user.findFirst({
         where: { OR: [{ email: superAdminEmail }, { mobile: superAdminMobile }] }
     });
-
     if (!superAdmin) {
         superAdmin = await prisma.user.create({
             data: {
@@ -36,21 +62,18 @@ async function main() {
                 coinsBalance: 100000,
             }
         });
-    } else {
-        // Ensure role is correct if user exists
+    }
+    else {
         await prisma.user.update({
             where: { id: superAdmin.id },
             data: { role: 'SUPER_ADMIN' }
         });
     }
-
     const adminEmail = 'admin@risbow.com';
     const adminMobile = '8888888888';
-
     let adminUser = await prisma.user.findFirst({
         where: { OR: [{ email: adminEmail }, { mobile: adminMobile }] }
     });
-
     if (!adminUser) {
         await prisma.user.create({
             data: {
@@ -65,8 +88,6 @@ async function main() {
         });
     }
     console.log('✅ Admin users created/verified.');
-
-    // ==================== 2. VENDORS ====================
     console.log('🏢 Creating Vendors...');
     const vendorData = [
         { name: 'Fashion Hub', email: 'fashion@vendor.com', code: 'VEN-FASH', mobile: '9800000001' },
@@ -75,7 +96,6 @@ async function main() {
         { name: 'Beauty World', email: 'beauty@vendor.com', code: 'VEN-BEAU', mobile: '9800000004' },
         { name: 'Sports Gear', email: 'sports@vendor.com', code: 'VEN-SPRT', mobile: '9800000005' }
     ];
-
     const vendors = [];
     for (const v of vendorData) {
         const vendor = await prisma.vendor.upsert({
@@ -93,20 +113,14 @@ async function main() {
         vendors.push(vendor);
     }
     console.log(`✅ ${vendors.length} Vendors created.`);
-
-    // ==================== 3. CATEGORIES ====================
     console.log('📂 Creating Categories...');
-
-    // Main Categories
     const catMap = new Map();
-
     const mainCats = [
         { id: 'cat-fashion', name: 'Fashion', image: 'https://picsum.photos/seed/fashion/200' },
         { id: 'cat-electronics', name: 'Electronics', image: 'https://picsum.photos/seed/electronics/200' },
         { id: 'cat-home', name: 'Home & Living', image: 'https://picsum.photos/seed/home/200' },
         { id: 'cat-beauty', name: 'Beauty', image: 'https://picsum.photos/seed/beauty/200' },
     ];
-
     for (const c of mainCats) {
         const cat = await prisma.category.upsert({
             where: { id: c.id },
@@ -115,25 +129,18 @@ async function main() {
         });
         catMap.set(c.id, cat);
     }
-
-    // Sub Categories
     const subCats = [
-        // Fashion
         { id: 'cat-mens', name: 'Mens Wear', parentId: 'cat-fashion' },
         { id: 'cat-womens', name: 'Womens Wear', parentId: 'cat-fashion' },
         { id: 'cat-kids', name: 'Kids Wear', parentId: 'cat-fashion' },
-        // Electronics
         { id: 'cat-mobiles', name: 'Mobiles', parentId: 'cat-electronics' },
         { id: 'cat-laptops', name: 'Laptops', parentId: 'cat-electronics' },
         { id: 'cat-audio', name: 'Audio', parentId: 'cat-electronics' },
-        // Home
         { id: 'cat-furniture', name: 'Furniture', parentId: 'cat-home' },
         { id: 'cat-decor', name: 'Decor', parentId: 'cat-home' },
-        // Beauty
         { id: 'cat-skincare', name: 'Skincare', parentId: 'cat-beauty' },
         { id: 'cat-makeup', name: 'Makeup', parentId: 'cat-beauty' },
     ];
-
     for (const c of subCats) {
         const cat = await prisma.category.upsert({
             where: { id: c.id },
@@ -143,8 +150,6 @@ async function main() {
         catMap.set(c.id, cat);
     }
     console.log('✅ Categories created.');
-
-    // ==================== 4. CUSTOMERS ====================
     console.log('👥 Creating Customers...');
     const customers = [];
     for (let i = 1; i <= 20; i++) {
@@ -163,12 +168,10 @@ async function main() {
                 gender: i % 2 === 0 ? 'Male' : 'Female'
             }
         });
-
-        // Create Address
         await prisma.address.create({
             data: {
                 userId: customer.id,
-                name: customer.name!,
+                name: customer.name,
                 phone: customer.mobile,
                 addressLine1: `${100 + i} Test Street`,
                 city: random(['Mumbai', 'Delhi', 'Bangalore', 'Chennai']),
@@ -178,12 +181,9 @@ async function main() {
                 isDefault: true
             }
         });
-
         customers.push(customer);
     }
     console.log(`✅ ${customers.length} Customers created with addresses.`);
-
-    // ==================== 5. PRODUCTS ====================
     console.log('📦 Creating Products...');
     const products = [];
     const productTemplates = [
@@ -200,12 +200,10 @@ async function main() {
         { title: 'Face Serum', cat: 'cat-skincare', price: 599 },
         { title: 'Matte Lipstick', cat: 'cat-makeup', price: 399 },
     ];
-
-    for (let i = 0; i < 60; i++) { // Create 60 products
+    for (let i = 0; i < 60; i++) {
         const template = random(productTemplates);
         const vendor = random(vendors);
         const id = `prod-${i}-${Math.random().toString(36).substring(7)}`;
-
         const product = await prisma.product.create({
             data: {
                 id,
@@ -222,17 +220,14 @@ async function main() {
         products.push(product);
     }
     console.log(`✅ ${products.length} Products created.`);
-
-    // ==================== 6. ORDERS ====================
     console.log('🛒 Creating Orders...');
     const orderStatuses = ['PENDING_PAYMENT', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
-
     for (let i = 0; i < 50; i++) {
         const customer = random(customers);
         const address = await prisma.address.findFirst({ where: { userId: customer.id } });
-        if (!address) continue;
-
-        const orderItems = randomSubset(products, 1 + Math.floor(Math.random() * 3)); // 1-3 items
+        if (!address)
+            continue;
+        const orderItems = randomSubset(products, 1 + Math.floor(Math.random() * 3));
         let total = 0;
         const itemsData = orderItems.map(p => {
             const qty = 1 + Math.floor(Math.random() * 2);
@@ -244,12 +239,11 @@ async function main() {
                 title: p.title
             };
         });
-
         await prisma.order.create({
             data: {
                 userId: customer.id,
                 addressId: address.id,
-                status: random(orderStatuses) as any,
+                status: random(orderStatuses),
                 totalAmount: total,
                 items: itemsData,
                 payment: {
@@ -264,18 +258,14 @@ async function main() {
         });
     }
     console.log('✅ 50 Orders created.');
-
-    // ==================== 7. REVIEWS ====================
     console.log('⭐ Creating Reviews...');
     for (let i = 0; i < 100; i++) {
         try {
             const customer = random(customers);
             const product = random(products);
-
-            // Prevent duplicate reviews
             const existing = await prisma.review.findFirst({ where: { userId: customer.id, productId: product.id } });
-            if (existing) continue;
-
+            if (existing)
+                continue;
             await prisma.review.create({
                 data: {
                     userId: customer.id,
@@ -284,18 +274,16 @@ async function main() {
                     comment: random(['Great product', 'Good value', 'Loved it!', 'Fast delivery', 'Okay quality'])
                 }
             });
-        } catch (error) {
-            console.warn(`⚠️ Failed to create review (iteration ${i}): ${(error as Error).message}`);
+        }
+        catch (error) {
+            console.warn(`⚠️ Failed to create review (iteration ${i}): ${error.message}`);
         }
     }
     console.log('✅ Reviews created.');
-
-    // ==================== 8. BANNERS ====================
     console.log('🖼️ Creating Banners...');
     const now = new Date();
     const nextMonth = new Date();
     nextMonth.setMonth(nextMonth.getMonth() + 1);
-
     await prisma.banner.createMany({
         data: [
             { imageUrl: 'https://picsum.photos/seed/ban1/800/300', slotType: 'HOME', redirectUrl: '/category/cat-fashion', isActive: true, startDate: now, endDate: nextMonth },
@@ -304,15 +292,14 @@ async function main() {
         ]
     });
     console.log('✅ Banners created.');
-
     console.log('\n🎉 Performance Seeding Completed Successfully! 🚀');
 }
-
 main()
     .catch((e) => {
-        console.error(e);
-        process.exit(1);
-    })
+    console.error(e);
+    process.exit(1);
+})
     .finally(async () => {
-        await prisma.$disconnect();
-    });
+    await prisma.$disconnect();
+});
+//# sourceMappingURL=seed-performance.js.map

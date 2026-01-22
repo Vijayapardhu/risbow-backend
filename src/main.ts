@@ -13,6 +13,16 @@ import compression from '@fastify/compress';
 
 // Trigger deployment update - v6 - Fastify Migration
 async function bootstrap() {
+    // SUPPRESSION: BullMQ warns about 'volatile-lru' eviction policy on Cloud Redis.
+    // We cannot change this on managed instances easily, so we suppress the log.
+    const originalWarn = console.warn;
+    console.warn = (...args) => {
+        if (typeof args[0] === 'string' && args[0].includes('Eviction policy is volatile-lru')) {
+            return;
+        }
+        originalWarn.apply(console, args);
+    };
+
     // Switch to Fastify Adapter for High Performance (25k+ Req/Sec capability)
     // Casting to unknown/NestFastifyApplication to bypass strict generic constraints if versions mismatch
     const app = await NestFactory.create(
