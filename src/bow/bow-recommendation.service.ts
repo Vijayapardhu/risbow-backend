@@ -14,7 +14,7 @@ export interface SmartRecommendation {
 export class BowRecommendationEngine {
     private readonly logger = new Logger(BowRecommendationEngine.name);
 
-    constructor(private prisma: PrismaService) {}
+    constructor(private prisma: PrismaService) { }
 
     /**
      * Get smart recommendations based on trending products
@@ -169,5 +169,17 @@ export class BowRecommendationEngine {
             default:
                 return `We think you'll love this!`;
         }
+    }
+    /**
+     * Post-Search Hook: Analyzes search intent and prepares future recommendations
+     */
+    async afterSearch(userId: string | undefined, query: string) {
+        if (!userId) return; // Anonymous search, no long-term tracking yet
+
+        // 1. Log or Process Intent
+        this.logger.log(`[Bow] Processing search context for user ${userId}: "${query}"`);
+
+        // 2. We could preemptively fetch "Similar Category" products and cache them as "Next Recommendations"
+        // For now, we just log. Real implementation would update a "UserInterestGraph".
     }
 }

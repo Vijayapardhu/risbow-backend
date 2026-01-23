@@ -18,6 +18,11 @@ class ReturnItemDto {
     @IsNotEmpty()
     productId: string;
 
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    variantId?: string;
+
     @ApiProperty()
     @IsNumber()
     quantity: number;

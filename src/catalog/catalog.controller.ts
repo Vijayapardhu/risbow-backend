@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Patch, Delete, Put, Body, Query, Param, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Post, Patch, Delete, Put, Body, Query, Param, UseGuards, UseInterceptors, UploadedFile, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { CatalogService } from './catalog.service';
 import { CreateProductDto, ProductFilterDto, UpdateProductDto } from './dto/catalog.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -10,11 +10,45 @@ import { FileInterceptor } from '@nestjs/platform-express';
 @ApiTags('Products')
 @Controller('products')
 export class CatalogController {
+        @Get('admin/search-miss')
+        @UseGuards(JwtAuthGuard, RolesGuard)
+        @Roles('ADMIN', 'SUPER_ADMIN')
+        @ApiOperation({ summary: 'Admin: Get product search miss analytics' })
+        @ApiResponse({ status: 200, description: 'Search miss analytics' })
+        async getSearchMissAnalytics(@Query('days') days: string) {
+            return this.catalogService.getSearchMissAnalytics(Number(days) || 30);
+        }
+
+        @Get('admin/demand-gaps')
+        @UseGuards(JwtAuthGuard, RolesGuard)
+        @Roles('ADMIN', 'SUPER_ADMIN')
+        @ApiOperation({ summary: 'Admin: Get demand gap trends' })
+        @ApiResponse({ status: 200, description: 'Demand gap trends' })
+        async getDemandGapTrends(@Query('days') days: string) {
+            return this.catalogService.getDemandGapTrends(Number(days) || 30);
+        }
+    @Post('reserve-stock')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CUSTOMER', 'VENDOR')
+    @ApiOperation({ summary: 'Reserve product variant stock (atomic, 15 min TTL)' })
+    @ApiResponse({ status: 200, description: 'Stock reserved' })
+    async reserveStock(@Body() body: { productId: string; variantId: string; quantity: number }, @Request() req) {
+        return this.catalogService.reserveStock(body.productId, body.variantId, body.quantity, req.user.id);
+    }
+
+    @Post('release-stock')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CUSTOMER', 'VENDOR')
+    @ApiOperation({ summary: 'Release reserved product variant stock' })
+    @ApiResponse({ status: 200, description: 'Stock released' })
+    async releaseStock(@Body() body: { productId: string; variantId: string }, @Request() req) {
+        return this.catalogService.releaseReservedStock(body.productId, body.variantId, req.user.id);
+    }
     constructor(private readonly catalogService: CatalogService) { }
 
     @Get()
-    async findAll(@Query() filters: ProductFilterDto) {
-        return this.catalogService.findAll(filters);
+    async findAll(@Query() filters: ProductFilterDto, @Request() req) {
+        return this.catalogService.findAll(filters, req?.user?.id);
     }
 
     @Get(':id')

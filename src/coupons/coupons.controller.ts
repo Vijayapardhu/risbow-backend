@@ -9,6 +9,7 @@ import {
     UseGuards,
     HttpCode,
     HttpStatus,
+    Request,
 } from '@nestjs/common';
 import {
     ApiTags,
@@ -69,6 +70,49 @@ export class CouponsController {
         return this.couponsService.getActiveCoupons();
     }
 
+    // ==================== VENDOR ENDPOINTS ====================
+
+    @Post('vendor/coupons')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.VENDOR)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Create new coupon (Vendor)' })
+    @ApiResponse({ status: 201, type: CouponResponseDto })
+    async createVendorCoupon(@Request() req, @Body() dto: CreateCouponDto) {
+        dto.vendorId = req.user.id; // Force vendor ownership
+        return this.couponsService.createCoupon(dto);
+    }
+
+    @Get('vendor/coupons')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.VENDOR)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Get my coupons (Vendor)' })
+    @ApiResponse({ status: 200, type: [CouponResponseDto] })
+    async getVendorCoupons(@Request() req) {
+        return this.couponsService.getCouponsByVendor(req.user.id);
+    }
+
+    @Patch('vendor/coupons/:id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.VENDOR)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Update my coupon (Vendor)' })
+    @ApiResponse({ status: 200, type: CouponResponseDto })
+    async updateVendorCoupon(@Request() req, @Param('id') id: string, @Body() dto: UpdateCouponDto) {
+        return this.couponsService.updateCoupon(id, dto, req.user.id);
+    }
+
+    @Delete('vendor/coupons/:id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.VENDOR)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Delete my coupon (Vendor)' })
+    @ApiResponse({ status: 204 })
+    async deleteVendorCoupon(@Request() req, @Param('id') id: string) {
+        await this.couponsService.deleteCoupon(id, req.user.id);
+    }
+
     // ==================== ADMIN ENDPOINTS ====================
 
     @Get('admin/coupons')
@@ -103,13 +147,12 @@ export class CouponsController {
     })
     @ApiResponse({ status: 404, description: 'Coupon not found' })
     async getCouponById(@Param('id') id: string) {
-        const coupon = await this.couponsService['prisma'].coupon.findUnique({
-            where: { id },
+        return this.couponsService['prisma'].coupon.findUnique({
+            where: { id }
+        }).then(coupon => {
+            if (!coupon) throw new Error('Coupon not found');
+            return this.couponsService['mapToResponseDto'](coupon);
         });
-        if (!coupon) {
-            throw new Error('Coupon not found');
-        }
-        return this.couponsService['mapToResponseDto'](coupon);
     }
 
     @Post('admin/coupons')
@@ -152,7 +195,6 @@ export class CouponsController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
     @ApiBearerAuth()
-    @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({
         summary: 'Delete coupon (Admin)',
         description: 'Deletes a coupon from the system',

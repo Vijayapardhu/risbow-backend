@@ -11,6 +11,23 @@ import { Roles } from '../common/decorators/roles.decorator';
 @ApiBearerAuth()
 @Controller('orders')
 export class OrdersController {
+    /*
+        @Post(':id/return')
+        @UseGuards(JwtAuthGuard)
+        @ApiOperation({ summary: 'Request order return (replacement only)' })
+        @ApiResponse({ status: 200, description: 'Return requested, replacement will be processed' })
+        async requestReturn(@Request() req, @Param('id') orderId: string, @Body('reason') reason: string) {
+            return this.ordersService.requestOrderReturn(orderId, req.user.id, reason);
+        }
+
+        @Post(':id/replace')
+        @UseGuards(JwtAuthGuard)
+        @ApiOperation({ summary: 'Request order replacement' })
+        @ApiResponse({ status: 200, description: 'Replacement requested' })
+        async requestReplacement(@Request() req, @Param('id') orderId: string, @Body('reason') reason: string) {
+            return this.ordersService.requestOrderReplacement(orderId, req.user.id, reason);
+        }
+    */
     constructor(private readonly ordersService: OrdersService) { }
 
     @Get()

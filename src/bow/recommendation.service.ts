@@ -37,7 +37,7 @@ export class RecommendationService {
         if (cartValue > 5000) cartPattern = 'VALUE_BUYER_CART';
 
         // Saving Insight for Analytics
-        await this.prisma.cartInsight.create({
+        await (this.prisma as any).cartInsight.create({
             data: {
                 userId,
                 cartValue,
@@ -45,7 +45,9 @@ export class RecommendationService {
                 categories,
                 cartPattern,
                 hesitationScore: 0.0, // Placeholder for real logic
-                abandonRisk: 0.0
+                abandonRisk: 0.0,
+                type: 'HESITATION', // Default for analytics
+                severity: 'LOW'
             }
         });
 

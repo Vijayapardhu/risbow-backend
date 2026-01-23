@@ -4,12 +4,15 @@ import { AnalyticsProcessor } from './processors/analytics.processor';
 import { NotificationProcessor } from './processors/notification.processor';
 import { OrderProcessor } from './processors/order.processor';
 import { CleanupProcessor } from './processors/cleanup.processor';
+import { CartIntelligenceProcessor } from './processors/cart-intelligence.processor';
 import { QueuesService } from './queues.service';
 import { PrismaModule } from '../prisma/prisma.module';
+import { BowModule } from '../bow/bow.module';
 
 @Module({
     imports: [
         PrismaModule,
+        BowModule,
         // Analytics Queue - Banner impressions/clicks
         BullModule.registerQueue({
             name: 'analytics',
@@ -26,6 +29,10 @@ import { PrismaModule } from '../prisma/prisma.module';
         BullModule.registerQueue({
             name: 'cleanup',
         }),
+        // Cart Intelligence Queue - AI-driven cart optimization
+        BullModule.registerQueue({
+            name: 'cart-intelligence',
+        }),
     ],
     providers: [
         QueuesService,
@@ -33,6 +40,7 @@ import { PrismaModule } from '../prisma/prisma.module';
         NotificationProcessor,
         OrderProcessor,
         CleanupProcessor,
+        CartIntelligenceProcessor,
     ],
     exports: [QueuesService],
 })

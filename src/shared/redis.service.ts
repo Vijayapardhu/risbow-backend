@@ -245,6 +245,19 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         return this.client.expire(key, seconds);
     }
 
+    // 🔐 P0 FIX: Add SETNX for atomic lock acquisition
+    async setnx(key: string, value: string): Promise<number> {
+        if (this.useMemory) {
+            // In-memory fallback
+            if (this.inMemoryStore.has(key)) {
+                return 0; // Key exists
+            }
+            this.inMemoryStore.set(key, { value, expiresAt: Date.now() + 10000 });
+            return 1; // Key set
+        }
+        return await this.client.setnx(key, value);
+    }
+
     async exists(key: string): Promise<boolean> {
         if (this.useMemory) {
             const entry = this.inMemoryStore.get(key);
@@ -261,5 +274,41 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     // Get connection status
     isConnected(): boolean {
         return !this.useMemory && this.client?.status === 'ready';
+    }
+
+    // Sorted Set Operations
+    async zincrby(key: string, increment: number, member: string): Promise<string | number> {
+        if (this.useMemory) {
+            // Very basic in-memory simulating sorted set with just map
+            // Note: This does NOT implement sorting, just storage for dev
+            const current = this.inMemoryStore.get(`${key}:${member}`);
+            const newVal = (current ? parseFloat(current.value) : 0) + increment;
+            this.inMemoryStore.set(`${key}:${member}`, { value: newVal.toString(), expiresAt: Infinity });
+            return newVal;
+        }
+        return this.client.zincrby(key, increment, member);
+    }
+
+    async zrevrange(key: string, start: number, stop: number, withScores: 'WITHSCORES'): Promise<string[]> {
+        if (this.useMemory) {
+            // In-memory fallback: scan keys with prefix, sort, return
+            // This is expensive but okay for dev fallback
+            const result: { member: string, score: number }[] = [];
+            for (const k of this.inMemoryStore.keys()) {
+                if (k.startsWith(`${key}:`)) {
+                    const member = k.split(`${key}:`)[1];
+                    const score = parseFloat(this.inMemoryStore.get(k)!.value);
+                    result.push({ member, score });
+                }
+            }
+            result.sort((a, b) => b.score - a.score);
+            const sliced = result.slice(start, stop + 1);
+
+            // Format as [member, score, member, score]
+            const flat: string[] = [];
+            sliced.forEach(x => { flat.push(x.member); flat.push(x.score.toString()); });
+            return flat;
+        }
+        return this.client.zrevrange(key, start, stop, withScores);
     }
 }

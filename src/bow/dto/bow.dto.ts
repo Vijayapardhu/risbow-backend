@@ -35,6 +35,7 @@ export interface BowIntent {
         targetPage?: string;
         code?: string;
         itemId?: string;
+        payload?: any;
     };
 }
 
@@ -63,5 +64,9 @@ export interface BowResponse {
             hasFilters?: boolean;
             expandedQueries?: string[];
         };
+    };
+    clientControl?: {
+        action: 'NAVIGATE' | 'OPEN_DRAWER' | 'SHOW_TOAST' | 'TRIGGER_EVENT';
+        payload: any;
     };
 }

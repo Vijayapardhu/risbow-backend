@@ -14,15 +14,15 @@ export class BowIntentService {
 
         // 1. Explicit Action: ADD TO CART
         // Check if user is requesting to add (not stating they already added)
-        if (this.matches(cleanText, ['add', 'buy', 'purchase', 'get']) && 
+        if (this.matches(cleanText, ['add', 'buy', 'purchase', 'get']) &&
             !this.matches(cleanText, ['added', 'bought', 'just added', 'already', 'purchased'])) {
-            
+
             // Extract product keywords from the query
             const productQuery = this.extractProductQuery(cleanText);
-            
+
             // Try to find the product
             const product = await this.findProductByQuery(productQuery);
-            
+
             return {
                 intent: BowActionType.ADD_TO_CART,
                 confidence: product ? 0.95 : 0.9,
@@ -36,16 +36,28 @@ export class BowIntentService {
 
         // 2. Explicit Action: COUPON
         if (this.matches(cleanText, ['coupon', 'code', 'discount', 'promo', 'offer'])) {
+            // If asking generally "do i have coupons", trigger smart search
+            if (this.matches(cleanText, ['do i have', 'any', 'my', 'check', 'find', 'search', 'avail'])) {
+                return {
+                    intent: 'FIND_BEST_COUPON' as any, // Cast as generic
+                    confidence: 0.95,
+                    entities: { payload: {} }
+                };
+            }
+
+            // Otherwise, if specific code provided
             const code = this.extractCouponCode(cleanText);
-            return {
-                intent: BowActionType.APPLY_COUPON,
-                confidence: code ? 0.95 : 0.85,
-                entities: { code }
-            };
+            if (code) {
+                return {
+                    intent: BowActionType.APPLY_COUPON,
+                    confidence: 0.95,
+                    entities: { payload: { code } }
+                };
+            }
         }
 
         // 3. View Cart Intent
-        if (this.matches(cleanText, ['show', 'view', 'see', 'check', 'what', 'display']) && 
+        if (this.matches(cleanText, ['show', 'view', 'see', 'check', 'what', 'display']) &&
             this.matches(cleanText, ['cart', 'my cart', 'shopping cart', 'basket'])) {
             return {
                 intent: BowActionType.VIEW_CART,
@@ -54,13 +66,15 @@ export class BowIntentService {
             };
         }
 
-        // 4. Navigation
+        // 4. Navigation & App Control
         if (this.matches(cleanText, ['go to', 'show me', 'open', 'take me to', 'navigate'])) {
-            if (cleanText.includes('cart')) return this.navIntent('cart');
-            if (cleanText.includes('order')) return this.navIntent('orders');
-            if (cleanText.includes('profile')) return this.navIntent('profile');
-            if (cleanText.includes('home')) return this.navIntent('home');
-            if (cleanText.includes('checkout')) return this.navIntent('checkout');
+            if (cleanText.includes('cart')) return this.controlIntent('NAVIGATE', { route: 'Cart' });
+            if (cleanText.includes('order')) return this.controlIntent('NAVIGATE', { route: 'Orders' });
+            if (cleanText.includes('profile')) return this.controlIntent('NAVIGATE', { route: 'Profile' });
+            if (cleanText.includes('home')) return this.controlIntent('NAVIGATE', { route: 'Home' });
+            if (cleanText.includes('checkout')) return this.controlIntent('NAVIGATE', { route: 'Checkout' });
+            if (cleanText.includes('wishlist')) return this.controlIntent('NAVIGATE', { route: 'Wishlist' });
+            if (cleanText.includes('coupon') || cleanText.includes('offer')) return this.controlIntent('OPEN_DRAWER', { type: 'COUPONS' });
         }
 
         // 5. Get Recommendations
@@ -73,7 +87,7 @@ export class BowIntentService {
         }
 
         // 6. Search Intent
-        if (this.matches(cleanText, ['find', 'search', 'look for', 'looking for', 'show', 'need']) && 
+        if (this.matches(cleanText, ['find', 'search', 'look for', 'looking for', 'show', 'need']) &&
             !this.matches(cleanText, ['cart'])) {
             return {
                 intent: 'SEARCH',
@@ -151,14 +165,14 @@ export class BowIntentService {
         let cleaned = text
             .replace(/\b(find|search|look for|looking for|show|show me|need|get me)\b/gi, '')
             .trim();
-        
+
         // Remove common prefixes like "for the", "the", "a", "an"
         cleaned = cleaned
             .replace(/^(show\s+me\s+)/i, '')
             .replace(/^(for\s+the\s+|the\s+|for\s+|a\s+|an\s+)/i, '')
             .replace(/^(me\s+|all\s+)/i, '')
             .trim();
-        
+
         return cleaned || text;
     }
 
@@ -167,7 +181,7 @@ export class BowIntentService {
         const cleaned = text
             .replace(/\b(add|buy|purchase|get|to|my|cart|the)\b/gi, '')
             .trim();
-        
+
         return cleaned || text;
     }
 
@@ -175,7 +189,7 @@ export class BowIntentService {
         try {
             // Clean the query
             const cleanQuery = query.trim().toLowerCase();
-            
+
             // First try: Exact or partial title/description match
             let products = await this.prisma.product.findMany({
                 where: {
@@ -228,7 +242,7 @@ export class BowIntentService {
             // Filter out generic words that match too broadly
             const skipWords = ['all', 'any', 'the', 'best', 'good', 'nice', 'kind', 'type', 'some', 'every'];
             const meaningfulWords = words.filter(w => !skipWords.includes(w));
-            
+
             if (meaningfulWords.length > 0) {
                 for (const word of meaningfulWords) {
                     products = await this.prisma.product.findMany({
@@ -264,11 +278,11 @@ export class BowIntentService {
         }
     }
 
-    private navIntent(page: string): BowIntent {
+    private controlIntent(type: string, params: any): BowIntent {
         return {
-            intent: BowActionType.NAVIGATE,
+            intent: BowActionType.CLIENT_CONTROL,
             confidence: 0.95,
-            entities: { targetPage: page }
+            entities: { payload: { type, params } }
         };
     }
 }

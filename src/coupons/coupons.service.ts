@@ -258,7 +258,11 @@ export class CouponsService {
                 validUntil: dto.validUntil ? new Date(dto.validUntil) : null,
                 usageLimit: dto.usageLimit,
                 isActive: dto.isActive !== undefined ? dto.isActive : true,
-            },
+                vendorId: dto.vendorId, // Optional, set by controller
+                productIds: dto.productIds || [],
+                categoryIds: dto.categoryIds || [],
+                minQuantity: dto.minQuantity
+            } as any,
         });
 
         this.logger.log(`Coupon created with ID: ${coupon.id}`);
@@ -270,15 +274,32 @@ export class CouponsService {
     }
 
     /**
-     * Update coupon (admin)
+     * Get coupons by vendor
      */
-    async updateCoupon(id: string, dto: UpdateCouponDto): Promise<CouponResponseDto> {
+    async getCouponsByVendor(vendorId: string): Promise<CouponResponseDto[]> {
+        const coupons = await this.prisma.coupon.findMany({
+            where: { vendorId } as any,
+            orderBy: { createdAt: 'desc' },
+        });
+
+        return coupons.map((coupon) => this.mapToResponseDto(coupon));
+    }
+
+    /**
+     * Update coupon (admin or vendor)
+     */
+    async updateCoupon(id: string, dto: UpdateCouponDto, vendorId?: string): Promise<CouponResponseDto> {
         // Check if coupon exists
         const existing = await this.prisma.coupon.findUnique({
             where: { id },
         });
 
         if (!existing) {
+            throw new NotFoundException(`Coupon with ID ${id} not found`);
+        }
+
+        // Vendor ownership check
+        if (vendorId && (existing as any).vendorId !== vendorId) {
             throw new NotFoundException(`Coupon with ID ${id} not found`);
         }
 
@@ -294,6 +315,9 @@ export class CouponsService {
                 ...(dto.validUntil && { validUntil: new Date(dto.validUntil) }),
                 ...(dto.usageLimit !== undefined && { usageLimit: dto.usageLimit }),
                 ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+                ...(dto.productIds && { productIds: dto.productIds }),
+                ...(dto.categoryIds && { categoryIds: dto.categoryIds }),
+                ...(dto.minQuantity !== undefined && { minQuantity: dto.minQuantity }),
             },
         });
 
@@ -305,15 +329,20 @@ export class CouponsService {
     }
 
     /**
-     * Delete coupon (admin)
+     * Delete coupon (admin or vendor)
      */
-    async deleteCoupon(id: string): Promise<void> {
+    async deleteCoupon(id: string, vendorId?: string): Promise<void> {
         // Check if coupon exists
         const existing = await this.prisma.coupon.findUnique({
             where: { id },
         });
 
         if (!existing) {
+            throw new NotFoundException(`Coupon with ID ${id} not found`);
+        }
+
+        // Vendor ownership check
+        if (vendorId && (existing as any).vendorId !== vendorId) {
             throw new NotFoundException(`Coupon with ID ${id} not found`);
         }
 
@@ -347,5 +376,72 @@ export class CouponsService {
             isActive: coupon.isActive,
             createdAt: coupon.createdAt,
         };
+    }
+
+    /**
+     * Find best applicable coupon for the user's cart
+     */
+    async findBestCoupon(userId: string, cartTotal: number, cartItems: any[]): Promise<CouponResponseDto | null> {
+        try {
+            // Get all active coupons
+            const coupons = await this.prisma.coupon.findMany({
+                where: {
+                    isActive: true,
+                    validFrom: { lte: new Date() },
+                    OR: [
+                        { validUntil: null },
+                        { validUntil: { gte: new Date() } }
+                    ],
+                    minOrderAmount: { lte: cartTotal }
+                }
+            });
+
+            if (!coupons.length) return null;
+
+            let bestCoupon = null;
+            let maxSavings = 0;
+
+            for (const c of coupons) {
+                const coupon = c as any;
+                // Check usage limit
+                if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) continue;
+
+                // Check Vendor Restriction
+                if (coupon.vendorId) {
+                    const hasVendorItem = cartItems.some((item: any) => item.product?.vendorId === coupon.vendorId);
+                    if (!hasVendorItem) continue;
+                }
+
+                // Check Product Restriction
+                if (coupon.productIds && coupon.productIds.length > 0) {
+                    const hasProduct = cartItems.some((item: any) => coupon.productIds.includes(item.productId));
+                    if (!hasProduct) continue;
+                }
+
+                // Check Category Restriction
+                if (coupon.categoryIds && coupon.categoryIds.length > 0) {
+                    const hasCategory = cartItems.some((item: any) => coupon.categoryIds.includes(item.product?.categoryId));
+                    if (!hasCategory) continue;
+                }
+
+                // Calculate savings
+                const { discountAmount } = this.calculateDiscount(
+                    cartTotal,
+                    coupon.discountType,
+                    coupon.discountValue,
+                    coupon.maxDiscount
+                );
+
+                if (discountAmount > maxSavings) {
+                    maxSavings = discountAmount;
+                    bestCoupon = coupon;
+                }
+            }
+
+            return bestCoupon ? this.mapToResponseDto(bestCoupon) : null;
+        } catch (error) {
+            this.logger.error(`Error finding best coupon: ${error.message}`);
+            return null;
+        }
     }
 }

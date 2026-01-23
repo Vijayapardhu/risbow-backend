@@ -27,13 +27,23 @@ export class ReturnsService {
             throw new BadRequestException('Returns can only be requested for delivered orders');
         }
 
-        const returnNumber = `RET-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const returnNumber = `RET-${Date.now()}-${order.id.slice(-4)}`.toUpperCase();
+
+        // Retrieve vendorId from first item's product
+        const orderItems = Array.isArray(order.items) ? (order.items as any[]) : [];
+        const firstProductId = orderItems[0]?.productId;
+        let vendorId = null;
+        if (firstProductId) {
+            const product = await this.prisma.product.findUnique({ where: { id: firstProductId } });
+            vendorId = product?.vendorId;
+        }
 
         return this.prisma.returnRequest.create({
             data: {
                 returnNumber,
                 userId,
                 orderId: dto.orderId,
+                vendorId,
                 reason: dto.reason,
                 description: dto.description,
                 evidenceImages: dto.evidenceImages || [],
@@ -43,8 +53,9 @@ export class ReturnsService {
                 items: {
                     create: dto.items.map((item) => ({
                         productId: item.productId,
+                        variantId: item.variantId,
                         quantity: item.quantity,
-                        reason: item.reason || dto.reason, // Use item reason or fallback to main reason
+                        reason: item.reason || dto.reason,
                         condition: item.condition,
                     })),
                 },
@@ -53,6 +64,7 @@ export class ReturnsService {
                         status: ReturnStatus.PENDING_APPROVAL,
                         action: 'RETURN_REQUESTED',
                         performedBy: 'CUSTOMER',
+                        actorId: userId,
                         notes: 'Return request submitted by customer',
                     },
                 },
@@ -139,7 +151,10 @@ export class ReturnsService {
                 status: dto.status,
                 updatedAt: new Date(),
                 timeline: {
-                    create: timelineEntry,
+                    create: {
+                        ...timelineEntry,
+                        actorId: adminId,
+                    },
                 },
             },
             include: { timeline: true },
@@ -148,9 +163,7 @@ export class ReturnsService {
         // INVENTORY LOGIC: Phase 6.1 (Restock on QC Pass)
         if (dto.status === ReturnStatus.QC_PASSED && returnReq.status !== ReturnStatus.QC_PASSED) {
             for (const item of returnReq.items) {
-                // Note: ReturnItem currently lacks variantId. Restocking main product stock only.
-                // This acts as a fallback. Future: Add variantId to ReturnItem.
-                await this.inventoryService.restoreStock(item.productId, item.quantity);
+                await this.inventoryService.restoreStock(item.productId, item.quantity, item.variantId || undefined);
             }
         }
 
@@ -189,6 +202,7 @@ export class ReturnsService {
                         status: ReturnStatus.REPLACEMENT_SHIPPED,
                         action: 'REPLACEMENT_DISPATCHED',
                         performedBy: 'ADMIN',
+                        actorId: adminId,
                         notes: `Tracking ID: ${trackingId}`
                     }
                 }

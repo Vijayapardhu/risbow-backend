@@ -37,6 +37,16 @@ import { UserRole } from '@prisma/client';
 @ApiTags('Banners')
 @Controller()
 export class BannersController {
+    /*
+        @Post('admin/banners/resolve-conflicts')
+        @UseGuards(JwtAuthGuard, RolesGuard)
+        @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+        @ApiOperation({ summary: 'Resolve banner slot conflicts (auto-rotation)' })
+        @ApiResponse({ status: 200, description: 'Conflicts resolved and banners rotated' })
+        async resolveBannerConflicts() {
+            return this.bannersService.resolveBannerConflicts();
+        }
+    */
     constructor(private readonly bannersService: BannersService) { }
 
     // ==================== PUBLIC ENDPOINTS ====================

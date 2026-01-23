@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CheckoutDto, ConfirmOrderDto } from './dto/order.dto';
 import { ConfigService } from '@nestjs/config';
@@ -10,6 +10,17 @@ import { CoinSource } from '../coins/dto/coin.dto';
 
 @Injectable()
 export class OrdersService {
+    private readonly logger = new Logger(OrdersService.name);
+
+    /*
+    async requestOrderReturn(orderId: string, userId: string, reason: string) {
+        throw new BadRequestException('Returns not implemented');
+    }
+
+    async requestOrderReplacement(orderId: string, userId: string, reason: string) {
+        throw new BadRequestException('Replacements not implemented');
+    }
+    */
     private razorpay: Razorpay;
 
     constructor(
@@ -67,7 +78,7 @@ export class OrdersService {
     }
 
     async confirmOrder(dto: ConfirmOrderDto) {
-        // 1. Verify Signature
+        // 🔐 P0 FIX 1: ENABLE SIGNATURE VERIFICATION (CRITICAL)
         const crypto = require('crypto');
         const expectedSignature = crypto
             .createHmac('sha256', this.configService.get('RAZORPAY_KEY_SECRET'))
@@ -75,8 +86,8 @@ export class OrdersService {
             .digest('hex');
 
         if (expectedSignature !== dto.razorpaySignature) {
-            console.log('Signature Mismatch:', expectedSignature, dto.razorpaySignature);
-            // throw new BadRequestException('Invalid Payment Signature');
+            this.logger.error(`Payment signature mismatch for order ${dto.razorpayOrderId}`);
+            throw new BadRequestException('Invalid Payment Signature');
         }
 
         // 2. Fetch order with coin usage details
@@ -86,37 +97,86 @@ export class OrdersService {
 
         if (!order) throw new BadRequestException('Order not found');
 
-        // Idempotency: if already confirmed/delivered skip side effects
-        if (order.status === OrderStatus.CONFIRMED || order.status === OrderStatus.DELIVERED) {
-            return { status: 'success', orderId: order.id, message: 'Already confirmed' };
+        // 🔐 P0 FIX 2: EXPANDED IDEMPOTENCY CHECK
+        // Check all final states to prevent duplicate processing
+        const finalStatuses = [OrderStatus.CONFIRMED, OrderStatus.DELIVERED, OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.PACKED];
+        if (finalStatuses.includes(order.status as any)) {
+            return { status: 'success', orderId: order.id, message: `Already processed (${order.status})` };
         }
 
-        const updatedOrder = await this.prisma.order.update({
-            where: { id: order.id },
-            data: { status: OrderStatus.CONFIRMED },
+        // 🔐 P0 FIX 3: ALL CRITICAL OPERATIONS IN SINGLE TRANSACTION
+        const updatedOrder = await this.prisma.$transaction(async (tx) => {
+            // 3a. Update order status FIRST (prevents duplicate processing)
+            const confirmedOrder = await tx.order.update({
+                where: { id: order.id },
+                data: { status: OrderStatus.CONFIRMED },
+            });
+
+            // 3b. Deduct stock for each item
+            const items = Array.isArray(order.items) ? (order.items as any[]) : [];
+            for (const item of items) {
+                if (item.variantId) {
+                    // Variant stock deduction (JSON-based)
+                    const product = await tx.product.findUnique({ where: { id: item.productId } });
+                    if (product) {
+                        const variants = (product.variants as any[]) || [];
+                        const variantIndex = variants.findIndex(v => v.id === item.variantId);
+                        if (variantIndex !== -1) {
+                            variants[variantIndex].stock -= item.quantity;
+                            const newTotalStock = variants.reduce((acc, v) => acc + (v.isActive ? v.stock : 0), 0);
+                            await tx.product.update({
+                                where: { id: item.productId },
+                                data: { variants: variants as any, stock: newTotalStock }
+                            });
+                        }
+                    }
+                } else {
+                    // Base product stock deduction with safety check
+                    const result = await tx.product.updateMany({
+                        where: {
+                            id: item.productId,
+                            stock: { gte: item.quantity }
+                        },
+                        data: {
+                            stock: { decrement: item.quantity }
+                        }
+                    });
+
+                    if (result.count === 0) {
+                        throw new BadRequestException(`Insufficient stock for product ${item.productId}`);
+                    }
+                }
+            }
+
+            // 🔐 P0 FIX 4: ATOMIC COINS DEBIT
+            // Use updateMany to ensure coins only debited once
+            if (order.coinsUsed > 0) {
+                const coinsDebitResult = await tx.order.updateMany({
+                    where: {
+                        id: order.id,
+                        coinsUsedDebited: false
+                    },
+                    data: { coinsUsedDebited: true }
+                });
+
+                // Only debit if we successfully set the flag (atomic check-and-set)
+                if (coinsDebitResult.count === 1) {
+                    await this.coinsService.debit(order.userId, order.coinsUsed, CoinSource.SPEND_ORDER, order.id, tx);
+                }
+            }
+
+            // 3c. Mark Abandoned Checkout as CONVERTED
+            if (order.abandonedCheckoutId) {
+                await tx.abandonedCheckout.update({
+                    where: { id: order.abandonedCheckoutId },
+                    data: { status: 'CONVERTED', agentId: order.agentId }
+                }).catch(e => this.logger.warn(`Failed to update abandoned checkout: ${e.message}`));
+            }
+
+            return confirmedOrder;
         });
 
-        // 2.5 Mark Abandoned Checkout as CONVERTED
-        if (order.abandonedCheckoutId) {
-            await this.prisma.abandonedCheckout.update({
-                where: { id: order.abandonedCheckoutId },
-                data: {
-                    status: 'CONVERTED',
-                    agentId: order.agentId // Ensure attribution is finalized? actually already linked via relation
-                }
-            }).catch(e => console.log("Failed to update status", e));
-        }
-
-        // 3. Debit coins if used and not yet debited
-        if (order.coinsUsed > 0 && !order.coinsUsedDebited) {
-            await this.coinsService.debit(order.userId, order.coinsUsed, CoinSource.SPEND_ORDER, order.id);
-            await this.prisma.order.update({
-                where: { id: order.id },
-                data: { coinsUsedDebited: true },
-            });
-        }
-
-        // 4. Referral credit on first successful order
+        // 4. Referral credit (outside transaction - can retry if fails)
         const user = await this.prisma.user.findUnique({ where: { id: order.userId } });
         if (user?.referredBy) {
             const alreadyCredited = await this.prisma.coinLedger.findFirst({
@@ -124,20 +184,30 @@ export class OrdersService {
             });
             if (!alreadyCredited) {
                 const reward = 100;
-                await Promise.all([
-                    this.coinsService.credit(order.userId, reward, CoinSource.REFERRAL, order.id),
-                    this.coinsService.credit(user.referredBy, reward, CoinSource.REFERRAL, order.id),
-                ]);
+                try {
+                    await Promise.all([
+                        this.coinsService.credit(order.userId, reward, CoinSource.REFERRAL, order.id),
+                        this.coinsService.credit(user.referredBy, reward, CoinSource.REFERRAL, order.id),
+                    ]);
+                } catch (error) {
+                    this.logger.error(`Referral credit failed: ${error.message}`);
+                    // Don't fail order confirmation if referral credit fails
+                }
             }
         }
 
         // 5. Room Logic: If order belongs to a room
         if (order.roomId) {
-            await this.prisma.roomMember.updateMany({
-                where: { roomId: order.roomId, userId: order.userId },
-                data: { status: MemberStatus.ORDERED }
-            });
-            await this.roomsService.checkUnlockStatus(order.roomId);
+            try {
+                await this.prisma.roomMember.updateMany({
+                    where: { roomId: order.roomId, userId: order.userId },
+                    data: { status: MemberStatus.ORDERED }
+                });
+                await this.roomsService.checkUnlockStatus(order.roomId);
+            } catch (error) {
+                this.logger.error(`Room update failed: ${error.message}`);
+                // Don't fail order confirmation if room update fails
+            }
         }
 
         return { status: 'success', orderId: updatedOrder.id };

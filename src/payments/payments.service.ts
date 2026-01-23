@@ -50,6 +50,14 @@ export class PaymentsService {
             throw new BadRequestException('Order is already paid');
         }
 
+        // 🔐 P0 FIX: AMOUNT VERIFICATION
+        // Verify client-provided amount matches server-calculated order total
+        const expectedAmount = order.totalAmount * 100; // Convert to paise
+        if (amount !== expectedAmount) {
+            this.logger.error(`Amount mismatch for order ${orderId}. Expected: ${expectedAmount}, Got: ${amount}`);
+            throw new BadRequestException(`Amount mismatch. Expected: ₹${order.totalAmount}, Got: ₹${amount / 100}`);
+        }
+
         // 2. Create Razorpay Order
         let razorpayOrder;
         try {
@@ -263,15 +271,9 @@ export class PaymentsService {
             throw new InternalServerErrorException('Failed to generate payment order');
         }
     }
-    async processRefund(paymentId: string, amount: number, notes?: any) {
+    async processRefund(paymentId: string, amount: number, adminId?: string, notes?: any) {
         try {
             // Fetch payment to get providerOrderId or paymentId (razorpay_payment_id)
-            // The `paymentId` arg here refers to our internal DB ID or the Razorpay ID?
-            // Let's assume it refers to our internal DB Payment ID for consistency, or we pass the razorpay_payment_id directly.
-            // Looking at usage plan: RefundsService calls this.
-            // Let's expect internal Payment entity or ID. 
-            // Better: expect internal Payment ID, fetch it, then use provider's ID.
-
             const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
             if (!payment) throw new NotFoundException('Payment record not found');
             if (!payment.paymentId) throw new BadRequestException('Payment was not completed (no provider payment ID)');
@@ -281,6 +283,24 @@ export class PaymentsService {
                 notes: notes,
                 speed: 'normal'
             });
+
+            // 🔐 P0 FIX: ADD AUDIT LOGGING FOR REFUNDS
+            if (adminId) {
+                await this.prisma.auditLog.create({
+                    data: {
+                        adminId,
+                        entity: 'PAYMENT',
+                        entityId: paymentId,
+                        action: 'REFUND_PROCESSED',
+                        details: {
+                            refundId: refund.id,
+                            amount: amount,
+                            notes: notes,
+                            status: refund.status
+                        }
+                    }
+                }).catch(err => this.logger.error(`Audit log failed: ${err.message}`));
+            }
 
             return {
                 refundId: refund.id,

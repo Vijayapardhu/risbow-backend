@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../shared/redis.service';
 import { AddCartItemDto, UpdateCartItemDto, SyncCartDto } from './dto/cart.dto';
 import { Prisma } from '@prisma/client';
 
@@ -7,7 +8,30 @@ import { Prisma } from '@prisma/client';
 export class CartService {
     private readonly logger = new Logger(CartService.name);
 
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private redis: RedisService) { }
+
+    // 🔐 P0 FIX: PROPER REDIS CART LOCKING
+    private async lockCart(userId: string): Promise<boolean> {
+        if (!this.redis) throw new Error('RedisService not injected');
+        const key = `cart:lock:${userId}`;
+
+        // Use SETNX (SET if Not eXists) for atomic lock acquisition
+        const locked = await this.redis.setnx(key, '1');
+
+        if (locked) {
+            // Set expiry to prevent deadlocks (10 seconds)
+            await this.redis.expire(key, 10);
+            return true;
+        }
+
+        return false;
+    }
+
+    private async unlockCart(userId: string): Promise<void> {
+        if (!this.redis) throw new Error('RedisService not injected');
+        const key = `cart:lock:${userId}`;
+        await this.redis.del(key);
+    }
 
     private async getCartWithItems(userId: string) {
         return this.prisma.cart.findUnique({
@@ -56,7 +80,7 @@ export class CartService {
         // I must handle this.
 
         const enrichedItems = await Promise.all(cart.items.map(async (item) => {
-            let price = item.product.price; 
+            let price = item.product.price;
             let stock = item.product.stock;
             // No need to redeclare title/image if unused or use item.product directly
 
@@ -64,7 +88,7 @@ export class CartService {
             if (item.variantId) {
                 const variants = (item.product.variants as any[]) || [];
                 const variant = variants.find(v => v.id === item.variantId);
-                
+
                 if (variant) {
                     price = variant.offerPrice || variant.price || variant.sellingPrice || price;
                     stock = variant.stock;
@@ -77,7 +101,7 @@ export class CartService {
                 ...item,
                 price,
                 subtotal: price * item.quantity,
-                stock, 
+                stock,
                 isStockAvailable: stock >= item.quantity
             };
         }));
@@ -121,123 +145,179 @@ export class CartService {
     }
 
     async addItem(userId: string, dto: AddCartItemDto) {
-        const { productId, variantId, quantity } = dto;
-
-        // 1. Verify Product & Variant + Stock
-        const product = await this.prisma.product.findUnique({ where: { id: productId } });
-        if (!product) throw new NotFoundException('Product not found');
-
-        // Validation Rules
-        this.validateQuantityRules(product, quantity);
-
-        let price = product.offerPrice || product.price;
-        let availableStock = product.stock;
-
-        // JSON Variation Logic
-        if (variantId) {
-            const variant = this.getVariant(product, variantId);
-            if (!variant) throw new NotFoundException('Variant not found');
-
-            // Checking if variant belongs is implicit by look up in product.variants
-            price = variant.offerPrice || variant.price || variant.sellingPrice || price; // Fallback structure
-            availableStock = variant.stock;
+        // 🔐 P0 FIX: Acquire cart lock to prevent race conditions
+        const locked = await this.lockCart(userId);
+        if (!locked) {
+            throw new BadRequestException('Cart is being modified. Please retry.');
         }
 
-        if (availableStock < quantity) {
-            throw new BadRequestException(`Insufficient stock. Available: ${availableStock}`);
-        }
+        try {
+            const { productId, variantId, quantity } = dto;
 
-        // 2. Upsert Cart
-        let cart = await this.prisma.cart.findUnique({ where: { userId } });
-        if (!cart) {
-            cart = await this.prisma.cart.create({ data: { userId } });
-        }
+            // 1. Verify Product & Variant + Stock
+            const product = await this.prisma.product.findUnique({ where: { id: productId } });
+            if (!product) throw new NotFoundException('Product not found');
 
-        // 3. Check existing item
-        const existingItem = await this.prisma.cartItem.findFirst({
-            where: {
-                cartId: cart.id,
-                productId,
-                variantId: variantId || null
+            // Validation Rules
+            this.validateQuantityRules(product, quantity);
+
+            let price = product.offerPrice || product.price;
+            let availableStock = product.stock;
+
+            // JSON Variation Logic
+            if (variantId) {
+                const variant = this.getVariant(product, variantId);
+                if (!variant) throw new NotFoundException('Variant not found');
+
+                // Checking if variant belongs is implicit by look up in product.variants
+                price = variant.offerPrice || variant.price || variant.sellingPrice || price; // Fallback structure
+                availableStock = variant.stock;
             }
-        });
 
-        if (existingItem) {
-            const newQuantity = existingItem.quantity + quantity;
-
-            // Re-validate rules for merged quantity? 
-            // Usually step size applies to TOTAL.
-            this.validateQuantityRules(product, newQuantity);
-
-            if (availableStock < newQuantity) {
-                throw new BadRequestException(`Insufficient stock for total quantity. Available: ${availableStock}`);
+            if (availableStock < quantity) {
+                throw new BadRequestException(`Insufficient stock. Available: ${availableStock}`);
             }
-            await this.prisma.cartItem.update({
-                where: { id: existingItem.id },
-                data: { quantity: newQuantity }
-            });
-        } else {
-            await this.prisma.cartItem.create({
-                data: {
+
+            // 2. Upsert Cart
+            let cart = await this.prisma.cart.findUnique({ where: { userId } });
+            if (!cart) {
+                cart = await this.prisma.cart.create({ data: { userId } });
+            }
+
+            // 3. Check existing item
+            const existingItem = await this.prisma.cartItem.findFirst({
+                where: {
                     cartId: cart.id,
                     productId,
-                    variantId,
-                    quantity
+                    variantId: variantId || null
                 }
             });
-        }
 
-        return this.getCart(userId);
+            if (existingItem) {
+                const newQuantity = existingItem.quantity + quantity;
+
+                // Re-validate rules for merged quantity? 
+                // Usually step size applies to TOTAL.
+                this.validateQuantityRules(product, newQuantity);
+
+                if (availableStock < newQuantity) {
+                    throw new BadRequestException(`Insufficient stock for total quantity. Available: ${availableStock}`);
+                }
+                await this.prisma.cartItem.update({
+                    where: { id: existingItem.id },
+                    data: { quantity: newQuantity }
+                });
+            } else {
+                await this.prisma.cartItem.create({
+                    data: {
+                        cartId: cart.id,
+                        productId,
+                        variantId,
+                        quantity
+                    }
+                });
+            }
+
+            // --- ENTERPRISE: Cart Intelligence ---
+            this.updateCartInsights(userId, cart.id, product.categoryId).catch(err =>
+                this.logger.error(`Insight Error: ${err.message}`)
+            );
+            // -------------------------------------
+
+            return this.getCart(userId);
+        } finally {
+            // 🔐 P0 FIX: Always release lock
+            await this.unlockCart(userId);
+        }
     }
 
     async updateItem(userId: string, itemId: string, dto: UpdateCartItemDto) {
-        const cart = await this.prisma.cart.findUnique({ where: { userId } });
-        if (!cart) throw new NotFoundException('Cart not found');
-
-        const item = await this.prisma.cartItem.findUnique({
-            where: { id: itemId },
-            include: { product: true }
-        });
-
-        if (!item || item.cartId !== cart.id) {
-            throw new NotFoundException('Cart item not found');
+        // 🔐 P0 FIX: Acquire cart lock to prevent race conditions
+        const locked = await this.lockCart(userId);
+        if (!locked) {
+            throw new BadRequestException('Cart is being modified. Please retry.');
         }
 
-        // Validate Rules
-        this.validateQuantityRules(item.product, dto.quantity);
+        try {
+            const cart = await this.prisma.cart.findUnique({ where: { userId } });
+            if (!cart) throw new NotFoundException('Cart not found');
 
-        // Stock Validation
-        let availableStock = item.product.stock;
+            const item = await this.prisma.cartItem.findUnique({
+                where: { id: itemId },
+                include: { product: true }
+            });
 
-        if (item.variantId) {
-            const variant = this.getVariant(item.product, item.variantId);
-            if (variant) availableStock = variant.stock;
+            if (!item || item.cartId !== cart.id) {
+                throw new NotFoundException('Cart item not found');
+            }
+
+            // Validate Rules
+            this.validateQuantityRules(item.product, dto.quantity);
+
+            // Stock Validation
+            let availableStock = item.product.stock;
+
+            if (item.variantId) {
+                const variant = this.getVariant(item.product, item.variantId);
+                if (variant) availableStock = variant.stock;
+            }
+
+            if (availableStock < dto.quantity) {
+                throw new BadRequestException(`Insufficient stock. Available: ${availableStock}`);
+            }
+
+            await this.prisma.cartItem.update({
+                where: { id: itemId },
+                data: { quantity: dto.quantity }
+            });
+
+            // --- ENTERPRISE: Cart Intelligence ---
+            this.updateCartInsights(userId, cart.id, item.product.categoryId).catch(err =>
+                this.logger.error(`Insight Error: ${err.message}`)
+            );
+            // -------------------------------------
+
+            return this.getCart(userId);
+        } finally {
+            // 🔐 P0 FIX: Always release lock
+            await this.unlockCart(userId);
         }
-
-        if (availableStock < dto.quantity) {
-            throw new BadRequestException(`Insufficient stock. Available: ${availableStock}`);
-        }
-
-        await this.prisma.cartItem.update({
-            where: { id: itemId },
-            data: { quantity: dto.quantity }
-        });
-
-        return this.getCart(userId);
     }
 
     async removeItem(userId: string, itemId: string) {
-        const cart = await this.prisma.cart.findUnique({ where: { userId } });
-        if (!cart) throw new NotFoundException('Cart not found');
-
-        // Verify ownership indirectly by checking cartId matches
-        const item = await this.prisma.cartItem.findUnique({ where: { id: itemId } });
-        if (!item || item.cartId !== cart.id) {
-            throw new NotFoundException('Cart item not found');
+        // 🔐 P0 FIX: Acquire cart lock to prevent race conditions
+        const locked = await this.lockCart(userId);
+        if (!locked) {
+            throw new BadRequestException('Cart is being modified. Please retry.');
         }
 
-        await this.prisma.cartItem.delete({ where: { id: itemId } });
-        return this.getCart(userId);
+        try {
+            const cart = await this.prisma.cart.findUnique({ where: { userId } });
+            if (!cart) throw new NotFoundException('Cart not found');
+
+            // Verify ownership indirectly by checking cartId matches
+            const item = await this.prisma.cartItem.findUnique({ where: { id: itemId } });
+            if (!item || item.cartId !== cart.id) {
+                throw new NotFoundException('Cart item not found');
+            }
+
+            await this.prisma.cartItem.delete({ where: { id: itemId } });
+
+            // --- ENTERPRISE: Cart Intelligence ---
+            // item.product might be unavailable if we didn't fetch it before delete, 
+            // but item verification fetched it? No, findUnique item only. 
+            // Need to check line 251. It does NOT include product.
+            // So updateCartInsights only gets cartId. 
+            this.updateCartInsights(userId, cart.id).catch(err =>
+                this.logger.error(`Insight Error: ${err.message}`)
+            );
+            // -------------------------------------
+
+            return this.getCart(userId);
+        } finally {
+            // 🔐 P0 FIX: Always release lock
+            await this.unlockCart(userId);
+        }
     }
 
     async clearCart(userId: string) {
@@ -341,5 +421,72 @@ export class CartService {
             })),
             totalAmount: cartData.totalAmount
         };
+    }
+
+    // --- ENTERPRISE: Cart Intelligence Engine ---
+    private async updateCartInsights(userId: string, cartId: string, currentActionCategoryId?: string) {
+        try {
+            const cart = await this.prisma.cart.findUnique({
+                where: { id: cartId },
+                include: { items: { include: { product: true } } }
+            });
+
+            if (!cart || cart.items.length === 0) return;
+
+            const totalValue = cart.items.reduce((sum, item) => sum + (item.product.offerPrice || item.product.price) * item.quantity, 0);
+            const itemCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+
+            // Analyze Categories
+            const categories = [...new Set(cart.items.map(i => i.product.categoryId))];
+
+            // Determine Pattern
+            let pattern = 'NORMAL';
+            if (itemCount === 1) pattern = 'SINGLE_ITEM';
+            else if (totalValue > 10000) pattern = 'HIGH_VALUE';
+            else if (categories.length > 2) pattern = 'VARIETY_SHOPPER';
+            else if (categories.length === 1 && itemCount > 2) pattern = 'FOCUSED_BUYER';
+            else if (itemCount > 5) pattern = 'BULK_POTENTIAL';
+
+            // Calculate Hesitation (Time since last insight update or cart update)
+            const lastInsight = await (this.prisma as any).cartInsight.findFirst({
+                where: { userId },
+                orderBy: { triggeredAt: 'desc' }
+            });
+
+            let hesitationScore = 0;
+            if (lastInsight) {
+                const diffMs = Date.now() - (lastInsight as any).triggeredAt.getTime();
+                hesitationScore = diffMs / (1000 * 60); // Minutes since last action
+            }
+
+            // Calculate Abandon Risk (0.0 to 1.0)
+            let risk = 0.1; // Base risk
+            if (hesitationScore > 10) risk += 0.3; // Idle > 10 mins
+            if (hesitationScore > 30) risk += 0.4; // Idle > 30 mins
+            if (totalValue > 5000) risk += 0.2; // High stakes
+            if (pattern === 'SINGLE_ITEM') risk += 0.1; // Easy to abandon
+
+            await (this.prisma as any).cartInsight.create({
+                data: {
+                    userId,
+                    cartValue: totalValue,
+                    itemCount,
+                    categories,
+                    cartPattern: pattern,
+                    hesitationScore,
+                    abandonRisk: Math.min(risk, 1.0),
+                    type: 'HESITATION',
+                    severity: risk > 0.7 ? 'HIGH' : risk > 0.4 ? 'MEDIUM' : 'LOW'
+                }
+            });
+
+            // Trigger Bow Strategy if Risk is High
+            if (risk > 0.7) {
+                this.logger.warn(`High Abandon Risk (${risk}) detected for User ${userId}`);
+            }
+
+        } catch (error) {
+            console.error('Cart Insight Failed', error);
+        }
     }
 }

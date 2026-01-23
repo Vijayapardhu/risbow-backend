@@ -10,6 +10,12 @@ import { CreditCoinDto, DebitCoinDto, CoinSource } from './dto/coin.dto';
 @Controller('coins')
 @UseGuards(JwtAuthGuard)
 export class CoinsController {
+        @Post('expire-cron')
+        @UseGuards(RolesGuard)
+        @Roles('ADMIN', 'SUPER_ADMIN')
+        async expireCoinsCron() {
+            return this.coinsService.expireCoinsCron();
+        }
     constructor(private readonly coinsService: CoinsService) { }
 
     @Post('credit')

@@ -1,9 +1,12 @@
-import { ForbiddenException, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { RoomStatus, MemberStatus, OrderStatus } from '@prisma/client';
 import { RoomsGateway } from './rooms.gateway';
-import { RedisService } from '../shared/redis.service'; // Fix path to match shared module
+import { RedisService } from '../shared/redis.service';
+import { ConfigService } from '@nestjs/config';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { AuditLogService } from '../audit/audit.service';
 
 @Injectable()
 export class RoomsService {
@@ -11,21 +14,55 @@ export class RoomsService {
         private prisma: PrismaService,
         private roomsGateway: RoomsGateway,
         private redis: RedisService,
+        private config: ConfigService,
+        private audit: AuditLogService,
     ) { }
 
+    async getRoomProgress(roomId: string) {
+        const room = await this.prisma.room.findUnique({ where: { id: roomId } });
+        if (!room) throw new NotFoundException('Room not found');
+        const stats = await this.prisma.order.aggregate({
+            where: { roomId, status: { in: ['CONFIRMED', 'DELIVERED', 'SHIPPED', 'PACKED', 'PAID'] } },
+            _count: { id: true },
+            _sum: { totalAmount: true }
+        });
+        return {
+            orderedCount: stats._count.id,
+            totalOrderValue: stats._sum.totalAmount || 0,
+            unlockMinOrders: room.unlockMinOrders,
+            unlockMinValue: room.unlockMinValue,
+            unlocked: room.status === 'UNLOCKED',
+        };
+    }
+
+    async getRoomCountdown(roomId: string) {
+        const room = await this.prisma.room.findUnique({ where: { id: roomId } });
+        if (!room) throw new NotFoundException('Room not found');
+        const now = new Date();
+        const endAt = new Date(room.endAt);
+        const msLeft = endAt.getTime() - now.getTime();
+        return {
+            endsAt: endAt,
+            msLeft: msLeft > 0 ? msLeft : 0,
+            secondsLeft: msLeft > 0 ? Math.floor(msLeft / 1000) : 0,
+        };
+    }
 
     async create(userId: string, dto: CreateRoomDto) {
-        // SRS 1.6: Check active offer window
+        const minSize = this.config.get<number>('ROOM_MIN_SIZE', 2);
+        const maxSize = this.config.get<number>('ROOM_MAX_SIZE', 10);
+
+        if (dto.size < minSize || dto.size > maxSize) {
+            throw new BadRequestException(`Room size must be between ${minSize} and ${maxSize} members`);
+        }
+
         const activeOffer = await this.prisma.weeklyOffer.findFirst({
-            where: {
-                isActive: true,
-                endAt: { gt: new Date() }
-            },
+            where: { isActive: true, endAt: { gt: new Date() } },
             orderBy: { createdAt: 'desc' }
         });
 
         if (!activeOffer) {
-            throw new BadRequestException('No active Weekly Offer available to start a room. Please wait for the next drop!');
+            throw new BadRequestException('No active Weekly Offer available to start a room.');
         }
 
         const room = await this.prisma.room.create({
@@ -38,7 +75,6 @@ export class RoomsService {
                 createdById: userId,
                 isSystemRoom: false,
                 startAt: new Date(),
-                // End at 7 days or Offer End, whichever is sooner? usually 7 days for room
                 endAt: activeOffer.endAt,
                 members: {
                     create: {
@@ -47,115 +83,155 @@ export class RoomsService {
                     },
                 },
             },
-            include: {
-                members: true,
-            },
+            include: { members: true },
         });
 
+        await this.addActivity(room.id, 'MEMBER_JOINED', `Host ${userId} created the room!`, { userId });
         return room;
     }
 
     async join(roomId: string, userId: string) {
-        const room = await this.prisma.room.findUnique({
-            where: { id: roomId },
-            include: { members: true },
-        });
+        return await this.prisma.$transaction(async (tx) => {
+            const room = await tx.room.findUnique({
+                where: { id: roomId },
+                include: { members: { where: { userId } } }
+            });
 
-        if (!room) throw new NotFoundException('Room not found');
-        if (room.status !== RoomStatus.LOCKED && room.status !== RoomStatus.ACTIVE) {
-            throw new ForbiddenException('Room is not active or locked');
-        }
-        if (room.members.length >= room.size) {
-            throw new ForbiddenException('Room is full');
-        }
+            if (!room) throw new NotFoundException('Room not found');
+            if (room.status !== RoomStatus.LOCKED && room.status !== RoomStatus.ACTIVE) {
+                throw new ForbiddenException('Room is not active or locked');
+            }
+            if (room.members.length > 0) {
+                return { message: 'Already joined', member: room.members[0] };
+            }
 
-        const existing = room.members.find(m => m.userId === userId);
-        if (existing) return { message: 'Already joined', member: existing };
+            const updated = await tx.room.updateMany({
+                where: {
+                    id: roomId,
+                    memberCount: { lt: room.size },
+                    status: { in: [RoomStatus.ACTIVE, RoomStatus.LOCKED] }
+                },
+                data: { memberCount: { increment: 1 } }
+            });
 
-        const member = await this.prisma.roomMember.create({
-            data: {
-                roomId,
+            if (updated.count === 0) {
+                throw new ForbiddenException('Room is full or no longer active');
+            }
+
+            const member = await tx.roomMember.create({
+                data: {
+                    roomId,
+                    userId,
+                    status: MemberStatus.PENDING,
+                },
+            });
+
+            this.roomsGateway.server.to(roomId).emit('room_update', {
+                type: 'MEMBER_JOINED',
                 userId,
-                status: MemberStatus.PENDING,
-            },
-        });
+                count: room.memberCount + 1,
+            });
 
-        // Notify others via WebSocket
-        this.roomsGateway.server.to(roomId).emit('room_update', {
-            type: 'MEMBER_JOINED',
-            userId,
-            count: room.members.length + 1,
-        });
+            await this.addActivity(roomId, 'MEMBER_JOINED', `User ${userId} joined the hunt!`, { userId });
 
-        return member;
+            return member;
+        });
     }
 
     async checkUnlockStatus(roomId: string) {
-        // Robust Check: Count distinct users who ordered? Or Orders?
+        return await this.prisma.$transaction(async (tx) => {
+            const room = await tx.room.findUnique({ where: { id: roomId } });
+            if (!room || room.status === 'UNLOCKED' || room.status === 'EXPIRED') {
+                return { orderedCount: 0, totalOrderValue: 0, unlocked: room?.status === 'UNLOCKED' };
+            }
 
-        const room = await this.prisma.room.findUnique({ where: { id: roomId } });
-        if (!room || room.status === 'UNLOCKED' || room.status === 'EXPIRED') return;
-
-        const stats = await this.prisma.order.aggregate({
-            where: {
-                roomId,
-                status: { in: ['CONFIRMED', 'DELIVERED', 'SHIPPED', 'PACKED'] }
-            },
-            _count: { id: true },
-            _sum: { totalAmount: true }
-        });
-
-        const orderedCount = stats._count.id;
-        const totalOrderValue = stats._sum.totalAmount || 0;
-
-        // Unlock Condition
-        if (orderedCount >= room.unlockMinOrders && totalOrderValue >= room.unlockMinValue) {
-            // UNLOCK
-            await this.prisma.room.update({
-                where: { id: roomId },
-                data: { status: 'UNLOCKED' }
+            const stats = await tx.order.aggregate({
+                where: {
+                    roomId,
+                    status: { in: ['CONFIRMED', 'DELIVERED', 'SHIPPED', 'PACKED', 'PAID'] }
+                },
+                _count: { id: true },
+                _sum: { totalAmount: true }
             });
 
-            const message = `Congratulation! Room unlocked with ${orderedCount} orders and ₹${totalOrderValue} value!`;
-            await this.addActivity(roomId, 'UNLOCK', message);
-        } else {
-            // Progress update?
-        }
+            const orderedCount = stats._count.id;
+            const totalOrderValue = stats._sum.totalAmount || 0;
 
-        return { orderedCount, totalOrderValue, unlocked: orderedCount >= room.unlockMinOrders && totalOrderValue >= room.unlockMinValue };
+            if (orderedCount >= room.unlockMinOrders && totalOrderValue >= room.unlockMinValue) {
+                const result = await tx.room.updateMany({
+                    where: { id: roomId, status: { not: 'UNLOCKED' } },
+                    data: { status: 'UNLOCKED' }
+                });
+
+                if (result.count > 0) {
+                    const message = `Congratulations! Room unlocked with ${orderedCount} orders and ₹${totalOrderValue / 100} value!`;
+                    await this.addActivity(roomId, 'ROOM_UNLOCKED', message);
+
+                    await this.audit.logAdminAction('SYSTEM', 'ROOM_UNLOCK', 'Room', roomId, {
+                        orders: orderedCount,
+                        value: totalOrderValue
+                    });
+
+                    this.roomsGateway.server.to(roomId).emit('room_update', {
+                        type: 'ROOM_UNLOCKED',
+                        status: 'UNLOCKED',
+                        orderedCount,
+                        totalOrderValue
+                    });
+
+                    await this.onRoomUnlocked(roomId);
+                }
+            }
+
+            return { orderedCount, totalOrderValue, unlocked: orderedCount >= room.unlockMinOrders && totalOrderValue >= room.unlockMinValue };
+        });
     }
 
     async linkOrder(roomId: string, userId: string, orderId: string) {
-        const room = await this.prisma.room.findUnique({
-            where: { id: roomId },
-            include: { members: true }
+        return await this.prisma.$transaction(async (tx) => {
+            const room = await tx.room.findUnique({
+                where: { id: roomId },
+                include: { members: true }
+            });
+            if (!room) throw new NotFoundException('Room not found');
+
+            const member = room.members.find(m => m.userId === userId);
+            if (!member) throw new ForbiddenException('You are not a member of this room');
+
+            const order = await tx.order.findUnique({ where: { id: orderId } });
+            if (!order) throw new NotFoundException('Order not found');
+            if (order.userId !== userId) throw new ForbiddenException('Order does not belong to you');
+            if (order.roomId) throw new BadRequestException('Order already linked to a room');
+
+            const orderDate = new Date(order.createdAt);
+            if (orderDate < new Date(room.startAt) || orderDate > new Date(room.endAt)) {
+                throw new BadRequestException('Order must be within room timeframe');
+            }
+
+            const offer = await tx.weeklyOffer.findUnique({ where: { id: room.offerId } });
+            const rules = offer?.rules as any;
+            if (rules?.eligibleProductIds) {
+                const orderItems = order.items as any[];
+                const allEligible = orderItems.every(item => rules.eligibleProductIds.includes(item.productId));
+                if (!allEligible) throw new BadRequestException('Order contains products not eligible for this room offer');
+            }
+
+            await tx.order.update({
+                where: { id: orderId },
+                data: { roomId }
+            });
+
+            await tx.roomMember.update({
+                where: { roomId_userId: { roomId, userId } },
+                data: { status: MemberStatus.ORDERED }
+            });
+
+            await this.addActivity(roomId, 'ORDER_PLACED', `Someone just added ₹${order.totalAmount / 100} to the unlock goal!`, { orderId, userId });
+
+            await this.checkUnlockStatus(roomId);
+
+            return { message: 'Order linked successfully' };
         });
-        if (!room) throw new NotFoundException('Room not found');
-
-        const member = room.members.find(m => m.userId === userId);
-        if (!member) throw new ForbiddenException('You are not a member of this room');
-
-        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-        if (!order) throw new NotFoundException('Order not found');
-        if (order.userId !== userId) throw new ForbiddenException('Order does not belong to you');
-        if (order.roomId) throw new BadRequestException('Order already linked to a room');
-
-        // Update Order
-        await this.prisma.order.update({
-            where: { id: orderId },
-            data: { roomId }
-        });
-
-        // Update Member Status
-        await this.prisma.roomMember.update({
-            where: { roomId_userId: { roomId, userId } },
-            data: { status: MemberStatus.ORDERED }
-        });
-
-        // Check Unlock
-        await this.checkUnlockStatus(roomId);
-
-        return { message: 'Order linked successfully' };
     }
 
     async forceUnlock(roomId: string) {
@@ -173,28 +249,82 @@ export class RoomsService {
             forced: true
         });
 
+        await this.onRoomUnlocked(roomId);
+
         return updated;
+    }
+
+    private async onRoomUnlocked(roomId: string) {
+        const upsellKey = `room:upsell:${roomId}`;
+        await this.redis.set(upsellKey, 'ACTIVE', 600); // 10 min
+
+        await this.addActivity(roomId, 'UPSELL_WINDOW_STARTED', 'Flash Deal Window Started! ⚡ 10 minutes to grab accessories at 50% off!');
+
+        this.roomsGateway.server.to(roomId).emit('room_update', {
+            type: 'UPSELL_WINDOW_STARTED',
+            endsInSeconds: 600
+        });
     }
 
     async expireRoom(roomId: string) {
-        const room = await this.prisma.room.findUnique({ where: { id: roomId } });
-        if (!room) throw new NotFoundException('Room not found');
+        return this.prisma.$transaction(async (tx) => {
+            const room = await tx.room.findUnique({ where: { id: roomId } });
+            if (!room || room.status === RoomStatus.EXPIRED) return room;
 
-        const updated = await this.prisma.room.update({
-            where: { id: roomId },
-            data: { status: RoomStatus.EXPIRED }
+            const updated = await tx.room.update({
+                where: { id: roomId },
+                data: { status: RoomStatus.EXPIRED }
+            });
+
+            const offer = await tx.weeklyOffer.findUnique({ where: { id: room.offerId } });
+            const rules = offer?.rules as any;
+
+            if (rules?.onExpiry === 'CANCEL_ORDERS' && room.status !== RoomStatus.UNLOCKED) {
+                await tx.order.updateMany({
+                    where: { roomId, status: { notIn: [OrderStatus.PAID, OrderStatus.DELIVERED, OrderStatus.SHIPPED] } },
+                    data: { status: OrderStatus.CANCELLED }
+                });
+            }
+
+            this.roomsGateway.server.to(roomId).emit('room_update', {
+                type: 'EXPIRED',
+                status: RoomStatus.EXPIRED,
+                forced: true
+            });
+
+            await tx.auditLog.create({
+                data: {
+                    adminId: 'SYSTEM',
+                    entity: 'Room',
+                    action: 'EXPIRE',
+                    entityId: roomId,
+                    details: { finalStatus: room.status, memberCount: room.memberCount }
+                }
+            });
+
+            return updated;
         });
-
-        this.roomsGateway.server.to(roomId).emit('room_update', {
-            type: 'EXPIRED',
-            status: RoomStatus.EXPIRED,
-            forced: true
-        });
-
-        return updated;
     }
 
-    // Activity Feed (Redis)
+    @Cron(CronExpression.EVERY_10_MINUTES)
+    async handleExpiredRooms() {
+        const expired = await this.prisma.room.findMany({
+            where: {
+                endAt: { lt: new Date() },
+                status: { in: [RoomStatus.ACTIVE, RoomStatus.LOCKED] }
+            },
+            select: { id: true }
+        });
+
+        for (const room of expired) {
+            try {
+                await this.expireRoom(room.id);
+            } catch (e) {
+                console.error(`Failed to expire room ${room.id}`, e);
+            }
+        }
+    }
+
     async addActivity(roomId: string, type: string, message: string, meta?: any) {
         const key = `room:feed:${roomId}`;
         const activity = {
@@ -204,15 +334,19 @@ export class RoomsService {
             timestamp: new Date().toISOString(),
             meta
         };
-        // LPush to Keep latest first
         await this.redis.lpush(key, JSON.stringify(activity));
-        // Trim to keep last 50
-        await this.redis.ltrim(key, 0, 49);
+        await this.redis.ltrim(key, 0, 99);
     }
 
-    async getFeed(roomId: string) {
+    async getFeed(roomId: string, page: number = 1, limit: number = 20) {
         const key = `room:feed:${roomId}`;
-        const items = await this.redis.lrange(key, 0, -1);
-        return items.map(i => JSON.parse(i));
+        const start = (page - 1) * limit;
+        const stop = start + limit - 1;
+        const items = await this.redis.lrange(key, start, stop);
+        return {
+            items: items.map(i => JSON.parse(i)),
+            page,
+            limit
+        };
     }
 }

@@ -28,6 +28,11 @@ export class CreateRefundRequestDto {
     @Min(1)
     amount?: number;
 
+    @ApiPropertyOptional({ description: 'The return request ID triggering this refund' })
+    @IsOptional()
+    @IsString()
+    returnId?: string;
+
     @ApiPropertyOptional({ enum: RefundMethod, default: RefundMethod.ORIGINAL_PAYMENT })
     @IsOptional()
     @IsEnum(RefundMethod)

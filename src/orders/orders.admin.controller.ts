@@ -1,12 +1,10 @@
-import { Controller, Get, Patch, Query, Param, Body, UseGuards, Request } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Patch, Query, Param, Body, UseGuards } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { OrderStatus } from '@prisma/client';
 
-@ApiTags('Admin')
 @Controller('admin/orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'SUPER_ADMIN')
@@ -36,10 +34,8 @@ export class OrdersAdminController {
     @Patch(':id/status')
     async updateStatus(
         @Param('id') id: string,
-        @Body('status') status: any,
-        @Body('notes') notes: string,
-        @Request() req
+        @Body('status') status: OrderStatus
     ) {
-        return this.ordersService.updateOrderStatus(id, status, req.user.id, req.user.role, notes);
+        return this.ordersService.updateOrderStatus(id, status);
     }
 }

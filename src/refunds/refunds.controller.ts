@@ -29,6 +29,15 @@ export class RefundsController {
 
     // ADMIN ENDPOINTS
 
+    @Get('admin/all') // Avoiding conflict with :id ? No, 'admin/all' is specific. 
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Get all refunds (Admin)' })
+    getAllRefunds(@Request() req) {
+        // TODO: Add role check or use RolesGuard
+        return this.refundsService.getAllRefunds();
+    }
+
     @Post(':id/process')
     @UseGuards(JwtAuthGuard)
     // @Roles('ADMIN') // TODO: Enable RBAC

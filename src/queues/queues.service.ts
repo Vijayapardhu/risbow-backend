@@ -27,6 +27,13 @@ export interface CleanupJob {
     type: 'expiredBanners' | 'expiredCoupons' | 'abandonedCheckouts';
 }
 
+export interface CartIntelligenceJob {
+    userId: string;
+    trigger: 'cart_update' | 'checkout_view' | 'manual';
+    cartValue?: number;
+    itemCount?: number;
+}
+
 @Injectable()
 export class QueuesService {
     private readonly logger = new Logger(QueuesService.name);
@@ -36,6 +43,7 @@ export class QueuesService {
         @InjectQueue('notifications') private notificationsQueue: Queue,
         @InjectQueue('orders') private ordersQueue: Queue,
         @InjectQueue('cleanup') private cleanupQueue: Queue,
+        @InjectQueue('cart-intelligence') private cartIntelligenceQueue: Queue,
     ) { }
 
     /**
@@ -108,14 +116,35 @@ export class QueuesService {
     }
 
     /**
+     * Add cart intelligence analysis job to queue
+     */
+    async addCartIntelligence(job: CartIntelligenceJob): Promise<void> {
+        try {
+            await this.cartIntelligenceQueue.add('analyze-cart', job, {
+                attempts: 3,
+                backoff: {
+                    type: 'exponential',
+                    delay: 1000,
+                },
+                removeOnComplete: 10, // Keep last 10 completed jobs
+                removeOnFail: 5, // Keep last 5 failed jobs
+            });
+            this.logger.debug(`Queued cart intelligence for user ${job.userId}`);
+        } catch (error) {
+            this.logger.error(`Failed to queue cart intelligence: ${error.message}`);
+        }
+    }
+
+    /**
      * Get queue stats for monitoring
      */
     async getQueueStats() {
-        const [analytics, notifications, orders, cleanup] = await Promise.all([
+        const [analytics, notifications, orders, cleanup, cartIntelligence] = await Promise.all([
             this.analyticsQueue.getJobCounts(),
             this.notificationsQueue.getJobCounts(),
             this.ordersQueue.getJobCounts(),
             this.cleanupQueue.getJobCounts(),
+            this.cartIntelligenceQueue.getJobCounts(),
         ]);
 
         return {
@@ -123,6 +152,7 @@ export class QueuesService {
             notifications,
             orders,
             cleanup,
+            cartIntelligence,
         };
     }
 }

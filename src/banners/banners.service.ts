@@ -19,6 +19,14 @@ import { QueuesService } from '../queues/queues.service';
 
 @Injectable()
 export class BannersService {
+    /**
+     * Auto-rotation conflict resolver for banner slots
+     */
+    /*
+    async resolveBannerConflicts() {
+        return { rotated: 0 };
+    }
+    */
     private readonly logger = new Logger(BannersService.name);
 
     constructor(

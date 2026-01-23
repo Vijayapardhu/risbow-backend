@@ -52,6 +52,27 @@ export class CreateCouponDto {
     @IsOptional()
     @IsBoolean()
     isActive?: boolean;
+
+    @ApiPropertyOptional({ example: 'vendor_123', description: 'Vendor ID (for admin use)' })
+    @IsOptional()
+    @IsString()
+    vendorId?: string;
+
+    @ApiPropertyOptional({ example: ['prod_1', 'prod_2'], description: 'Restricted product IDs' })
+    @IsOptional()
+    @IsString({ each: true })
+    productIds?: string[];
+
+    @ApiPropertyOptional({ example: ['cat_1'], description: 'Restricted category IDs' })
+    @IsOptional()
+    @IsString({ each: true })
+    categoryIds?: string[];
+
+    @ApiPropertyOptional({ example: 1, description: 'Minimum quantity required' })
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    minQuantity?: number;
 }
 
 export class UpdateCouponDto {
@@ -93,6 +114,22 @@ export class UpdateCouponDto {
     @IsOptional()
     @IsBoolean()
     isActive?: boolean;
+
+    @ApiPropertyOptional({ example: ['prod_1'], description: 'Restricted product IDs' })
+    @IsOptional()
+    @IsString({ each: true })
+    productIds?: string[];
+
+    @ApiPropertyOptional({ example: ['cat_1'], description: 'Restricted category IDs' })
+    @IsOptional()
+    @IsString({ each: true })
+    categoryIds?: string[];
+
+    @ApiPropertyOptional({ example: 1 })
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    minQuantity?: number;
 }
 
 export class ValidateCouponDto {

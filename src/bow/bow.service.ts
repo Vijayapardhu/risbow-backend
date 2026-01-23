@@ -11,7 +11,11 @@ import { BowRecommendationEngine } from './bow-recommendation.service';
 import { BowPriceTracker } from './bow-price-tracker.service';
 import { BowSmartReminders } from './bow-smart-reminders.service';
 import { BowOutfitRecommender } from './bow-outfit-recommender.service';
+import { BowRoomIntelligenceService } from './bow-room-intelligence.service';
 import { RecommendationService } from './recommendation.service';
+import { CartIntelligenceService } from './cart-intelligence.service';
+import { BowAutoActionService } from './bow-auto-action.service';
+import { RecommendationStrategyService } from './recommendation-strategy.service';
 import { BowMessageDto, BowResponse, BowActionExecuteDto } from './dto/bow.dto';
 import { BowActionType } from '@prisma/client';
 
@@ -58,7 +62,11 @@ export class BowService {
         private priceTrackerService: BowPriceTracker,
         private outfitRecommenderService: BowOutfitRecommender,
         private smartRemindersService: BowSmartReminders,
-        private recommendationService: RecommendationService
+        private recommendationService: RecommendationService,
+        public readonly roomIntelligence: BowRoomIntelligenceService,
+        private cartIntelligenceService: CartIntelligenceService,
+        private bowAutoActionService: BowAutoActionService,
+        private recommendationStrategyService: RecommendationStrategyService,
     ) {
         setInterval(() => this.sessionService.cleanupExpiredSessions(), 10 * 60 * 1000);
     }
@@ -155,6 +163,231 @@ export class BowService {
             this.logger.error(`Error processing message: ${error.message}`, error.stack);
             return { message: 'Internal error occurred.' };
         }
+    }
+
+    /**
+     * PHASE 3: Automatic Bow Actions Orchestration
+     * Analyze cart and trigger automatic optimization actions
+     */
+    async processAutomaticActions(userId: string): Promise<void> {
+        try {
+            this.logger.log(`Processing automatic actions for user ${userId}`);
+
+            // 1. Get cart intelligence signals
+            const signals = await this.cartIntelligenceService.analyzeCart(userId);
+
+            if (signals.length === 0) {
+                this.logger.debug(`No actionable signals for user ${userId}`);
+                return;
+            }
+
+            // 2. Prioritize signals by severity and type
+            const prioritizedSignals = signals.sort((a, b) => {
+                // Priority: HESITATION > THRESHOLD_NEAR > BUNDLE_OPPORTUNITY > others
+                const priorityOrder = {
+                    'HESITATION': 5,
+                    'THRESHOLD_NEAR': 4,
+                    'BUNDLE_OPPORTUNITY': 3,
+                    'PRICE_SENSITIVITY': 2,
+                    'REPEAT_REMOVAL': 1,
+                    'GIFT_ELIGIBLE': 1
+                };
+
+                const aPriority = priorityOrder[a.type as keyof typeof priorityOrder] || 0;
+                const bPriority = priorityOrder[b.type as keyof typeof priorityOrder] || 0;
+
+                if (aPriority !== bPriority) return bPriority - aPriority;
+
+                // Then by severity: HIGH > MEDIUM > LOW
+                const severityOrder = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
+                const aSeverity = severityOrder[a.severity as keyof typeof severityOrder] || 0;
+                const bSeverity = severityOrder[b.severity as keyof typeof severityOrder] || 0;
+
+                return bSeverity - aSeverity;
+            });
+
+            // 3. Process top signals and trigger actions
+            let actionsTriggered = 0;
+            const maxActionsPerSession = 1; // Don't overwhelm user
+
+            for (const signal of prioritizedSignals) {
+                if (actionsTriggered >= maxActionsPerSession) break;
+
+                const actionTriggered = await this.triggerActionForSignal(userId, signal);
+                if (actionTriggered) {
+                    actionsTriggered++;
+                    this.logger.log(`Triggered action for signal ${signal.type} (${signal.severity}) for user ${userId}`);
+                }
+            }
+
+            // 4. Cache processed signals for frontend consumption
+            await this.cartIntelligenceService.processSignals(userId, signals);
+
+        } catch (error) {
+            this.logger.error(`Error in automatic actions for user ${userId}: ${error.message}`, error.stack);
+        }
+    }
+
+    /**
+     * Trigger appropriate action based on cart intelligence signal
+     */
+    private async triggerActionForSignal(userId: string, signal: any): Promise<boolean> {
+        switch (signal.type) {
+            case 'THRESHOLD_NEAR':
+                return await this.triggerThresholdPushAction(userId, signal);
+
+            case 'BUNDLE_OPPORTUNITY':
+                return await this.triggerBundleAction(userId, signal);
+
+            case 'GIFT_ELIGIBLE':
+                return await this.triggerGiftAction(userId, signal);
+
+            case 'HESITATION':
+                return await this.triggerHesitationAction(userId, signal);
+
+            case 'PRICE_SENSITIVITY':
+                return await this.triggerPriceReassuranceAction(userId, signal);
+
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Trigger threshold push actions (free shipping, gifts, rooms)
+     */
+    private async triggerThresholdPushAction(userId: string, signal: any): Promise<boolean> {
+        try {
+            // Get strategic recommendations for this threshold
+            const cart = await (this.contextService as any).cartService.getCart(userId);
+            const cartSnapshot = {
+                userId,
+                cartValue: cart.totalAmount,
+                itemCount: cart.totalItems,
+                categories: [...new Set(cart.items.map((i: any) => String(i.product.categoryId)))] as string[],
+                lastModified: new Date()
+            };
+
+            const strategies = await this.recommendationStrategyService.getStrategicRecommendations(userId, cartSnapshot);
+
+            // Find threshold push strategies
+            const thresholdStrategies = strategies.filter(s => s.strategy === 'THRESHOLD_PUSH');
+
+            if (thresholdStrategies.length > 0) {
+                const bestStrategy = thresholdStrategies[0];
+
+                // Pick the first product suggestion for auto-add
+                if (bestStrategy.products.length > 0) {
+                    const suggestedProduct = bestStrategy.products[0];
+
+                    const result = await this.bowAutoActionService.executeAutoAction({
+                        actionType: ('ADD_TO_CART' as any), // or SUGGEST_GIFT based on strategy
+                        userId,
+                        productId: suggestedProduct.id,
+                        price: suggestedProduct.price,
+                        reason: bestStrategy.message
+                    });
+
+                    return result.success;
+                }
+            }
+
+            return false;
+        } catch (error) {
+            this.logger.error(`Error triggering threshold push action: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Trigger bundle suggestion actions
+     */
+    private async triggerBundleAction(userId: string, signal: any): Promise<boolean> {
+        try {
+            const result = await this.bowAutoActionService.executeAutoAction({
+                actionType: ('SUGGEST_BUNDLE' as any),
+                userId,
+                reason: 'Single item cart - bundle opportunity detected'
+            });
+
+            return result.success;
+        } catch (error) {
+            this.logger.error(`Error triggering bundle action: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Trigger gift eligibility actions
+     */
+    private async triggerGiftAction(userId: string, signal: any): Promise<boolean> {
+        try {
+            const result = await this.bowAutoActionService.executeAutoAction({
+                actionType: ('SUGGEST_GIFT' as any),
+                userId,
+                reason: 'Cart eligible for gift unlock'
+            });
+
+            return result.success;
+        } catch (error) {
+            this.logger.error(`Error triggering gift action: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Trigger hesitation-based actions (reassurance, urgency)
+     */
+    private async triggerHesitationAction(userId: string, signal: any): Promise<boolean> {
+        // For high hesitation, we might trigger scarcity or social proof strategies
+        if (signal.severity === 'HIGH') {
+            try {
+                const result = await this.bowAutoActionService.executeAutoAction({
+                    actionType: ('SUGGEST_UPSELL' as any),
+                    userId,
+                    reason: 'High hesitation detected - providing reassurance options'
+                });
+
+                return result.success;
+            } catch (error) {
+                this.logger.error(`Error triggering hesitation action: ${error.message}`);
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Trigger price sensitivity actions
+     */
+    private async triggerPriceReassuranceAction(userId: string, signal: any): Promise<boolean> {
+        // This could trigger discount suggestions or price history shows
+        // For now, we'll skip as it's more complex
+        return false;
+    }
+
+    /**
+     * Get Bow optimization status for a user (for admin/debugging)
+     */
+    async getOptimizationStatus(userId: string) {
+        const [signals, cachedStrategies, recentActions] = await Promise.all([
+            this.cartIntelligenceService.getCachedSignals(userId),
+            this.recommendationStrategyService.getCachedStrategies(userId),
+            (this.prisma as any).bowActionLog.findMany({
+                where: { userId },
+                orderBy: { createdAt: 'desc' },
+                take: 5
+            })
+        ]);
+
+        return {
+            userId,
+            activeSignals: signals?.length || 0,
+            cachedStrategies: cachedStrategies?.length || 0,
+            recentActions: recentActions.length,
+            lastActivity: recentActions[0]?.createdAt || null
+        };
     }
 
     private async handleChatIntent(userId: string, dto: BowMessageDto, intent: any, context: any, nlpParsed?: any): Promise<BowResponse> {

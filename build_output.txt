@@ -1,0 +1,24 @@
+
+> risbow-backend@0.0.1 build
+> prisma generate && nest build
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+
+✔ Generated Prisma Client (v5.22.0) to .\node_modules\@prisma\client in 373ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Easily identify and fix slow SQL queries in your app. Optimize helps you enhance your visibility: https://pris.ly/--optimize
+
+[96msrc/returns/returns.service.ts[0m:[93m185[0m:[93m38[0m - [91merror[0m[90m TS2339: [0mProperty 'REPLACEMENT_SHIPPED' does not exist on type '{ PENDING_APPROVAL: "PENDING_APPROVAL"; APPROVED: "APPROVED"; REJECTED: "REJECTED"; PICKUP_SCHEDULED: "PICKUP_SCHEDULED"; PICKUP_COMPLETED: "PICKUP_COMPLETED"; IN_TRANSIT: "IN_TRANSIT"; ... 8 more ...; CANCELLED: "CANCELLED"; }'.
+
+[7m185[0m                 status: ReturnStatus.REPLACEMENT_SHIPPED,
+[7m   [0m [91m                                     ~~~~~~~~~~~~~~~~~~~[0m
+[96msrc/returns/returns.service.ts[0m:[93m189[0m:[93m46[0m - [91merror[0m[90m TS2339: [0mProperty 'REPLACEMENT_SHIPPED' does not exist on type '{ PENDING_APPROVAL: "PENDING_APPROVAL"; APPROVED: "APPROVED"; REJECTED: "REJECTED"; PICKUP_SCHEDULED: "PICKUP_SCHEDULED"; PICKUP_COMPLETED: "PICKUP_COMPLETED"; IN_TRANSIT: "IN_TRANSIT"; ... 8 more ...; CANCELLED: "CANCELLED"; }'.
+
+[7m189[0m                         status: ReturnStatus.REPLACEMENT_SHIPPED,
+[7m   [0m [91m                                             ~~~~~~~~~~~~~~~~~~~[0m
+
+Found 2 error(s).
+

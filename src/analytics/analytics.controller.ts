@@ -21,4 +21,14 @@ export class AnalyticsController {
     async getSalesChart(@Query('period') period: 'week' | 'month') {
         return this.analyticsService.getSalesChart(period);
     }
+
+    @Get('search-misses')
+    async getSearchMisses() {
+        return this.analyticsService.getSearchMisses();
+    }
+
+    @Get('funnel')
+    async getFunnelStats() {
+        return this.analyticsService.getFunnelStats();
+    }
 }

@@ -12,14 +12,19 @@ import { BowRecommendationEngine } from './bow-recommendation.service';
 import { BowPriceTracker } from './bow-price-tracker.service';
 import { BowOutfitRecommender } from './bow-outfit-recommender.service';
 import { BowSmartReminders } from './bow-smart-reminders.service';
+import { BowRoomIntelligenceService } from './bow-room-intelligence.service';
 import { RecommendationService } from './recommendation.service';
 import { AdminAnalyticsService } from './admin-analytics.service';
+import { CartIntelligenceService } from './cart-intelligence.service';
+import { BowAutoActionService } from './bow-auto-action.service';
+import { RecommendationStrategyService } from './recommendation-strategy.service';
 import { CartModule } from '../cart/cart.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { InventoryModule } from '../inventory/inventory.module';
+import { CouponsModule } from '../coupons/coupons.module';
 
 @Module({
-    imports: [CartModule, PrismaModule, InventoryModule],
+    imports: [CartModule, PrismaModule, InventoryModule, CouponsModule],
     controllers: [BowController],
     providers: [
         BowService,
@@ -34,9 +39,13 @@ import { InventoryModule } from '../inventory/inventory.module';
         BowPriceTracker,
         BowOutfitRecommender,
         BowSmartReminders,
+        BowRoomIntelligenceService,
         RecommendationService,
-        AdminAnalyticsService
+        AdminAnalyticsService,
+        CartIntelligenceService,
+        BowAutoActionService,
+        RecommendationStrategyService
     ],
-    exports: [BowService, AdminAnalyticsService]
+    exports: [BowService, BowRoomIntelligenceService, AdminAnalyticsService, BowAutoActionService, BowRecommendationEngine, CartIntelligenceService, RecommendationStrategyService]
 })
 export class BowModule { }

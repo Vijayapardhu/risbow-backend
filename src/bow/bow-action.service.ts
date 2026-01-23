@@ -24,6 +24,16 @@ export class BowActionService {
     async executeAction(userId: string, dto: BowActionExecuteDto) {
         const { action, payload } = dto;
 
+        // Log action in BowInteraction
+        await this.prisma.bowInteraction.create({
+            data: {
+                user: { connect: { id: userId } },
+                sessionId: 'system', // Default session
+                type: 'ACTION',
+                actionType: action
+            }
+        });
+
         try {
             let result;
             let success = true;
@@ -38,46 +48,6 @@ export class BowActionService {
                         quantity: payload.quantity || 1
                     });
                     userMessage = 'Added to your cart.';
-
-                    // --- Conversion Attribution Tracking ---
-                    try {
-                        // Find recent recommendation for this user and product (last 15 mins)
-                        const recentRec = await this.prisma.recommendationEvent.findFirst({
-                            where: {
-                                userId,
-                                productIds: { has: payload.productId },
-                                createdAt: { gte: new Date(Date.now() - 15 * 60000) },
-                                accepted: null // Not yet accepted
-                            },
-                            orderBy: { createdAt: 'desc' }
-                        });
-
-                        if (recentRec) {
-                            const cart = await this.cartService.getCart(userId);
-                            await this.prisma.recommendationEvent.update({
-                                where: { id: recentRec.id },
-                                data: {
-                                    accepted: true,
-                                    cartValueAfter: cart.totalAmount
-                                }
-                            });
-                            // Log conversion in BowInteraction
-                            await this.prisma.bowInteraction.create({
-                                data: {
-                                    userId,
-                                    sessionId: 'attributed-action', // or current session
-                                    type: 'ACTION',
-                                    actionType: 'ADD_TO_CART',
-                                    actionPayload: payload,
-                                    conversionEvent: 'ADD_TO_CART',
-                                    conversionValue: result.itemPrice * (payload.quantity || 1)
-                                }
-                            });
-                        }
-                    } catch (e) {
-                        this.logger.warn(`Failed to attribute conversion: ${e.message}`);
-                    }
-                    // ----------------------------------------
 
                     // Auto-trigger complementary items suggestion
                     this.logger.log(`Added product ${payload.productId} to cart, checking for complements`);

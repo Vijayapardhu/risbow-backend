@@ -1,21 +1,25 @@
-import { IsInt, IsNotEmpty, IsString, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsString, Min, Max, MaxLength } from 'class-validator';
 
 export class CreateRoomDto {
     @IsNotEmpty()
     @IsString()
+    @MaxLength(50)
     name: string;
 
     @IsNotEmpty()
     @IsInt()
     @Min(2)
-    size: number; // e.g. 3 or 4
+    @Max(10) // Standard maximum for social commerce rooms
+    size: number;
 
     @IsNotEmpty()
     @IsInt()
+    @Min(1)
     unlockMinOrders: number;
 
     @IsNotEmpty()
     @IsInt()
+    @Min(1)
     unlockMinValue: number;
 }
 

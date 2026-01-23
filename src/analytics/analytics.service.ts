@@ -70,4 +70,34 @@ export class AnalyticsService {
 
         return result.reverse();
     }
+    async getSearchMisses() {
+        return this.prisma.productSearchMiss.findMany({
+            orderBy: { count: 'desc' },
+            take: 50,
+            include: { category: { select: { name: true } } }
+        });
+    }
+
+    async getFunnelStats() {
+        // Funnel: Visited -> Cart -> Checkout -> Order
+        const totalUsers = await this.prisma.user.count({ where: { role: 'CUSTOMER' } });
+
+        const cartUsers = await this.prisma.cart.count({
+            where: { items: { some: {} } }
+        });
+
+        const checkoutStarted = await this.prisma.abandonedCheckout.count();
+
+        const orderUsers = await this.prisma.order.count({
+            where: { status: { not: 'CANCELLED' } }
+        });
+
+        return {
+            totalUsers,
+            activeCarts: cartUsers,
+            checkoutStarted,
+            convertedUsers: orderUsers,
+            cartToOrderRate: cartUsers > 0 ? (orderUsers / cartUsers) * 100 : 0
+        };
+    }
 }

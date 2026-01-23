@@ -5,6 +5,34 @@ import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class CoinsService {
+    // 🔐 P0 FIX: EXPIRY CRON - PRESERVE LEDGER HISTORY
+    // DO NOT MUTATE amount field - use isExpired flag instead
+    async expireCoinsCron() {
+        const now = new Date();
+
+        // Find all expired credits that haven't been marked as expired yet
+        const expiredCredits = await this.prisma.coinLedger.findMany({
+            where: {
+                amount: { gt: 0 },
+                expiresAt: { lt: now },
+                isExpired: false  // Only process unexpired entries
+            },
+        });
+
+        for (const credit of expiredCredits) {
+            // Mark as expired WITHOUT mutating amount (preserves audit trail)
+            await this.prisma.coinLedger.update({
+                where: { id: credit.id },
+                data: { isExpired: true }  // ✅ Preserve amount for audit
+            });
+
+            // Recalculate user balance
+            await this.recalculateBalance(credit.userId);
+        }
+
+        return { expired: expiredCredits.length };
+    }
+
     constructor(private prisma: PrismaService) { }
 
     async getBalance(userId: string) {
@@ -25,6 +53,18 @@ export class CoinsService {
 
     async credit(userId: string, amount: number, source: CoinSource, referenceId?: string, tx?: Prisma.TransactionClient) {
         const execute = async (db: Prisma.TransactionClient) => {
+            // 🔐 P0 FIX: IDEMPOTENCY CHECK
+            // Prevent duplicate credits for same reference
+            if (referenceId) {
+                const existing = await db.coinLedger.findFirst({
+                    where: { referenceId, source, amount: { gt: 0 } }
+                });
+                if (existing) {
+                    // Already credited, return existing user
+                    return await db.user.findUnique({ where: { id: userId } });
+                }
+            }
+
             // Create Ledger Entry
             await db.coinLedger.create({
                 data: {
@@ -32,8 +72,9 @@ export class CoinsService {
                     amount,
                     source,
                     referenceId,
-                    // Expiry logic: 3 months from now (simplified)
+                    // Expiry logic: 3 months from now
                     expiresAt: new Date(new Date().setMonth(new Date().getMonth() + 3)),
+                    isExpired: false
                 },
             });
 
@@ -87,14 +128,18 @@ export class CoinsService {
     }
 
     async recalculateBalance(userId: string) {
-        // Expiry Logic: Calculate balance based on non-expired credits - all debits
+        // 🔐 P0 FIX: Use isExpired flag instead of checking expiresAt
         const now = new Date();
 
         const credits = await this.prisma.coinLedger.aggregate({
             where: {
                 userId,
                 amount: { gt: 0 },
-                expiresAt: { gt: now } // Only count active credits
+                isExpired: false,  // Only count non-expired credits
+                OR: [
+                    { expiresAt: null },
+                    { expiresAt: { gt: now } }
+                ]
             },
             _sum: { amount: true }
         });
@@ -111,9 +156,6 @@ export class CoinsService {
         const totalDebits = Math.abs(debits._sum.amount || 0);
 
         // Net Balance
-        // Note: This naive logic assumes FIFO is not strictly tracked per credit, 
-        // but rather that total credits valid > total spent. 
-        // If user spent coins that *would have* expired, this accounts for it (since debits reduce pool).
         const netBalance = Math.max(0, totalCredits - totalDebits);
 
         // Update User

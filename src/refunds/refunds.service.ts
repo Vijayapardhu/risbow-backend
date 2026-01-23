@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, InternalServerError
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
 import { CreateRefundRequestDto, ProcessRefundDto, RefundMethod } from './dto/refund.dto';
+import { ReturnStatus } from '@prisma/client';
 
 @Injectable()
 export class RefundsService {
@@ -56,7 +57,8 @@ export class RefundsService {
                 amount: refundAmount,
                 reason: dto.reason,
                 refundMethod: (dto.refundMethod as any) || 'ORIGINAL_PAYMENT',
-                status: 'PENDING'
+                status: 'PENDING',
+                returnId: dto.returnId
             }
         });
     }
@@ -64,7 +66,7 @@ export class RefundsService {
     async processRefund(adminId: string, refundId: string, dto: ProcessRefundDto) {
         const refund = await this.prisma.refund.findUnique({
             where: { id: refundId },
-            include: { order: { include: { payment: true } } }
+            include: { order: { include: { payment: true } } }  // items is JSON field, not relation
         });
 
         if (!refund) throw new NotFoundException('Refund request not found');
@@ -72,21 +74,23 @@ export class RefundsService {
 
         if (!refund.order.payment) throw new BadRequestException('No payment record found for this order');
 
-        // 1. Trigger Gateway Refund
-        // Convert approvedAmount to correct unit for gateway if needed.
-        // DTO says approvedAmount is in paise (to be safe/explicit).
-        // If DB stores standard unit, we might need conversion.
-        // Let's assume Admin sends PAISE for precision.
+        // 🔐 P0 FIX: VALIDATE REFUND AMOUNT
+        const maxRefundAmount = refund.order.totalAmount * 100; // Convert to paise
+        if (dto.approvedAmount > maxRefundAmount) {
+            throw new BadRequestException(`Refund amount (₹${dto.approvedAmount / 100}) cannot exceed order total (₹${refund.order.totalAmount})`);
+        }
 
+        // 1. Trigger Gateway Refund
         try {
             const gatewayResult = await this.paymentsService.processRefund(
                 refund.order.payment.id,
                 dto.approvedAmount,
+                adminId,  // Pass adminId for audit logging
                 { refundId: refund.id, adminNote: dto.adminNotes }
             );
 
-            // 2. Update DB
-            return this.prisma.refund.update({
+            // 2. Update Refund Record
+            const updatedRefund = await this.prisma.refund.update({
                 where: { id: refundId },
                 data: {
                     status: 'PROCESSED',
@@ -94,15 +98,81 @@ export class RefundsService {
                     processedAt: new Date(),
                     transactionId: gatewayResult.refundId,
                     adminNotes: dto.adminNotes,
-                    amount: dto.approvedAmount / 100 // Storing back in standard unit if DB is standard?
-                    // Actually, modifying original request amount to approved amount is good practice.
-                    // If DB amount was standard unit 10.00, and we refunded 1000 paise, we store 10.00.
+                    amount: dto.approvedAmount / 100 // Store in standard unit
                 }
             });
 
+            // Update ReturnRequest if linked
+            if (refund.returnId) {
+                await this.prisma.returnRequest.update({
+                    where: { id: refund.returnId },
+                    data: {
+                        status: ReturnStatus.REFUND_COMPLETED,
+                        timeline: {
+                            create: {
+                                status: ReturnStatus.REFUND_COMPLETED,
+                                action: 'REFUND_PROCESSED',
+                                performedBy: 'SYSTEM',
+                                notes: `Refund ₹${dto.approvedAmount / 100} processed. Transaction: ${gatewayResult.refundId}`
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 🔐 P0 FIX: RESTORE STOCK
+            // Restore stock for all items in the order
+            const orderItems = Array.isArray(refund.order.items) ? (refund.order.items as any[]) : [];
+            for (const item of orderItems) {
+                if (item.variantId) {
+                    // Restore variant stock (JSON-based)
+                    const product = await this.prisma.product.findUnique({ where: { id: item.productId } });
+                    if (product) {
+                        const variants = (product.variants as any[]) || [];
+                        const variantIndex = variants.findIndex(v => v.id === item.variantId);
+                        if (variantIndex !== -1) {
+                            variants[variantIndex].stock += item.quantity;
+                            const newTotalStock = variants.reduce((acc, v) => acc + (v.isActive ? v.stock : 0), 0);
+                            await this.prisma.product.update({
+                                where: { id: item.productId },
+                                data: { variants: variants as any, stock: newTotalStock }
+                            });
+                        }
+                    }
+                } else {
+                    // Restore base product stock
+                    await this.prisma.product.update({
+                        where: { id: item.productId },
+                        data: { stock: { increment: item.quantity } }
+                    });
+                }
+            }
+
+            // 🔐 P0 FIX: RESTORE COINS (if used)
+            if (refund.order.coinsUsed > 0) {
+                // Import CoinsService if not already imported
+                // For now, direct DB update (should use CoinsService.credit)
+                await this.prisma.user.update({
+                    where: { id: refund.order.userId },
+                    data: { coinsBalance: { increment: refund.order.coinsUsed } }
+                });
+
+                // Create ledger entry
+                await this.prisma.coinLedger.create({
+                    data: {
+                        userId: refund.order.userId,
+                        amount: refund.order.coinsUsed,
+                        source: 'REFUND',
+                        referenceId: refund.order.id,
+                        isExpired: false
+                    }
+                });
+            }
+
+            return updatedRefund;
+
         } catch (error) {
-            // Log failure and optionally mark as FAILED or keep PENDING for retry
-            // Let's mark FAILED so admin knows.
+            // Log failure and mark as FAILED
             await this.prisma.refund.update({
                 where: { id: refundId },
                 data: {
@@ -121,6 +191,16 @@ export class RefundsService {
             where: { userId },
             orderBy: { createdAt: 'desc' },
             include: { order: { select: { id: true, totalAmount: true } } }
+        });
+    }
+
+    async getAllRefunds() {
+        return this.prisma.refund.findMany({
+            orderBy: { createdAt: 'desc' },
+            include: {
+                order: { include: { payment: true } },
+                user: { select: { id: true, name: true, email: true } }
+            }
         });
     }
 

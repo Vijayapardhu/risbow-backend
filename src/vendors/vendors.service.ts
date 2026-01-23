@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterVendorDto } from './dto/vendor.dto';
 import { CoinsService } from '../coins/coins.service';
@@ -15,6 +15,25 @@ export class VendorsService {
         private audit: AuditLogService,
         private redis: RedisService
     ) { }
+
+    private async getVendorProductIds(vendorId: string): Promise<string[]> {
+        const cacheKey = `vendor:product-ids:${vendorId}`;
+        const cached = await this.redis.get(cacheKey);
+
+        if (cached) {
+            return JSON.parse(cached);
+        }
+
+        const products = await this.prisma.product.findMany({
+            where: { vendorId },
+            select: { id: true },
+        });
+
+        const productIds = products.map(p => p.id);
+        await this.redis.set(cacheKey, JSON.stringify(productIds), 3600); // 1 hour
+
+        return productIds;
+    }
 
     async register(dto: RegisterVendorDto) {
         const existing = await this.prisma.vendor.findUnique({
@@ -44,38 +63,426 @@ export class VendorsService {
         });
     }
 
-    async purchaseBannerSlot(userId: string, image: string) {
-        // SRS FR-6: 2000 coins for 1 week banner.
-        // 1. Debit Coins
-        await this.coinsService.debit(userId, 2000, CoinSource.BANNER_PURCHASE);
+    async purchaseBanner(
+        vendorId: string,
+        dto: {
+            imageUrl: string;
+            redirectUrl?: string;
+            slotType: string;
+            startDate: Date;
+            endDate: Date;
+            coinsCost: number;
+        }
+    ) {
+        return this.prisma.$transaction(async (tx) => {
+            // 1. Verify vendor coins
+            const vendor = await tx.vendor.findUnique({
+                where: { id: vendorId },
+                select: { coinsBalance: true },
+            });
 
-        // 2. Create Banner Record (stubbed)
-        // await this.prisma.banner.create(...)
+            if (!vendor) throw new NotFoundException('Vendor not found');
+            if (vendor.coinsBalance < dto.coinsCost) throw new BadRequestException('Insufficient coins balance');
 
-        return { message: 'Banner slot purchased successfully', validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) };
+            // 2. Check overlap conflict
+            const conflict = await tx.banner.findFirst({
+                where: {
+                    slotType: dto.slotType,
+                    isActive: true,
+                    OR: [
+                        { AND: [{ startDate: { lte: dto.startDate } }, { endDate: { gte: dto.startDate } }] },
+                        { AND: [{ startDate: { lte: dto.endDate } }, { endDate: { gte: dto.endDate } }] },
+                    ],
+                },
+            });
+
+            if (conflict) throw new BadRequestException(`Banner slot ${dto.slotType} already booked for this period`);
+
+            // 3. Deduct coins ATOMICALLY (Compare-and-swap)
+            const result = await tx.vendor.updateMany({
+                where: { id: vendorId, coinsBalance: { gte: dto.coinsCost } },
+                data: { coinsBalance: { decrement: dto.coinsCost } },
+            });
+
+            if (result.count === 0) throw new BadRequestException('Insufficient coins (concurrent update)');
+
+            // 4. Create Records
+            const banner = await tx.banner.create({
+                data: {
+                    vendorId,
+                    imageUrl: dto.imageUrl,
+                    redirectUrl: dto.redirectUrl,
+                    slotType: dto.slotType,
+                    startDate: dto.startDate,
+                    endDate: dto.endDate,
+                    isActive: true,
+                },
+            });
+
+            await tx.vendorPromotion.create({
+                data: {
+                    vendorId,
+                    type: 'BANNER',
+                    startDate: dto.startDate,
+                    endDate: dto.endDate,
+                    coinsCost: dto.coinsCost,
+                    status: 'ACTIVE',
+                },
+            });
+
+            // 5. Audit Log
+            await this.audit.logAdminAction(vendorId, 'BANNER_PURCHASE', 'Banner', banner.id, {
+                slotType: dto.slotType,
+                coinsCost: dto.coinsCost,
+                dates: { start: dto.startDate, end: dto.endDate }
+            });
+
+            return banner;
+        });
     }
 
     async findAll() {
         return this.prisma.vendor.findMany();
     }
 
-    async getVendorStats(userId: string) {
-        const CACHE_KEY = `vendor:dashboard:${userId}`;
-        const cached = await this.redis.get(CACHE_KEY);
-        if (cached) {
-            return JSON.parse(cached);
-        }
+    async getVendorStats(vendorId: string) {
+        const cacheKey = `vendor:stats:${vendorId}:${new Date().toISOString().split('T')[0]}`;
+        const cached = await this.redis.get(cacheKey);
+        if (cached) return JSON.parse(cached);
 
-        // 1. Get Vendor
-        const vendor = await this.prisma.vendor.findFirst({
-            where: { OR: [{ id: userId }, { email: { not: null } }] }
+        const productIds = await this.getVendorProductIds(vendorId);
+        if (productIds.length === 0) return { todayOrders: 0, monthOrders: 0, totalProducts: 0, activeProducts: 0, pendingOrders: 0, monthRevenue: 0, lowStockAlerts: 0 };
+
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+
+        // Fetch all orders from start of month that might contain vendor products
+        const orders = await this.prisma.order.findMany({
+            where: {
+                createdAt: { gte: startOfMonth },
+                status: { in: ['CONFIRMED', 'PAID', 'PACKED', 'SHIPPED', 'DELIVERED'] }
+            }
         });
 
-        if (!vendor) return { message: 'Vendor profile not found the user' };
+        let todayOrdersCount = 0;
+        let monthOrdersCount = 0;
+        let monthRevenue = 0;
 
-        // 2. Get Vendor Product IDs (cached in memory set for fast lookup)
+        for (const order of orders) {
+            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            const vendorItems = items.filter(item => productIds.includes(item.productId));
+
+            if (vendorItems.length > 0) {
+                monthOrdersCount++;
+                const orderRevenue = vendorItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+                monthRevenue += orderRevenue;
+
+                if (order.createdAt >= startOfToday) {
+                    todayOrdersCount++;
+                }
+            }
+        }
+
+        const [totalProducts, activeProducts, lowStockAlerts, pendingOrdersAll] = await Promise.all([
+            this.prisma.product.count({ where: { vendorId } }),
+            this.prisma.product.count({ where: { vendorId, isActive: true } }),
+            this.prisma.product.count({ where: { vendorId, stock: { lt: 10 } } }),
+            this.prisma.order.findMany({
+                where: { status: { in: ['PENDING', 'PENDING_PAYMENT'] } },
+                select: { items: true }
+            })
+        ]);
+
+        let pendingOrdersCount = 0;
+        for (const order of pendingOrdersAll) {
+            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            if (items.some(item => productIds.includes(item.productId))) {
+                pendingOrdersCount++;
+            }
+        }
+
+        const stats = {
+            todayOrders: todayOrdersCount,
+            monthOrders: monthOrdersCount,
+            totalProducts,
+            activeProducts,
+            pendingOrders: pendingOrdersCount,
+            monthRevenue,
+            lowStockAlerts
+        };
+
+        await this.redis.set(cacheKey, JSON.stringify(stats), 900); // 15 mins
+        return stats;
+    }
+
+    async getSalesAnalytics(vendorId: string, days: number = 30) {
+        const cacheKey = `vendor:sales:${vendorId}:${days}d`;
+        const cached = await this.redis.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const productIds = await this.getVendorProductIds(vendorId);
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+
+        const orders = await this.prisma.order.findMany({
+            where: {
+                createdAt: { gte: startDate },
+                status: { in: ['CONFIRMED', 'PAID', 'PACKED', 'SHIPPED', 'DELIVERED'] }
+            }
+        });
+
+        const dailyMap = new Map();
+        const productSales = new Map();
+        const categorySales = new Map();
+
+        // Initialize last N days
+        for (let i = 0; i < days; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            dailyMap.set(d.toISOString().split('T')[0], { orders: 0, revenue: 0, items: 0 });
+        }
+
+        for (const order of orders) {
+            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            const vendorItems = items.filter(item => productIds.includes(item.productId));
+
+            if (vendorItems.length > 0) {
+                const dateKey = order.createdAt.toISOString().split('T')[0];
+                const dayData = dailyMap.get(dateKey) || { orders: 0, revenue: 0, items: 0 };
+
+                dayData.orders++;
+                vendorItems.forEach(item => {
+                    const itemRev = item.price * item.quantity;
+                    dayData.revenue += itemRev;
+                    dayData.items += item.quantity;
+
+                    // Product aggregation
+                    const pData = productSales.get(item.productId) || { units: 0, revenue: 0 };
+                    pData.units += item.quantity;
+                    pData.revenue += itemRev;
+                    productSales.set(item.productId, pData);
+
+                    // Category placeholder (needs category lookup if not in items JSON)
+                    // For now, assume category info is not in items, will need a product lookup for full accuracy
+                });
+                dailyMap.set(dateKey, dayData);
+            }
+        }
+
+        // Fetch product details for top products
+        const topProductIds = Array.from(productSales.entries())
+            .sort((a, b) => b[1].revenue - a[1].revenue)
+            .slice(0, 10)
+            .map(x => x[0]);
+
+        const topProductDetails = await this.prisma.product.findMany({
+            where: { id: { in: topProductIds } },
+            select: { id: true, title: true, images: true, categoryId: true, category: { select: { name: true } } }
+        });
+
+        const topProducts = topProductDetails.map(p => ({
+            ...p,
+            unitsSold: productSales.get(p.id).units,
+            revenue: productSales.get(p.id).revenue
+        })).sort((a, b) => b.revenue - a.revenue);
+
+        const analytics = {
+            daily: Array.from(dailyMap.entries()).map(([date, data]) => ({ date, ...data })).sort((a, b) => a.date.localeCompare(b.date)),
+            topProducts
+        };
+
+        await this.redis.set(cacheKey, JSON.stringify(analytics), 3600); // 1 hour
+        return analytics;
+    }
+
+    async getProductAnalytics(vendorId: string) {
+        const cacheKey = `vendor:products:${vendorId}`;
+        const cached = await this.redis.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const products = await this.prisma.product.findMany({
-            where: { vendorId: vendor.id },
+            where: { vendorId },
+            include: {
+                reviews: { select: { rating: true } },
+            }
+        });
+
+        const productIds = products.map(p => p.id);
+
+        // Fetch sales data for all products (last 30 days for velocity)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const orders = await this.prisma.order.findMany({
+            where: {
+                createdAt: { gte: thirtyDaysAgo },
+                status: { in: ['CONFIRMED', 'PAID', 'DELIVERED'] }
+            },
+            select: { items: true, createdAt: true }
+        });
+
+        const productMetrics = new Map();
+        for (const order of orders) {
+            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            items.filter(i => productIds.includes(i.productId)).forEach(item => {
+                const m = productMetrics.get(item.productId) || { totalRevenue: 0, totalOrders: 0, thirtyDayUnits: 0, lastOrderDate: null };
+                m.totalRevenue += (item.price * item.quantity);
+                m.totalOrders++;
+                m.thirtyDayUnits += item.quantity;
+                if (!m.lastOrderDate || order.createdAt > m.lastOrderDate) m.lastOrderDate = order.createdAt;
+                productMetrics.set(item.productId, m);
+            });
+        }
+
+        const performance = products.map(p => {
+            const m = productMetrics.get(p.id) || { totalRevenue: 0, totalOrders: 0, thirtyDayUnits: 0, lastOrderDate: null };
+            const avgRating = p.reviews.length > 0 ? p.reviews.reduce((acc, r) => acc + r.rating, 0) / p.reviews.length : 0;
+            return {
+                id: p.id,
+                title: p.title,
+                price: p.price,
+                stock: p.stock,
+                totalOrders: m.totalOrders,
+                totalRevenue: m.totalRevenue,
+                avgRating,
+                lastOrderDate: m.lastOrderDate,
+                status: p.isActive ? 'active' : 'inactive'
+            };
+        });
+
+        const lowStock = performance.filter(p => p.stock > 0 && p.stock < 10).map(p => {
+            const m = productMetrics.get(p.id);
+            const dailyVelocity = (m?.thirtyDayUnits || 0) / 30;
+            return {
+                ...p,
+                dailySales: dailyVelocity,
+                daysUntilOut: dailyVelocity > 0 ? Math.floor(p.stock / dailyVelocity) : 'N/A'
+            };
+        });
+
+        const outOfStock = performance.filter(p => p.stock === 0);
+
+        const result = { performance, lowStock, outOfStock };
+        await this.redis.set(cacheKey, JSON.stringify(result), 1800); // 30 mins
+        return result;
+    }
+
+    async getCustomerAnalytics(vendorId: string) {
+        const cacheKey = `vendor:customers:${vendorId}`;
+        const cached = await this.redis.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const productIds = await this.getVendorProductIds(vendorId);
+
+        const orders = await this.prisma.order.findMany({
+            where: {
+                status: { in: ['CONFIRMED', 'PAID', 'PACKED', 'SHIPPED', 'DELIVERED'] }
+            },
+            include: { user: { select: { id: true, name: true } } }
+        });
+
+        const customerMap = new Map();
+        let totalRevenue = 0;
+        let totalOrders = 0;
+
+        for (const order of orders) {
+            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            const vendorItems = items.filter(i => productIds.includes(i.productId));
+
+            if (vendorItems.length > 0) {
+                totalOrders++;
+                const orderRev = vendorItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+                totalRevenue += orderRev;
+
+                const c = customerMap.get(order.userId) || { id: order.userId, name: order.user?.name || 'Guest', orders: 0, revenue: 0, lastOrder: null };
+                c.orders++;
+                c.revenue += orderRev;
+                if (!c.lastOrder || order.createdAt > c.lastOrder) c.lastOrder = order.createdAt;
+                customerMap.set(order.userId, c);
+            }
+        }
+
+        const customers = Array.from(customerMap.values());
+        const totalCustomers = customers.length;
+        const repeatCustomers = customers.filter(c => c.orders >= 2).length;
+        const repeatRate = totalCustomers > 0 ? (repeatCustomers / totalCustomers) * 100 : 0;
+
+        const topCustomers = customers
+            .sort((a, b) => b.revenue - a.revenue)
+            .slice(0, 10)
+            .map(c => ({ id: `customer_${c.id.slice(-4)}`, name: c.name, totalOrders: c.orders, totalRevenue: c.revenue, lastOrder: c.lastOrder }));
+
+        const result = {
+            totalCustomers,
+            repeatCustomers,
+            repeatRate,
+            topCustomers,
+            aov: totalOrders > 0 ? totalRevenue / totalOrders : 0
+        };
+
+        await this.redis.set(cacheKey, JSON.stringify(result), 3600); // 1 hour
+        return result;
+    }
+
+    async updateKycStatus(adminId: string, vendorId: string, dto: { status: string; reason?: string, documents?: any }) {
+        return this.prisma.$transaction(async (tx) => {
+            const vendor = await tx.vendor.findUnique({ where: { id: vendorId } });
+            if (!vendor) throw new NotFoundException('Vendor not found');
+
+            // 1. State Machine Validation
+            const validTransitions = {
+                PENDING: ['VERIFIED', 'REJECTED'],
+                REJECTED: ['PENDING'],
+                VERIFIED: [], // Cannot change once verified
+            };
+
+            const allowed = (validTransitions as any)[vendor.kycStatus] || [];
+            if (!allowed.includes(dto.status)) {
+                throw new BadRequestException(`Invalid transition from ${vendor.kycStatus} to ${dto.status}`);
+            }
+
+            // 2. Atomic Update
+            const updated = await tx.vendor.update({
+                where: { id: vendorId },
+                data: {
+                    kycStatus: dto.status,
+                    kycDocuments: dto.documents || vendor.kycDocuments,
+                },
+            });
+
+            // 3. Audit Log
+            await tx.auditLog.create({
+                data: {
+                    adminId,
+                    entity: 'VENDOR',
+                    entityId: vendorId,
+                    action: 'KYC_STATUS_UPDATE',
+                    details: {
+                        from: vendor.kycStatus,
+                        to: dto.status,
+                        reason: dto.reason,
+                    },
+                },
+            });
+
+            return updated;
+        });
+    }
+
+    async getVendorAnalytics(vendorId: string) {
+        const CACHE_KEY = `vendor:analytics:${vendorId}`;
+        const cached = await this.redis.get(CACHE_KEY);
+        if (cached) return JSON.parse(cached);
+
+        const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+        if (!vendor) throw new NotFoundException('Vendor not found');
+
+        const products = await this.prisma.product.findMany({
+            where: { vendorId },
             select: { id: true, title: true, images: true, price: true }
         });
 

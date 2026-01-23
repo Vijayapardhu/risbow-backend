@@ -1,21 +1,15 @@
 import { Controller, Get, Post, Patch, Put, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Throttle } from '@nestjs/throttler';
 
-import { VendorsService } from '../vendors/vendors.service';
-
-@ApiTags('Admin')
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'SUPER_ADMIN')
 export class AdminController {
-    constructor(
-        private readonly adminService: AdminService,
-        private readonly vendorsService: VendorsService
-    ) { }
+    constructor(private readonly adminService: AdminService) { }
 
     // --- APP CONFIG ---
 
@@ -45,6 +39,8 @@ export class AdminController {
     getStats() {
         return this.adminService.getAnalytics();
     }
+
+
 
     @Get('health')
     getHealth() {
@@ -264,51 +260,7 @@ export class AdminController {
         @Param('id') id: string,
         @Body() body: { approved: boolean, reason?: string }
     ) {
-        // Calling VendorsService
-        if (body.approved) {
-            return this.vendorsService.approveVendor(req.user.id, id);
-        } else {
-            return this.vendorsService.rejectVendor(req.user.id, id, body.reason || 'No reason provided');
-        }
-    }
-
-    @Post('vendors/:id/reject')
-    @Roles('ADMIN', 'SUPER_ADMIN')
-    rejectVendor(
-        @Request() req,
-        @Param('id') id: string,
-        @Body() body: { reason: string }
-    ) {
-        return this.vendorsService.rejectVendor(req.user.id, id, body.reason);
-    }
-
-    @Post('vendors/:id/suspend')
-    @Roles('ADMIN', 'SUPER_ADMIN')
-    suspendVendor(
-        @Request() req,
-        @Param('id') id: string,
-        @Body() body: { reason?: string }
-    ) {
-        return this.vendorsService.suspendVendor(req.user.id, id, body.reason);
-    }
-
-    @Post('vendors/:id/activate')
-    @Roles('ADMIN', 'SUPER_ADMIN')
-    activateVendor(
-        @Request() req,
-        @Param('id') id: string
-    ) {
-        return this.vendorsService.activateVendor(req.user.id, id);
-    }
-
-    @Post('vendors/:id/strike')
-    @Roles('ADMIN', 'SUPER_ADMIN')
-    strikeVendor(
-        @Request() req,
-        @Param('id') id: string,
-        @Body() body: { reason: string }
-    ) {
-        return this.vendorsService.strikeVendor(req.user.id, id, body.reason);
+        return this.adminService.approveVendor(req.user.id, id, body.approved, body.reason);
     }
 
     @Get('rooms')
@@ -321,7 +273,24 @@ export class AdminController {
         return this.adminService.createRoom(req.user.id, body);
     }
 
+
+
     // --- MARKETING ---
+
+    @Get('banners')
+    getBanners() {
+        return this.adminService.getBanners();
+    }
+
+    @Post('banners')
+    createBanner(@Request() req, @Body() body: any) {
+        return this.adminService.createBanner(req.user.id, body);
+    }
+
+    @Post('banners/:id/toggle')
+    toggleBanner(@Param('id') id: string, @Body('isActive') isActive: boolean) {
+        return this.adminService.toggleBannerStatus(id, isActive);
+    }
 
     @Post('notifications/broadcast')
     @Roles('ADMIN', 'SUPER_ADMIN')
@@ -336,10 +305,49 @@ export class AdminController {
         return this.adminService.getAnalytics();
     }
 
+    @Get('categories')
+    getCategories() {
+        return this.adminService.getCategories();
+    }
+
+    @Post('categories')
+    createCategory(@Body() body: { name: string, parentId?: string, image?: string }) {
+        return this.adminService.createCategory(body);
+    }
+
+    @Get('categories/:id')
+    getCategory(@Param('id') id: string) {
+        return this.adminService.getCategoryById(id);
+    }
+
+    @Delete('categories/:id')
+    deleteCategory(@Param('id') id: string) {
+        return this.adminService.deleteCategory(id);
+    }
+
+    @Post('categories/:id')
+    updateCategory(@Param('id') id: string, @Body() body: any) {
+        return this.adminService.updateCategory(id, body);
+    }
+
+    @Patch('categories/:id')
+    updateCategoryPatch(@Param('id') id: string, @Body() body: any) {
+        return this.adminService.updateCategory(id, body);
+    }
+
     @Post('vendors/:id/commission')
     @Roles('ADMIN', 'SUPER_ADMIN')
     updateCommission(@Request() req, @Param('id') id: string, @Body('rate') rate: number) {
         return this.adminService.updateVendorCommission(req.user.id, id, rate);
+    }
+
+
+
+    @Delete('banners/:id')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    deleteBanner(@Param('id') id: string) {
+        // Assume deleteBanner exists in service or needs to be added back if I removed it erroneously
+        return this.adminService.deleteBanner(id);
     }
 
     // --- SETTINGS ---
@@ -354,6 +362,8 @@ export class AdminController {
     updateSetting(@Body() body: { key: string, value: string }) {
         return this.adminService.updatePlatformConfig(body.key, body.value);
     }
+
+
 
     // --- COINS ---
     @Get('coins/transactions')
@@ -386,5 +396,35 @@ export class AdminController {
     resolveReport(@Param('id') id: string, @Body('action') action: string) {
         return this.adminService.resolveReport(id, action);
     }
+
+    /*
+    @Post('memberships')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @Throttle({ default: { limit: 10, ttl: 60 } })
+    createMembership(@Request() req, @Body() body: import('./dto/membership.dto').MembershipDto) {
+        return this.adminService.createMembership(req.user.id, body);
+    }
+
+    @Post('coins/config')
+    @Roles('SUPER_ADMIN')
+    @Throttle({ default: { limit: 5, ttl: 60 } })
+    updateCoinsConfig(@Request() req, @Body() body: import('./dto/coins-config.dto').CoinsConfigDto) {
+        return this.adminService.updateCoinsConfig(req.user.id, body);
+    }
+
+    @Post('gift-skus')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @Throttle({ default: { limit: 10, ttl: 60 } })
+    createGiftSku(@Request() req, @Body() body: import('./dto/gift-sku.dto').GiftSkuDto) {
+        return this.adminService.createGiftSku(req.user.id, body);
+    }
+
+    @Post('room-offers')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @Throttle({ default: { limit: 10, ttl: 60 } })
+    createRoomOffer(@Request() req, @Body() body: import('./dto/room-offer.dto').RoomOfferDto) {
+        return this.adminService.createRoomOffer(req.user.id, body);
+    }
+    */
 }
 

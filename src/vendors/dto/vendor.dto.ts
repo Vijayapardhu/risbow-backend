@@ -22,4 +22,23 @@ export class RegisterVendorDto {
     tier?: MembershipTier;
 
     // In real app: GSTIN, Pan, etc.
+    @IsOptional()
+    @IsString()
+    pan?: string;
+
+    @IsOptional()
+    @IsString()
+    gst?: string;
+
+    @IsOptional()
+    @IsString()
+    bankAccount?: string;
+
+    @IsOptional()
+    @IsString()
+    bankIfsc?: string;
+
+    @IsOptional()
+    @IsString()
+    kycStatus?: string; // PENDING | VERIFIED | REJECTED
 }

@@ -12,6 +12,7 @@ model ProductSearchMiss {
   resolved           Boolean   @default(false)
   resolvedProductId  String?
   metadata           Json?
+  region             String?   // Region where search originated
 
   user     User?     @relation(fields: [userId], references: [id])
   category Category? @relation(fields: [inferredCategoryId], references: [id])
@@ -20,11 +21,25 @@ model ProductSearchMiss {
   @@index([count])
   @@index([resolved])
   @@index([lastSearchedAt])
+  @@index([region])
+}
+
+// 1️⃣b SearchTrending: Tracks trending searches by region for autocomplete and analytics
+model SearchTrending {
+  id        String   @id @default(cuid())
+  query     String
+  region    String?  @default("global")
+  count     Int      @default(1)
+  lastSeen  DateTime @default(now())
+
+  @@unique([query, region])
+  @@index([region, count])
+  @@index([lastSeen])
 }
 
 // 2️⃣ CartInsight: Analyzes cart state for behavioral patterns and risk
 model CartInsight {
-  id              String   @id @default(cuid())
+  id              String         @id @default(cuid())
   userId          String
   cartValue       Int
   itemCount       Int
@@ -32,13 +47,18 @@ model CartInsight {
   cartPattern     String // SINGLE_ITEM, VALUE_BUYER, BUNDLE_POTENTIAL, etc.
   hesitationScore Float
   abandonRisk     Float
-  detectedAt      DateTime @default(now())
+  type            CartInsightType
+  severity        InsightSeverity
+  triggeredAt     DateTime       @default(now())
+  resolvedAt      DateTime?
 
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([cartPattern])
-  @@index([detectedAt])
+  @@index([triggeredAt])
+  @@index([type])
+  @@index([severity])
 }
 
 // 3️⃣ RecommendationEvent: Tracks AI/System recommendations and their conversion
@@ -57,6 +77,52 @@ model RecommendationEvent {
 
   @@index([strategy])
   @@index([accepted])
+}
+
+// 4️⃣ BowActionLog: Tracks automatic Bow actions with guardrails and attribution
+model BowActionLog {
+  id              String         @id @default(cuid())
+  userId          String
+  actionType      BowActionType
+  productId       String?
+  variantId       String?
+  quantity        Int?
+  price           Int?
+  reason          String // Why this action was taken
+  guardrailCheck  Json? // Stock, price, user preferences validation
+  autoReversed    Boolean        @default(false)
+  reverseReason   String?
+  attributedRevenue Int? // Revenue attributed to this action
+  createdAt       DateTime       @default(now())
+  reversedAt      DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([userId])
+  @@index([actionType])
+  @@index([productId])
+  @@index([createdAt])
+  @@index([autoReversed])
+}
+
+// 5️⃣ UserPreferenceProfile: Safe preference storage for personalization
+model UserPreferenceProfile {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  preferredCategories   String[]
+  preferredBrands       String[]
+  sizePreferences       String[]
+  priceSensitivity      String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  colorAffinity         String[]
+  styleTags             String[] // casual, formal, festive, etc.
+  lastUpdated           DateTime @updatedAt
+  confidenceScore       Float    @default(0.1) // 0.0 to 1.0
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([priceSensitivity])
 }
 generator client {
   provider = "prisma-client-js"
@@ -118,9 +184,11 @@ model User {
   VendorFollower                                     VendorFollower[]
   wishlist                                           Wishlist[]
 
-  productSearchMisses                                ProductSearchMiss[]
-  cartInsights                                       CartInsight[]
-  recommendationEvents                               RecommendationEvent[]
+   productSearchMisses                                ProductSearchMiss[]
+   cartInsights                                       CartInsight[]
+   recommendationEvents                               RecommendationEvent[]
+   bowActionLogs                                      BowActionLog[]
+   userPreferenceProfile                              UserPreferenceProfile?
 
   @@index([role])
   @@index([status])
@@ -139,9 +207,46 @@ model Room {
   unlockMinValue  Int
   createdById     String?
   isSystemRoom    Boolean      @default(false)
+  memberCount     Int          @default(1)
   createdAt       DateTime     @default(now())
   createdBy       User?        @relation(fields: [createdById], references: [id])
   members         RoomMember[]
+  boosts          RoomBoost[]
+  insights        RoomInsight[]
+
+  @@index([status, endAt])
+  @@index([createdById])
+}
+
+model RoomBoost {
+  id          String        @id @default(cuid())
+  roomId      String
+  vendorId    String?
+  type        RoomBoostType
+  coinsCost   Int
+  startAt     DateTime
+  endAt     DateTime
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+
+  room        Room     @relation(fields: [roomId], references: [id])
+
+  @@index([roomId])
+  @@index([type, isActive])
+  @@index([startAt, endAt])
+}
+
+model RoomInsight {
+  id        String   @id @default(cuid())
+  roomId    String
+  metric    String
+  value     Float
+  createdAt DateTime @default(now())
+
+  room      Room     @relation(fields: [roomId], references: [id])
+
+  @@index([roomId])
+  @@index([metric])
 }
 
 model WeeklyOffer {
@@ -162,6 +267,7 @@ model RoomMember {
   user   User         @relation(fields: [userId], references: [id])
 
   @@id([roomId, userId])
+  @@index([userId])
 }
 
 model Category {
@@ -191,6 +297,7 @@ model GiftSKU {
   cost               Int      @default(0)
   eligibleCategories Json?
   createdAt          DateTime @default(now())
+  orders             Order[]
 }
 
 model CoinLedger {
@@ -200,11 +307,14 @@ model CoinLedger {
   source      String
   referenceId String?
   expiresAt   DateTime?
+  isExpired   Boolean   @default(false)  // 🔐 P0 FIX: Preserve ledger history
   createdAt   DateTime  @default(now())
   user        User      @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([createdAt])
+  @@index([isExpired])  // For efficient expiry queries
+  @@index([expiresAt])  // 🔐 P0 FIX: Index for expiry cron job
 }
 
 model Vendor {
@@ -243,6 +353,7 @@ model Vendor {
   VendorMembership VendorMembership?
   VendorPayout     VendorPayout[]
   VendorPromotion  VendorPromotion[]
+  coupons          Coupon[]
 
   @@index([kycStatus])
   @@index([tier])
@@ -362,8 +473,10 @@ model Banner {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
+  @@index([vendorId])
   @@index([slotType, isActive])
   @@index([startDate, endDate])
+  @@index([slotType, startDate, endDate, isActive])
 }
 
 model Notification {
@@ -406,8 +519,14 @@ model Order {
   address             Address?           @relation(fields: [addressId], references: [id])
   user                User               @relation(fields: [userId], references: [id])
   payment             Payment?
-  refunds             Refund[]
-  returns             ReturnRequest[]
+  gift            GiftSKU?  @relation(fields: [giftId], references: [id])
+  refunds         Refund[]
+  
+  deliveredAt     DateTime?
+  returnWindow    Int       @default(7) // Days
+  isReturnable    Boolean   @default(true)
+  
+  returns         ReturnRequest[]
 
   @@index([userId])
   @@index([status])
@@ -416,6 +535,7 @@ model Order {
   @@index([awbNumber])
   @@index([userId, status])
   @@index([status, createdAt])
+  @@index([roomId, userId])
 }
 
 model Product {
@@ -434,6 +554,7 @@ model Product {
   moq                  Int                @default(1)
   isActive             Boolean            @default(false)
   visibility           ProductVisibility  @default(DRAFT)
+  popularityScore      Float              @default(0)
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   brandName            String?
@@ -469,10 +590,11 @@ model Product {
   cartItems            CartItem[]
   category             Category           @relation(fields: [categoryId], references: [id])
   vendor               Vendor             @relation(fields: [vendorId], references: [id])
-  specValues           ProductSpecValue[]
-  returnItems          ReturnItem[]
-  reviews              Review[]
-  wishlists            Wishlist[]
+   specValues           ProductSpecValue[]
+   returnItems          ReturnItem[]
+   reviews              Review[]
+   wishlists            Wishlist[]
+   bowActionLogs        BowActionLog[]
 
   @@index([vendorId])
   @@index([categoryId])
@@ -486,6 +608,7 @@ model Product {
   @@index([categoryId, isActive, createdAt])
   @@index([isActive, price])
   @@index([isActive, createdAt])
+  @@index([vendorId, stock])
 }
 
 model Admin {
@@ -534,8 +657,16 @@ model Coupon {
   usageLimit     Int?
   usedCount      Int       @default(0)
   isActive       Boolean   @default(true)
+  vendorId       String?
+  productIds     String[]
+  categoryIds    String[]
+  minQuantity    Int?
+  vendor         Vendor?   @relation(fields: [vendorId], references: [id])
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  @@index([vendorId])
+  @@index([isActive])
 }
 
 model AdminNote {
@@ -583,9 +714,64 @@ model CheckoutFollowup {
   checkout   AbandonedCheckout @relation(fields: [checkoutId], references: [id])
 }
 
+
+
+// --- RETURNS SYSTEM ---
+
+enum ReturnStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PICKUP_SCHEDULED
+  PICKUP_COMPLETED
+  IN_TRANSIT
+  RECEIVED_AT_WAREHOUSE
+  QC_IN_PROGRESS
+  QC_PASSED
+  QC_FAILED
+  REFUND_INITIATED
+  REFUND_COMPLETED
+  REPLACEMENT_INITIATED
+  REPLACEMENT_SHIPPED
+  REPLACEMENT_COMPLETED
+  CANCELLED
+}
+
+enum ReturnReason {
+  DAMAGED_PRODUCT
+  WRONG_ITEM
+  MISSING_PARTS
+  QUALITY_ISSUE
+  SIZE_FIT_ISSUE
+  NOT_AS_DESCRIBED
+  DEFECTIVE
+  CHANGED_MIND
+  OTHER
+}
+
+enum ItemCondition {
+  UNOPENED
+  OPENED_UNUSED
+  USED_LIKE_NEW
+  USED_GOOD
+  USED_FAIR
+  DAMAGED
+  DEFECTIVE
+}
+
+enum CostBearer {
+  PLATFORM
+  VENDOR
+  CUSTOMER
+  SHARED
+}
+
+
+
+
 model ReturnRequest {
   id                     String            @id @default(cuid())
-  returnNumber           String            @unique
+  returnNumber           String            @unique // RET-{timestamp}-{orderIdShort}
   orderId                String
   userId                 String
   vendorId               String?
@@ -594,48 +780,68 @@ model ReturnRequest {
   description            String?
   evidenceImages         String[]
   evidenceVideo          String?
+  
   requestedAt            DateTime          @default(now())
+  approvedAt             DateTime?
+  rejectedAt             DateTime?
+  completedAt            DateTime?
   updatedAt              DateTime          @updatedAt
+  
   pickupDate             DateTime?
-  deliveredAt            DateTime?
   pickupAddress          Json?
   courierPartner         String?
   trackingId             String?
   replacementTrackingId  String?
+  
   qcNotes                String?
   qcBy                   String?
-  replacementOrderId     String?
-  items                  ReturnItem[]
+  
   order                  Order             @relation(fields: [orderId], references: [id])
   user                   User              @relation(fields: [userId], references: [id])
   vendor                 Vendor?           @relation(fields: [vendorId], references: [id])
+  items                  ReturnItem[]
   settlement             ReturnSettlement?
   timeline               ReturnTimeline[]
-
+  refund                 Refund[]
+  
   @@index([orderId])
   @@index([status])
   @@index([userId])
+  @@index([vendorId])
+  @@index([returnNumber])
 }
 
 model ReturnItem {
   id            String        @id @default(cuid())
   returnId      String
   productId     String
+  variantId     String?
   quantity      Int
   reason        ReturnReason?
+  description   String?
   condition     String?
-  product       Product       @relation(fields: [productId], references: [id])
+  
+  qcStatus      ItemCondition?
+  qcNotes       String?
+  
   returnRequest ReturnRequest @relation(fields: [returnId], references: [id])
+  product       Product       @relation(fields: [productId], references: [id])
+
+  @@index([returnId])
+  @@index([productId])
 }
 
 model ReturnSettlement {
   id             String        @id @default(cuid())
   returnId       String        @unique
-  status         String        @default("PENDING")
-  costBearer     String
+  costBearer     CostBearer    @default(PLATFORM)
+  penaltyAmount  Int           @default(0) // In paise
+  penaltyReason  String?
   penaltyApplied Boolean       @default(false)
-  penaltyAmount  Float?
   adminNotes     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  
   returnRequest  ReturnRequest @relation(fields: [returnId], references: [id])
 }
 
@@ -644,28 +850,16 @@ model ReturnTimeline {
   returnId      String
   status        ReturnStatus
   action        String
-  performedBy   String
-  timestamp     DateTime      @default(now())
+  performedBy   String        // CUSTOMER, ADMIN, VENDOR, SYSTEM
+  actorId       String?       // ID of the person performing action
   notes         String?
+  metadata      Json?
+  timestamp     DateTime      @default(now())
+  
   returnRequest ReturnRequest @relation(fields: [returnId], references: [id])
-}
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  adminId   String
-  entity    String
-  action    String
-  details   Json?
-  createdAt DateTime @default(now())
-  entityId  String
-  ipAddress String?
-  userAgent String?
-  admin     User     @relation(fields: [adminId], references: [id])
-
-  @@index([adminId])
-  @@index([entity])
-  @@index([action])
-  @@index([createdAt])
+  
+  @@index([returnId])
+  @@index([timestamp])
 }
 
 model Refund {
@@ -684,11 +878,33 @@ model Refund {
   updatedAt     DateTime     @updatedAt
   order         Order        @relation(fields: [orderId], references: [id])
   user          User         @relation(fields: [userId], references: [id])
+  returnId      String?
+  returnRequest ReturnRequest? @relation(fields: [returnId], references: [id])
 
   @@index([status])
   @@index([userId])
   @@index([orderId])
 }
+
+model AuditLog {
+
+  id        String   @id @default(cuid())
+  adminId   String
+  entity    String
+  action    String
+  details   Json?
+  createdAt DateTime @default(now())
+  entityId  String
+  ipAddress String?
+  userAgent String?
+  admin     User     @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([entity])
+  @@index([action])
+  @@index([createdAt])
+}
+
 
 model CategorySpec {
   id            String             @id @default(cuid())
@@ -750,6 +966,22 @@ model BowInteraction {
   @@index([escalated])
   @@index([sessionId])
   @@index([userId])
+  @@index([sessionId, createdAt])
+}
+
+enum CartInsightType {
+  HESITATION
+  THRESHOLD_NEAR
+  BUNDLE_OPPORTUNITY
+  PRICE_SENSITIVITY
+  REPEAT_REMOVAL
+  GIFT_ELIGIBLE
+}
+
+enum InsightSeverity {
+  LOW
+  MEDIUM
+  HIGH
 }
 
 enum BowActionType {
@@ -761,6 +993,12 @@ enum BowActionType {
   NAVIGATE
   VIEW_CART
   GET_RECOMMENDATIONS
+  CLIENT_CONTROL
+  ROOM_NUDGE
+  SUGGEST_BUNDLE
+  SUGGEST_GIFT
+  SUGGEST_UPSELL
+  REMOVE_SUGGESTION
 }
 
 model ReferralTracking {
@@ -860,6 +1098,7 @@ model VendorPromotion {
   @@index([status])
   @@index([type])
   @@index([vendorId])
+  @@index([vendorId, status])
 }
 
 enum UserStatus {
@@ -890,6 +1129,12 @@ enum MemberStatus {
   ORDERED
   CONFIRMED
   CANCELLED
+}
+
+enum RoomBoostType {
+  PRIORITY_VISIBILITY
+  UNLOCK_ACCELERATOR
+  SPONSORED_PRODUCT
 }
 
 enum OrderStatus {
@@ -953,29 +1198,6 @@ enum CallOutcome {
   WRONG_NUMBER
 }
 
-enum ReturnStatus {
-  RETURN_REQUESTED
-  PENDING_APPROVAL
-  APPROVED
-  REJECTED
-  PICKUP_SCHEDULED
-  PICKUP_COMPLETED
-  QC_IN_PROGRESS
-  QC_PASSED
-  QC_FAILED
-  REPLACEMENT_INITIATED
-  REPLACEMENT_SHIPPED
-  REPLACEMENT_COMPLETED
-}
-
-enum ReturnReason {
-  DAMAGED_PRODUCT
-  WRONG_ITEM
-  MISSING_PARTS
-  QUALITY_ISSUE
-  SIZE_FIT_ISSUE
-  OTHER
-}
 
 enum RefundStatus {
   PENDING
@@ -1074,3 +1296,4 @@ enum ReferralStatus {
   COMPLETED
   EXPIRED
 }
+
