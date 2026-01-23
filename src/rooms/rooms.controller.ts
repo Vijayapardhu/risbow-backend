@@ -3,7 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { RoomsService } from './rooms.service';
 import { RoomMonetizationService } from './room-monetization.service';
 import { BowRoomIntelligenceService } from '../bow/bow-room-intelligence.service';
-import { CreateRoomDto } from './dto/create-room.dto';
+import { CreateRoomDto, CreateDiscountRoomDto } from './dto/create-room.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RoomStatus, RoomBoostType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service'; // Direct access for simple GET
@@ -59,14 +59,35 @@ export class RoomsController {
 
     @Post()
     @UseGuards(JwtAuthGuard)
-    create(@Request() req, @Body() createRoomDto: CreateRoomDto) {
-        return this.roomsService.create(req.user.id, createRoomDto);
+    async create(@Request() req, @Body() dto: any) {
+        if (dto.productId && dto.maxDiscount) {
+            return this.roomsService.createDiscountRoom(req.user.id, dto as CreateDiscountRoomDto);
+        }
+        return this.roomsService.create(req.user.id, dto as CreateRoomDto);
     }
 
     @Post(':id/join')
     @UseGuards(JwtAuthGuard)
-    join(@Request() req, @Param('id') id: string) {
+    async join(@Request() req, @Param('id') id: string) {
+        const room = await this.prisma.room.findUnique({ where: { id } });
+        if (room?.type === 'LINEAR_DISCOUNT') {
+            return this.roomsService.joinDiscountRoom(id, req.user.id);
+        }
         return this.roomsService.join(id, req.user.id);
+    }
+
+    @Post(':id/leave')
+    @UseGuards(JwtAuthGuard)
+    async leave(@Request() req, @Param('id') id: string) {
+        return this.roomsService.leaveDiscountRoom(id, req.user.id);
+    }
+
+    @Post(':id/purchase')
+    @UseGuards(JwtAuthGuard)
+    async purchase(@Request() req, @Param('id') id: string) {
+        // This Locks the room and returns the final calculated discount
+        // Logic for applying discount to checkout happens in Orders/Cart service which would call RoomsService.initiatePurchase
+        return this.roomsService.initiatePurchase(id, req.user.id);
     }
 
     @Post(':id/order/:orderId')

@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../shared/redis.service';
 import { CartService } from '../cart/cart.service';
+import { z } from 'zod';
 
 // Temporary enum until Prisma client is fixed
 enum BowActionType {
@@ -21,15 +22,17 @@ enum BowActionType {
   REMOVE_SUGGESTION = 'REMOVE_SUGGESTION'
 }
 
-interface AutoActionRequest {
-  actionType: BowActionType;
-  userId: string;
-  productId?: string;
-  price?: number;
-  quantity?: number;
-  reason: string;
-  strategy?: string;
-}
+const AutoActionRequestSchema = z.object({
+  actionType: z.nativeEnum(BowActionType),
+  userId: z.string().min(1),
+  productId: z.string().optional(),
+  price: z.number().positive().optional(),
+  quantity: z.number().int().positive().optional(),
+  reason: z.string().min(1),
+  strategy: z.string().optional(),
+});
+
+interface AutoActionRequest extends z.infer<typeof AutoActionRequestSchema> {}
 
 interface GuardrailResult {
   allowed: boolean;
@@ -46,6 +49,8 @@ export class BowAutoActionService {
   private readonly ACTION_COOLDOWN_MINUTES = 1440; // 24 hours
   private readonly USER_DAILY_AUTO_ACTION_LIMIT = 3;
   private readonly RESTRICTED_CATEGORIES = ['adult', 'alcohol', 'tobacco'];
+  private readonly RATE_LIMIT_WINDOW = 60; // seconds
+  private readonly RATE_LIMIT_MAX = 10; // requests per window
 
   constructor(
     private prisma: PrismaService,
@@ -101,10 +106,32 @@ export class BowAutoActionService {
   }
 
   /**
+   * Check rate limit for AI requests
+   */
+  private async checkRateLimit(userId: string): Promise<GuardrailResult> {
+    const key = `ratelimit:ai:${userId}`;
+    const current = parseInt(await this.redis.get(key) || '0');
+    if (current >= this.RATE_LIMIT_MAX) {
+      return { allowed: false, reason: 'Rate limit exceeded' };
+    }
+    await this.redis.set(key, (current + 1).toString(), this.RATE_LIMIT_WINDOW);
+    return { allowed: true };
+  }
+
+  /**
    * Comprehensive guardrail validation system
    */
   private async validateGuardrails(request: AutoActionRequest): Promise<GuardrailResult> {
     const { actionType, userId, productId, price, quantity } = request;
+
+    // Kill-switch check
+    if (process.env.DISABLE_AI_FEATURES === 'true') {
+      return { allowed: false, reason: 'AI features disabled' };
+    }
+
+    // 0. Rate limit check
+    const rateLimitCheck = await this.checkRateLimit(userId);
+    if (!rateLimitCheck.allowed) return rateLimitCheck;
 
     // 1. Price limit for auto-add actions
     if (actionType === BowActionType.ADD_TO_CART && price && price > this.MAX_AUTO_ADD_PRICE) {
@@ -138,6 +165,7 @@ export class BowAutoActionService {
     const behaviorCheck = await this.validateUserBehavior(userId, request);
     if (!behaviorCheck.allowed) return behaviorCheck;
 
+    this.logger.log(`Guardrails passed for user ${userId}, action ${actionType}`);
     return { allowed: true };
   }
 

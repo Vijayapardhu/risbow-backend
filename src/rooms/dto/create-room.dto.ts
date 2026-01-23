@@ -23,6 +23,29 @@ export class CreateRoomDto {
     unlockMinValue: number;
 }
 
+export class CreateDiscountRoomDto {
+    @IsNotEmpty()
+    @IsString()
+    @MaxLength(50)
+    name: string;
+
+    @IsNotEmpty()
+    @IsString()
+    productId: string;
+
+    @IsNotEmpty()
+    @IsInt()
+    @Min(1)
+    @Max(100)
+    maxDiscount: number;
+
+    @IsNotEmpty()
+    @IsInt()
+    @Min(2)
+    @Max(20)
+    maxMembers: number;
+}
+
 export class JoinRoomDto {
     // Mostly just ID in param, potentially referral code here
 }

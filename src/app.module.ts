@@ -36,6 +36,8 @@ import { VendorProductsModule } from './vendor-products/vendor-products.module';
 import { VendorPayoutsModule } from './vendor-payouts/vendor-payouts.module';
 import { VendorFollowersModule } from './vendor-followers/vendor-followers.module';
 import { SearchModule } from './search/search.module';
+import { WalletModule } from './wallet/wallet.module';
+import { BetModule } from './bet/bet.module';
 
 import { SharedModule } from './shared/shared.module';
 import { HealthController } from './common/health.controller';
@@ -92,9 +94,9 @@ import { HealthController } from './common/health.controller';
         InventoryModule,
         VendorPayoutsModule,
         VendorFollowersModule,
-        VendorPayoutsModule,
-        VendorFollowersModule,
         SearchModule,
+        WalletModule,
+        BetModule,
         // QueuesModule handled above in conditional import
     ],
     controllers: [HealthController],

@@ -183,6 +183,9 @@ model User {
   rooms                                              RoomMember[]
   VendorFollower                                     VendorFollower[]
   wishlist                                           Wishlist[]
+  wallet                                             Wallet?
+  bets                                               Bet[]
+  ledger                                             LedgerEntry[]
 
    productSearchMisses                                ProductSearchMiss[]
    cartInsights                                       CartInsight[]
@@ -214,8 +217,17 @@ model Room {
   boosts          RoomBoost[]
   insights        RoomInsight[]
 
+  // Phase 3.1: Group Discount Room fields
+  type            RoomType     @default(GOAL_BASED)
+  productId       String?
+  maxDiscount     Float?       // Max discount percentage (e.g. 80.0)
+  maxMembers      Int?         // Limit of members (can use size but let's be explicit as per request)
+  
+  product         Product?     @relation(fields: [productId], references: [id])
+
   @@index([status, endAt])
   @@index([createdById])
+  @@index([productId])
 }
 
 model RoomBoost {
@@ -586,6 +598,7 @@ model Product {
   shippingDetails      Json?
   storageInstructions  String?
   totalAllowedQuantity Int                @default(10)
+  rooms                Room[]
   freeListingExpiresAt DateTime?
   cartItems            CartItem[]
   category             Category           @relation(fields: [categoryId], references: [id])
@@ -1122,6 +1135,13 @@ enum RoomStatus {
   ACTIVE
   UNLOCKED
   EXPIRED
+  OPEN      // Phase 3.1: Accepts members
+  COMPLETED // Phase 3.1: Purchase successful
+}
+
+enum RoomType {
+  GOAL_BASED      // Phase 2
+  LINEAR_DISCOUNT // Phase 3.1
 }
 
 enum MemberStatus {
@@ -1295,5 +1315,78 @@ enum ReferralStatus {
   PENDING
   COMPLETED
   EXPIRED
+}
+
+// --- BETTING SYSTEM MODELS ---
+
+enum BetStatus {
+  PENDING
+  PLACED
+  SETTLED_WIN
+  SETTLED_LOSE
+  CANCELLED
+  VOIDED
+}
+
+enum BetType {
+  SINGLE
+  MULTIPLE
+  SYSTEM
+}
+
+model Wallet {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  balance   Int      @default(0) // In paise
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  ledger    LedgerEntry[]
+
+  @@index([userId])
+}
+
+model Bet {
+  id             String    @id @default(cuid())
+  userId         String
+  idempotencyKey String    @unique
+  type           BetType   @default(SINGLE)
+  selections     Json      // Bet selections
+  stake          Int       // In paise
+  odds           Float
+  potentialWin   Int       // Calculated payout
+  status         BetStatus @default(PENDING)
+  placedAt       DateTime  @default(now())
+  settledAt      DateTime?
+  result         String?   // WIN, LOSE, VOID
+  payout         Int?      // Actual payout amount
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id])
+  ledgerEntries  LedgerEntry[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([idempotencyKey])
+}
+
+model LedgerEntry {
+  id          String   @id @default(cuid())
+  userId      String
+  walletId    String
+  betId       String?
+  amount      Int      // Positive for credit, negative for debit
+  type        String   // BET_PLACEMENT, BET_WIN, BET_LOSE, DEPOSIT, WITHDRAWAL
+  description String
+  balanceAfter Int     // Wallet balance after this entry
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+  wallet      Wallet   @relation(fields: [walletId], references: [id])
+  bet         Bet?     @relation(fields: [betId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([walletId])
+  @@index([betId])
+  @@index([createdAt])
 }
 
