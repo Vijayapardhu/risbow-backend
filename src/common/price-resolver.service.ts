@@ -27,7 +27,7 @@ export class PriceResolverService {
         const { productId, variantId } = args;
         const product = await this.prisma.product.findUnique({
             where: { id: productId },
-            include: { ProductVariant: true }
+            include: { variants: true }
         });
 
         if (!product) {
@@ -37,7 +37,7 @@ export class PriceResolverService {
         let basePrice: number;
 
         if (variantId) {
-            const variants = (product as any).ProductVariant as any[] | undefined;
+            const variants = (product as any).variants as any[] | undefined;
             const variant = (variants || []).find((v) => v.id === variantId);
             if (!variant) {
                 throw new NotFoundException(`Variant ${variantId} not found for product ${productId}`);

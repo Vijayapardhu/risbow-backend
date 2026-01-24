@@ -1,4 +1,4 @@
-// 1️⃣ ProductSearchMiss: Tracks failed searches with analytics for demand mining
+// 1Ã¯Â¸ÂÃ¢Æ’Â£ ProductSearchMiss: Tracks failed searches with analytics for demand mining
 model ProductSearchMiss {
   id                 String    @id @default(cuid())
   query              String
@@ -24,7 +24,7 @@ model ProductSearchMiss {
   @@index([region])
 }
 
-// 1️⃣b SearchTrending: Tracks trending searches by region for autocomplete and analytics
+// 1Ã¯Â¸ÂÃ¢Æ’Â£b SearchTrending: Tracks trending searches by region for autocomplete and analytics
 model SearchTrending {
   id        String   @id @default(cuid())
   query     String
@@ -37,7 +37,7 @@ model SearchTrending {
   @@index([lastSeen])
 }
 
-// 2️⃣ CartInsight: Analyzes cart state for behavioral patterns and risk
+// 2Ã¯Â¸ÂÃ¢Æ’Â£ CartInsight: Analyzes cart state for behavioral patterns and risk
 model CartInsight {
   id              String         @id @default(cuid())
   userId          String
@@ -61,7 +61,7 @@ model CartInsight {
   @@index([severity])
 }
 
-// 3️⃣ RecommendationEvent: Tracks AI/System recommendations and their conversion
+// 3Ã¯Â¸ÂÃ¢Æ’Â£ RecommendationEvent: Tracks AI/System recommendations and their conversion
 model RecommendationEvent {
   id              String   @id @default(cuid())
   userId          String
@@ -79,7 +79,7 @@ model RecommendationEvent {
   @@index([accepted])
 }
 
-// 6️⃣ UserProductEvent: Commerce-grade event stream for personalization and analytics.
+// 6Ã¯Â¸ÂÃ¢Æ’Â£ UserProductEvent: Commerce-grade event stream for personalization and analytics.
 // Money safety: store prices in integer paise.
 model UserProductEvent {
   id        String           @id @default(cuid())
@@ -103,7 +103,7 @@ model UserProductEvent {
   @@index([source, createdAt])
 }
 
-// 4️⃣ BowActionLog: Tracks automatic Bow actions with guardrails and attribution
+// 4Ã¯Â¸ÂÃ¢Æ’Â£ BowActionLog: Tracks automatic Bow actions with guardrails and attribution
 model BowActionLog {
   id              String         @id @default(cuid())
   userId          String
@@ -130,7 +130,7 @@ model BowActionLog {
   @@index([autoReversed])
 }
 
-// 5️⃣ UserPreferenceProfile: Safe preference storage for personalization
+// 5Ã¯Â¸ÂÃ¢Æ’Â£ UserPreferenceProfile: Safe preference storage for personalization
 model UserPreferenceProfile {
   id                    String   @id @default(cuid())
   userId                String   @unique
@@ -237,6 +237,8 @@ model User {
   ReferralRewardRule ReferralRewardRule[]
   ReferralRewardGrantInviter ReferralRewardGrant[] @relation("ReferralGrantInviter")
   ReferralRewardGrantInvitee ReferralRewardGrant[] @relation("ReferralGrantInvitee")
+  localPromotionsSet LocalPromotion[]
+  uploadedPackingProofs OrderPackingProof[]
 }
 
 // User device tokens for push notifications (FCM).
@@ -360,6 +362,7 @@ model Category {
 
   @@index([parentId])
   @@index([isActive])
+  localPromotions  LocalPromotion[]
 }
 
 model GiftSKU {
@@ -378,20 +381,20 @@ model CoinLedger {
   amount      Int
   source      String
   referenceId String?
-  // 🔐 Bow Coin Valuation Snapshot (future-only, audit-safe)
+  // Ã°Å¸â€Â Bow Coin Valuation Snapshot (future-only, audit-safe)
   // Stores the rupee valuation used at the time of this ledger entry.
   // Money is stored in integer paise; valuation is "paise per 1 coin".
   paisePerCoinAtTxn Int      @default(100)
   roleAtTxn         UserRole @default(CUSTOMER)
   expiresAt   DateTime?
-  isExpired   Boolean   @default(false)  // 🔐 P0 FIX: Preserve ledger history
+  isExpired   Boolean   @default(false)  // Ã°Å¸â€Â P0 FIX: Preserve ledger history
   createdAt   DateTime  @default(now())
   user        User      @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([createdAt])
   @@index([isExpired])  // For efficient expiry queries
-  @@index([expiresAt])  // 🔐 P0 FIX: Index for expiry cron job
+  @@index([expiresAt])  // Ã°Å¸â€Â P0 FIX: Index for expiry cron job
   @@index([roleAtTxn, createdAt])
 }
 
@@ -403,6 +406,9 @@ model Vendor {
   pincode          String?           // For hyper-local sourcing
   latitude         Float?
   longitude        Float?
+
+  storeStatus      VendorStatus      @default(ACTIVE)
+  storeClosedUntil DateTime?
   kycStatus        String            @default("PENDING")
   tier             String            @default("BASIC")
   gstNumber        String?
@@ -439,9 +445,16 @@ model Vendor {
   coupons          Coupon[]
   orderSettlements OrderSettlement[]
 
+
+  serviceAreas     VendorServiceArea[]
+  pickupPoints     PickupPoint[]
+  localPromotions  LocalPromotion[]
+  packingProofs    OrderPackingProof[]
+
   @@index([kycStatus])
   @@index([tier])
   @@index([pincode])
+  @@index([storeStatus])
 }
 
 model RoomPackage {
@@ -462,6 +475,11 @@ model Address {
   city         String
   state        String
   pincode      String
+
+  latitude     Float?
+  longitude    Float?
+  geoSource    GeoSource?
+  geoUpdatedAt DateTime?
   isDefault    Boolean  @default(false)
   addressLine1 String   @default("")
   addressLine2 String?
@@ -682,6 +700,8 @@ model Order {
   @@index([status, createdAt])
   @@index([roomId, userId])
   ReferralRewardGrant ReferralRewardGrant?
+  shipment      Shipment?
+  packingProof  OrderPackingProof?
 }
 
 model Product {
@@ -761,6 +781,7 @@ model Product {
   @@index([isActive, createdAt])
   @@index([vendorId, stock])
   @@index([vendorId, isActive, stock])
+  localPromotions  LocalPromotion[]
 }
 
 model Admin {
@@ -801,7 +822,7 @@ model PlatformConfig {
 model CoinValuation {
   id           String   @id @default(cuid())
   role         UserRole
-  // integer paise per 1 coin (e.g., 100 => ₹1/coin, 10 => ₹0.10/coin)
+  // integer paise per 1 coin (e.g., 100 => Ã¢â€šÂ¹1/coin, 10 => Ã¢â€šÂ¹0.10/coin)
   paisePerCoin Int
   effectiveFrom DateTime @default(now())
   effectiveTo   DateTime?
@@ -1715,6 +1736,130 @@ model ReturnQCChecklist {
 }
 
 
+model PincodeGeo {
+  pincode   String    @id
+  latitude  Float
+  longitude Float
+  source    GeoSource  @default(PINCODE_DB)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([source])
+}
+
+model LocalPromotion {
+  id            String   @id @default(cuid())
+  name          String?
+  isActive       Boolean  @default(true)
+  targetType     String
+  centerLat      Float?
+  centerLng      Float?
+  radiusKm       Float?
+  pincodes       Json?
+  vendorId       String?
+  categoryId     String?
+  productId      String?
+  percentOff     Int?
+  flatOffAmount  Int?
+  freeShipping   Boolean  @default(false)
+  boostOnly      Boolean  @default(false)
+  effectiveFrom  DateTime @default(now())
+  effectiveTo    DateTime?
+  setByUserId    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  vendor         Vendor?  @relation(fields: [vendorId], references: [id])
+  category       Category? @relation(fields: [categoryId], references: [id])
+  product        Product?  @relation(fields: [productId], references: [id])
+  setByUser      User?     @relation(fields: [setByUserId], references: [id])
+
+  @@index([isActive, effectiveFrom, effectiveTo])
+  @@index([vendorId])
+  @@index([categoryId])
+  @@index([productId])
+  @@index([setByUserId])
+}
+
+model VendorServiceArea {
+  id        String   @id @default(cuid())
+  vendorId   String
+  type      String
+  centerLat Float?
+  centerLng Float?
+  radiusKm  Float?
+  polygon   Json?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([isActive])
+}
+
+model PickupPoint {
+  id           String   @id @default(cuid())
+  vendorId      String
+  name          String
+  addressLine1  String
+  addressLine2  String?
+  city          String
+  state         String
+  pincode       String
+  latitude      Float?
+  longitude     Float?
+  timings       Json?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  shipments     Shipment[]
+
+  @@index([vendorId])
+  @@index([pincode])
+}
+
+model Shipment {
+  id            String   @id @default(cuid())
+  orderId       String   @unique
+  mode          String
+  status        String
+  courierProvider String?
+  awb           String?
+  trackingUrl   String?
+  pickupPointId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  pickupPoint   PickupPoint? @relation(fields: [pickupPointId], references: [id])
+
+  @@index([awb])
+  @@index([pickupPointId])
+}
+
+model OrderPackingProof {
+  id              String   @id @default(cuid())
+  orderId          String   @unique
+  vendorId         String
+  uploadedByUserId String
+  videoPath        String
+  videoMime        String?
+  videoSizeBytes   Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vendor           Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  uploadedByUser   User     @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([createdAt])
+}
+
 model ReferralRewardRule {
   id            String   @id @default(cuid())
   minOrderPaise  Int
@@ -1756,4 +1901,9 @@ model ReferralRewardGrant {
   @@index([inviterUserId, createdAt])
   @@index([inviteeUserId, createdAt])
   @@index([ruleId])
+}
+enum GeoSource {
+  PINCODE_DB
+  NOMINATIM
+  MANUAL
 }

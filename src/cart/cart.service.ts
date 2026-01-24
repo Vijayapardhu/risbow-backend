@@ -48,7 +48,7 @@ export class CartService {
                         product: {
                             include: {
                                 vendor: true,
-                                ProductVariant: true,
+                                variants: true,
                                 // Assuming images are in mediaGallery or similar, keeping simple for now
                             }
                         },
@@ -93,7 +93,7 @@ export class CartService {
 
             // JSON Variant Handling
             if (item.variantId) {
-                const variants = ((item.product as any).ProductVariant as any[]) || [];
+                const variants = ((item.product as any).variants as any[]) || [];
                 const variant = variants.find(v => v.id === item.variantId);
 
                 if (variant) {

@@ -57,11 +57,11 @@ export class BuyLaterService {
                 currentPrice,
                 quantity: dto.quantity || 1,
                 updatedAt: new Date(),
-                User: { connect: { id: userId } },
-                Product: { connect: { id: dto.productId } }
+                user: { connect: { id: userId } },
+                product: { connect: { id: dto.productId } }
             },
             include: {
-                Product: {
+                product: {
                     select: {
                         id: true,
                         title: true,
@@ -92,7 +92,7 @@ export class BuyLaterService {
                 take: limit,
                 orderBy: { createdAt: 'desc' },
                 include: {
-                    Product: {
+                    product: {
                         select: {
                             id: true,
                             title: true,
@@ -143,7 +143,7 @@ export class BuyLaterService {
                 isActive: dto.isActive
             },
             include: {
-                Product: {
+                product: {
                     select: {
                         id: true,
                         title: true,
@@ -191,13 +191,13 @@ export class BuyLaterService {
                 isNotified: false
             },
             include: {
-                User: { select: { id: true, name: true, email: true, mobile: true } },
-                Product: { select: { id: true, title: true, price: true, offerPrice: true, images: true } }
+                user: { select: { id: true, name: true, email: true, mobile: true } },
+                product: { select: { id: true, title: true, price: true, offerPrice: true, images: true } }
             }
         });
 
         for (const item of buyLaterItems) {
-            const currentPrice = (item as any).Product.offerPrice || (item as any).Product.price;
+            const currentPrice = (item as any).product.offerPrice || (item as any).product.price;
             
             if (currentPrice <= item.targetPrice) {
                 await this.processPriceDrop(item, currentPrice);
@@ -222,15 +222,15 @@ export class BuyLaterService {
 
             // Send notification
             await this.notificationsService.createNotification(
-                buyLaterItem.User.id,
+                buyLaterItem.user.id,
                 'Price Drop Alert!',
-                `Great news! ${buyLaterItem.Product.title} has dropped by ${priceDropPercent.toFixed(1)}% to ₹${newPrice / 100}. We've added it to your cart!`,
+                `Great news! ${buyLaterItem.product.title} has dropped by ${priceDropPercent.toFixed(1)}% to ₹${newPrice / 100}. We've added it to your cart!`,
                 'PRICE_DROP',
                 'BUY_LATER'
             );
 
             // Add to cart
-            await this.cartService.addItemPublic(buyLaterItem.User.id, {
+            await this.cartService.addItemPublic(buyLaterItem.user.id, {
                 productId: buyLaterItem.productId,
                 variantId: buyLaterItem.variantId,
                 quantity: buyLaterItem.quantity
