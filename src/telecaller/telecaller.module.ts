@@ -6,5 +6,6 @@ import { PrismaService } from '../prisma/prisma.service';
 @Module({
     controllers: [TelecallerController],
     providers: [TelecallerService, PrismaService],
+    exports: [TelecallerService],
 })
 export class TelecallerModule { }

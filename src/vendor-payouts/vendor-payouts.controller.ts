@@ -1,37 +1,37 @@
 import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { VendorPayoutsService } from './vendor-payouts.service';
-// import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-// import { RolesGuard } from '../auth/guards/roles.guard';
-// import { Roles } from '../auth/decorators/roles.decorator';
-// Import guards properly based on existing project structure (stubbing for now as I can't see auth module export easily without view)
-// Assuming standard structure:
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 @Controller('vendor-payouts')
 export class VendorPayoutsController {
     constructor(private readonly payoutsService: VendorPayoutsService) { }
 
-    // @UseGuards(JwtAuthGuard, RolesGuard)
-    // @Roles('ADMIN', 'SUPER_ADMIN')
     @Get('admin/due')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
     async getDuePayouts() {
         return this.payoutsService.getDuePayouts();
     }
 
-    // @UseGuards(JwtAuthGuard, RolesGuard)
-    // @Roles('ADMIN', 'SUPER_ADMIN')
     @Post('admin/process')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
     async processPayout(
         @Request() req,
         @Body() body: { vendorId: string; amount: number; transactionId: string; notes?: string }
     ) {
-        // req.user.id stub
-        const adminId = req.user?.id || 'admin-system';
+        const adminId = req.user.id;
         return this.payoutsService.processPayout(adminId, body.vendorId, body.amount, body.transactionId, body.notes);
     }
 
-    // @UseGuards(JwtAuthGuard)
     @Get('history')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.VENDOR, UserRole.WHOLESALER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
     async getMyHistory(@Request() req) {
-        return this.payoutsService.getPayoutHistory(req.user?.id); // Assuming req.user is populated
+        const vendorId = req.user.vendorId || req.user.id;
+        return this.payoutsService.getPayoutHistory(vendorId);
     }
 }

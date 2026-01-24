@@ -10,8 +10,9 @@ export interface BannerAnalyticsJob {
 }
 
 export interface NotificationJob {
-    type: 'push' | 'email';
+    type: 'push' | 'email' | 'sms' | 'whatsapp';
     userId?: string;
+    mobile?: string;
     title: string;
     body: string;
     targetAudience?: string;

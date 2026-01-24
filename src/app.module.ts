@@ -25,7 +25,6 @@ import { InventoryModule } from './inventory/inventory.module';
 
 import { UploadModule } from './upload/upload.module';
 import { ReviewsModule } from './reviews/reviews.module';
-import { RefundsModule } from './refunds/refunds.module';
 import { GiftsModule } from './gifts/gifts.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { BannersModule } from './banners/banners.module';
@@ -38,8 +37,13 @@ import { VendorFollowersModule } from './vendor-followers/vendor-followers.modul
 import { SearchModule } from './search/search.module';
 import { WalletModule } from './wallet/wallet.module';
 import { BetModule } from './bet/bet.module';
+import { WholesalersModule } from './wholesalers/wholesalers.module';
+import { IdempotencyModule } from './idempotency/idempotency.module';
+import { MetricsModule } from './metrics/metrics.module';
 
+import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { SharedModule } from './shared/shared.module';
+import { CommonModule } from './common/common.module';
 import { HealthController } from './common/health.controller';
 
 @Module({
@@ -64,9 +68,12 @@ import { HealthController } from './common/health.controller';
             AdminModule, // Depends on QueuesModule
         ]),
         PrismaModule,
+        IdempotencyModule,
+        MetricsModule,
         AuditModule,
         AnalyticsModule,
         SharedModule,
+        CommonModule,
         AuthModule,
         UsersModule,
         CoinsModule,
@@ -83,7 +90,6 @@ import { HealthController } from './common/health.controller';
         CartModule,
         UploadModule,
         ReviewsModule,
-        RefundsModule,
         GiftsModule,
         CouponsModule,
         BannersModule,
@@ -97,8 +103,15 @@ import { HealthController } from './common/health.controller';
         SearchModule,
         WalletModule,
         BetModule,
+        WholesalersModule,
         // QueuesModule handled above in conditional import
     ],
     controllers: [HealthController],
 })
-export class AppModule { }
+export class AppModule {
+    configure(consumer: any) {
+        consumer
+            .apply(CorrelationIdMiddleware)
+            .forRoutes('*');
+    }
+}

@@ -33,6 +33,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { Idempotent } from '../idempotency/idempotency.decorator';
 
 @ApiTags('Banners')
 @Controller()
@@ -228,6 +229,7 @@ export class BannersController {
         description: 'Banner slot purchased successfully',
         type: BannerResponseDto,
     })
+    @Idempotent({ required: true, ttlSeconds: 600 })
     async purchaseBannerSlot(@Request() req, @Body() dto: PurchaseBannerDto) {
         const vendorId = req.user.id; // Assuming vendor user ID
         return this.bannersService.purchaseBannerSlot(vendorId, dto);

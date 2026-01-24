@@ -16,6 +16,10 @@ import {
 } from './dto/banner.dto';
 import { CacheService } from '../shared/cache.service';
 import { QueuesService } from '../queues/queues.service';
+import { PaymentsService } from '../payments/payments.service';
+import { CoinValuationService } from '../coins/coin-valuation.service';
+import { UserRole } from '@prisma/client';
+import { PaymentIntentPurpose } from '@prisma/client';
 
 @Injectable()
 export class BannersService {
@@ -32,7 +36,9 @@ export class BannersService {
     constructor(
         private prisma: PrismaService,
         private cache: CacheService,
-        private queues: QueuesService
+        private queues: QueuesService,
+        private paymentsService: PaymentsService,
+        private coinValuation: CoinValuationService,
     ) { }
 
     /**
@@ -201,40 +207,174 @@ export class BannersService {
     }
 
     /**
-     * Vendor purchases banner slot
+     * Vendor purchases banner slot with coins or ₹ payment
      */
     async purchaseBannerSlot(vendorId: string, dto: PurchaseBannerDto): Promise<BannerResponseDto> {
         this.logger.log(`Vendor ${vendorId} purchasing banner slot`);
 
-        const startDate = new Date();
-        const endDate = new Date();
-        endDate.setDate(endDate.getDate() + dto.durationDays);
+        // Calculate cost based on slot type and duration
+        const costInPaise = this.calculateBannerCost(dto.slotType, dto.durationDays);
+        // Convert ₹ cost to coins using admin-configured valuation (paise per 1 coin)
+        const paisePerCoin = await this.coinValuation.getActivePaisePerCoin(UserRole.VENDOR);
+        const costInCoins = Math.ceil(costInPaise / paisePerCoin);
 
-        const metadata: BannerMetadataDto = {
-            slotKey: dto.slotKey,
-            slotIndex: dto.slotIndex,
-            priority: 50, // Paid vendor banners have medium priority
-            isPaid: true,
-            analytics: {
-                impressions: 0,
-                clicks: 0,
-            },
+        return await this.prisma.$transaction(async (tx) => {
+            // 1. Verify vendor exists
+            const vendor = await tx.vendor.findUnique({
+                where: { id: vendorId },
+                select: { coinsBalance: true, name: true },
+            });
+
+            if (!vendor) {
+                throw new NotFoundException('Vendor not found');
+            }
+
+            // 2. Check slot availability (no overlapping active banners)
+            const startDate = new Date();
+            const endDate = new Date();
+            endDate.setDate(endDate.getDate() + dto.durationDays);
+
+            const conflict = await tx.banner.findFirst({
+                where: {
+                    slotType: dto.slotType,
+                    isActive: true,
+                    OR: [
+                        { AND: [{ startDate: { lte: startDate } }, { endDate: { gte: startDate } }] },
+                        { AND: [{ startDate: { lte: endDate } }, { endDate: { gte: endDate } }] },
+                        { AND: [{ startDate: { gte: startDate } }, { endDate: { lte: endDate } }] },
+                    ],
+                },
+            });
+
+            if (conflict) {
+                throw new BadRequestException(
+                    `Banner slot ${dto.slotType} is already booked for this period`
+                );
+            }
+
+            // 3. Handle payment (coins or ₹)
+            let paymentMethod = 'COINS';
+            let paymentStatus = 'PENDING';
+
+            if (dto.paymentMethod === 'COINS') {
+                // Pay with coins
+                if (vendor.coinsBalance < costInCoins) {
+                    throw new BadRequestException(
+                        `Insufficient coins balance. Required: ${costInCoins}, Available: ${vendor.coinsBalance}`
+                    );
+                }
+
+                // Atomic coin deduction
+                const coinDeductionResult = await tx.vendor.updateMany({
+                    where: {
+                        id: vendorId,
+                        coinsBalance: { gte: costInCoins },
+                    },
+                    data: {
+                        coinsBalance: { decrement: costInCoins },
+                    },
+                });
+
+                if (coinDeductionResult.count === 0) {
+                    throw new BadRequestException('Insufficient coins (concurrent update detected)');
+                }
+
+                paymentStatus = 'COMPLETED';
+            } else if (dto.paymentMethod === 'RUPEES') {
+                // Pay with ₹ (via payment gateway)
+                // For now, we'll create a pending payment record
+                // In production, integrate with Razorpay or similar
+                paymentStatus = 'PENDING';
+            } else {
+                throw new BadRequestException('Invalid payment method. Use COINS or RUPEES');
+            }
+
+            // 4. Create banner record
+            const metadata: BannerMetadataDto = {
+                slotKey: dto.slotKey,
+                slotIndex: dto.slotIndex,
+                priority: 50, // Paid vendor banners have medium priority
+                isPaid: true,
+                paymentMethod,
+                paymentStatus,
+                costInPaise,
+                costInCoins,
+                analytics: {
+                    impressions: 0,
+                    clicks: 0,
+                },
+            };
+
+            const banner = await tx.banner.create({
+                data: {
+                    vendorId,
+                    imageUrl: '', // Will be uploaded later
+                    redirectUrl: null,
+                    slotType: dto.slotType,
+                    startDate,
+                    endDate,
+                    isActive: false, // Inactive until admin approves and payment confirmed
+                    metadata: metadata as any,
+                },
+            });
+
+            // 5. Create payment record if paying with ₹
+            if (dto.paymentMethod === 'RUPEES' && paymentStatus === 'PENDING') {
+                const payment = await this.paymentsService.createPaymentIntent({
+                    userId: vendorId,
+                    purpose: PaymentIntentPurpose.BANNER_SLOT,
+                    referenceId: banner.id,
+                    amount: costInPaise,
+                    currency: 'INR',
+                    metadata: {
+                        vendorId,
+                        bannerId: banner.id,
+                        slotType: dto.slotType,
+                        durationDays: dto.durationDays,
+                        slotKey: dto.slotKey,
+                        slotIndex: dto.slotIndex,
+                    },
+                });
+
+                // Attach payment info into banner metadata for traceability (non-authoritative)
+                await tx.banner.update({
+                    where: { id: banner.id },
+                    data: {
+                        metadata: {
+                            ...(metadata as any),
+                            paymentIntentId: payment.intentId,
+                            providerOrderId: payment.orderId,
+                        } as any,
+                    },
+                });
+
+                const response = this.mapToResponseDto(banner) as any;
+                response.payment = payment;
+                this.logger.log(`Banner slot purchased with ID: ${banner.id}, payment: ${paymentMethod}`);
+                return response;
+            }
+
+            this.logger.log(`Banner slot purchased with ID: ${banner.id}, payment: ${paymentMethod}`);
+            return this.mapToResponseDto(banner);
+        });
+    }
+
+    /**
+     * Calculates banner cost based on slot type and duration
+     * Pricing rules:
+     * - Home banner: ₹500/day
+     * - Category banner: ₹300/day
+     * - Search banner: ₹200/day
+     */
+    private calculateBannerCost(slotType: string, durationDays: number): number {
+        const dailyRates: Record<string, number> = {
+            HOME: 50000,      // ₹500/day in paise
+            CATEGORY: 30000,  // ₹300/day in paise
+            SEARCH: 20000,    // ₹200/day in paise
         };
 
-        const banner = await this.prisma.banner.create({
-            data: {
-                vendorId,
-                imageUrl: '', // Will be uploaded later
-                redirectUrl: null,
-                slotType: dto.slotType,
-                startDate,
-                endDate,
-                isActive: false, // Inactive until admin approves
-            },
-        });
-
-        this.logger.log(`Banner slot purchased with ID: ${banner.id}`);
-        return this.mapToResponseDto(banner);
+        const dailyRate = dailyRates[slotType] || 20000; // Default ₹200/day
+        return dailyRate * durationDays;
     }
 
     /**

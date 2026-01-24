@@ -6,10 +6,12 @@ import { OrderStateMachine } from '../orders/order-state-machine'; // Service is
 // OrderStateMachine needs to be provided. It is in orders directory but not verified if strictly in OrdersModule exports.
 // Providing it here directly or importing Shared/OrdersModule.
 import { PrismaModule } from '../prisma/prisma.module';
+import { PackingProofService } from './packing-proof.service';
+import { SharedModule } from '../shared/shared.module';
 
 @Module({
-    imports: [PrismaModule],
+    imports: [PrismaModule, SharedModule],
     controllers: [VendorOrdersController],
-    providers: [VendorOrdersService, OrderStateMachine], // Providing SM directly for simplicity
+    providers: [VendorOrdersService, OrderStateMachine, PackingProofService], // Providing SM directly for simplicity
 })
 export class VendorOrdersModule { }

@@ -70,7 +70,7 @@ export class CreateReturnDto {
     @Type(() => ReturnItemDto)
     items: ReturnItemDto[];
 
-    @ApiPropertyOptional()
+@ApiPropertyOptional()
     @IsOptional()
     pickupAddress?: any;
 }

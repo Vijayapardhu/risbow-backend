@@ -3,7 +3,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { VendorStoreService } from './vendor-store.service';
 import { UploadService } from '../upload/upload.service';
-import { UpdateStoreProfileDto, UpdateStoreTimingsDto, UpdatePickupSettingsDto } from './dto/store-settings.dto';
+import { UpdateStoreProfileDto, UpdateStoreTimingsDto, UpdatePickupSettingsDto, CreatePickupPointDto, UpdatePickupPointDto, CreateVendorServiceAreaDto, UpdateVendorServiceAreaDto } from './dto/store-settings.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('Vendor Store')
@@ -44,6 +44,54 @@ export class VendorStoreController {
     @ApiOperation({ summary: 'Configure in-store pickup settings' })
     async updatePickupSettings(@Req() req, @Body() dto: UpdatePickupSettingsDto) {
         return this.storeService.updatePickupSettings(req.user.id, dto);
+    }
+
+    @Get('pickup-points')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'List my pickup points' })
+    async listPickupPoints(@Req() req) {
+        return this.storeService.listPickupPoints(req.user.id);
+    }
+
+    @Post('pickup-points')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Create a pickup point' })
+    async createPickupPoint(@Req() req, @Body() dto: CreatePickupPointDto) {
+        return this.storeService.createPickupPoint(req.user.id, dto);
+    }
+
+    @Put('pickup-points/:id')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Update a pickup point' })
+    async updatePickupPoint(@Req() req, @Param('id') id: string, @Body() dto: UpdatePickupPointDto) {
+        return this.storeService.updatePickupPoint(req.user.id, id, dto);
+    }
+
+    @Get('service-areas')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'List my service areas' })
+    async listServiceAreas(@Req() req) {
+        return this.storeService.listServiceAreas(req.user.id);
+    }
+
+    @Post('service-areas')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Create a service area (delivery coverage)' })
+    async createServiceArea(@Req() req, @Body() dto: CreateVendorServiceAreaDto) {
+        return this.storeService.createServiceArea(req.user.id, dto);
+    }
+
+    @Put('service-areas/:id')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Update a service area' })
+    async updateServiceArea(@Req() req, @Param('id') id: string, @Body() dto: UpdateVendorServiceAreaDto) {
+        return this.storeService.updateServiceArea(req.user.id, id, dto);
     }
 
     @Get('public/:vendorCode')

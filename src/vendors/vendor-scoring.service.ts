@@ -1,18 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { RedisLockService } from '../common/redis-lock.service';
 
 @Injectable()
 export class VendorScoringService {
     private readonly logger = new Logger(VendorScoringService.name);
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private redisLock: RedisLockService,
+    ) { }
 
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async handleDailyScoring() {
-        this.logger.log('Starting Daily Vendor Scoring...');
-        await this.calculateAllScores();
-        this.logger.log('Daily Vendor Scoring Complete.');
+        // 🔐 P0 FIX: Use distributed lock
+        await this.redisLock.withLock('cron:vendor-scoring', async () => {
+            this.logger.log('Starting Daily Vendor Scoring...');
+            await this.calculateAllScores();
+            this.logger.log('Daily Vendor Scoring Complete.');
+        }, 3600); // 1 hour lock TTL
     }
 
     async calculateAllScores() {

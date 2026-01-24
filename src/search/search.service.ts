@@ -8,6 +8,7 @@ import { ElasticsearchService } from '@nestjs/elasticsearch';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { TrendingService } from './trending.service';
+import { OpenRouterService } from '../shared/openrouter.service';
 
 /**
  * SearchIntent: Determines user's search behavior pattern
@@ -45,7 +46,40 @@ export class SearchService {
     private elasticsearchService: ElasticsearchService,
     @InjectQueue('search-sync') private searchSyncQueue: Queue,
     private trendingService: TrendingService,
+    private openRouterService: OpenRouterService,
   ) { }
+
+  /**
+   * Performs semantic vector search using OpenRouter embeddings.
+   * Fallback for complex intent-based queries.
+   */
+  async semanticSearch(query: string, limit: number = 10) {
+    const queryVector = await this.openRouterService.getEmbedding(query);
+    if (!queryVector || queryVector.length === 0) return [];
+
+    // Since we don't have pgvector extension confirmed, we'll use a raw SQL query 
+    // to calculate cosine similarity if the DB supports it, or use a basic approach.
+    // PostgreSQL native: SELECT 1 - (embedding <=> '[v1, v2, ...]') as similarity
+
+    try {
+      const vectorLiteral = `[${queryVector.join(',')}]`;
+      const results = await this.prisma.$queryRaw<any[]>`
+            SELECT id, title, price, "offerPrice", images, "brandName",
+                   (1 - (embedding::jsonb::text::vector <=> ${vectorLiteral}::vector)) as similarity
+            FROM "Product"
+            WHERE embedding IS NOT NULL AND "isActive" = true
+            ORDER BY similarity DESC
+            LIMIT ${limit}
+        `;
+
+      return results.map(r => ({ ...r, _semanticScore: r.similarity }));
+    } catch (error) {
+      this.logger.warn('Native vector search failed (pgvector missing?). Falling back to manual relevance.');
+      // If SQL fails, we could do in-memory but that's slow. 
+      // For now, return empty to trigger next fallback.
+      return [];
+    }
+  }
 
   // 1️⃣ Normalize User Query
   private normalizeQuery(query: string): string {
@@ -69,7 +103,7 @@ export class SearchService {
 
     // Check for exploratory keywords
     const hasExploratory = words.some(w => this.EXPLORATORY_KEYWORDS.includes(w));
-    
+
     // Check for specific product indicators (numbers, model names, specific brands)
     const hasSpecificModel = /\d{2,}/.test(normalized); // Has 2+ digit numbers (model numbers)
     const hasMultipleWords = words.length >= 3;
@@ -80,15 +114,15 @@ export class SearchService {
     if (hasSpecificModel) transactionalScore += 40;
     if (hasBrand) transactionalScore += 30;
     if (hasMultipleWords && !hasExploratory) transactionalScore += 20;
-    
+
     let exploratoryScore = 0;
     if (hasExploratory) exploratoryScore += 50;
     if (words.length <= 2 && !hasSpecificModel) exploratoryScore += 30;
 
-    const intent = transactionalScore > exploratoryScore 
-      ? SearchIntent.TRANSACTIONAL 
+    const intent = transactionalScore > exploratoryScore
+      ? SearchIntent.TRANSACTIONAL
       : SearchIntent.EXPLORATORY;
-    
+
     const confidence = Math.max(transactionalScore, exploratoryScore) / 100;
 
     return { intent, confidence: Math.min(confidence, 1) };
@@ -106,7 +140,7 @@ export class SearchService {
    */
   extractKeywords(query: string): string[] {
     const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can']);
-    
+
     return this.normalizeQuery(query)
       .split(' ')
       .filter(word => word.length > 1 && !stopWords.has(word));
@@ -173,7 +207,7 @@ export class SearchService {
     if (cached) {
       // Track trending even for cached results
       if (normalized) {
-        this.trendingService.incrementSearch(normalized, region).catch(() => {});
+        this.trendingService.incrementSearch(normalized, region).catch(() => { });
       }
       return JSON.parse(cached);
     }
@@ -187,7 +221,7 @@ export class SearchService {
       if (esResult && esResult.meta.total > 0) {
         // Track trending for successful ES search
         if (normalized) {
-          this.trendingService.incrementSearch(normalized, region).catch(() => {});
+          this.trendingService.incrementSearch(normalized, region).catch(() => { });
         }
         return { ...esResult, meta: { ...esResult.meta, intent: intentResult } };
       }
@@ -237,12 +271,28 @@ export class SearchService {
 
       // Handle zero results - fallback strategy
       if (total === 0 && normalized) {
+        // --- 🤖 Phase 6.2: Semantic Discovery Fallback ---
+        const semanticResults = await this.semanticSearch(normalized, limit);
+        if (semanticResults.length > 0) {
+          return {
+            data: semanticResults,
+            meta: {
+              total: semanticResults.length,
+              page: 1,
+              lastPage: 1,
+              fallback: 'semantic',
+              originalQuery: dto.q,
+              intent: intentResult,
+            }
+          };
+        }
+
         return this.handleSearchMiss(dto, normalized, userId, region, page, limit, intentResult);
       }
 
       // Track trending for successful search
       if (normalized) {
-        this.trendingService.incrementSearch(normalized, region).catch(() => {});
+        this.trendingService.incrementSearch(normalized, region).catch(() => { });
       }
 
       return this.buildResult(products, total, page, limit, cacheKey, intentResult);
@@ -268,7 +318,7 @@ export class SearchService {
 
     // Track trending for successful search
     if (normalized) {
-      this.trendingService.incrementSearch(normalized, region).catch(() => {});
+      this.trendingService.incrementSearch(normalized, region).catch(() => { });
     }
 
     // Rate & Sort
@@ -504,9 +554,9 @@ export class SearchService {
    * Includes top misses, demand gaps by category, and conversion tracking.
    */
   async getMissAnalytics(period: '24h' | '7d' | '30d' = '7d', limit: number = 50): Promise<SearchMissAnalytics> {
-    const periodMs = period === '24h' ? 24 * 60 * 60 * 1000 
-      : period === '7d' ? 7 * 24 * 60 * 60 * 1000 
-      : 30 * 24 * 60 * 60 * 1000;
+    const periodMs = period === '24h' ? 24 * 60 * 60 * 1000
+      : period === '7d' ? 7 * 24 * 60 * 60 * 1000
+        : 30 * 24 * 60 * 60 * 1000;
     const cutoff = new Date(Date.now() - periodMs);
 
     // Get top missed searches
@@ -604,7 +654,7 @@ export class SearchService {
    */
   async getAdminTrendingAnalytics(region: string = 'global', limit: number = 20) {
     const trending = await this.trendingService.getTrendingWithDelta(region, limit);
-    
+
     // Correlate with misses
     const queries = trending.map(t => t.query);
     const missData = await this.prisma.productSearchMiss.findMany({

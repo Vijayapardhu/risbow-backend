@@ -44,8 +44,9 @@ export class RecommendationStrategyService {
   private readonly logger = new Logger(RecommendationStrategyService.name);
 
   // Strategy configurations
-  private readonly FREE_SHIPPING_THRESHOLD = 1000;
-  private readonly GIFT_ELIGIBILITY_THRESHOLD = 2000;
+  // Money is always paise
+  private readonly FREE_SHIPPING_THRESHOLD = 100000; // ₹1000
+  private readonly GIFT_ELIGIBILITY_THRESHOLD = 200000; // ₹2000
   private readonly MIN_BUNDLE_DISCOUNT = 5; // 5% minimum
   private readonly MAX_BUNDLE_SIZE = 3;
 
@@ -105,7 +106,7 @@ export class RecommendationStrategyService {
       if (suggestedProducts.length > 0) {
         strategies.push({
           strategy: 'THRESHOLD_PUSH',
-          message: `Add ₹${shippingDiff} more to get FREE shipping! 🚚`,
+          message: `Add ₹${Math.ceil(shippingDiff / 100)} more to get FREE shipping! 🚚`,
           products: suggestedProducts,
           expectedUplift: shippingDiff,
           confidence: shippingDiff <= 100 ? 0.9 : shippingDiff <= 200 ? 0.7 : 0.5,
@@ -124,7 +125,7 @@ export class RecommendationStrategyService {
       if (giftProducts.length > 0) {
         strategies.push({
           strategy: 'THRESHOLD_PUSH',
-          message: `Add ₹${giftDiff} more to unlock a FREE gift! 🎁`,
+          message: `Add ₹${Math.ceil(giftDiff / 100)} more to unlock a FREE gift! 🎁`,
           products: giftProducts,
           expectedUplift: giftDiff,
           confidence: giftDiff <= 200 ? 0.8 : 0.6,

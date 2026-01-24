@@ -2,12 +2,18 @@ import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
 import { Logger } from '@nestjs/common';
+import { OpenRouterService } from '../shared/openrouter.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Processor('search-sync')
 export class SearchSyncProcessor extends WorkerHost {
     private readonly logger = new Logger(SearchSyncProcessor.name);
 
-    constructor(private readonly elasticsearchService: ElasticsearchService) {
+    constructor(
+        private readonly elasticsearchService: ElasticsearchService,
+        private readonly openRouterService: OpenRouterService,
+        private readonly prisma: PrismaService,
+    ) {
         super();
     }
 
@@ -26,6 +32,19 @@ export class SearchSyncProcessor extends WorkerHost {
 
     private async handleIndexProduct(product: any) {
         try {
+            // 🤖 Phase 6.2: Generate Semantic Embedding
+            const embedding = await this.openRouterService.getEmbedding(
+                `${product.name}. ${product.description || ''}`
+            );
+
+            if (embedding.length > 0) {
+                await this.prisma.product.update({
+                    where: { id: product.id },
+                    data: { embedding: embedding as any } as any
+                });
+                this.logger.debug(`Generated and stored embedding for product ${product.id}`);
+            }
+
             await this.elasticsearchService.index({
                 index: 'products_v1',
                 id: product.id,
@@ -38,9 +57,10 @@ export class SearchSyncProcessor extends WorkerHost {
                     vendor: product.vendor?.name,
                     popularityScore: product.popularityScore,
                     createdAt: product.createdAt,
+                    embedding: embedding, // Store in ES for future vector searches
                 },
             });
-            this.logger.log(`Indexed product ${product.id}`);
+            this.logger.log(`Indexed product ${product.id} (Semantic)`);
         } catch (error) {
             this.logger.error(`Failed to index product ${product.id}`, error);
             throw error;

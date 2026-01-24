@@ -24,22 +24,44 @@ export class SearchController {
     private readonly autocompleteService: AutocompleteService,
   ) { }
 
+  private computeRegion(params: { lat?: number; lng?: number; pincode?: string; region?: string }): string {
+    const lat = params.lat;
+    const lng = params.lng;
+    if (typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)) {
+      // ~11km buckets at 1 decimal
+      const a = Number(lat.toFixed(1));
+      const b = Number(lng.toFixed(1));
+      return `geo:${a}:${b}`;
+    }
+
+    const pin = (params.pincode || '').trim();
+    if (/^\d{6}$/.test(pin)) return `pin:${pin}`;
+
+    // Back-compat: allow region string but sanitize
+    const region = (params.region || '').trim();
+    if (region && region.length <= 32 && /^[a-zA-Z0-9:_-]+$/.test(region)) return region.toLowerCase();
+
+    return 'global';
+  }
+
   @Get()
   @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Search products with filters and intent detection' })
   @ApiResponse({ status: 200, description: 'Search results with metadata' })
   async search(@Query() query: SearchQueryDto, @Request() req) {
-    return this.searchService.searchProducts(query, req.user?.id, query.region || 'global');
+    const region = this.computeRegion(query as any);
+    return this.searchService.searchProducts(query, req.user?.id, region);
   }
 
   @Get('suggest')
   @ApiOperation({ summary: 'Get intelligent autocomplete suggestions' })
   @ApiResponse({ status: 200, description: 'Array of autocomplete suggestions' })
   async suggest(@Query() query: AutocompleteDto) {
+    const region = this.computeRegion(query as any);
     return this.autocompleteService.getSuggestions(
       query.q, 
       query.limit || 10, 
-      query.region || 'global'
+      region
     );
   }
 

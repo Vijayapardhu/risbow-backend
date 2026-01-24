@@ -80,6 +80,11 @@ export class RegisterDto {
     @IsNotEmpty()
     @IsString()
     gender: string;
+
+    @ApiProperty({ example: 'ABCD12', required: false, description: 'Optional referral code of inviter' })
+    @IsOptional()
+    @IsString()
+    referralCode?: string;
 }
 
 export class LoginDto {

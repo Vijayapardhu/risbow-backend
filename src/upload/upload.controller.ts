@@ -1,16 +1,21 @@
-import { Controller, Post, UseInterceptors, UploadedFile, UploadedFiles, Body, UseGuards, Request, Delete, Param, BadRequestException } from '@nestjs/common';
+import { Controller, Post, UseInterceptors, UploadedFile, UploadedFiles, Body, UseGuards, Request, Delete, Param, BadRequestException, ForbiddenException, Query } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { UploadService } from './upload.service';
 import { SingleImageUploadDto, MultipleImageUploadDto, DocumentUploadDto } from './dto/upload.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiBearerAuth, ApiOperation, ApiConsumes, ApiBody, ApiTags } from '@nestjs/swagger';
+import { PrismaService } from '../prisma/prisma.service';
+import { UserRole } from '@prisma/client';
 
 @ApiTags('Upload')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('upload')
 export class UploadController {
-    constructor(private readonly uploadService: UploadService) { }
+    constructor(
+        private readonly uploadService: UploadService,
+        private readonly prisma: PrismaService,
+    ) { }
 
     @Post('image')
     @ApiOperation({ summary: 'Upload a single image (optimized to WebP)' })
@@ -93,29 +98,69 @@ export class UploadController {
         return this.uploadService.uploadDocument(file, req.user.id, dto.documentType); // Use userId from paths
     }
 
-    @Delete(':path')
+    @Delete()
     @ApiOperation({ summary: 'Delete a file' })
     async deleteFile(
-        @Param('path') path: string
+        @Request() req,
+        @Query('path') path: string
     ) {
-        // Needs strictly validating ownership or admin role.
-        // Since path contains contextId (e.g. products/prod_123/...), checking ownership requires DB lookup to see if user owns prod_123.
-        // Or if user is Admin.
-        // NOTE: For now, strictly implementing "Admin can delete any file, Vendors limited to own assets" logic is tricky without extra DB calls.
+        if (!path) throw new BadRequestException('path is required');
+        const normalized = decodeURIComponent(path).replace(/\\/g, '/');
 
-        // Simplified: Only allow if Admin for now, or if implementing ownership check is feasible.
-        // Given complexity, let's defer strict ownership check on DELETE to a potential improvement or rely on the caller knowing what they are doing.
-        // But user constraint says: "validate ownership or admin role".
+        // Basic traversal / absolute path protection (Supabase storage paths are logical keys)
+        if (normalized.includes('..') || normalized.startsWith('/') || normalized.startsWith('http')) {
+            throw new BadRequestException('Invalid path');
+        }
 
-        // Strategy: 
-        // 1. If path starts with 'documents/{userId}/', check req.user.id === userId.
-        // 2. If path starts with 'vendors/{vendorId}/', check if req.user is that vendor.
-        // 3. For 'products/{productId}/', finding owner is hard without DB.
+        const role: UserRole | string = req.user?.role;
+        const isAdmin = role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
 
-        // Let's implement basic protection:
-        // Assume req user is checked previously. 
-        // I'll add a TODO or basic check if possible.
+        // Allow list of storage prefixes
+        const allowedPrefixes = ['documents/', 'products/', 'vendors/', 'banners/'];
+        if (!allowedPrefixes.some((p) => normalized.startsWith(p))) {
+            throw new BadRequestException('Unsupported delete path');
+        }
 
-        return this.uploadService.deleteFile(path);
+        // Ownership rules
+        if (isAdmin) {
+            return this.uploadService.deleteFile(normalized);
+        }
+
+        // documents/{userId}/...
+        if (normalized.startsWith('documents/')) {
+            const parts = normalized.split('/');
+            const ownerUserId = parts[1];
+            if (ownerUserId !== req.user.id) {
+                throw new ForbiddenException('You can only delete your own documents');
+            }
+            return this.uploadService.deleteFile(normalized);
+        }
+
+        // vendors/{vendorId}/...
+        if (normalized.startsWith('vendors/')) {
+            const parts = normalized.split('/');
+            const vendorId = parts[1];
+            if (!req.user.vendorId || vendorId !== req.user.vendorId) {
+                throw new ForbiddenException('You can only delete your own vendor assets');
+            }
+            return this.uploadService.deleteFile(normalized);
+        }
+
+        // products/{productId}/...  -> check product vendor ownership
+        if (normalized.startsWith('products/')) {
+            const parts = normalized.split('/');
+            const productId = parts[1];
+            const product = await this.prisma.product.findUnique({
+                where: { id: productId },
+                select: { vendorId: true },
+            });
+            if (!product) throw new BadRequestException('Invalid product path');
+            if (!req.user.vendorId || product.vendorId !== req.user.vendorId) {
+                throw new ForbiddenException('You can only delete assets for your own products');
+            }
+            return this.uploadService.deleteFile(normalized);
+        }
+
+        throw new ForbiddenException('Not allowed');
     }
 }

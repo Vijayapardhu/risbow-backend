@@ -1,17 +1,22 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards, Request, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { VendorOrdersService } from './vendor-orders.service';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { PackingProofService } from './packing-proof.service';
 
 @ApiTags('Vendor Orders')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('vendor-orders')
 export class VendorOrdersController {
-    constructor(private readonly vendorOrdersService: VendorOrdersService) { }
+    constructor(
+        private readonly vendorOrdersService: VendorOrdersService,
+        private readonly packingProof: PackingProofService,
+    ) { }
 
     @Get()
     @Roles(UserRole.VENDOR)
@@ -62,5 +67,21 @@ export class VendorOrdersController {
         @Body('status') status: string
     ) {
         return this.vendorOrdersService.updateOrderStatus(req.user.vendorId, orderId, status);
+    }
+
+    @Post(':id/packing-video')
+    @Roles(UserRole.VENDOR)
+    @ApiOperation({ summary: 'Upload packing video proof (required before PACKED)' })
+    @UseInterceptors(FileInterceptor('file'))
+    async uploadPackingVideo(@Request() req, @Param('id') orderId: string, @UploadedFile() file: Express.Multer.File) {
+        if (!file) throw new BadRequestException('No file uploaded');
+        // Ensure vendor actually owns items in this order (reuse existing details check)
+        await this.vendorOrdersService.getVendorOrderDetails(req.user.vendorId, orderId);
+        return this.packingProof.uploadPackingVideo({
+            vendorId: req.user.vendorId,
+            userId: req.user.id,
+            orderId,
+            file,
+        });
     }
 }

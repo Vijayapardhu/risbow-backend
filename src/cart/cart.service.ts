@@ -3,12 +3,18 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../shared/redis.service';
 import { AddCartItemDto, UpdateCartItemDto, SyncCartDto } from './dto/cart.dto';
 import { Prisma } from '@prisma/client';
+import { EcommerceEventsService } from '../recommendations/ecommerce-events.service';
+import { UserProductEventType } from '@prisma/client';
 
 @Injectable()
 export class CartService {
     private readonly logger = new Logger(CartService.name);
 
-    constructor(private prisma: PrismaService, private redis: RedisService) { }
+    constructor(
+        private prisma: PrismaService,
+        private redis: RedisService,
+        private events: EcommerceEventsService,
+    ) { }
 
     // 🔐 P0 FIX: PROPER REDIS CART LOCKING
     private async lockCart(userId: string): Promise<boolean> {
@@ -42,6 +48,7 @@ export class CartService {
                         product: {
                             include: {
                                 vendor: true,
+                                ProductVariant: true,
                                 // Assuming images are in mediaGallery or similar, keeping simple for now
                             }
                         },
@@ -86,12 +93,12 @@ export class CartService {
 
             // JSON Variant Handling
             if (item.variantId) {
-                const variants = (item.product.variants as any[]) || [];
+                const variants = ((item.product as any).ProductVariant as any[]) || [];
                 const variant = variants.find(v => v.id === item.variantId);
 
                 if (variant) {
-                    price = variant.offerPrice || variant.price || variant.sellingPrice || price;
-                    stock = variant.stock;
+                    price = (variant.price ?? null) !== null ? Number(variant.price) : price;
+                    stock = Number(variant.stock);
                 }
             } else if (item.product.offerPrice) {
                 price = item.product.offerPrice;
@@ -218,6 +225,17 @@ export class CartService {
                 });
             }
 
+            // Commerce event stream (best-effort; does not affect cart correctness)
+            this.events.track({
+                userId,
+                type: UserProductEventType.ADD_TO_CART,
+                source: 'CART',
+                productId,
+                variantId: variantId || undefined,
+                quantity,
+                price,
+            }).catch(() => undefined);
+
             // --- ENTERPRISE: Cart Intelligence ---
             this.updateCartInsights(userId, cart.id, product.categoryId).catch(err =>
                 this.logger.error(`Insight Error: ${err.message}`)
@@ -302,6 +320,15 @@ export class CartService {
             }
 
             await this.prisma.cartItem.delete({ where: { id: itemId } });
+
+            this.events.track({
+                userId,
+                type: UserProductEventType.REMOVE_FROM_CART,
+                source: 'CART',
+                productId: item.productId,
+                variantId: item.variantId || undefined,
+                quantity: item.quantity,
+            }).catch(() => undefined);
 
             // --- ENTERPRISE: Cart Intelligence ---
             // item.product might be unavailable if we didn't fetch it before delete, 
@@ -397,32 +424,6 @@ export class CartService {
         return this.getCart(userId);
     }
 
-    // Internal method for Checkout Module to force-get clean data
-    async getCartSummaryForCheckout(userId: string) {
-        const cartData = await this.getCart(userId);
-        if (!cartData.id || cartData.items.length === 0) {
-            return null;
-        }
-
-        return {
-            cartId: cartData.id,
-            items: cartData.items.map(i => ({
-                productId: i.productId,
-                variantId: i.variantId,
-                quantity: i.quantity,
-                price: i.price,
-                subtotal: i.subtotal,
-                vendorId: i.product.vendorId,
-                productTitle: i.product.title,
-                // Pass rules snapshot capability inputs
-                minOrderQuantity: i.product.minOrderQuantity,
-                quantityStepSize: i.product.quantityStepSize,
-                totalAllowedQuantity: i.product.totalAllowedQuantity
-            })),
-            totalAmount: cartData.totalAmount
-        };
-    }
-
     // --- ENTERPRISE: Cart Intelligence Engine ---
     private async updateCartInsights(userId: string, cartId: string, currentActionCategoryId?: string) {
         try {
@@ -447,7 +448,7 @@ export class CartService {
             else if (categories.length === 1 && itemCount > 2) pattern = 'FOCUSED_BUYER';
             else if (itemCount > 5) pattern = 'BULK_POTENTIAL';
 
-            // Calculate Hesitation (Time since last insight update or cart update)
+            // Calculate Hesitation (minutes since last insight)
             const lastInsight = await (this.prisma as any).cartInsight.findFirst({
                 where: { userId },
                 orderBy: { triggeredAt: 'desc' }
@@ -456,15 +457,15 @@ export class CartService {
             let hesitationScore = 0;
             if (lastInsight) {
                 const diffMs = Date.now() - (lastInsight as any).triggeredAt.getTime();
-                hesitationScore = diffMs / (1000 * 60); // Minutes since last action
+                hesitationScore = diffMs / (1000 * 60);
             }
 
             // Calculate Abandon Risk (0.0 to 1.0)
-            let risk = 0.1; // Base risk
-            if (hesitationScore > 10) risk += 0.3; // Idle > 10 mins
-            if (hesitationScore > 30) risk += 0.4; // Idle > 30 mins
-            if (totalValue > 5000) risk += 0.2; // High stakes
-            if (pattern === 'SINGLE_ITEM') risk += 0.1; // Easy to abandon
+            let risk = 0.1;
+            if (hesitationScore > 10) risk += 0.3;
+            if (hesitationScore > 30) risk += 0.4;
+            if (totalValue > 5000) risk += 0.2;
+            if (pattern === 'SINGLE_ITEM') risk += 0.1;
 
             await (this.prisma as any).cartInsight.create({
                 data: {
@@ -476,17 +477,23 @@ export class CartService {
                     hesitationScore,
                     abandonRisk: Math.min(risk, 1.0),
                     type: 'HESITATION',
-                    severity: risk > 0.7 ? 'HIGH' : risk > 0.4 ? 'MEDIUM' : 'LOW'
+                    severity: risk > 0.7 ? 'HIGH' : risk > 0.4 ? 'MEDIUM' : 'LOW',
+                    metadata: currentActionCategoryId ? { currentActionCategoryId } : undefined,
                 }
             });
 
-            // Trigger Bow Strategy if Risk is High
             if (risk > 0.7) {
                 this.logger.warn(`High Abandon Risk (${risk}) detected for User ${userId}`);
             }
-
         } catch (error) {
-            console.error('Cart Insight Failed', error);
+            this.logger.error('Cart Insight Failed', error?.stack || String(error));
         }
+    }
+
+    /**
+     * Public method to add item to cart (used by BuyLaterService)
+     */
+    async addItemPublic(userId: string, dto: AddCartItemDto): Promise<any> {
+        return this.addItem(userId, dto);
     }
 }

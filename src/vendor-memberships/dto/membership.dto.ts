@@ -12,12 +12,12 @@ export class SubscribeMembershipDto {
     tier: MembershipTier;
 
     @ApiProperty({
-        description: 'Payment method: COINS or MONEY',
-        example: 'MONEY',
-        enum: ['COINS', 'MONEY'],
+        description: 'Payment method: COINS or RUPEES',
+        example: 'RUPEES',
+        enum: ['COINS', 'RUPEES'],
     })
     @IsString()
-    paymentMethod: 'COINS' | 'MONEY';
+    paymentMethod: 'COINS' | 'RUPEES';
 
     @ApiProperty({
         description: 'Auto-renew subscription',
@@ -37,6 +37,16 @@ export class UpgradeMembershipDto {
     })
     @IsEnum(MembershipTier)
     newTier: MembershipTier;
+
+    @ApiProperty({
+        description: 'Payment method: COINS or RUPEES',
+        example: 'RUPEES',
+        enum: ['COINS', 'RUPEES'],
+        required: false,
+    })
+    @IsOptional()
+    @IsString()
+    paymentMethod?: 'COINS' | 'RUPEES';
 }
 
 export class MembershipTierResponseDto {

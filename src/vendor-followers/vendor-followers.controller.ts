@@ -1,23 +1,26 @@
 import { Controller, Post, Delete, Get, Param, UseGuards, Request } from '@nestjs/common';
 import { VendorFollowersService } from './vendor-followers.service';
-// import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 @Controller('vendor-followers')
 export class VendorFollowersController {
     constructor(private readonly service: VendorFollowersService) { }
 
-    // @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.CUSTOMER, UserRole.VENDOR, UserRole.WHOLESALER)
     @Post(':vendorId/follow')
     async follow(@Request() req, @Param('vendorId') vendorId: string) {
-        const userId = req.user?.id || 'stub-user-id'; // Auth guard usually provides user
-        return this.service.followVendor(userId, vendorId);
+        return this.service.followVendor(req.user.id, vendorId);
     }
 
-    // @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.CUSTOMER, UserRole.VENDOR, UserRole.WHOLESALER)
     @Delete(':vendorId/unfollow')
     async unfollow(@Request() req, @Param('vendorId') vendorId: string) {
-        const userId = req.user?.id || 'stub-user-id';
-        return this.service.unfollowVendor(userId, vendorId);
+        return this.service.unfollowVendor(req.user.id, vendorId);
     }
 
     @Get(':vendorId/count')
@@ -25,10 +28,10 @@ export class VendorFollowersController {
         return this.service.getFollowerCount(vendorId);
     }
 
-    // @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.CUSTOMER, UserRole.VENDOR, UserRole.WHOLESALER)
     @Get(':vendorId/status')
     async getStatus(@Request() req, @Param('vendorId') vendorId: string) {
-        const userId = req.user?.id || 'stub-user-id';
-        return this.service.isFollowing(userId, vendorId);
+        return this.service.isFollowing(req.user.id, vendorId);
     }
 }

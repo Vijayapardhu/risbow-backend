@@ -8,6 +8,7 @@ import {
     CurrentMembershipResponseDto,
 } from './dto/membership.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Idempotent } from '../idempotency/idempotency.decorator';
 
 @ApiTags('Vendor Memberships')
 @Controller('api/v1/vendor-memberships')
@@ -35,6 +36,7 @@ export class VendorMembershipsController {
         type: CurrentMembershipResponseDto,
     })
     @ApiResponse({ status: 400, description: 'Bad request - already subscribed or insufficient balance' })
+    @Idempotent({ required: true, ttlSeconds: 600 })
     async subscribe(@Req() req, @Body() dto: SubscribeMembershipDto): Promise<CurrentMembershipResponseDto> {
         const vendorId = req.user.id;
         return this.membershipService.subscribe(vendorId, dto);
@@ -48,6 +50,7 @@ export class VendorMembershipsController {
         type: CurrentMembershipResponseDto,
     })
     @ApiResponse({ status: 400, description: 'Bad request - cannot downgrade or no active membership' })
+    @Idempotent({ required: true, ttlSeconds: 600 })
     async upgrade(@Req() req, @Body() dto: UpgradeMembershipDto): Promise<CurrentMembershipResponseDto> {
         const vendorId = req.user.id;
         return this.membershipService.upgrade(vendorId, dto);

@@ -2,7 +2,9 @@ import { Injectable, UnauthorizedException, ConflictException, NotFoundException
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../shared/redis.service';
+import { GeoService } from '../shared/geo.service';
 import * as bcrypt from 'bcrypt';
+import { FraudService } from '../common/fraud.service';
 
 @Injectable()
 export class AuthService {
@@ -12,6 +14,8 @@ export class AuthService {
         private prisma: PrismaService,
         private jwtService: JwtService,
         private redisService: RedisService,
+        private fraudService: FraudService,
+        private geoService: GeoService,
     ) {
         // Initialize Supabase client
         const { createClient } = require('@supabase/supabase-js');
@@ -115,6 +119,9 @@ export class AuthService {
                 user,
             };
 
+            // 🔐 P0 FIX: Fraud Analysis on Login
+            await (this as any).fraudService.evaluateRisk(user.id, (user as any).metadata?.lastFingerprint).catch(e => console.error('Fraud analysis failed:', e));
+
             // Cache the successful verification for 30 seconds to prevent duplicate calls
             await this.redisService.set(recentVerificationKey, JSON.stringify(result), 30);
 
@@ -174,6 +181,15 @@ export class AuthService {
         }
 
         // Create user with all details
+        const refCode = (registerDto.referralCode || '').trim();
+        let referredBy: string | undefined = undefined;
+        if (refCode) {
+            const referrer = await this.prisma.user.findUnique({ where: { referralCode: refCode } });
+            if (!referrer) throw new BadRequestException('Invalid referral code');
+            // Self-referral impossible pre-create, but guard anyway
+            referredBy = referrer.id;
+        }
+
         const user = await this.prisma.user.create({
             data: {
                 name: registerDto.name,
@@ -183,6 +199,7 @@ export class AuthService {
                 dateOfBirth: new Date(registerDto.dateOfBirth),
                 gender: registerDto.gender,
                 referralCode: Math.random().toString(36).substring(7).toUpperCase(),
+                referredBy,
                 status: 'ACTIVE' // Explicitly set status matching schema enum
             } as any,
         }) as any;
@@ -194,6 +211,16 @@ export class AuthService {
 
         // Add default address if provided
         if (registerDto.address) {
+            const geo = await this.geoService
+                .resolveAddressGeo({
+                    addressLine1: registerDto.address.line1 || registerDto.address.street || registerDto.address.addressLine1,
+                    addressLine2: registerDto.address.line2 || registerDto.address.addressLine2,
+                    city: registerDto.address.city,
+                    state: registerDto.address.state,
+                    pincode: registerDto.address.postalCode || registerDto.address.pincode,
+                })
+                .catch(() => null);
+
             await this.prisma.address.create({
                 data: {
                     userId: user.id,
@@ -206,6 +233,10 @@ export class AuthService {
                     pincode: registerDto.address.postalCode || registerDto.address.pincode || '',
                     label: 'Home',
                     isDefault: true,
+                    latitude: geo?.point.lat,
+                    longitude: geo?.point.lng,
+                    geoSource: geo?.source as any,
+                    geoUpdatedAt: geo ? new Date() : undefined,
                 },
             });
         }

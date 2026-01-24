@@ -486,4 +486,14 @@ export class ProductFilterDto {
     @IsOptional()
     @IsString()
     sort?: string; // 'price_asc', 'price_desc', 'newest'
+
+    @IsOptional()
+    @IsBoolean()
+    @Type(() => Boolean)
+    isWholesale?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    @Type(() => Boolean)
+    isRetail?: boolean;
 }

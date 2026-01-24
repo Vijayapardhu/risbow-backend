@@ -1,4 +1,3 @@
-
 import { Controller, Get, Post, Body, Param, Patch, Query, UseGuards, Request } from '@nestjs/common';
 import { ReturnsService } from './returns.service';
 import { CreateReturnDto } from './dto/create-return.dto';
@@ -25,7 +24,6 @@ export class ReturnsController {
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Get my returns (Customer) or All Returns (Admin)' })
     findAll(@Request() req, @Query() query: any) {
-        // If user is NOT admin, force userId filter
         if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
             query.userId = req.user.id;
         }
@@ -50,6 +48,7 @@ export class ReturnsController {
     ) {
         return this.returnsService.updateStatus(id, updateReturnStatusDto, req.user.id);
     }
+
     @Patch(':id/ship-replacement')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('ADMIN', 'SUPER_ADMIN')
@@ -60,5 +59,17 @@ export class ReturnsController {
         @Body() body: { trackingId: string },
     ) {
         return this.returnsService.shipReplacement(id, body.trackingId, req.user.id);
+    }
+
+    @Post(':id/submit-qc')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Admin/Agent: Submit QC checklist for a return order' })
+    submitQC(
+        @Request() req,
+        @Param('id') id: string, // orderId context
+        @Body() checklist: any,
+    ) {
+        return this.returnsService.submitQCChecklist(id, req.user.id, checklist);
     }
 }

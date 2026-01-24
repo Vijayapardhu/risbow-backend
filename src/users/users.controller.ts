@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Query, UseGuards, Request, D
 import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UpdateUserDto, ReferralClaimDto } from './dto/user.dto';
+import { RegisterDeviceDto } from './dto/device.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CoinsService } from '../coins/coins.service';
 
@@ -72,6 +73,13 @@ export class UsersController {
     @Post('me/notifications/:id/read')
     async markNotificationRead(@Request() req, @Param('id') notificationId: string) {
         return this.usersService.markNotificationRead(req.user.id, notificationId);
+    }
+
+    // --- DEVICE TOKENS (Push Notifications) ---
+
+    @Post('me/devices')
+    async registerDevice(@Request() req, @Body() dto: RegisterDeviceDto) {
+        return this.usersService.registerDevice(req.user.id, dto);
     }
 
     // Address Management

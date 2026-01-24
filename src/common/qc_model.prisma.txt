@@ -1,0 +1,21 @@
+// Adding ReturnQCChecklist model for Track 6.1
+model ReturnQCChecklist {
+  id          String   @id @default(cuid())
+  orderId     String   @unique
+  inspectorId String   // Telecaller/Agent ID
+  status      Boolean  @default(false)
+  
+  // Inspection Items (Checklist)
+  isOriginalPackaging Boolean @default(false)
+  isUnused            Boolean @default(false)
+  allAccessoriesPresent Boolean @default(false)
+  hasPhysicalDamage   Boolean @default(false) // If true, return rejected
+  imeiMatch           Boolean @default(true) // Applicable for electronics
+  
+  photos      String[] // Array of S3/Supabase URLs
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  order       Order    @relation(fields: [orderId], references: [id])
+}

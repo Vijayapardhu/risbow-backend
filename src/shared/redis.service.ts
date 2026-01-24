@@ -311,4 +311,41 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         }
         return this.client.zrevrange(key, start, stop, withScores);
     }
+
+    /**
+     * Get all keys matching a pattern (use with caution in production)
+     * For production, prefer SCAN-based iteration
+     */
+    async keys(pattern: string): Promise<string[]> {
+        if (this.useMemory) {
+            const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+            const matchingKeys: string[] = [];
+            for (const key of this.inMemoryStore.keys()) {
+                if (regex.test(key)) {
+                    const entry = this.inMemoryStore.get(key);
+                    if (entry && entry.expiresAt >= Date.now()) {
+                        matchingKeys.push(key);
+                    }
+                }
+            }
+            return matchingKeys;
+        }
+
+        // Use SCAN for production-safe key iteration
+        const keys: string[] = [];
+        let cursor = '0';
+        do {
+            const [newCursor, foundKeys] = await this.client.scan(
+                cursor,
+                'MATCH',
+                pattern,
+                'COUNT',
+                100
+            );
+            cursor = newCursor;
+            keys.push(...foundKeys);
+        } while (cursor !== '0');
+
+        return keys;
+    }
 }

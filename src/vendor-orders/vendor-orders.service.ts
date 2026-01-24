@@ -2,46 +2,40 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException 
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderStateMachine } from '../orders/order-state-machine';
 import { OrderStatus, UserRole } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PackingProofService } from './packing-proof.service';
 
 @Injectable()
 export class VendorOrdersService {
     constructor(
         private prisma: PrismaService,
-        private stateMachine: OrderStateMachine
+        private stateMachine: OrderStateMachine,
+        private packingProof: PackingProofService,
     ) { }
 
     async getOrdersForVendor(vendorId: string, page: number = 1, limit: number = 10, status?: string) {
         const offset = (page - 1) * limit;
 
-        // Status Filter Logic
-        let statusFilter = '';
-        if (status) {
-            statusFilter = `AND "status" = '${status}'`;
-        }
+        // Raw Query needed due to JSON "items" vendorId filtering.
+        // SECURITY: never interpolate untrusted strings into SQL.
+        // Use parameterized $queryRaw via Prisma.sql.
+        const vendorItemsNeedle = JSON.stringify([{ vendorId }]);
+        const statusClause = status ? Prisma.sql`AND "status" = ${status}` : Prisma.empty;
 
-        // Raw Query to find orders where items array contains an object with vendorId
-        // PostgreSQL: items @> '[{"vendorId": "..."}]'
-
-        // Count
-        const countQuery = `
-            SELECT COUNT(*)::int FROM "Order"
-            WHERE "items" @> '[{"vendorId": "${vendorId}"}]'
-            ${statusFilter}
-        `;
-        const totalResult = await this.prisma.$queryRawUnsafe(countQuery);
-        // Normalize count result (Postgres returns array of objects with BigInt or string)
+        const totalResult = await this.prisma.$queryRaw<{ count: number }[]>(Prisma.sql`
+            SELECT COUNT(*)::int as count FROM "Order"
+            WHERE "items" @> ${vendorItemsNeedle}::jsonb
+            ${statusClause}
+        `);
         const total = Number(totalResult[0]?.count || 0);
 
-        // Fetch
-        const ordersQuery = `
+        const orders = await this.prisma.$queryRaw<any[]>(Prisma.sql`
             SELECT * FROM "Order"
-            WHERE "items" @> '[{"vendorId": "${vendorId}"}]'
-            ${statusFilter}
+            WHERE "items" @> ${vendorItemsNeedle}::jsonb
+            ${statusClause}
             ORDER BY "createdAt" DESC
             LIMIT ${limit} OFFSET ${offset}
-        `;
-
-        const orders: any[] = await this.prisma.$queryRawUnsafe(ordersQuery);
+        `);
 
         const orderIds = orders.map(o => o.id);
         if (orderIds.length === 0) return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
@@ -125,6 +119,14 @@ export class VendorOrdersService {
             UserRole.VENDOR,
             mode
         );
+
+        // Trust feature: vendor must upload packing video before marking PACKED.
+        if (String(status) === OrderStatus.PACKED) {
+            const ok = await this.packingProof.hasProof(orderId);
+            if (!ok) {
+                throw new BadRequestException('Packing video is required before marking order as PACKED');
+            }
+        }
 
         // 3. Update Status
         return this.prisma.order.update({

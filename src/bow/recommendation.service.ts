@@ -1,6 +1,8 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CartIntelligenceService } from './cart-intelligence.service';
+import { CartInsightType, InsightSeverity } from '@prisma/client';
 
 export interface CartSnapshot {
     cartValue: number;
@@ -16,7 +18,14 @@ export interface CartSnapshot {
 export class RecommendationService {
     private readonly logger = new Logger(RecommendationService.name);
 
-    constructor(private prisma: PrismaService) { }
+    // Money is always paise
+    private readonly FREE_SHIPPING_THRESHOLD = 100000; // ₹1000
+    private readonly GIFT_ELIGIBILITY_THRESHOLD = 200000; // ₹2000
+
+    constructor(
+        private prisma: PrismaService,
+        private cartIntel: CartIntelligenceService,
+    ) { }
 
     // 1️⃣ Analyze Cart State
     async analyzeCart(userId: string): Promise<CartSnapshot | null> {
@@ -31,33 +40,50 @@ export class RecommendationService {
         const itemCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
         const categories = [...new Set(cart.items.map(i => i.product.category?.name || 'Uncategorized'))];
 
-        // Simple logic for pattern - can be enhanced
-        let cartPattern = 'SINGLE_ITEM_CART';
-        if (itemCount > 3) cartPattern = 'BUNDLE_POTENTIAL_CART';
-        if (cartValue > 5000) cartPattern = 'VALUE_BUYER_CART';
+        // Price distribution buckets (paise)
+        const buckets = { LT_500: 0, BETWEEN_500_2000: 0, GT_2000: 0 } as Record<string, number>;
+        for (const item of cart.items) {
+            const unit = item.product.offerPrice || item.product.price;
+            const subtotal = unit * item.quantity;
+            if (unit < 50000) buckets.LT_500 += subtotal;
+            else if (unit <= 200000) buckets.BETWEEN_500_2000 += subtotal;
+            else buckets.GT_2000 += subtotal;
+        }
 
-        // Saving Insight for Analytics
-        await (this.prisma as any).cartInsight.create({
-            data: {
-                userId,
-                cartValue,
-                itemCount,
-                categories,
-                cartPattern,
-                hesitationScore: 0.0, // Placeholder for real logic
-                abandonRisk: 0.0,
-                type: 'HESITATION', // Default for analytics
-                severity: 'LOW'
-            }
-        });
+        // Pattern classification (paise)
+        let cartPattern = 'SINGLE_ITEM_CART';
+        if (itemCount >= 3) cartPattern = 'BUNDLE_POTENTIAL_CART';
+        if (cartValue >= 500000) cartPattern = 'VALUE_BUYER_CART'; // >= ₹5000
+
+        // Generate real-time cart signals and store as CartInsight (append-only)
+        const signals = await this.cartIntel.analyzeCart(userId);
+        const sevWeight = (s: InsightSeverity) => s === 'HIGH' ? 1.0 : s === 'MEDIUM' ? 0.6 : 0.3;
+        const hesitationScore = Math.min(1, signals.filter(s => s.type === CartInsightType.HESITATION || s.type === CartInsightType.REPEAT_REMOVAL).reduce((a, s) => a + sevWeight(s.severity), 0));
+        const abandonRisk = Math.min(1, signals.reduce((a, s) => a + (s.type === CartInsightType.HESITATION ? 0.25 : s.type === CartInsightType.REPEAT_REMOVAL ? 0.35 : 0.05) * sevWeight(s.severity), 0));
+
+        for (const s of signals) {
+            await this.prisma.cartInsight.create({
+                data: {
+                    userId,
+                    cartValue,
+                    itemCount,
+                    categories,
+                    cartPattern,
+                    hesitationScore,
+                    abandonRisk,
+                    type: s.type,
+                    severity: s.severity,
+                }
+            }).catch(() => undefined);
+        }
 
         return {
             cartValue,
             itemCount,
             categories,
-            priceDistribution: {},
-            isGiftEligible: cartValue > 2000,
-            isFreeShippingClose: cartValue > 400 && cartValue < 500, // Example logic
+            priceDistribution: buckets,
+            isGiftEligible: cartValue >= this.GIFT_ELIGIBILITY_THRESHOLD,
+            isFreeShippingClose: cartValue >= (this.FREE_SHIPPING_THRESHOLD - 30000) && cartValue < this.FREE_SHIPPING_THRESHOLD, // within ₹300
             cartPattern
         };
     }

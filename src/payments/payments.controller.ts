@@ -4,6 +4,7 @@ import { PaymentsService } from './payments.service';
 import { CreatePaymentOrderDto } from './dto/create-payment-order.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Idempotent } from '../idempotency/idempotency.decorator';
 
 @ApiTags('Payments')
 @Controller('payments')
@@ -16,6 +17,7 @@ export class PaymentsController {
     @ApiOperation({ summary: 'Create a Razorpay order and persist payment intent' })
     @ApiResponse({ status: 201, description: 'Order created successfully' })
     @ApiResponse({ status: 400, description: 'Invalid input or order not found' })
+    @Idempotent({ required: true, ttlSeconds: 300 })
     async createPaymentOrder(@Request() req, @Body() dto: CreatePaymentOrderDto) {
         const userId = req.user.id;
         // ...
@@ -28,6 +30,7 @@ export class PaymentsController {
     @ApiOperation({ summary: 'Verify Razorpay payment signature and update status' })
     @ApiResponse({ status: 200, description: 'Payment verified successfully' })
     @ApiResponse({ status: 400, description: 'Invalid signature or payment not found' })
+    @Idempotent({ required: true, ttlSeconds: 600 })
     async verifyPayment(@Request() req, @Body() dto: VerifyPaymentDto) {
         const userId = req.user.id;
         return this.paymentsService.verifyPayment(userId, dto);

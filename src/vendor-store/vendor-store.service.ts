@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateStoreProfileDto, UpdateStoreTimingsDto, UpdatePickupSettingsDto } from './dto/store-settings.dto';
+import { CreatePickupPointDto, UpdatePickupPointDto, CreateVendorServiceAreaDto, UpdateVendorServiceAreaDto } from './dto/store-settings.dto';
 
 @Injectable()
 export class VendorStoreService {
@@ -112,6 +113,90 @@ export class VendorStoreService {
                 pickupEnabled: dto.pickupEnabled,
                 pickupTimings: dto.pickupTimings as any
             }
+        });
+    }
+
+    async listPickupPoints(vendorId: string) {
+        return this.prisma.pickupPoint.findMany({
+            where: { vendorId },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    async createPickupPoint(vendorId: string, dto: CreatePickupPointDto) {
+        return this.prisma.pickupPoint.create({
+            data: {
+                vendorId,
+                name: dto.name,
+                addressLine1: dto.addressLine1,
+                addressLine2: dto.addressLine2,
+                city: dto.city,
+                state: dto.state,
+                pincode: dto.pincode,
+                latitude: dto.latitude,
+                longitude: dto.longitude,
+                timings: dto.timings as any,
+                isActive: dto.isActive ?? true,
+            } as any,
+        });
+    }
+
+    async updatePickupPoint(vendorId: string, pickupPointId: string, dto: UpdatePickupPointDto) {
+        const pp = await this.prisma.pickupPoint.findFirst({ where: { id: pickupPointId, vendorId } });
+        if (!pp) throw new Error('Pickup point not found');
+
+        return this.prisma.pickupPoint.update({
+            where: { id: pickupPointId },
+            data: {
+                name: dto.name,
+                addressLine1: dto.addressLine1,
+                addressLine2: dto.addressLine2,
+                city: dto.city,
+                state: dto.state,
+                pincode: dto.pincode,
+                latitude: dto.latitude,
+                longitude: dto.longitude,
+                timings: dto.timings as any,
+                isActive: dto.isActive,
+            } as any,
+        });
+    }
+
+    async listServiceAreas(vendorId: string) {
+        return this.prisma.vendorServiceArea.findMany({
+            where: { vendorId },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    async createServiceArea(vendorId: string, dto: CreateVendorServiceAreaDto) {
+        return this.prisma.vendorServiceArea.create({
+            data: {
+                vendorId,
+                type: dto.type,
+                centerLat: dto.centerLat,
+                centerLng: dto.centerLng,
+                radiusKm: dto.radiusKm,
+                polygon: dto.polygon as any,
+                isActive: dto.isActive ?? true,
+            } as any,
+        });
+    }
+
+    async updateServiceArea(vendorId: string, id: string, dto: UpdateVendorServiceAreaDto) {
+        const sa = await this.prisma.vendorServiceArea.findFirst({ where: { id, vendorId } });
+        if (!sa) throw new Error('Service area not found');
+
+        return this.prisma.vendorServiceArea.update({
+            where: { id },
+            data: {
+                type: dto.type,
+                centerLat: dto.centerLat,
+                centerLng: dto.centerLng,
+                radiusKm: dto.radiusKm,
+                polygon: dto.polygon as any,
+                isActive: dto.isActive,
+            } as any,
         });
     }
 

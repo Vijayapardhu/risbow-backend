@@ -15,6 +15,18 @@ export class BannerMetadataDto {
     @ApiPropertyOptional({ example: true, description: 'Is this a paid banner' })
     isPaid?: boolean;
 
+    @ApiPropertyOptional({ example: 'COINS', description: 'Payment method used' })
+    paymentMethod?: string;
+
+    @ApiPropertyOptional({ example: 'COMPLETED', description: 'Payment status' })
+    paymentStatus?: string;
+
+    @ApiPropertyOptional({ example: 350000, description: 'Cost in paise' })
+    costInPaise?: number;
+
+    @ApiPropertyOptional({ example: 3500, description: 'Cost in coins' })
+    costInCoins?: number;
+
     @ApiPropertyOptional({ description: 'Analytics data' })
     analytics?: {
         impressions?: number;
@@ -117,6 +129,10 @@ export class PurchaseBannerDto {
     @IsInt()
     @Min(1)
     durationDays: number;
+
+    @ApiProperty({ example: 'COINS', enum: ['COINS', 'RUPEES'], description: 'Payment method' })
+    @IsEnum(['COINS', 'RUPEES'])
+    paymentMethod: 'COINS' | 'RUPEES';
 }
 
 export class UploadBannerCreativeDto {

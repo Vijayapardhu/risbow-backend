@@ -5,6 +5,8 @@ import { CategorySpecService } from './category-spec.service';
 import { Prisma } from '@prisma/client';
 import { CacheService } from '../shared/cache.service';
 import { SearchService } from '../search/search.service';
+import { InventoryService } from '../inventory/inventory.service';
+import { parse } from 'csv-parse/sync';
 
 @Injectable()
 export class CatalogService {
@@ -30,45 +32,128 @@ export class CatalogService {
         });
         return gaps;
     }
-    // Reserve stock for a product variant (atomic, Redis-backed)
-    // Reserve stock for a product variant (atomic, Redis-backed)
+    // Reserve stock for a product/variant (atomic, Redis-backed)
     async reserveStock(productId: string, variantId: string, quantity: number, userId: string) {
-        // Stubbed due to missing ProductVariant table
-        /*
-        // Key: product:reserve:{productId}:{variantId}:{userId}
-        const key = `product:reserve:${productId}:${variantId}:${userId}`;
-        // Check current stock
-        const variant = await this.prisma.productVariant.findUnique({ where: { id: variantId } });
-        if (!variant || variant.stock < quantity) {
-            throw new BadRequestException('Insufficient stock');
-        }
-        // Atomically reserve in Redis
-        const reserved = await this.cache.set(key, quantity, 900); // 15 min TTL
-        // Optionally decrement stock in DB (soft lock)
-        await this.prisma.productVariant.update({ where: { id: variantId }, data: { stock: { decrement: quantity } } });
-        return { reserved, expiresIn: 900 };
-        */
+        // Server-side truth: use centralized InventoryService (atomic reservation counter + TTL)
+        await this.inventoryService.reserveStock(productId, quantity, variantId);
         return { reserved: true, expiresIn: 900 };
     }
 
-    // Release reserved stock (if cart abandoned)
-    async releaseReservedStock(productId: string, variantId: string, userId: string) {
-        /*
-        const key = `product:reserve:${productId}:${variantId}:${userId}`;
-        const quantity = await this.cache.get(key);
-        if (quantity) {
-            await this.prisma.productVariant.update({ where: { id: variantId }, data: { stock: { increment: parseInt(quantity) } } });
-            await this.cache.del(key);
-        }
-        */
+    // Release reserved stock (best-effort; caller must provide same quantity reserved)
+    async releaseReservedStock(productId: string, variantId: string, quantity: number, userId: string) {
+        await this.inventoryService.releaseStock(productId, quantity, variantId);
         return { released: true };
     }
     constructor(
         private prisma: PrismaService,
         private categorySpecService: CategorySpecService,
         private cache: CacheService,
-        private searchService: SearchService
+        private searchService: SearchService,
+        private inventoryService: InventoryService,
     ) { }
+
+    private distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+        const toRad = (x: number) => (x * Math.PI) / 180;
+        const R = 6371;
+        const dLat = toRad(b.lat - a.lat);
+        const dLng = toRad(b.lng - a.lng);
+        const s1 = Math.sin(dLat / 2);
+        const s2 = Math.sin(dLng / 2);
+        const q = s1 * s1 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * s2 * s2;
+        return 2 * R * Math.asin(Math.sqrt(q));
+    }
+
+    async getNearbyProducts(params: {
+        lat: number;
+        lng: number;
+        radiusKm: number;
+        categoryId?: string;
+        inStock?: boolean;
+        limit?: number;
+    }) {
+        const { lat, lng } = params;
+        const radiusKm = Math.max(0.5, Math.min(params.radiusKm || 10, 50));
+        const limit = Math.min(50, Math.max(1, params.limit || 20));
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            throw new BadRequestException('lat/lng are required');
+        }
+
+        const cacheKey = this.cache.generateKey('nearby:products:v1', {
+            lat: Number(lat.toFixed(2)),
+            lng: Number(lng.toFixed(2)),
+            radiusKm,
+            categoryId: params.categoryId || null,
+            inStock: !!params.inStock,
+            limit,
+        });
+
+        return this.cache.getOrSet(cacheKey, 60, async () => {
+            const latDelta = radiusKm / 111;
+            const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+
+            const vendors = await this.prisma.vendor.findMany({
+                where: {
+                    latitude: { not: null, gte: lat - latDelta, lte: lat + latDelta } as any,
+                    longitude: { not: null, gte: lng - lngDelta, lte: lng + lngDelta } as any,
+                    storeStatus: 'ACTIVE' as any,
+                } as any,
+                select: {
+                    id: true,
+                    storeName: true,
+                    name: true,
+                    vendorCode: true,
+                    latitude: true,
+                    longitude: true,
+                } as any,
+                take: 200,
+            });
+
+            const origin = { lat, lng };
+            const vendorDistance = new Map<string, number>();
+            for (const v of vendors as any[]) {
+                const d = this.distanceKm(origin, { lat: Number(v.latitude), lng: Number(v.longitude) });
+                if (d <= radiusKm) vendorDistance.set(v.id, d);
+            }
+
+            const vendorIds = Array.from(vendorDistance.keys());
+            if (vendorIds.length === 0) return { data: [], meta: { radiusKm, count: 0 } };
+
+            const products = await this.prisma.product.findMany({
+                where: {
+                    vendorId: { in: vendorIds },
+                    isActive: true,
+                    stock: params.inStock ? { gt: 0 } : undefined,
+                    categoryId: params.categoryId || undefined,
+                } as any,
+                select: {
+                    id: true,
+                    title: true,
+                    price: true,
+                    offerPrice: true,
+                    images: true,
+                    stock: true,
+                    categoryId: true,
+                    vendorId: true,
+                    vendor: { select: { id: true, name: true, storeName: true, vendorCode: true } },
+                } as any,
+                take: limit,
+                orderBy: { popularityScore: 'desc' as any },
+            });
+
+            const out = products
+                .map((p: any) => {
+                    const d = vendorDistance.get(p.vendorId) ?? null;
+                    return {
+                        ...p,
+                        distanceKm: d != null ? Number(d.toFixed(2)) : null,
+                    };
+                })
+                .sort((a: any, b: any) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
+
+            return { data: out, meta: { radiusKm, count: out.length } };
+        });
+    }
 
     async createCategory(data: { name: string; parentId?: string; image?: string; attributeSchema?: any }) {
         return this.prisma.category.create({
@@ -167,7 +252,7 @@ export class CatalogService {
 
         // Find Vendor
         const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
-        // If no vendor linked yet (MVP stub), skip check or assume Basic
+        // If no vendor linked yet (MVP), skip check or assume Basic
 
         if (vendor) {
             const currentCount = await this.prisma.product.count({ where: { vendorId } });
@@ -298,6 +383,14 @@ export class CatalogService {
 
                 if (filters.category && filters.category !== 'All') {
                     where.categoryId = filters.category;
+                }
+
+                if (filters.isWholesale !== undefined) {
+                    where.isWholesale = filters.isWholesale;
+                }
+
+                if (filters.isRetail === true) {
+                    where.isWholesale = false;
                 }
 
                 // Price Range
@@ -505,28 +598,40 @@ export class CatalogService {
 
 
 
-    async processBulkUpload(csvContent: string) {
-        // Stub for CSV parsing logic
-        // e.g. CSV: Title,Price,Category
-        const lines = csvContent.split('\n').filter(Boolean);
-        let count = 0;
-        for (const line of lines) {
-            // Skipping header check for brevity
-            const [title, price, category] = line.split(',');
-            if (title && price && category) {
-                await this.prisma.product.create({
-                    data: {
-                        title: title.trim(),
-                        price: parseInt(price) || 0,
-                        categoryId: category.trim(),
-                        vendorId: 'bulk_upload_vendor',
-                        stock: 100
-                    }
-                });
-                count++;
-            }
+    async processBulkUpload(vendorId: string, csvContent: string) {
+        let records: any[];
+        try {
+            records = parse(csvContent, {
+                columns: true,
+                skip_empty_lines: true,
+                trim: true,
+                relax_column_count: true,
+            });
+        } catch (e: any) {
+            throw new BadRequestException('Invalid CSV format: ' + e.message);
         }
-        return { uploaded: count, message: 'Bulk upload processed' };
+
+        let uploaded = 0;
+        for (const row of records) {
+            if (!row.title || !row.price || !row.categoryId) continue;
+            await this.prisma.product.create({
+                data: {
+                    title: String(row.title).trim(),
+                    description: row.description ? String(row.description) : '',
+                    price: Number(row.price),
+                    offerPrice: row.offerPrice ? Number(row.offerPrice) : undefined,
+                    stock: row.stock ? Number(row.stock) : 0,
+                    categoryId: String(row.categoryId).trim(),
+                    vendorId,
+                    sku: row.sku ? String(row.sku).trim() : undefined,
+                    images: [],
+                    isActive: false,
+                },
+            });
+            uploaded++;
+        }
+
+        return { uploaded, total: records.length };
     }
 
     // --- Category Specification Methods (Proxy to CategorySpecService) ---

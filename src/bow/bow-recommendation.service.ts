@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EcommerceEventsService } from '../recommendations/ecommerce-events.service';
+import { UserProductEventType, UserRole } from '@prisma/client';
+import { BowLlmRerankerService } from './bow-llm-reranker.service';
 
 export interface SmartRecommendation {
     productId: string;
@@ -14,35 +17,168 @@ export interface SmartRecommendation {
 export class BowRecommendationEngine {
     private readonly logger = new Logger(BowRecommendationEngine.name);
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private events: EcommerceEventsService,
+        private reranker: BowLlmRerankerService,
+    ) { }
+
+    private formatINR(paise: number) {
+        return `₹${Math.round(paise / 100)}`;
+    }
+
+    private getEffectivePrice(p: { offerPrice?: number | null; price: number }) {
+        return (p.offerPrice ?? null) ? (p.offerPrice as number) : p.price;
+    }
 
     /**
      * Get smart recommendations based on trending products
      */
     async getSmartRecommendations(userId: string, limit: number = 5): Promise<SmartRecommendation[]> {
         try {
-            // Get trending products
-            const products = await this.prisma.product.findMany({
-                where: { isActive: true },
-                take: limit,
-                select: {
-                    id: true,
-                    title: true,
-                    price: true,
-                    offerPrice: true,
-                    category: { select: { name: true } }
-                },
-                orderBy: { createdAt: 'desc' }
+            // 1) Build user context (cart + preference profile + recent events)
+            const [cart, profile, recentViews, recentPurchases] = await Promise.all([
+                this.prisma.cart.findUnique({
+                    where: { userId },
+                    include: {
+                        items: {
+                            include: {
+                                product: { select: { id: true, categoryId: true, brandName: true, tags: true, price: true, offerPrice: true, stock: true, isActive: true, title: true } }
+                            }
+                        }
+                    }
+                }),
+                (this.prisma as any).userPreferenceProfile.findUnique({ where: { userId } }).catch(() => null),
+                (this.prisma as any).userProductEvent.findMany({
+                    where: { userId, type: UserProductEventType.PRODUCT_VIEW },
+                    orderBy: { createdAt: 'desc' },
+                    take: 30,
+                    select: { productId: true }
+                }).catch(() => []),
+                (this.prisma as any).userProductEvent.findMany({
+                    where: { userId, type: UserProductEventType.PURCHASE },
+                    orderBy: { createdAt: 'desc' },
+                    take: 30,
+                    select: { productId: true }
+                }).catch(() => []),
+            ]);
+
+            const cartProductIds = new Set<string>((cart?.items || []).map(i => String(i.productId)));
+            const viewedIds: string[] = Array.from(new Set<string>(recentViews.map((e: any) => String(e.productId))))
+                .filter((id) => !cartProductIds.has(id));
+            const purchasedIds = new Set<string>(recentPurchases.map((e: any) => String(e.productId)));
+
+            // 2) Candidate pools (commerce-style)
+            const preferredCategoryIds: string[] = Array.isArray(profile?.preferredCategories) ? profile.preferredCategories : [];
+            const cartCategoryIds = Array.from(new Set((cart?.items || []).map(i => i.product.categoryId).filter(Boolean)));
+            const seedCategoryIds = Array.from(new Set([...preferredCategoryIds, ...cartCategoryIds])).slice(0, 6);
+
+            // 2a) Trending (from event stream)
+            const trendingIds = await this.events.getTrending(UserProductEventType.PRODUCT_VIEW, 30);
+
+            // 2b) Category affinity candidates
+            const categoryCandidates = seedCategoryIds.length
+                ? await this.prisma.product.findMany({
+                    where: {
+                        isActive: true,
+                        stock: { gt: 0 },
+                        categoryId: { in: seedCategoryIds },
+                        id: { notIn: Array.from(cartProductIds) },
+                    },
+                    take: 40,
+                    select: { id: true, title: true, price: true, offerPrice: true, categoryId: true, brandName: true }
+                })
+                : [];
+
+            // 2c) Recently viewed candidates (re-rank)
+            const viewedCandidates = viewedIds.length
+                ? await this.prisma.product.findMany({
+                    where: { id: { in: viewedIds }, isActive: true, stock: { gt: 0 } },
+                    take: 20,
+                    select: { id: true, title: true, price: true, offerPrice: true, categoryId: true, brandName: true }
+                })
+                : [];
+
+            // 2d) Trending products details
+            const trendingCandidates = trendingIds.length
+                ? await this.prisma.product.findMany({
+                    where: { id: { in: trendingIds }, isActive: true, stock: { gt: 0 } },
+                    take: 30,
+                    select: { id: true, title: true, price: true, offerPrice: true, categoryId: true, brandName: true }
+                })
+                : [];
+
+            // 3) Merge + score
+            const byId = new Map<string, any>();
+            const add = (arr: any[], reason: SmartRecommendation['reason']) => {
+                for (const p of arr) {
+                    if (cartProductIds.has(p.id)) continue;
+                    if (purchasedIds.has(p.id)) continue; // avoid immediate repeats
+                    const existing = byId.get(p.id);
+                    byId.set(p.id, { ...p, _reasons: new Set([...(existing?._reasons || []), reason]) });
+                }
+            };
+
+            add(viewedCandidates, 'based_on_viewed');
+            add(categoryCandidates, 'similar_users');
+            add(trendingCandidates, 'trending');
+
+            const scored = Array.from(byId.values()).map((p: any) => {
+                const reasons: Set<string> = p._reasons || new Set();
+                const eff = this.getEffectivePrice(p);
+                const discount = p.offerPrice ? Math.max(0, p.price - p.offerPrice) : 0;
+
+                let score = 0;
+                if (reasons.has('based_on_viewed')) score += 60;
+                if (reasons.has('similar_users')) score += 35;
+                if (reasons.has('trending')) score += 25;
+                score += Math.min(20, Math.round(discount / 5000)); // +1 per ₹50 discount capped
+
+                // Brand affinity (if profile stores brands)
+                if (profile?.preferredBrands?.length && p.brandName && profile.preferredBrands.includes(p.brandName)) score += 15;
+
+                // Price sensitivity: if HIGH, penalize high ticket items
+                if (profile?.priceSensitivity === 'HIGH' && eff > 500000) score -= 20; // >₹5000
+
+                return { p, score, effPrice: eff, discount, reasons: Array.from(reasons) };
+            }).sort((a, b) => b.score - a.score);
+
+            const top = scored.slice(0, limit);
+            const recommendations: SmartRecommendation[] = top.map(({ p, score, reasons }) => {
+                const reason = (reasons.includes('based_on_viewed') ? 'based_on_viewed' :
+                    reasons.includes('trending') ? 'trending' :
+                        reasons.includes('similar_users') ? 'similar_users' : 'trending') as SmartRecommendation['reason'];
+
+                const eff = this.getEffectivePrice(p);
+
+                return {
+                    productId: p.id,
+                    title: p.title,
+                    price: eff,
+                    reason,
+                    confidence: Math.max(0.4, Math.min(0.95, score / 100)),
+                    personalizedMessage:
+                        reason === 'based_on_viewed'
+                            ? 'You checked this recently — still interested?'
+                            : reason === 'similar_users'
+                                ? 'Based on your cart & preferences'
+                                : 'Trending right now',
+                };
             });
 
-            const recommendations: SmartRecommendation[] = products.map((p) => ({
-                productId: p.id,
-                title: p.title,
-                price: p.price,
-                reason: 'trending',
-                personalizedMessage: `Trending in ${p.category?.name || 'Shopping'}!`,
-                confidence: 85 + Math.random() * 10
-            }));
+            // 4) Optional LLM rerank (safe fallback if not configured / fails)
+            const ranked = await this.reranker.rerank(userId, recommendations.map((r) => ({
+                id: r.productId,
+                title: r.title,
+                pricePaise: r.price,
+                reasons: [r.reason],
+            })));
+            if (ranked && ranked.length) {
+                const byId = new Map(recommendations.map((r) => [r.productId, r] as const));
+                const reordered = ranked.map((id) => byId.get(id)).filter(Boolean) as SmartRecommendation[];
+                // Preserve limit + fallbacks
+                recommendations.splice(0, recommendations.length, ...reordered.slice(0, limit));
+            }
 
             this.logger.log(`Generated ${recommendations.length} recommendations for user ${userId}`);
             return recommendations;

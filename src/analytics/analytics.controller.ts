@@ -31,4 +31,22 @@ export class AnalyticsController {
     async getFunnelStats() {
         return this.analyticsService.getFunnelStats();
     }
+
+    @Get('abandonment/metrics')
+    async getAbandonmentMetrics(@Query('days') days?: string) {
+        const daysNum = days ? parseInt(days, 10) : 7;
+        return this.analyticsService.getAbandonmentMetrics(daysNum);
+    }
+
+    @Get('abandonment/telecaller-performance')
+    async getTelecallerPerformance(@Query('days') days?: string) {
+        const daysNum = days ? parseInt(days, 10) : 7;
+        return this.analyticsService.getTelecallerPerformance(daysNum);
+    }
+
+    @Get('abandonment/trends')
+    async getAbandonmentTrends(@Query('days') days?: string) {
+        const daysNum = days ? parseInt(days, 10) : 30;
+        return this.analyticsService.getAbandonmentTrends(daysNum);
+    }
 }

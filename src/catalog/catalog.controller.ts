@@ -41,14 +41,34 @@ export class CatalogController {
     @Roles('CUSTOMER', 'VENDOR')
     @ApiOperation({ summary: 'Release reserved product variant stock' })
     @ApiResponse({ status: 200, description: 'Stock released' })
-    async releaseStock(@Body() body: { productId: string; variantId: string }, @Request() req) {
-        return this.catalogService.releaseReservedStock(body.productId, body.variantId, req.user.id);
+    async releaseStock(@Body() body: { productId: string; variantId: string; quantity: number }, @Request() req) {
+        return this.catalogService.releaseReservedStock(body.productId, body.variantId, body.quantity, req.user.id);
     }
     constructor(private readonly catalogService: CatalogService) { }
 
     @Get()
     async findAll(@Query() filters: ProductFilterDto, @Request() req) {
         return this.catalogService.findAll(filters, req?.user?.id);
+    }
+
+    @Get('nearby')
+    @ApiOperation({ summary: 'Get nearby products (hyperlocal discovery)' })
+    async nearbyProducts(
+        @Query('lat') lat: string,
+        @Query('lng') lng: string,
+        @Query('radiusKm') radiusKm?: string,
+        @Query('categoryId') categoryId?: string,
+        @Query('inStock') inStock?: string,
+        @Query('limit') limit?: string,
+    ) {
+        return this.catalogService.getNearbyProducts({
+            lat: Number(lat),
+            lng: Number(lng),
+            radiusKm: Number(radiusKm) || 10,
+            categoryId,
+            inStock: inStock === 'true' || inStock === '1',
+            limit: Math.min(50, Math.max(1, Number(limit) || 20)),
+        });
     }
 
     @Get(':id')
@@ -67,10 +87,11 @@ export class CatalogController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('VENDOR', 'ADMIN', 'SUPER_ADMIN')
     @UseInterceptors(FileInterceptor('file'))
-    async bulkUpload(@UploadedFile() file: any) {
+    async bulkUpload(@UploadedFile() file: any, @Request() req) {
         if (!file) throw new Error('File not present');
         const content = file.buffer.toString('utf-8');
-        return this.catalogService.processBulkUpload(content);
+        const vendorId = req.user?.vendorId || req.user?.id;
+        return this.catalogService.processBulkUpload(vendorId, content);
     }
 
     @Patch(':id')

@@ -79,6 +79,30 @@ model RecommendationEvent {
   @@index([accepted])
 }
 
+// 6️⃣ UserProductEvent: Commerce-grade event stream for personalization and analytics.
+// Money safety: store prices in integer paise.
+model UserProductEvent {
+  id        String           @id @default(cuid())
+  userId    String?
+  sessionId String?
+  type      UserProductEventType
+  source    String?          // PDP | SEARCH | CART | RECO | ROOM | CHECKOUT
+  productId String
+  variantId String?
+  quantity  Int?
+  price     Int?             // paise at event time (best-effort snapshot)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  user    User?    @relation(fields: [userId], references: [id])
+  product Product  @relation(fields: [productId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([productId, createdAt])
+  @@index([type, createdAt])
+  @@index([source, createdAt])
+}
+
 // 4️⃣ BowActionLog: Tracks automatic Bow actions with guardrails and attribution
 model BowActionLog {
   id              String         @id @default(cuid())
@@ -134,6 +158,13 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum SettlementStatus {
+  PENDING
+  ELIGIBLE
+  SETTLED
+  REVERSED
+}
+
 model User {
   id                                                 String              @id @default(cuid())
   mobile                                             String              @unique
@@ -161,6 +192,7 @@ model User {
   kycStatus                                          String              @default("NOT_SUBMITTED")
   miscDocuments                                      Json?
   updatedAt                                          DateTime            @updatedAt
+  metadata                                           Json?               @default("{}")
   assignedLeads                                      AbandonedCheckout[] @relation("AgentCheckouts")
   abandonedCheckouts                                 AbandonedCheckout[]
   addresses                                          Address[]
@@ -172,10 +204,10 @@ model User {
   leadFollowups                                      CheckoutFollowup[]
   coinLedger                                         CoinLedger[]
   notifications                                      Notification[]
+  devices                                            UserDevice[]
   orders                                             Order[]
   ReferralTracking_ReferralTracking_refereeIdToUser  ReferralTracking[]  @relation("ReferralTracking_refereeIdToUser")
   ReferralTracking_ReferralTracking_referrerIdToUser ReferralTracking[]  @relation("ReferralTracking_referrerIdToUser")
-  refunds                                            Refund[]
   reports                                            Report[]
   returns                                            ReturnRequest[]
   reviews                                            Review[]
@@ -184,18 +216,45 @@ model User {
   VendorFollower                                     VendorFollower[]
   wishlist                                           Wishlist[]
   wallet                                             Wallet?
+  buyLater                                           BuyLater[]
   bets                                               Bet[]
   ledger                                             LedgerEntry[]
+  telecallerPerformance                              TelecallerPerformance[]
 
    productSearchMisses                                ProductSearchMiss[]
    cartInsights                                       CartInsight[]
    recommendationEvents                               RecommendationEvent[]
    bowActionLogs                                      BowActionLog[]
    userPreferenceProfile                              UserPreferenceProfile?
+   productEvents                                      UserProductEvent[]
+   vendorInquiriesRequested                           VendorInquiry[] @relation("VendorInquiryRequester")
+   paymentIntentsCreated                              PaymentIntent[] @relation("PaymentIntentCreatedBy")
+   coinValuationsSet                                  CoinValuation[] @relation("CoinValuationSetBy")
 
   @@index([role])
   @@index([status])
   @@index([referredBy])
+  ReferralRewardRule ReferralRewardRule[]
+  ReferralRewardGrantInviter ReferralRewardGrant[] @relation("ReferralGrantInviter")
+  ReferralRewardGrantInvitee ReferralRewardGrant[] @relation("ReferralGrantInvitee")
+}
+
+// User device tokens for push notifications (FCM).
+// This is required for real push delivery; otherwise we only store in-app notifications.
+model UserDevice {
+  id         String    @id @default(cuid())
+  userId     String
+  platform   String    // ANDROID | IOS | WEB
+  token      String    @unique
+  isActive   Boolean   @default(true)
+  lastSeenAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@index([lastSeenAt])
 }
 
 model Room {
@@ -294,9 +353,10 @@ model Category {
   isActive        Boolean        @default(true)
   parent          Category?      @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children        Category[]     @relation("CategoryHierarchy")
-  specs           CategorySpec[]
-  products        Product[]
+  specs               CategorySpec[]
+  products            Product[]
   productSearchMisses ProductSearchMiss[]
+  commissions         CategoryCommission[]
 
   @@index([parentId])
   @@index([isActive])
@@ -318,6 +378,11 @@ model CoinLedger {
   amount      Int
   source      String
   referenceId String?
+  // 🔐 Bow Coin Valuation Snapshot (future-only, audit-safe)
+  // Stores the rupee valuation used at the time of this ledger entry.
+  // Money is stored in integer paise; valuation is "paise per 1 coin".
+  paisePerCoinAtTxn Int      @default(100)
+  roleAtTxn         UserRole @default(CUSTOMER)
   expiresAt   DateTime?
   isExpired   Boolean   @default(false)  // 🔐 P0 FIX: Preserve ledger history
   createdAt   DateTime  @default(now())
@@ -327,6 +392,7 @@ model CoinLedger {
   @@index([createdAt])
   @@index([isExpired])  // For efficient expiry queries
   @@index([expiresAt])  // 🔐 P0 FIX: Index for expiry cron job
+  @@index([roleAtTxn, createdAt])
 }
 
 model Vendor {
@@ -334,6 +400,9 @@ model Vendor {
   name             String
   mobile           String            @unique
   email            String?
+  pincode          String?           // For hyper-local sourcing
+  latitude         Float?
+  longitude        Float?
   kycStatus        String            @default("PENDING")
   tier             String            @default("BASIC")
   gstNumber        String?
@@ -343,9 +412,10 @@ model Vendor {
   role             VendorRole        @default(RETAILER)
   coinsBalance     Int               @default(0)
   followCount      Int               @default(0)
-  vendorCode       String?           @unique
-  commissionRate   Float             @default(0.0)
-  createdAt        DateTime          @default(now())
+  vendorCode         String?           @unique
+  commissionRate     Float             @default(0.0)
+  commissionOverride Decimal?          @db.Decimal(5, 4) // e.g. 0.1250 for 12.5%
+  createdAt          DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   strikes          Int               @default(0)
   storeName        String?
@@ -365,10 +435,13 @@ model Vendor {
   VendorMembership VendorMembership?
   VendorPayout     VendorPayout[]
   VendorPromotion  VendorPromotion[]
+  inquiriesReceived VendorInquiry[] @relation("VendorInquiryWholesaler")
   coupons          Coupon[]
+  orderSettlements OrderSettlement[]
 
   @@index([kycStatus])
   @@index([tier])
+  @@index([pincode])
 }
 
 model RoomPackage {
@@ -436,6 +509,30 @@ model Wishlist {
   @@unique([userId, productId])
 }
 
+// B2B: Vendor inquiries to wholesalers for bulk purchase negotiation.
+model VendorInquiry {
+  id                String        @id @default(cuid())
+  wholesalerVendorId String
+  requesterUserId   String
+  productId         String
+  quantity          Int
+  message           String?
+  status            InquiryStatus @default(PENDING)
+  response          String?
+  respondedAt       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  wholesaler        Vendor        @relation("VendorInquiryWholesaler", fields: [wholesalerVendorId], references: [id], onDelete: Cascade)
+  requester         User          @relation("VendorInquiryRequester", fields: [requesterUserId], references: [id], onDelete: Cascade)
+  product           Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([wholesalerVendorId, status])
+  @@index([requesterUserId, status])
+  @@index([productId])
+  @@index([createdAt])
+}
+
 model Review {
   id           String   @id @default(cuid())
   userId       String
@@ -474,6 +571,32 @@ model Payment {
   order           Order         @relation(fields: [orderId], references: [id])
 }
 
+// PaymentIntent for non-order payments (vendor monetization, memberships, etc.)
+// Keeps order payments isolated in `Payment` to preserve invariants.
+model PaymentIntent {
+  id              String              @id @default(cuid())
+  purpose         PaymentIntentPurpose
+  referenceId     String
+  amount          Int
+  currency        String              @default("INR")
+  provider        String              @default("RAZORPAY")
+  providerOrderId String?
+  paymentId       String?
+  status          PaymentStatus       @default(PENDING)
+  metadata        Json?
+  createdByUserId String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  createdByUser   User?               @relation("PaymentIntentCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@unique([purpose, referenceId])
+  @@index([status, createdAt])
+  @@index([purpose, createdAt])
+  @@index([createdByUserId, createdAt])
+  @@index([providerOrderId])
+}
+
 model Banner {
   id          String   @id @default(cuid())
   vendorId    String?
@@ -483,6 +606,7 @@ model Banner {
   startDate   DateTime
   endDate     DateTime
   isActive    Boolean  @default(true)
+  metadata    Json?
   createdAt   DateTime @default(now())
 
   @@index([vendorId])
@@ -521,6 +645,8 @@ model Order {
   courierPartner      String?
   giftId              String?
   couponCode          String?
+  obdOtp              String?            // OTP for Open-Box Delivery
+  obdVerifiedAt       DateTime?
   discountAmount      Int                @default(0)
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
@@ -532,13 +658,19 @@ model Order {
   user                User               @relation(fields: [userId], references: [id])
   payment             Payment?
   gift            GiftSKU?  @relation(fields: [giftId], references: [id])
-  refunds         Refund[]
+  
+  financialSnapshot OrderFinancialSnapshot?
+  settlement        OrderSettlement?
+  
+  replacementParent  ReplacementOrder[] @relation("OriginalOrder")
+  replacementChild   ReplacementOrder?  @relation("ReplacementOrder")
   
   deliveredAt     DateTime?
   returnWindow    Int       @default(7) // Days
   isReturnable    Boolean   @default(true)
   
   returns         ReturnRequest[]
+  qcChecklist     ReturnQCChecklist?
 
   @@index([userId])
   @@index([status])
@@ -546,8 +678,10 @@ model Order {
   @@index([razorpayOrderId])
   @@index([awbNumber])
   @@index([userId, status])
+  @@index([userId, status, createdAt])
   @@index([status, createdAt])
   @@index([roomId, userId])
+  ReferralRewardGrant ReferralRewardGrant?
 }
 
 model Product {
@@ -556,10 +690,11 @@ model Product {
   title                String
   description          String?
   price                Int
+  embedding            Json?              // Vector embedding for semantic search
   offerPrice           Int?
   stock                Int                @default(0)
   categoryId           String
-  variants             Json?
+  variants             ProductVariant[]
   images               String[]
   isWholesale          Boolean            @default(false)
   wholesalePrice       Int?
@@ -607,7 +742,10 @@ model Product {
    returnItems          ReturnItem[]
    reviews              Review[]
    wishlists            Wishlist[]
+   buyLater             BuyLater[]
    bowActionLogs        BowActionLog[]
+   productEvents        UserProductEvent[]
+   vendorInquiries      VendorInquiry[]
 
   @@index([vendorId])
   @@index([categoryId])
@@ -622,6 +760,7 @@ model Product {
   @@index([isActive, price])
   @@index([isActive, createdAt])
   @@index([vendorId, stock])
+  @@index([vendorId, isActive, stock])
 }
 
 model Admin {
@@ -655,6 +794,26 @@ model PlatformConfig {
   value       String
   description String?
   updatedAt   DateTime @updatedAt
+}
+
+// Bow Coin Valuation (admin-controlled, future-only).
+// Append-only with effective dating. Service enforces "one active row per role".
+model CoinValuation {
+  id           String   @id @default(cuid())
+  role         UserRole
+  // integer paise per 1 coin (e.g., 100 => ₹1/coin, 10 => ₹0.10/coin)
+  paisePerCoin Int
+  effectiveFrom DateTime @default(now())
+  effectiveTo   DateTime?
+  // Nullable to allow bootstrapping in fresh environments before an admin user exists.
+  // All admin-initiated changes must provide setByUserId and be audit logged.
+  setByUserId   String?
+  createdAt     DateTime @default(now())
+
+  setByUser     User?    @relation("CoinValuationSetBy", fields: [setByUserId], references: [id])
+
+  @@index([role, effectiveTo])
+  @@index([role, effectiveFrom])
 }
 
 model Coupon {
@@ -700,6 +859,9 @@ model AbandonedCheckout {
   financeSnapshot Json
   metadata        Json?
   status          CheckoutRecoveryStatus @default(NEW)
+  abandonReason   String?   // PAYMENT_FAILED, USER_BACK, TIMEOUT
+  paymentMethod   String?   // UPI, CARD, COD
+  lastErrorCode   String?
   agentId         String?
   lockedUntil     DateTime?
   createdAt       DateTime               @default(now())
@@ -815,7 +977,7 @@ model ReturnRequest {
   items                  ReturnItem[]
   settlement             ReturnSettlement?
   timeline               ReturnTimeline[]
-  refund                 Refund[]
+  replacement            ReplacementOrder?
   
   @@index([orderId])
   @@index([status])
@@ -875,28 +1037,112 @@ model ReturnTimeline {
   @@index([timestamp])
 }
 
-model Refund {
-  id            String       @id @default(cuid())
-  orderId       String
-  userId        String
-  amount        Float
-  refundMethod  RefundMethod @default(ORIGINAL_PAYMENT)
-  reason        String
-  status        RefundStatus @default(PENDING)
-  adminNotes    String?
-  processedById String?
-  processedAt   DateTime?
-  transactionId String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  order         Order        @relation(fields: [orderId], references: [id])
-  user          User         @relation(fields: [userId], references: [id])
-  returnId      String?
-  returnRequest ReturnRequest? @relation(fields: [returnId], references: [id])
+// CRITICAL: OrderFinancialSnapshot is IMMUTABLE after order confirmation.
+// This snapshot captures the financial state at checkout time and must NEVER be modified
+// once the order status moves beyond PENDING. This ensures financial integrity and audit compliance.
+// Application-level protection is enforced via FinancialSnapshotGuardService.
+// Database-level enforcement: Updates are prevented by checking order.status before allowing modifications.
+model OrderFinancialSnapshot {
+  id                String   @id @default(cuid())
+  orderId           String   @unique
 
-  @@index([status])
-  @@index([userId])
+  subtotal          Int
+  taxAmount         Int
+  shippingAmount    Int
+  discountAmount    Int
+  giftCost          Int
+
+  commissionRate    Float
+  commissionAmount  Int
+  vendorEarnings    Int
+  platformEarnings  Int
+
+  currency          String   @default("INR")
+  calculatedAt      DateTime @default(now())
+
+  order             Order    @relation(fields: [orderId], references: [id])
+
   @@index([orderId])
+}
+
+model OrderSettlement {
+  id          String           @id @default(cuid())
+  orderId     String           @unique
+  vendorId    String
+  amount      Int
+  status      SettlementStatus @default(PENDING)
+  eligibleAt  DateTime?
+  settledAt   DateTime?
+  createdAt  DateTime          @default(now())
+
+  order       Order            @relation(fields: [orderId], references: [id])
+  vendor      Vendor           @relation(fields: [vendorId], references: [id])
+
+  @@index([vendorId, status])
+}
+
+model CategoryCommission {
+  id            String   @id @default(cuid())
+  categoryId    String
+  commissionRate Float
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  category      Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([categoryId])
+}
+
+model ReplacementOrder {
+  id              String   @id @default(cuid())
+  originalOrderId String
+  returnId        String   @unique
+  newOrderId      String   @unique
+  createdAt       DateTime @default(now())
+
+  originalOrder   Order    @relation("OriginalOrder", fields: [originalOrderId], references: [id])
+  newOrder        Order    @relation("ReplacementOrder", fields: [newOrderId], references: [id])
+  returnRequest   ReturnRequest @relation(fields: [returnId], references: [id])
+}
+
+model SearchClick {
+  id        String   @id @default(cuid())
+  query     String
+  productId String
+  userId    String?
+  clickedAt DateTime @default(now())
+
+  @@index([query])
+  @@index([productId])
+}
+
+model TelecallerPerformance {
+  id           String   @id @default(cuid())
+  agentId      String
+  date         DateTime
+  assigned     Int      @default(0)
+  contacted    Int      @default(0)
+  converted    Int      @default(0)
+  dropped      Int      @default(0)
+
+  agent        User     @relation(fields: [agentId], references: [id])
+
+  @@unique([agentId, date])
+}
+
+model ProductVariant {
+  id        String   @id @default(cuid())
+  productId String
+  sku       String?  @unique
+  attributes Json
+  price     Int?
+  stock     Int      @default(0)
+  status    VariationStatus @default(ACTIVE)
+
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@index([stock])
 }
 
 model AuditLog {
@@ -1099,6 +1345,7 @@ model VendorPromotion {
   coinsCost   Int             @default(0)
   moneyCost   Int?
   status      PromotionStatus @default(ACTIVE)
+  metadata    Json?
   impressions Int             @default(0)
   clicks      Int             @default(0)
   orders      Int             @default(0)
@@ -1165,8 +1412,15 @@ enum OrderStatus {
   PAID
   PACKED
   SHIPPED
+  OUT_FOR_INSPECTION
   DELIVERED
   CANCELLED
+  RETURN_REQUESTED
+  QC_IN_PROGRESS
+  RETURN_PICKED_UP
+  RETURN_RECEIVED
+  RETURNED
+  REFUNDED
 }
 
 enum VendorRole {
@@ -1189,6 +1443,29 @@ enum PaymentStatus {
   SUCCESS
   FAILED
   REFUNDED
+}
+
+enum PaymentIntentPurpose {
+  BANNER_SLOT
+  ROOM_PROMOTION
+  VENDOR_MEMBERSHIP
+}
+
+enum InquiryStatus {
+  PENDING
+  RESPONDED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum UserProductEventType {
+  PRODUCT_VIEW
+  PRODUCT_CLICK
+  ADD_TO_CART
+  REMOVE_FROM_CART
+  WISHLIST_ADD
+  PURCHASE
 }
 
 enum RiskTag {
@@ -1346,6 +1623,31 @@ model Wallet {
   @@index([userId])
 }
 
+model BuyLater {
+  id                String    @id @default(cuid())
+  userId            String
+  productId         String
+  variantId         String?   // For product variants
+  targetPrice       Int       // Target price in paise
+  currentPrice      Int       // Price when added to buy later
+  quantity          Int       @default(1)
+  isActive          Boolean   @default(true)
+  isNotified        Boolean   @default(false)  // Track if user was notified
+  isAddedToCart    Boolean   @default(false)  // Track if added to cart
+  priceDropPercent  Float?    // Percentage of price drop when notified
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  user              User      @relation(fields: [userId], references: [id])
+  product          Product   @relation(fields: [productId], references: [id])
+  
+  @@index([userId])
+  @@index([productId])
+  @@index([isActive])
+  @@index([isNotified])
+  @@index([createdAt])
+}
+
 model Bet {
   id             String    @id @default(cuid())
   userId         String
@@ -1390,3 +1692,68 @@ model LedgerEntry {
   @@index([createdAt])
 }
 
+// B2B/B2C High-Trust Features: QC Return Protocol
+model ReturnQCChecklist {
+  id          String   @id @default(cuid())
+  orderId     String   @unique
+  inspectorId String   // Telecaller/Agent ID
+  status      Boolean  @default(false)
+  
+  // Inspection Items (Checklist)
+  isOriginalPackaging Boolean @default(false)
+  isUnused            Boolean @default(false)
+  allAccessoriesPresent Boolean @default(false)
+  hasPhysicalDamage   Boolean @default(false)
+  imeiMatch           Boolean @default(true)
+  
+  photos      String[] 
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  order       Order    @relation(fields: [orderId], references: [id])
+}
+
+
+model ReferralRewardRule {
+  id            String   @id @default(cuid())
+  minOrderPaise  Int
+  maxOrderPaise  Int?
+  coinsInviter   Int
+  coinsInvitee   Int
+  isActive       Boolean  @default(true)
+  effectiveFrom  DateTime @default(now())
+  effectiveTo    DateTime?
+  setByAdminId   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  SetByAdmin     User?    @relation(fields: [setByAdminId], references: [id])
+  grants         ReferralRewardGrant[]
+
+  @@index([isActive, effectiveFrom, effectiveTo])
+  @@index([minOrderPaise])
+  @@index([maxOrderPaise])
+  @@index([setByAdminId])
+}
+
+model ReferralRewardGrant {
+  id                   String   @id @default(cuid())
+  orderId               String   @unique
+  inviterUserId         String
+  inviteeUserId         String
+  ruleId                String
+  orderValuePaiseAtAward Int
+  coinsInviterAtAward   Int
+  coinsInviteeAtAward   Int
+  createdAt             DateTime @default(now())
+
+  Order                 Order    @relation(fields: [orderId], references: [id])
+  Inviter               User     @relation("ReferralGrantInviter", fields: [inviterUserId], references: [id])
+  Invitee               User     @relation("ReferralGrantInvitee", fields: [inviteeUserId], references: [id])
+  Rule                  ReferralRewardRule @relation(fields: [ruleId], references: [id])
+
+  @@index([inviterUserId, createdAt])
+  @@index([inviteeUserId, createdAt])
+  @@index([ruleId])
+}

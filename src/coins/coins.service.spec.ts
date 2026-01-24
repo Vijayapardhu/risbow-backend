@@ -3,10 +3,13 @@ import { CoinsService } from './coins.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CoinSource } from './dto/coin.dto';
 import { BadRequestException } from '@nestjs/common';
+import { CoinValuationService } from './coin-valuation.service';
+import { UserRole } from '@prisma/client';
 
 describe('CoinsService', () => {
   let service: CoinsService;
   let prismaService: jest.Mocked<PrismaService>;
+  let coinValuation: jest.Mocked<CoinValuationService>;
 
   beforeEach(async () => {
     const mockPrismaService = {
@@ -27,15 +30,21 @@ describe('CoinsService', () => {
       $transaction: jest.fn((callback) => callback(mockPrismaService)),
     };
 
+    const mockCoinValuationService = {
+      getActivePaisePerCoin: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CoinsService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: CoinValuationService, useValue: mockCoinValuationService },
       ],
     }).compile();
 
     service = module.get<CoinsService>(CoinsService);
     prismaService = module.get(PrismaService);
+    coinValuation = module.get(CoinValuationService);
   });
 
   it('should be defined', () => {
@@ -105,6 +114,48 @@ describe('CoinsService', () => {
 
       // Verify recalculateBalance was called (indirectly through user.update)
       expect(prismaService.user.update).toHaveBeenCalled();
+    });
+  });
+
+  describe('Ledger Snapshot - Bow Coin Valuation', () => {
+    it('should snapshot roleAtTxn and paisePerCoinAtTxn on credit', async () => {
+      (prismaService.user.findUnique as jest.Mock).mockResolvedValue({ role: UserRole.CUSTOMER });
+      (coinValuation.getActivePaisePerCoin as jest.Mock).mockResolvedValue(10);
+      (prismaService.coinLedger.create as jest.Mock).mockResolvedValue({});
+      (prismaService.user.update as jest.Mock).mockResolvedValue({});
+
+      await service.credit('user-1', 50, CoinSource.ADMIN_CREDIT, 'ref-1');
+
+      expect(prismaService.coinLedger.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            userId: 'user-1',
+            amount: 50,
+            roleAtTxn: UserRole.CUSTOMER,
+            paisePerCoinAtTxn: 10,
+          }),
+        }),
+      );
+    });
+
+    it('should snapshot roleAtTxn and paisePerCoinAtTxn on debit', async () => {
+      (prismaService.user.findUnique as jest.Mock).mockResolvedValue({ coinsBalance: 100, role: UserRole.CUSTOMER });
+      (coinValuation.getActivePaisePerCoin as jest.Mock).mockResolvedValue(25);
+      (prismaService.coinLedger.create as jest.Mock).mockResolvedValue({});
+      (prismaService.user.update as jest.Mock).mockResolvedValue({});
+
+      await service.debit('user-1', 10, CoinSource.SPEND_ORDER, 'order-1');
+
+      expect(prismaService.coinLedger.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            userId: 'user-1',
+            amount: -10,
+            roleAtTxn: UserRole.CUSTOMER,
+            paisePerCoinAtTxn: 25,
+          }),
+        }),
+      );
     });
   });
 

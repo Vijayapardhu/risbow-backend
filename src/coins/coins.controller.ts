@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CreditCoinDto, DebitCoinDto, CoinSource } from './dto/coin.dto';
+import { Idempotent } from '../idempotency/idempotency.decorator';
 
 @ApiTags('Coins')
 @Controller('coins')
@@ -35,6 +36,7 @@ export class CoinsController {
     }
 
     @Post('redeem')
+    @Idempotent({ required: true, ttlSeconds: 300 })
     async redeem(@Request() req, @Body('amount', ParseIntPipe) amount: number) {
         // User can only redeem their own coins
         if (amount <= 0) {

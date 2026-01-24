@@ -1,4 +1,5 @@
 import { Controller, Post, Delete, Body, UseGuards, Request, Param } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { CheckoutService } from './checkout.service';
 import { CheckoutDto } from './dto/checkout.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -23,6 +24,7 @@ export class CheckoutController {
     @ApiOperation({ summary: 'Process checkout (COD or ONLINE)' })
     @ApiResponse({ status: 201, description: 'Order created successfully' })
     @ApiResponse({ status: 400, description: 'Bad Request (Empty Cart, Stock Issue)' })
+    @Throttle({ default: { limit: 2, ttl: 60000 } }) // Limit to 2 checkout attempts per minute
     checkout(@Request() req, @Body() dto: CheckoutDto) {
         return this.checkoutService.checkout(req.user.id, dto);
     }

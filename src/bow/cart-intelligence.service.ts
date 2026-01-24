@@ -1,24 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../shared/redis.service';
+import { CartInsightType, InsightSeverity } from '@prisma/client';
 
-// Temporary enums until Prisma client is fixed
-enum CartInsightType {
-  HESITATION = 'HESITATION',
-  THRESHOLD_NEAR = 'THRESHOLD_NEAR',
-  BUNDLE_OPPORTUNITY = 'BUNDLE_OPPORTUNITY',
-  PRICE_SENSITIVITY = 'PRICE_SENSITIVITY',
-  REPEAT_REMOVAL = 'REPEAT_REMOVAL',
-  GIFT_ELIGIBLE = 'GIFT_ELIGIBLE'
-}
-
-enum InsightSeverity {
-  LOW = 'LOW',
-  MEDIUM = 'MEDIUM',
-  HIGH = 'HIGH'
-}
-
-interface CartSignal {
+export interface CartSignal {
   type: CartInsightType;
   severity: InsightSeverity;
   reason: string;
@@ -37,10 +22,11 @@ export class CartIntelligenceService {
   private readonly logger = new Logger(CartIntelligenceService.name);
 
   // Configurable thresholds
-  private readonly FREE_SHIPPING_THRESHOLD = 1000;
-  private readonly GIFT_ELIGIBILITY_THRESHOLD = 2000;
+  // Money is always paise
+  private readonly FREE_SHIPPING_THRESHOLD = 100000; // ₹1000
+  private readonly GIFT_ELIGIBILITY_THRESHOLD = 200000; // ₹2000
   private readonly ROOM_UNLOCK_MIN_ORDERS = 3;
-  private readonly ROOM_UNLOCK_MIN_VALUE = 1500;
+  private readonly ROOM_UNLOCK_MIN_VALUE = 150000; // ₹1500
 
   constructor(
     private prisma: PrismaService,
@@ -267,7 +253,7 @@ export class CartIntelligenceService {
 
     for (const room of activeRooms) {
       let reason = '';
-      let severity = InsightSeverity.LOW;
+      let severity: InsightSeverity = InsightSeverity.LOW;
 
       if (room.unlockMinOrders && itemCount < room.unlockMinOrders) {
         const needed = room.unlockMinOrders - itemCount;

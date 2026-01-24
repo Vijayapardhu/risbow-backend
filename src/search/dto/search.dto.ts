@@ -65,6 +65,23 @@ export class SearchQueryDto {
   @IsString()
   @IsOptional()
   region?: string;
+
+  @ApiPropertyOptional({ description: 'Latitude for geo region bucketing (preferred over region string)' })
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  lat?: number;
+
+  @ApiPropertyOptional({ description: 'Longitude for geo region bucketing (preferred over region string)' })
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  lng?: number;
+
+  @ApiPropertyOptional({ description: 'Pincode for region bucketing (fallback if lat/lng not provided)' })
+  @IsString()
+  @IsOptional()
+  pincode?: string;
 }
 
 export class AutocompleteDto {
@@ -84,6 +101,23 @@ export class AutocompleteDto {
   @IsString()
   @IsOptional()
   region?: string;
+
+  @ApiPropertyOptional({ description: 'Latitude for geo region bucketing' })
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  lat?: number;
+
+  @ApiPropertyOptional({ description: 'Longitude for geo region bucketing' })
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  lng?: number;
+
+  @ApiPropertyOptional({ description: 'Pincode for region bucketing' })
+  @IsString()
+  @IsOptional()
+  pincode?: string;
 }
 
 export class TrendingQueryDto {

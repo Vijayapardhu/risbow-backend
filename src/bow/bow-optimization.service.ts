@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CouponsService } from '../coupons/coupons.service';
 
 export interface CartAnalytics {
     totalItems: number;
@@ -26,7 +27,10 @@ export class BowOptimizationService {
     private readonly logger = new Logger(BowOptimizationService.name);
     private readonly FREE_SHIPPING_THRESHOLD = 500; // ₹500
 
-    constructor(private prisma: PrismaService) {}
+    constructor(
+        private prisma: PrismaService,
+        private couponsService: CouponsService
+    ) { }
 
     async analyzeCart(userId: string): Promise<CartAnalytics> {
         const cart = await this.prisma.cart.findUnique({
@@ -57,14 +61,14 @@ export class BowOptimizationService {
 
         const totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0);
         const totalValue = cart.items.reduce(
-            (sum, item) => sum + (item.product.price * item.quantity), 
+            (sum, item) => sum + (item.product.price * item.quantity),
             0
         );
 
         const analytics: CartAnalytics = {
             totalItems,
             totalValue,
-            savings: 0, // TODO: Calculate from coupons/discounts
+            savings: await this.calculatePotentialSavings(totalValue),
             freeShippingThreshold: this.FREE_SHIPPING_THRESHOLD
         };
 
@@ -146,7 +150,7 @@ export class BowOptimizationService {
 
         // Find complementary products from same categories not in cart
         const cartProductIds = cart.items.map(item => item.productId);
-        
+
         const complementary = await this.prisma.product.findMany({
             where: {
                 categoryId: { in: cartCategories },
@@ -170,15 +174,23 @@ export class BowOptimizationService {
         return complementary;
     }
 
-    calculatePotentialSavings(cartValue: number, couponCode?: string): number {
-        // TODO: Integrate with actual coupon service
-        let savings = 0;
+    async calculatePotentialSavings(cartValue: number, couponCode?: string): Promise<number> {
+        if (!couponCode) {
+            // Find best available public coupon
+            const bestCoupon = await this.prisma.coupon.findFirst({
+                where: { isActive: true, minOrderAmount: { lte: cartValue } },
+                orderBy: { discountValue: 'desc' }
+            });
 
-        // Example: 10% off on orders above ₹1000
-        if (cartValue >= 1000) {
-            savings = Math.floor(cartValue * 0.1);
+            if (bestCoupon) {
+                return bestCoupon.discountType === 'PERCENTAGE'
+                    ? Math.floor((cartValue * bestCoupon.discountValue) / 100)
+                    : bestCoupon.discountValue;
+            }
+            return 0;
         }
 
-        return savings;
+        const validation = await this.couponsService.validateCoupon({ code: couponCode, cartTotal: cartValue });
+        return validation.isValid ? (validation.discountAmount || 0) : 0;
     }
 }

@@ -32,7 +32,7 @@ const AutoActionRequestSchema = z.object({
   strategy: z.string().optional(),
 });
 
-interface AutoActionRequest extends z.infer<typeof AutoActionRequestSchema> {}
+interface AutoActionRequest extends z.infer<typeof AutoActionRequestSchema> { }
 
 interface GuardrailResult {
   allowed: boolean;
@@ -56,7 +56,7 @@ export class BowAutoActionService {
     private prisma: PrismaService,
     private redis: RedisService,
     private cartService: CartService,
-  ) {}
+  ) { }
 
   /**
    * Execute automatic Bow action with comprehensive guardrails
@@ -338,6 +338,11 @@ export class BowAutoActionService {
       case BowActionType.SUGGEST_UPSELL:
         return {
           message: 'Premium upgrade available for better value'
+        };
+
+      case ('SUGGEST_COD' as any):
+        return {
+          message: 'Payment failed? You can pay cash on delivery (COD) instead! 🚚'
         };
 
       default:

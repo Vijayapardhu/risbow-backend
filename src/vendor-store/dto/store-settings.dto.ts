@@ -59,3 +59,29 @@ export class UpdatePickupSettingsDto {
     @Type(() => DayTimingDto)
     pickupTimings?: DayTimingDto[];
 }
+
+export class CreatePickupPointDto {
+  name: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  latitude?: number;
+  longitude?: number;
+  timings?: any;
+  isActive?: boolean;
+}
+
+export class UpdatePickupPointDto extends CreatePickupPointDto {}
+
+export class CreateVendorServiceAreaDto {
+  type: string; // RADIUS | POLYGON
+  centerLat?: number;
+  centerLng?: number;
+  radiusKm?: number;
+  polygon?: any;
+  isActive?: boolean;
+}
+
+export class UpdateVendorServiceAreaDto extends CreateVendorServiceAreaDto {}

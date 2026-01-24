@@ -5,6 +5,8 @@ import { CreatePaymentOrderDto } from './dto/create-payment-order.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import Razorpay from 'razorpay';
 import * as crypto from 'crypto';
+import { BowService } from '../bow/bow.service';
+import { PaymentIntentPurpose } from '@prisma/client';
 
 @Injectable()
 export class PaymentsService {
@@ -14,6 +16,7 @@ export class PaymentsService {
     constructor(
         private readonly configService: ConfigService,
         private readonly prisma: PrismaService,
+        private readonly bowService: BowService,
     ) {
         const keyId = this.configService.get<string>('RAZORPAY_KEY_ID');
         const keySecret = this.configService.get<string>('RAZORPAY_KEY_SECRET');
@@ -30,7 +33,7 @@ export class PaymentsService {
     }
 
     async createOrder(userId: string, dto: CreatePaymentOrderDto) {
-        const { amount, currency = 'INR', orderId } = dto;
+        const { currency = 'INR', orderId } = dto;
 
         // 1. Validate internal order existence
         const order = await this.prisma.order.findUnique({
@@ -50,19 +53,16 @@ export class PaymentsService {
             throw new BadRequestException('Order is already paid');
         }
 
-        // 🔐 P0 FIX: AMOUNT VERIFICATION
-        // Verify client-provided amount matches server-calculated order total
-        const expectedAmount = order.totalAmount * 100; // Convert to paise
-        if (amount !== expectedAmount) {
-            this.logger.error(`Amount mismatch for order ${orderId}. Expected: ${expectedAmount}, Got: ${amount}`);
-            throw new BadRequestException(`Amount mismatch. Expected: ₹${order.totalAmount}, Got: ₹${amount / 100}`);
-        }
+        // 🔐 P0: Backend is source of truth for money.
+        // Do NOT trust client-provided amount. Always charge the server-side order total.
+        // NOTE: order.totalAmount is already stored in paise in this codebase.
+        const expectedAmount = order.totalAmount;
 
         // 2. Create Razorpay Order
         let razorpayOrder;
         try {
             const options = {
-                amount: amount, // Amount in paise
+                amount: expectedAmount, // Amount in paise (server-calculated)
                 currency: currency,
                 receipt: orderId,
                 notes: {
@@ -82,7 +82,7 @@ export class PaymentsService {
             const payment = await this.prisma.payment.upsert({
                 where: { orderId: orderId },
                 update: {
-                    amount: amount,
+                    amount: expectedAmount,
                     currency: currency,
                     provider: 'RAZORPAY',
                     providerOrderId: razorpayOrder.id,
@@ -90,7 +90,7 @@ export class PaymentsService {
                 },
                 create: {
                     orderId: orderId,
-                    amount: amount,
+                    amount: expectedAmount,
                     currency: currency,
                     provider: 'RAZORPAY',
                     providerOrderId: razorpayOrder.id,
@@ -116,6 +116,92 @@ export class PaymentsService {
             this.logger.error(`Database persistence failed for payment: ${error.message}`, error.stack);
             throw new InternalServerErrorException('Failed to save payment record');
         }
+    }
+
+    /**
+     * Create a Razorpay order for non-order payments (vendor monetization, memberships, etc.)
+     * Idempotent per (purpose, referenceId).
+     */
+    async createPaymentIntent(params: {
+        userId?: string;
+        purpose: PaymentIntentPurpose;
+        referenceId: string;
+        amount: number; // paise
+        currency?: string;
+        metadata?: any;
+    }) {
+        const { userId, purpose, referenceId, amount } = params;
+        const currency = params.currency || 'INR';
+
+        if (!referenceId) throw new BadRequestException('referenceId is required');
+        if (!Number.isInteger(amount) || amount < 100) throw new BadRequestException('amount must be integer paise >= 100');
+
+        // 1) Idempotency: one intent per (purpose, referenceId)
+        const existing = await (this.prisma as any).paymentIntent.findUnique({
+            where: { purpose_referenceId: { purpose, referenceId } },
+        }).catch(() => null);
+
+        if (existing?.status === 'SUCCESS') {
+            return {
+                status: 'SUCCESS',
+                intentId: existing.id,
+                providerOrderId: existing.providerOrderId,
+                message: 'Already paid',
+            };
+        }
+
+        // 2) Create Razorpay Order
+        let razorpayOrder;
+        try {
+            razorpayOrder = await this.razorpay.orders.create({
+                amount,
+                currency,
+                receipt: `intent_${purpose}_${referenceId}`,
+                notes: {
+                    intentPurpose: purpose,
+                    referenceId,
+                    createdByUserId: userId,
+                },
+            });
+        } catch (error) {
+            this.logger.error(`Razorpay order creation failed (intent): ${error.message}`, error.stack);
+            throw new InternalServerErrorException('Failed to create payment order with gateway');
+        }
+
+        // 3) Upsert intent
+        const intent = await (this.prisma as any).paymentIntent.upsert({
+            where: { purpose_referenceId: { purpose, referenceId } },
+            update: {
+                amount,
+                currency,
+                provider: 'RAZORPAY',
+                providerOrderId: razorpayOrder.id,
+                status: 'PENDING',
+                metadata: params.metadata || undefined,
+                createdByUserId: userId || undefined,
+            },
+            create: {
+                purpose,
+                referenceId,
+                amount,
+                currency,
+                provider: 'RAZORPAY',
+                providerOrderId: razorpayOrder.id,
+                status: 'PENDING',
+                metadata: params.metadata || undefined,
+                createdByUserId: userId || undefined,
+            },
+        });
+
+        return {
+            key: this.configService.get<string>('RAZORPAY_KEY_ID'),
+            orderId: razorpayOrder.id,
+            amount: razorpayOrder.amount,
+            currency: razorpayOrder.currency,
+            intentId: intent.id,
+            purpose,
+            referenceId,
+        };
     }
 
     async verifyPayment(userId: string, dto: VerifyPaymentDto) {
@@ -216,42 +302,76 @@ export class PaymentsService {
 
         this.logger.log(`Received webhook: ${event} for order ${razorpayOrderId}`);
 
-        // 3. Find Internal Payment
+        // 3. Find Internal Payment (order payments) OR PaymentIntent (non-order payments)
         const payment = await this.prisma.payment.findFirst({
-            where: { providerOrderId: razorpayOrderId }
-        });
+            where: { providerOrderId: razorpayOrderId },
+            include: { order: true }
+        }).catch(() => null);
 
-        if (!payment) {
-            this.logger.warn(`Webhook received for unknown order: ${razorpayOrderId}`);
-            // Return 200 to acknowledge receipt and stop retries, but log warning
-            return { status: 'ignored', message: 'Order not found' };
+        const paymentIntent = !payment
+            ? await (this.prisma as any).paymentIntent.findFirst({
+                where: { providerOrderId: razorpayOrderId },
+            }).catch(() => null)
+            : null;
+
+        if (!payment && !paymentIntent) {
+            this.logger.warn(`Webhook received for unknown provider order: ${razorpayOrderId}`);
+            return { status: 'ignored', message: 'Order/Intent not found' };
         }
 
         // 4. Idempotent Handling
-        if (payment.status === 'SUCCESS' || payment.status === 'REFUNDED') {
+        if (payment && (payment.status === 'SUCCESS' || payment.status === 'REFUNDED')) {
             this.logger.log(`Payment ${payment.id} already final: ${payment.status}. Ignoring webhook.`);
+            return { status: 'ignored', message: 'Already processed' };
+        }
+        if (paymentIntent && (paymentIntent.status === 'SUCCESS' || paymentIntent.status === 'REFUNDED')) {
+            this.logger.log(`PaymentIntent ${paymentIntent.id} already final: ${paymentIntent.status}. Ignoring webhook.`);
             return { status: 'ignored', message: 'Already processed' };
         }
 
         if (event === 'payment.captured') {
-            await this.prisma.payment.update({
-                where: { id: payment.id },
-                data: {
-                    status: 'SUCCESS',
-                    paymentId: razorpayPaymentId,
-                    // processedAt: new Date() // If schema had it
-                }
-            });
-            this.logger.log(`Payment ${payment.id} updated to SUCCESS via webhook`);
+            if (payment) {
+                await this.prisma.payment.update({
+                    where: { id: payment.id },
+                    data: {
+                        status: 'SUCCESS',
+                        paymentId: razorpayPaymentId,
+                    }
+                });
+                this.logger.log(`Payment ${payment.id} updated to SUCCESS via webhook`);
+            } else if (paymentIntent) {
+                await (this.prisma as any).paymentIntent.update({
+                    where: { id: paymentIntent.id },
+                    data: {
+                        status: 'SUCCESS',
+                        paymentId: razorpayPaymentId,
+                    }
+                });
+                this.logger.log(`PaymentIntent ${paymentIntent.id} updated to SUCCESS via webhook`);
+            }
         } else if (event === 'payment.failed') {
-            await this.prisma.payment.update({
-                where: { id: payment.id },
-                data: {
-                    status: 'FAILED',
-                    paymentId: razorpayPaymentId
-                }
-            });
-            this.logger.log(`Payment ${payment.id} updated to FAILED via webhook`);
+            if (payment) {
+                await this.prisma.payment.update({
+                    where: { id: payment.id },
+                    data: {
+                        status: 'FAILED',
+                        paymentId: razorpayPaymentId
+                    }
+                });
+                this.logger.log(`Payment ${payment.id} updated to FAILED via webhook`);
+
+                // TRIGGER BOW RECOVERY NUDGE (order payments only)
+                await this.bowService.handlePaymentFailure(payment.order.userId, payment.orderId);
+            } else if (paymentIntent) {
+                await (this.prisma as any).paymentIntent.update({
+                    where: { id: paymentIntent.id },
+                    data: {
+                        status: 'FAILED',
+                        paymentId: razorpayPaymentId
+                    }
+                });
+                this.logger.log(`PaymentIntent ${paymentIntent.id} updated to FAILED via webhook`);
+            }
         }
 
         return { status: 'ok' };

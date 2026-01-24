@@ -16,6 +16,7 @@ import { RecommendationService } from './recommendation.service';
 import { CartIntelligenceService } from './cart-intelligence.service';
 import { BowAutoActionService } from './bow-auto-action.service';
 import { RecommendationStrategyService } from './recommendation-strategy.service';
+import { BowRevenueService } from './bow-revenue.service';
 import { BowMessageDto, BowResponse, BowActionExecuteDto } from './dto/bow.dto';
 import { BowActionType } from '@prisma/client';
 
@@ -67,6 +68,7 @@ export class BowService {
         private cartIntelligenceService: CartIntelligenceService,
         private bowAutoActionService: BowAutoActionService,
         private recommendationStrategyService: RecommendationStrategyService,
+        private bowRevenueService: BowRevenueService,
     ) {
         setInterval(() => this.sessionService.cleanupExpiredSessions(), 10 * 60 * 1000);
     }
@@ -74,6 +76,13 @@ export class BowService {
     async processMessage(userId: string, dto: BowMessageDto): Promise<BowResponse> {
         try {
             this.logger.log(`Processing message for user ${userId}: ${dto.message}`);
+
+            // 🛑 Track 5.2: AI Kill Switch
+            const killSwitch = await this.prisma.platformConfig.findUnique({ where: { key: 'AI_KILL_SWITCH' } });
+            if (killSwitch?.value === 'true') {
+                return { message: 'Bow AI is temporarily unavailable due to maintenance.' };
+            }
+
             this.logger.log(`Context received: ${JSON.stringify(dto.context)}`);
             // 1. Detect intent
             const intent = await this.intentService.detectIntent(dto.message, dto.context);
@@ -132,7 +141,7 @@ export class BowService {
                 return { message: `Found ${products.length} products for "${intent.entities.query}"`, products };
             }
             if (intent.intent === 'CHAT') {
-                return { message: 'How can I help you today?' };
+                return this.handleChatIntent(userId, dto, intent, context);
             }
             // Fallback: try search
             if (intent.entities.query) {
@@ -171,6 +180,13 @@ export class BowService {
      */
     async processAutomaticActions(userId: string): Promise<void> {
         try {
+            // 🛑 Track 5.2: AI Kill Switch
+            const killSwitch = await this.prisma.platformConfig.findUnique({ where: { key: 'AI_KILL_SWITCH' } });
+            if (killSwitch?.value === 'true') {
+                this.logger.warn(`Skipping automatic actions for user ${userId} - Kill Switch ACTIVE`);
+                return;
+            }
+
             this.logger.log(`Processing automatic actions for user ${userId}`);
 
             // 1. Get cart intelligence signals
@@ -247,6 +263,9 @@ export class BowService {
 
             case 'PRICE_SENSITIVITY':
                 return await this.triggerPriceReassuranceAction(userId, signal);
+
+            case 'PAYMENT_FAILURE':
+                return await this.handlePaymentFailure(userId, signal.metadata?.orderId);
 
             default:
                 return false;
@@ -368,6 +387,25 @@ export class BowService {
     }
 
     /**
+     * Handle payment failure by suggesting COD or other recovery options
+     */
+    async handlePaymentFailure(userId: string, orderId: string): Promise<boolean> {
+        try {
+            const result = await this.bowAutoActionService.executeAutoAction({
+                actionType: ('SUGGEST_COD' as any),
+                userId,
+                reason: 'Payment failed for order - suggest COD recovery',
+                strategy: 'RECOVERY'
+            });
+
+            return result.success;
+        } catch (error) {
+            this.logger.error(`Error handling payment failure: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
      * Get Bow optimization status for a user (for admin/debugging)
      */
     async getOptimizationStatus(userId: string) {
@@ -391,7 +429,27 @@ export class BowService {
     }
 
     private async handleChatIntent(userId: string, dto: BowMessageDto, intent: any, context: any, nlpParsed?: any): Promise<BowResponse> {
-        return { message: 'Chat intent handling not implemented.' };
+        const msg = (dto.message || '').toLowerCase();
+
+        // Lightweight, safe chat handling (no money/inventory/order state mutation).
+        if (msg.includes('cart')) {
+            return this.handleViewCart(userId);
+        }
+        if (msg.includes('recommend') || msg.includes('suggest')) {
+            return this.handleGetRecommendations(userId, context);
+        }
+        if (msg.includes('track') || msg.includes('delivery')) {
+            return {
+                message: 'You can track your order from Orders → Select order → Tracking. Tell me your order ID and I can show the current status.',
+            };
+        }
+        if (msg.includes('help') || msg.includes('what can you do')) {
+            return {
+                message: 'I can help you search products, view your cart, and recommend items. Try: “search shoes”, “show my cart”, or “recommend for party”.',
+            };
+        }
+
+        return { message: 'Tell me what you are looking for and I will find the best matches.' };
     }
 
     private detectOccasion(message: string): string {
@@ -416,7 +474,9 @@ export class BowService {
     }
 
     private async handleActionIntent(userId: string, dto: BowMessageDto, intent: any, context: any, nlpParsed?: any, sessionId?: string): Promise<BowResponse> {
-        return { message: 'Action intent handling not implemented.' };
+        // For now we route action intents through the existing action service.
+        // Chat route already handles direct cart actions earlier in processMessage.
+        return { message: 'Action received. Please confirm the action from the UI button.' };
     }
 
     private async searchProductByKeywords(query: string) {
@@ -666,7 +726,27 @@ export class BowService {
     }
 
     async executeAction(userId: string, dto: BowActionExecuteDto) {
-        return { message: 'Execute action not implemented.' };
+        const result: any = await this.actionService.executeAction(userId, dto);
+        const message = result?.message || (result?.success ? 'Done.' : 'Unable to complete the action.');
+
+        // Map action service result into BowResponse shape for the client
+        const response: BowResponse = {
+            message,
+            metadata: {
+                processedAt: new Date(),
+                aiInsights: result?.metadata,
+            },
+        };
+
+        // Provide optional client control hints for navigation actions
+        if (result?.action === 'navigate' && result?.data?.targetPage) {
+            response.clientControl = {
+                action: 'NAVIGATE',
+                payload: { targetPage: result.data.targetPage },
+            };
+        }
+
+        return response;
     }
 
     private async handleViewCart(userId: string, sessionId?: string): Promise<BowResponse> {

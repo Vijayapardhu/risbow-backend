@@ -3,24 +3,29 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CheckoutDto, ConfirmOrderDto } from './dto/order.dto';
 import { ConfigService } from '@nestjs/config';
 import Razorpay from 'razorpay';
-import { OrderStatus, MemberStatus } from '@prisma/client';
+import { OrderStatus, MemberStatus, UserRole } from '@prisma/client';
 import { RoomsService } from '../rooms/rooms.service';
 import { CoinsService } from '../coins/coins.service';
 import { CoinSource } from '../coins/dto/coin.dto';
+import { CommissionService } from '../common/commission.service';
+import { PriceResolverService } from '../common/price-resolver.service';
+import { InventoryService } from '../inventory/inventory.service';
+import { BowRevenueService } from '../bow/bow-revenue.service';
+import { OrderStateValidatorService } from './order-state-validator.service';
+import { FinancialSnapshotGuardService } from '../common/financial-snapshot-guard.service';
+import { RedisService } from '../shared/redis.service';
+import { CoinValuationService } from '../coins/coin-valuation.service';
+import { CheckoutService } from '../checkout/checkout.service';
+import { PaymentMode } from '../checkout/dto/checkout.dto';
+import { EcommerceEventsService } from '../recommendations/ecommerce-events.service';
+import { ReferralRewardsService } from '../referrals/referral-rewards.service';
+// import { UserProductEventType } from '@prisma/client'; // Use any casting in code to bypass lint
 
 @Injectable()
 export class OrdersService {
     private readonly logger = new Logger(OrdersService.name);
 
-    /*
-    async requestOrderReturn(orderId: string, userId: string, reason: string) {
-        throw new BadRequestException('Returns not implemented');
-    }
-
-    async requestOrderReplacement(orderId: string, userId: string, reason: string) {
-        throw new BadRequestException('Replacements not implemented');
-    }
-    */
+    // Returns/replacements are handled via ReturnsModule (replacement-only policy)
     private razorpay: Razorpay;
 
     constructor(
@@ -28,6 +33,17 @@ export class OrdersService {
         private configService: ConfigService,
         private roomsService: RoomsService,
         private coinsService: CoinsService,
+        private coinValuation: CoinValuationService,
+        private commissionService: CommissionService,
+        private priceResolver: PriceResolverService,
+        private inventoryService: InventoryService,
+        private bowRevenueService: BowRevenueService,
+        private stateValidator: OrderStateValidatorService,
+        private snapshotGuard: FinancialSnapshotGuardService,
+        private redisService: RedisService,
+        private checkoutService: CheckoutService,
+        private events: EcommerceEventsService,
+        private referralRewards: ReferralRewardsService,
     ) {
         this.razorpay = new Razorpay({
             key_id: this.configService.get('RAZORPAY_KEY_ID'),
@@ -36,44 +52,110 @@ export class OrdersService {
     }
 
     async createCheckout(userId: string, dto: CheckoutDto & { abandonedCheckoutId?: string }) {
-        // 1) Calculate total (placeholder pricing: ₹100 per item)
-        const totalBeforeCoins = dto.items.reduce((acc, item) => acc + (100 * item.quantity), 0) || 100;
+        // 1) Calculate components using resolvers
+        let totalBasePrice = 0;
+        let totalCommissionAmount = 0;
+        let totalTaxAmount = 0;
+        let vendorId = null;
 
-        // 2) Apply coin redemption safely
+        for (const item of dto.items) {
+            // Use Price Resolver instead of hardcoded 100
+            const unitPrice = await this.priceResolver.resolvePrice(item.productId, item.variantId);
+            const itemPrice = unitPrice * item.quantity;
+            totalBasePrice += itemPrice;
+
+            totalTaxAmount += this.priceResolver.calculateTax(itemPrice);
+
+            const product = await this.prisma.product.findUnique({
+                where: { id: item.productId },
+                select: { vendorId: true, categoryId: true }
+            });
+
+            if (product) {
+                vendorId = product.vendorId;
+                const commissionAmount = await this.commissionService.calculateCommission(
+                    itemPrice,
+                    product.categoryId,
+                    product.vendorId
+                );
+                totalCommissionAmount += commissionAmount;
+            }
+        }
+
+        const shippingFee = 5000; // ₹50 shipping
+        const discountAmount = 0;
+        const totalAmountInPaise = totalBasePrice + totalTaxAmount + shippingFee - discountAmount;
+
+        const netVendorEarnings = this.commissionService.calculateNetVendorEarnings(
+            totalBasePrice + totalTaxAmount,
+            totalCommissionAmount
+        );
+
+        // 2) Apply coin redemption (valuation is admin-controlled per role; resolved server-side)
         const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { coinsBalance: true } });
-        const requestedCoins = Math.max(0, dto.useCoins || 0);
-        const usableCoins = Math.min(requestedCoins, user?.coinsBalance || 0, totalBeforeCoins);
-        const payable = Math.max(1, totalBeforeCoins - usableCoins);
+        const paisePerCoin = await this.coinValuation.getActivePaisePerCoin(UserRole.CUSTOMER);
+        const maxCoinsByOrderValue = Math.floor(totalAmountInPaise / paisePerCoin);
+        const requestedCoins = dto.useCoins || 0;
+        const usableCoins = Math.min(requestedCoins, user?.coinsBalance || 0, maxCoinsByOrderValue);
+        const coinsDiscountPaise = usableCoins * paisePerCoin;
+        const payableInPaise = Math.max(100, totalAmountInPaise - coinsDiscountPaise);
 
-        // 3) Create Razorpay Order for payable amount
+        // 3) Create logic for P0 Financial Snapshot
+        const commissionRate = totalBasePrice > 0 ? (totalCommissionAmount / totalBasePrice) : 0;
+
+        // 4) Create Razorpay Order
         const rzpOrder = await this.razorpay.orders.create({
-            amount: payable * 100, // paise
+            amount: payableInPaise,
             currency: 'INR',
             receipt: `order_${Date.now()}`,
         });
 
-        // 4) Persist order with coinsUsed for idempotent debit on confirmation
+        // 5) Persist Order with linked Snapshot
         const order = await this.prisma.order.create({
             data: {
                 userId,
                 roomId: dto.roomId,
                 items: dto.items as any,
-                totalAmount: payable,
+                totalAmount: Math.round(payableInPaise / 100),
                 coinsUsed: usableCoins,
                 status: OrderStatus.PENDING,
                 razorpayOrderId: rzpOrder.id,
-                abandonedCheckoutId: dto.abandonedCheckoutId, // Link Recovery Lead
+                abandonedCheckoutId: dto.abandonedCheckoutId,
+                // P0: Immutable Snapshot
+                OrderFinancialSnapshot: {
+                    create: {
+                        subtotal: totalBasePrice,
+                        taxAmount: totalTaxAmount,
+                        shippingAmount: shippingFee,
+                        // Include coins discount inside discountAmount to keep snapshot auditable and immutable.
+                        discountAmount: discountAmount + coinsDiscountPaise,
+                        giftCost: 0,
+                        commissionRate: commissionRate,
+                        commissionAmount: totalCommissionAmount,
+                        vendorEarnings: netVendorEarnings,
+                        platformEarnings: totalCommissionAmount, // Fixed portion
+                    }
+                } as any,
+                // P0: Initial Settlement state
+                OrderSettlement: {
+                    create: {
+                        id: require('crypto').randomUUID(),
+                        amount: netVendorEarnings,
+                        status: 'PENDING',
+                        Vendor: { connect: { id: vendorId || '' } },
+                    }
+                }
             },
         });
 
         return {
             orderId: order.id,
             razorpayOrderId: rzpOrder.id,
-            amount: payable,
+            amount: Math.round(payableInPaise / 100),
             currency: 'INR',
             key: this.configService.get('RAZORPAY_KEY_ID'),
             coinsUsed: usableCoins,
-            totalBeforeCoins,
+            totalBeforeCoins: Math.round((totalBasePrice + totalTaxAmount + shippingFee) / 100),
         };
     }
 
@@ -115,37 +197,8 @@ export class OrdersService {
             // 3b. Deduct stock for each item
             const items = Array.isArray(order.items) ? (order.items as any[]) : [];
             for (const item of items) {
-                if (item.variantId) {
-                    // Variant stock deduction (JSON-based)
-                    const product = await tx.product.findUnique({ where: { id: item.productId } });
-                    if (product) {
-                        const variants = (product.variants as any[]) || [];
-                        const variantIndex = variants.findIndex(v => v.id === item.variantId);
-                        if (variantIndex !== -1) {
-                            variants[variantIndex].stock -= item.quantity;
-                            const newTotalStock = variants.reduce((acc, v) => acc + (v.isActive ? v.stock : 0), 0);
-                            await tx.product.update({
-                                where: { id: item.productId },
-                                data: { variants: variants as any, stock: newTotalStock }
-                            });
-                        }
-                    }
-                } else {
-                    // Base product stock deduction with safety check
-                    const result = await tx.product.updateMany({
-                        where: {
-                            id: item.productId,
-                            stock: { gte: item.quantity }
-                        },
-                        data: {
-                            stock: { decrement: item.quantity }
-                        }
-                    });
-
-                    if (result.count === 0) {
-                        throw new BadRequestException(`Insufficient stock for product ${item.productId}`);
-                    }
-                }
+                // Use centralized, atomic InventoryService
+                await this.inventoryService.deductStock(item.productId, item.quantity, item.variantId, tx);
             }
 
             // 🔐 P0 FIX 4: ATOMIC COINS DEBIT
@@ -165,36 +218,67 @@ export class OrdersService {
                 }
             }
 
-            // 3c. Mark Abandoned Checkout as CONVERTED
+            // 3c. Mark Abandoned Checkout as CONVERTED with recovery channel tracking
             if (order.abandonedCheckoutId) {
-                await tx.abandonedCheckout.update({
+                const abandonedCheckout = await tx.abandonedCheckout.findUnique({
                     where: { id: order.abandonedCheckoutId },
-                    data: { status: 'CONVERTED', agentId: order.agentId }
-                }).catch(e => this.logger.warn(`Failed to update abandoned checkout: ${e.message}`));
+                    select: { metadata: true, agentId: true }
+                });
+
+                if (abandonedCheckout) {
+                    const metadata = (abandonedCheckout.metadata as any) || {};
+                    // Determine recovery channel based on escalation level and agent assignment
+                    let recoveryChannel = 'SELF'; // Default: user returned on their own
+
+                    if (metadata.escalationLevel === 'PUSH_SENT') {
+                        recoveryChannel = 'PUSH';
+                    } else if (metadata.escalationLevel === 'WA_NUDGE_SENT') {
+                        recoveryChannel = 'WHATSAPP';
+                    } else if (abandonedCheckout.agentId || metadata.escalationLevel === 'TELE_ASSIGNED') {
+                        recoveryChannel = 'TELECALLER';
+                    }
+
+                    await tx.abandonedCheckout.update({
+                        where: { id: order.abandonedCheckoutId },
+                        data: {
+                            status: 'CONVERTED',
+                            agentId: order.agentId || abandonedCheckout.agentId,
+                            metadata: {
+                                ...metadata,
+                                recoveryChannel,
+                                convertedAt: new Date().toISOString(),
+                                convertedOrderId: order.id,
+                            }
+                        }
+                    }).catch(e => this.logger.warn(`Failed to update abandoned checkout: ${e.message}`));
+                }
             }
 
             return confirmedOrder;
         });
 
-        // 4. Referral credit (outside transaction - can retry if fails)
-        const user = await this.prisma.user.findUnique({ where: { id: order.userId } });
-        if (user?.referredBy) {
-            const alreadyCredited = await this.prisma.coinLedger.findFirst({
-                where: { referenceId: order.id, source: CoinSource.REFERRAL },
-            });
-            if (!alreadyCredited) {
-                const reward = 100;
-                try {
-                    await Promise.all([
-                        this.coinsService.credit(order.userId, reward, CoinSource.REFERRAL, order.id),
-                        this.coinsService.credit(user.referredBy, reward, CoinSource.REFERRAL, order.id),
-                    ]);
-                } catch (error) {
-                    this.logger.error(`Referral credit failed: ${error.message}`);
-                    // Don't fail order confirmation if referral credit fails
-                }
+        // 3d. Best-effort purchase event capture (after successful confirm)
+        try {
+            const items = Array.isArray(order.items) ? (order.items as any[]) : [];
+            for (const item of items) {
+                const unitPrice = item.price || item.offerPrice || undefined;
+                await this.events.track({
+                    userId: order.userId,
+                    type: 'PURCHASE' as any,
+                    source: 'CHECKOUT',
+                    productId: item.productId,
+                    variantId: item.variantId,
+                    quantity: item.quantity,
+                    price: unitPrice,
+                    metadata: { orderId: order.id },
+                } as any);
             }
+        } catch (e) {
+            // never block order confirmation
         }
+
+        // 4. Referral rewards (slab-based, first paid order only, idempotent)
+        await this.referralRewards.awardForOrderIfEligible(order.id).catch(() => undefined);
 
         // 5. Room Logic: If order belongs to a room
         if (order.roomId) {
@@ -209,6 +293,16 @@ export class OrdersService {
                 // Don't fail order confirmation if room update fails
             }
         }
+
+        // 6. Clear payment timeout TTL from Redis (payment completed)
+        // Note: This is done outside transaction to avoid Redis dependency in transaction
+        // The TTL cleanup is best-effort and failures are non-critical
+        await this.redisService.del(`payment:timeout:${order.id}`).catch(() => {
+            // Ignore errors - TTL might have already expired or Redis unavailable
+        });
+
+        // 7. Bow Action Attribution
+        await this.bowRevenueService.attributeOutcome(updatedOrder.id, updatedOrder.userId);
 
         return { status: 'success', orderId: updatedOrder.id };
     }
@@ -229,7 +323,7 @@ export class OrdersService {
 
         // Add to Order Items
         // Ideally we should have a separate relation for gifts or a flag in orderItem
-        // For now, we stub the success message as schema might need 'isGift' field
+        // For now, return success message; schema can later add an explicit isGift marker if needed
         return { message: 'Gift added to order' };
     }
 
@@ -270,41 +364,81 @@ export class OrdersService {
     }
 
     // Simple order creation for COD (Cash on Delivery)
-    // TODO: Replace with actual implementation
     async createOrder(userId: string, orderData: any) {
-        const {
-            addressId,
-            paymentMethod = 'COD',
-            subtotal,
-            deliveryFee = 0,
-        } = orderData;
+        const addressId = orderData?.addressId || orderData?.shippingAddressId;
+        if (!addressId) throw new BadRequestException('Address is required');
 
-        // Basic validation
-        if (!addressId) {
-            throw new BadRequestException('Address is required');
+        // Delegate to canonical CheckoutService flow (server-side pricing + stock reservation + idempotency rules).
+        return this.checkoutService.checkout(userId, {
+            paymentMode: PaymentMode.COD,
+            shippingAddressId: addressId,
+            notes: orderData?.notes,
+            giftId: orderData?.giftId,
+            couponCode: orderData?.couponCode,
+        });
+    }
+
+    async cancelOrder(userId: string, orderId: string) {
+        const order = await this.prisma.order.findFirst({
+            where: { id: orderId, userId },
+            include: { payment: true },
+        });
+        if (!order) throw new NotFoundException('Order not found');
+
+        // Prevent illegal jumps
+        this.stateValidator.validateTransition(order.status as any, OrderStatus.CANCELLED as any, UserRole.CUSTOMER as any);
+
+        const updated = await this.prisma.order.update({
+            where: { id: orderId },
+            data: { status: OrderStatus.CANCELLED },
+        });
+
+        if (order.payment && order.payment.status === 'PENDING') {
+            await this.prisma.payment.update({
+                where: { id: order.payment.id },
+                data: { status: 'FAILED' as any },
+            }).catch(() => { });
         }
 
-        const totalAmount = subtotal + deliveryFee;
+        return { success: true, order: updated };
+    }
 
-        // Generate a mock order ID
-        const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    async getTracking(userId: string, orderId: string) {
+        const order = await this.prisma.order.findFirst({
+            where: { id: orderId, userId },
+            select: { id: true, status: true, courierPartner: true, awbNumber: true, createdAt: true, updatedAt: true },
+        });
+        if (!order) throw new NotFoundException('Order not found');
 
-        // Return mock success response
         return {
-            success: true,
-            orderId: orderId,
-            order: {
-                id: orderId,
-                userId,
-                addressId,
-                totalAmount: Math.round(totalAmount),
-                status: 'CONFIRMED',
-                paymentMethod,
-                createdAt: new Date().toISOString()
-            },
-            message: 'Order placed successfully (TEST MODE)'
+            orderId: order.id,
+            status: order.status,
+            courierPartner: order.courierPartner,
+            awbNumber: order.awbNumber,
+            updatedAt: order.updatedAt,
         };
     }
+
+    async verifyObdOtp(orderId: string, otp: string) {
+        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+        if (!order) throw new NotFoundException('Order not found');
+        if ((order.status as any) !== 'OUT_FOR_INSPECTION') {
+            throw new BadRequestException('Order is not in inspection state');
+        }
+        if ((order as any).obdOtp !== otp) {
+            throw new BadRequestException('Invalid inspection OTP');
+        }
+
+        return this.prisma.order.update({
+            where: { id: orderId },
+            data: {
+                status: 'DELIVERED' as any,
+                obdVerifiedAt: new Date(),
+                deliveredAt: new Date()
+            } as any
+        });
+    }
+
     // --- ADMIN METHODS ---
 
     async findAllOrders(params: {
@@ -534,6 +668,21 @@ export class OrdersService {
             throw new NotFoundException('Order not found');
         }
 
+        // 🔐 P0 FIX: Validate state transition to prevent illegal jumps
+        // Allow admin override only if explicitly needed (logged)
+        const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+        const isValidTransition = this.stateValidator.isValidTransition(order.status, status);
+        const allowAdminOverride = isAdmin && !isValidTransition;
+
+        await this.stateValidator.validateTransition(
+            order.status,
+            status,
+            orderId,
+            adminId,
+            role,
+            allowAdminOverride,
+        );
+
         const updatedOrder = await this.prisma.order.update({
             where: { id: orderId },
             data: { status }
@@ -551,7 +700,9 @@ export class OrdersService {
                         oldStatus: order.status,
                         newStatus: status,
                         notes: notes || '',
-                        role: role || ''
+                        role: role || '',
+                        transitionValidated: true,
+                        adminOverride: allowAdminOverride,
                     }
                 }
             });

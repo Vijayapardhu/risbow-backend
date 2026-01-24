@@ -5,6 +5,9 @@ import { PaymentsService } from '../payments/payments.service';
 import { GiftsService } from '../gifts/gifts.service';
 import { CouponsService } from '../coupons/coupons.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { RedisService } from '../shared/redis.service';
+import { PriceResolverService } from '../common/price-resolver.service';
+import { CommissionService } from '../common/commission.service';
 
 @Injectable()
 export class CheckoutService {
@@ -16,6 +19,9 @@ export class CheckoutService {
         private readonly giftsService: GiftsService,
         private readonly couponsService: CouponsService,
         private readonly inventoryService: InventoryService,  // 🔐 P0 FIX: Add InventoryService
+        private readonly redisService: RedisService,
+        private readonly priceResolver: PriceResolverService,
+        private readonly commissionService: CommissionService,
     ) { }
 
     async checkout(userId: string, dto: CheckoutDto) {
@@ -33,7 +39,7 @@ export class CheckoutService {
 
         // 🔐 P0 FIX: Reserve stock BEFORE transaction to prevent overselling
         const reservedItems: { productId: string; variantId?: string; quantity: number }[] = [];
-        
+
         try {
             for (const item of cartForReservation.items) {
                 await this.inventoryService.reserveStock(
@@ -97,22 +103,34 @@ export class CheckoutService {
 
                     categoryIds.add(product.categoryId);
 
+                    // 🏢 Track 5.1: Wholesale & MOQ Logic
                     let price = product.offerPrice || product.price;
+
+                    if (product.isWholesale) {
+                        if (item.quantity < (product.moq || 1)) {
+                            throw new BadRequestException(`Minimum order quantity for ${product.title} is ${product.moq}`);
+                        }
+                        price = product.wholesalePrice || price;
+                    }
+
                     let stock = product.stock;
                     let variantSnapshot = null;
 
                     // Variant handling
                     if (item.variantId) {
-                        const variants = (product.variants as any[]) || [];
-                        const variant = variants.find(v => v.id === item.variantId);
-                        if (variant) {
-                            price = variant.offerPrice || variant.price || variant.sellingPrice || price;
-                            stock = variant.stock;
-                            variantSnapshot = {
-                                attributes: variant.attributes,
-                                sku: variant.sku
-                            };
+                        const variant = await (tx as any).productVariant.findFirst({
+                            where: { id: item.variantId, productId: product.id },
+                        });
+                        if (!variant) {
+                            throw new BadRequestException(`Variant not found for product ${product.title}`);
                         }
+
+                        price = (variant.price ?? null) ? Number(variant.price) : price;
+                        stock = Number(variant.stock);
+                        variantSnapshot = {
+                            attributes: variant.attributes,
+                            sku: variant.sku,
+                        };
                     }
 
                     if (stock < item.quantity) {
@@ -286,6 +304,52 @@ export class CheckoutService {
                     await tx.order.update({
                         where: { id: order.id },
                         data: { razorpayOrderId: razorpayOrder.id }
+                    });
+
+                    // 🔐 P0 FIX: Create AbandonedCheckout record for payment recovery
+                    // This enables automated detection if payment is not completed
+                    const cartSnapshot = {
+                        orderId: order.id,
+                        items: orderItems,
+                        itemCount: orderItems.length,
+                    };
+
+                    const financeSnapshot = {
+                        subtotal: totalAmount,
+                        taxAmount: Math.round(totalAmount * 0.18), // 18% GST
+                        shippingAmount: 0, // Included in totalAmount
+                        discountAmount,
+                        totalAmount: finalAmount,
+                        currency: 'INR',
+                    };
+
+                    const abandonedCheckout = await tx.abandonedCheckout.create({
+                        data: {
+                            userId,
+                            cartSnapshot,
+                            financeSnapshot,
+                            status: 'NEW',
+                            abandonReason: 'PAYMENT_PENDING',
+                            paymentMethod: 'ONLINE',
+                            metadata: {
+                                type: 'CHECKOUT',
+                                orderId: order.id,
+                                razorpayOrderId: razorpayOrder.id,
+                                createdAt: new Date().toISOString(),
+                            },
+                            abandonedAt: new Date(),
+                        },
+                    });
+
+                    // 🔐 P0 FIX: Set Redis TTL for payment timeout detection (10 minutes default)
+                    const paymentTimeoutMinutes = parseInt(process.env.PAYMENT_TIMEOUT_MINUTES || '10', 10);
+                    const ttlSeconds = paymentTimeoutMinutes * 60;
+                    await this.redisService.set(
+                        `payment:timeout:${order.id}`,
+                        abandonedCheckout.id,
+                        ttlSeconds
+                    ).catch(err => {
+                        this.logger.warn(`Failed to set payment timeout TTL: ${err.message}`);
                     });
 
                     // 🔐 P0 FIX: CLEAR CART FOR ONLINE PAYMENT TOO

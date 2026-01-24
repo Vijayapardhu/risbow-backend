@@ -1,16 +1,24 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { MembershipTier, PayoutCycle } from '@prisma/client';
+import { MembershipTier, PayoutCycle, PaymentIntentPurpose, UserRole } from '@prisma/client';
 import {
     SubscribeMembershipDto,
     UpgradeMembershipDto,
     MembershipTierResponseDto,
     CurrentMembershipResponseDto,
 } from './dto/membership.dto';
+import { PaymentsService } from '../payments/payments.service';
+import { CoinValuationService } from '../coins/coin-valuation.service';
 
 @Injectable()
 export class VendorMembershipsService {
-    constructor(private prisma: PrismaService) { }
+    private readonly logger = new Logger(VendorMembershipsService.name);
+
+    constructor(
+        private prisma: PrismaService,
+        private paymentsService: PaymentsService,
+        private coinValuation: CoinValuationService,
+    ) { }
 
     // Tier configurations
     private readonly TIER_CONFIGS: Record<MembershipTier, MembershipTierResponseDto> = {
@@ -115,17 +123,54 @@ export class VendorMembershipsService {
 
         // Handle payment
         if (dto.paymentMethod === 'COINS') {
-            if (vendor.coinsBalance < tierConfig.price) {
+            // tierConfig.price is treated as ₹ (rupees). Convert to coins using current valuation.
+            const paisePerCoin = await this.coinValuation.getActivePaisePerCoin(UserRole.VENDOR);
+            const costInCoins = Math.ceil((tierConfig.price * 100) / paisePerCoin);
+
+            if (vendor.coinsBalance < costInCoins) {
                 throw new BadRequestException('Insufficient coins balance');
             }
-            // Deduct coins
-            await this.prisma.vendor.update({
-                where: { id: vendorId },
-                data: { coinsBalance: { decrement: tierConfig.price } },
+            // Atomic coin deduction
+            const coinDeductionResult = await this.prisma.vendor.updateMany({
+                where: {
+                    id: vendorId,
+                    coinsBalance: { gte: costInCoins },
+                },
+                data: { coinsBalance: { decrement: costInCoins } },
             });
+
+            if (coinDeductionResult.count === 0) {
+                throw new BadRequestException('Insufficient coins (concurrent update detected)');
+            }
+        } else if (dto.paymentMethod === 'RUPEES') {
+            // Pay with ₹ (via payment gateway)
+            const payment = await this.paymentsService.createPaymentIntent({
+                userId: vendorId,
+                purpose: PaymentIntentPurpose.VENDOR_MEMBERSHIP,
+                referenceId: `subscribe:${vendorId}:${dto.tier}`,
+                amount: tierConfig.price * 100, // ₹ -> paise
+                currency: 'INR',
+                metadata: { vendorId, tier: dto.tier, autoRenew: dto.autoRenew ?? false, kind: 'SUBSCRIBE' },
+            });
+
+            // Return pending response; webhook will mark intent SUCCESS and a follow-up handler can activate membership.
+            return {
+                id: 'PENDING_PAYMENT',
+                tier: dto.tier,
+                price: tierConfig.price,
+                skuLimit: tierConfig.skuLimit,
+                imageLimit: tierConfig.imageLimit,
+                commissionRate: tierConfig.commissionRate,
+                payoutCycle: tierConfig.payoutCycle,
+                isActive: false,
+                autoRenew: dto.autoRenew ?? false,
+                startDate: new Date(),
+                endDate: null,
+                usage: { currentSkus: 0, remainingSkus: tierConfig.skuLimit, usagePercentage: 0 },
+                payment: payment as any,
+            } as any;
         } else {
-            // TODO: Integrate with Razorpay for money payment
-            // For now, assume payment is successful
+            throw new BadRequestException('Invalid payment method. Use COINS or RUPEES');
         }
 
         // Create membership
@@ -192,7 +237,52 @@ export class VendorMembershipsService {
         );
         const proratedCost = Math.ceil((newTierConfig.price * daysRemaining) / 30);
 
-        // TODO: Process payment for prorated cost
+        // Handle payment for upgrade
+        if (dto.paymentMethod === 'COINS') {
+            const paisePerCoin = await this.coinValuation.getActivePaisePerCoin(UserRole.VENDOR);
+            const upgradeCostInCoins = Math.ceil((proratedCost * 100) / paisePerCoin);
+
+            if (vendor.coinsBalance < upgradeCostInCoins) {
+                throw new BadRequestException('Insufficient coins balance for upgrade');
+            }
+            // Atomic coin deduction
+            const coinDeductionResult = await this.prisma.vendor.updateMany({
+                where: {
+                    id: vendorId,
+                    coinsBalance: { gte: upgradeCostInCoins },
+                },
+                data: { coinsBalance: { decrement: upgradeCostInCoins } },
+            });
+
+            if (coinDeductionResult.count === 0) {
+                throw new BadRequestException('Insufficient coins (concurrent update detected)');
+            }
+        } else if (dto.paymentMethod === 'RUPEES') {
+            const payment = await this.paymentsService.createPaymentIntent({
+                userId: vendorId,
+                purpose: PaymentIntentPurpose.VENDOR_MEMBERSHIP,
+                referenceId: `upgrade:${vendorId}:${newTier}`,
+                amount: proratedCost * 100, // ₹ -> paise
+                currency: 'INR',
+                metadata: { vendorId, newTier, proratedCost, kind: 'UPGRADE' },
+            });
+
+            return {
+                id: 'PENDING_PAYMENT',
+                tier: newTier,
+                price: newTierConfig.price,
+                skuLimit: newTierConfig.skuLimit,
+                imageLimit: newTierConfig.imageLimit,
+                commissionRate: newTierConfig.commissionRate,
+                payoutCycle: newTierConfig.payoutCycle,
+                isActive: false,
+                autoRenew: vendor.VendorMembership.autoRenew,
+                startDate: vendor.VendorMembership.startDate,
+                endDate: vendor.VendorMembership.endDate,
+                usage: { currentSkus: vendor.products.length, remainingSkus: Math.max(0, newTierConfig.skuLimit - vendor.products.length), usagePercentage: 0 },
+                payment: payment as any,
+            } as any;
+        }
 
         // Update membership
         await this.prisma.vendorMembership.update({
@@ -284,5 +374,158 @@ export class VendorMembershipsService {
             message: 'Auto-renewal cancelled successfully',
             endDate: vendor.VendorMembership.endDate,
         };
+    }
+
+    /**
+     * Get membership comparison for all tiers
+     */
+    async getMembershipComparison(): Promise<MembershipTierResponseDto[]> {
+        return this.getAllTiers();
+    }
+
+    /**
+     * Check and notify vendors about expiring memberships
+     * Should be called by a cron job
+     */
+    async checkExpiringMemberships(): Promise<number> {
+        const now = new Date();
+        const sevenDaysFromNow = new Date();
+        sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+        const threeDaysFromNow = new Date();
+        threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+
+        // Find memberships expiring in 7 days
+        const expiringSoon = await this.prisma.vendorMembership.findMany({
+            where: {
+                isActive: true,
+                endDate: {
+                    gte: threeDaysFromNow,
+                    lte: sevenDaysFromNow,
+                },
+                autoRenew: false, // Only notify if not auto-renewing
+            },
+            include: {
+                vendor: {
+                    select: { id: true, name: true, email: true, mobile: true },
+                },
+            },
+        });
+
+        let notifiedCount = 0;
+
+        for (const membership of expiringSoon) {
+            this.logger.log(
+                `Membership expiring soon for vendor ${membership.vendorId} (${membership.tier}) - expires on ${membership.endDate}`
+            );
+            notifiedCount++;
+        }
+
+        // Find memberships expiring in 3 days (urgent)
+        const expiringUrgent = await this.prisma.vendorMembership.findMany({
+            where: {
+                isActive: true,
+                endDate: {
+                    gte: now,
+                    lte: threeDaysFromNow,
+                },
+                autoRenew: false,
+            },
+            include: {
+                vendor: {
+                    select: { id: true, name: true, email: true, mobile: true },
+                },
+            },
+        });
+
+        for (const membership of expiringUrgent) {
+            this.logger.warn(
+                `URGENT: Membership expiring in 3 days for vendor ${membership.vendorId} (${membership.tier})`
+            );
+            notifiedCount++;
+        }
+
+        return notifiedCount;
+    }
+
+    /**
+     * Process membership renewals (for auto-renew enabled memberships)
+     * Should be called by a cron job
+     */
+    async processAutoRenewals(): Promise<number> {
+        const now = new Date();
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        // Find memberships expiring tomorrow with auto-renew enabled
+        const toRenew = await this.prisma.vendorMembership.findMany({
+            where: {
+                isActive: true,
+                autoRenew: true,
+                endDate: {
+                    gte: now,
+                    lte: tomorrow,
+                },
+            },
+            include: {
+                vendor: {
+                    select: { id: true, coinsBalance: true },
+                },
+            },
+        });
+
+        let renewedCount = 0;
+
+        for (const membership of toRenew) {
+            try {
+                // Try to renew with coins first, then fallback to payment gateway
+                const tierConfig = this.TIER_CONFIGS[membership.tier];
+
+                const paisePerCoin = await this.coinValuation.getActivePaisePerCoin(UserRole.VENDOR);
+                const renewalCostInCoins = Math.ceil((tierConfig.price * 100) / paisePerCoin);
+
+                if (membership.vendor.coinsBalance >= renewalCostInCoins) {
+                    // Renew with coins
+                    await this.prisma.$transaction(async (tx) => {
+                        await tx.vendor.updateMany({
+                            where: {
+                                id: membership.vendorId,
+                                coinsBalance: { gte: renewalCostInCoins },
+                            },
+                            data: { coinsBalance: { decrement: renewalCostInCoins } },
+                        });
+
+                        const newEndDate = new Date();
+                        newEndDate.setMonth(newEndDate.getMonth() + 1);
+
+                        await tx.vendorMembership.update({
+                            where: { id: membership.id },
+                            data: {
+                                startDate: new Date(),
+                                endDate: newEndDate,
+                            },
+                        });
+                    });
+
+                    renewedCount++;
+                    this.logger.log(`Auto-renewed membership for vendor ${membership.vendorId} with coins`);
+                } else {
+                    await this.paymentsService.createPaymentIntent({
+                        userId: membership.vendorId,
+                        purpose: PaymentIntentPurpose.VENDOR_MEMBERSHIP,
+                        referenceId: `renew:${membership.vendorId}:${membership.tier}`,
+                        amount: tierConfig.price * 100,
+                        currency: 'INR',
+                        metadata: { vendorId: membership.vendorId, tier: membership.tier, kind: 'RENEW' },
+                    }).catch(() => {});
+                    this.logger.warn(
+                        `Cannot auto-renew membership for vendor ${membership.vendorId} - insufficient coins, payment gateway renewal needed`
+                    );
+                }
+            } catch (error) {
+                this.logger.error(`Failed to auto-renew membership ${membership.id}: ${error.message}`);
+            }
+        }
+
+        return renewedCount;
     }
 }

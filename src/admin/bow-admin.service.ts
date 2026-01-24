@@ -469,10 +469,20 @@ export class BowAdminService {
 
     private async getKillSwitchStatus() {
         const globalKill = await this.redis.get(this.GLOBAL_KILL_SWITCH);
+        // Detailed per-action kill switch status (SCAN-based via RedisService.keys)
+        const actionKeys = await this.redis.keys(`${this.ACTION_TYPE_KILL_SWITCH}*`).catch(() => []);
+        const actionStatuses: Record<string, boolean> = {};
+
+        for (const key of actionKeys) {
+            const actionType = key.replace(this.ACTION_TYPE_KILL_SWITCH, '');
+            const value = await this.redis.get(key);
+            // Convention: presence of key means disabled; value can be 'true' or reason
+            actionStatuses[actionType] = !!value;
+        }
 
         return {
             global: !!globalKill,
-            message: 'Detailed kill switch status requires Redis KEYS command (not implemented in service)'
+            actions: actionStatuses,
         };
     }
 

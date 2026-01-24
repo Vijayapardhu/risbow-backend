@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CoinSource } from './dto/coin.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
+import { CoinValuationService } from './coin-valuation.service';
 
 @Injectable()
 export class CoinsService {
@@ -33,7 +34,10 @@ export class CoinsService {
         return { expired: expiredCredits.length };
     }
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private coinValuation: CoinValuationService,
+    ) { }
 
     async getBalance(userId: string) {
         const user = await this.prisma.user.findUnique({
@@ -57,13 +61,20 @@ export class CoinsService {
             // Prevent duplicate credits for same reference
             if (referenceId) {
                 const existing = await db.coinLedger.findFirst({
-                    where: { referenceId, source, amount: { gt: 0 } }
+                    where: { userId, referenceId, source, amount: { gt: 0 } }
                 });
                 if (existing) {
                     // Already credited, return existing user
                     return await db.user.findUnique({ where: { id: userId } });
                 }
             }
+
+            const user = await db.user.findUnique({
+                where: { id: userId },
+                select: { role: true },
+            });
+            const roleAtTxn = (user?.role as UserRole) || UserRole.CUSTOMER;
+            const paisePerCoinAtTxn = await this.coinValuation.getActivePaisePerCoin(roleAtTxn);
 
             // Create Ledger Entry
             await db.coinLedger.create({
@@ -72,6 +83,8 @@ export class CoinsService {
                     amount,
                     source,
                     referenceId,
+                    roleAtTxn,
+                    paisePerCoinAtTxn,
                     // Expiry logic: 3 months from now
                     expiresAt: new Date(new Date().setMonth(new Date().getMonth() + 3)),
                     isExpired: false
@@ -96,10 +109,16 @@ export class CoinsService {
 
     async debit(userId: string, amount: number, source: CoinSource, referenceId?: string, tx?: Prisma.TransactionClient) {
         const execute = async (db: Prisma.TransactionClient) => {
-            const user = await db.user.findUnique({ where: { id: userId } });
+            const user = await db.user.findUnique({
+                where: { id: userId },
+                select: { coinsBalance: true, role: true },
+            });
             if (!user || user.coinsBalance < amount) {
                 throw new BadRequestException('Insufficient coin balance');
             }
+
+            const roleAtTxn = (user?.role as UserRole) || UserRole.CUSTOMER;
+            const paisePerCoinAtTxn = await this.coinValuation.getActivePaisePerCoin(roleAtTxn);
 
             // Create Ledger Entry
             await db.coinLedger.create({
@@ -108,6 +127,8 @@ export class CoinsService {
                     amount: -amount,
                     source,
                     referenceId,
+                    roleAtTxn,
+                    paisePerCoinAtTxn,
                 },
             });
 

@@ -6,6 +6,7 @@ import { AuditLogService } from '../audit/audit.service';
 import { CoinSource } from '../coins/dto/coin.dto';
 import { VendorRole, MembershipTier } from '@prisma/client';
 import { RedisService } from '../shared/redis.service';
+import { VendorAvailabilityService } from './vendor-availability.service';
 
 @Injectable()
 export class VendorsService {
@@ -13,8 +14,80 @@ export class VendorsService {
         private prisma: PrismaService,
         private coinsService: CoinsService,
         private audit: AuditLogService,
-        private redis: RedisService
+        private redis: RedisService,
+        private availability: VendorAvailabilityService,
     ) { }
+
+    private distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+        const toRad = (x: number) => (x * Math.PI) / 180;
+        const R = 6371;
+        const dLat = toRad(b.lat - a.lat);
+        const dLng = toRad(b.lng - a.lng);
+        const s1 = Math.sin(dLat / 2);
+        const s2 = Math.sin(dLng / 2);
+        const q = s1 * s1 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * s2 * s2;
+        return 2 * R * Math.asin(Math.sqrt(q));
+    }
+
+    async getNearbyVendors(params: { lat: number; lng: number; radiusKm: number; openNowOnly?: boolean }) {
+        const { lat, lng } = params;
+        const radiusKm = Math.max(0.5, Math.min(params.radiusKm || 10, 50)); // safety bounds
+        const openNowOnly = params.openNowOnly === true;
+
+        // Bounding box prefilter to keep DB work light
+        const latDelta = radiusKm / 111;
+        const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+
+        const vendors = await this.prisma.vendor.findMany({
+            where: {
+                latitude: { not: null, gte: lat - latDelta, lte: lat + latDelta } as any,
+                longitude: { not: null, gte: lng - lngDelta, lte: lng + lngDelta } as any,
+                storeStatus: 'ACTIVE' as any,
+            } as any,
+            select: {
+                id: true,
+                name: true,
+                storeName: true,
+                vendorCode: true,
+                pincode: true,
+                latitude: true,
+                longitude: true,
+                pickupEnabled: true,
+                storeTimings: true,
+                storeClosedUntil: true,
+                storeStatus: true,
+            } as any,
+            take: 200,
+        });
+
+        const origin = { lat, lng };
+        const enriched = vendors
+            .map((v: any) => {
+                const d = this.distanceKm(origin, { lat: Number(v.latitude), lng: Number(v.longitude) });
+                const { openNow, nextOpenAt } = this.availability.getAvailability(v);
+                return { ...v, distanceKm: d, openNow, nextOpenAt };
+            })
+            .filter((v: any) => v.distanceKm <= radiusKm)
+            .filter((v: any) => (openNowOnly ? v.openNow : true))
+            .sort((a: any, b: any) => a.distanceKm - b.distanceKm);
+
+        return {
+            data: enriched.map((v: any) => ({
+                id: v.id,
+                name: v.name,
+                storeName: v.storeName,
+                vendorCode: v.vendorCode,
+                pincode: v.pincode,
+                latitude: v.latitude,
+                longitude: v.longitude,
+                pickupEnabled: v.pickupEnabled,
+                openNow: v.openNow,
+                nextOpenAt: v.nextOpenAt,
+                distanceKm: Number(v.distanceKm.toFixed(2)),
+            })),
+            meta: { radiusKm, count: enriched.length },
+        };
+    }
 
     private async getVendorProductIds(vendorId: string): Promise<string[]> {
         const cacheKey = `vendor:product-ids:${vendorId}`;

@@ -1,10 +1,12 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/user.dto';
+import { RegisterDeviceDto } from './dto/device.dto';
+import { GeoService } from '../shared/geo.service';
 
 @Injectable()
 export class UsersService {
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private geoService: GeoService) { }
 
     async findOne(id: string) {
         return this.prisma.user.findUnique({
@@ -75,6 +77,16 @@ export class UsersService {
             });
         }
 
+        const geo = await this.geoService
+            .resolveAddressGeo({
+                addressLine1: addressData.address_line1 || addressData.addressLine1,
+                addressLine2: addressData.address_line2 || addressData.addressLine2,
+                city: addressData.city,
+                state: addressData.state,
+                pincode: addressData.pincode,
+            })
+            .catch(() => null);
+
         return this.prisma.address.create({
             data: {
                 userId,
@@ -86,7 +98,11 @@ export class UsersService {
                 state: addressData.state,
                 pincode: addressData.pincode,
                 label: addressData.label || 'Home',
-                isDefault: addressData.is_default || addressData.isDefault || false
+                isDefault: addressData.is_default || addressData.isDefault || false,
+                latitude: geo?.point.lat,
+                longitude: geo?.point.lng,
+                geoSource: geo?.source as any,
+                geoUpdatedAt: geo ? new Date() : undefined,
             }
         });
     }
@@ -109,6 +125,16 @@ export class UsersService {
             });
         }
 
+        const geo = await this.geoService
+            .resolveAddressGeo({
+                addressLine1: addressData.address_line1 || addressData.addressLine1,
+                addressLine2: addressData.address_line2 || addressData.addressLine2,
+                city: addressData.city,
+                state: addressData.state,
+                pincode: addressData.pincode,
+            })
+            .catch(() => null);
+
         return this.prisma.address.update({
             where: { id: addressId },
             data: {
@@ -120,7 +146,11 @@ export class UsersService {
                 state: addressData.state,
                 pincode: addressData.pincode,
                 label: addressData.label,
-                isDefault: addressData.is_default || addressData.isDefault
+                isDefault: addressData.is_default || addressData.isDefault,
+                latitude: geo?.point.lat,
+                longitude: geo?.point.lng,
+                geoSource: geo?.source as any,
+                geoUpdatedAt: geo ? new Date() : undefined,
             }
         });
     }
@@ -242,6 +272,28 @@ export class UsersService {
         return this.prisma.notification.update({
             where: { id: notificationId },
             data: { isRead: true }
+        });
+    }
+
+    // --- DEVICE TOKENS (Push Notifications) ---
+
+    async registerDevice(userId: string, dto: RegisterDeviceDto) {
+        // Upsert by token (unique) so reinstall / re-login is idempotent.
+        return (this.prisma as any).userDevice.upsert({
+            where: { token: dto.token },
+            update: {
+                userId,
+                platform: dto.platform,
+                isActive: true,
+                lastSeenAt: new Date(),
+            },
+            create: {
+                userId,
+                platform: dto.platform,
+                token: dto.token,
+                isActive: true,
+                lastSeenAt: new Date(),
+            },
         });
     }
 

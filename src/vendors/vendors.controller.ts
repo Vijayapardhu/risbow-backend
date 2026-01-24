@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Request, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { VendorsService } from './vendors.service';
 import { RegisterVendorDto } from './dto/vendor.dto';
@@ -27,6 +27,22 @@ export class VendorsController {
     @Post('register')
     async register(@Body() dto: RegisterVendorDto) {
         return this.vendorsService.register(dto);
+    }
+
+    @Get('nearby')
+    @ApiOperation({ summary: 'Get nearby vendors (hyperlocal discovery)' })
+    async nearby(
+        @Query('lat') lat: string,
+        @Query('lng') lng: string,
+        @Query('radiusKm') radiusKm: string,
+        @Query('openNowOnly') openNowOnly?: string,
+    ) {
+        return this.vendorsService.getNearbyVendors({
+            lat: Number(lat),
+            lng: Number(lng),
+            radiusKm: Number(radiusKm) || 10,
+            openNowOnly: openNowOnly === 'true' || openNowOnly === '1',
+        });
     }
 
     @Get('dashboard')

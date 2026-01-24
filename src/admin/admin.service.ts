@@ -1348,6 +1348,26 @@ export class AdminService {
         });
     }
 
+    async toggleAiKillSwitch(adminId: string, enabled: boolean) {
+        const config = await this.prisma.platformConfig.upsert({
+            where: { key: 'AI_KILL_SWITCH' },
+            update: { value: enabled ? 'true' : 'false' },
+            create: { key: 'AI_KILL_SWITCH', value: enabled ? 'true' : 'false' }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'SYSTEM',
+                entityId: 'AI_KILL_SWITCH',
+                action: enabled ? 'ENABLE_KILL_SWITCH' : 'DISABLE_KILL_SWITCH',
+                details: { enabled }
+            }
+        });
+
+        return config;
+    }
+
     async getSystemHealth() {
         const start = Date.now();
         let dbStatus = 'UNKNOWN';

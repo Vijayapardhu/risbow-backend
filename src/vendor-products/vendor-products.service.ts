@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { parse } from 'csv-parse/sync';
 import { BulkUploadProductDto } from './dto/bulk-upload.dto';
@@ -7,6 +7,14 @@ import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class VendorProductsService {
+    private readonly logger = new Logger(VendorProductsService.name);
+
+    // Free listing limits based on product price
+    private readonly FREE_LISTING_LIMITS = {
+        LOW_PRICE: { max: 15, threshold: 500000 }, // ₹5,000 in paise
+        HIGH_PRICE: { max: 5, threshold: Infinity },
+    };
+
     constructor(private prisma: PrismaService) { }
 
     async processBulkUpload(vendorId: string, fileBuffer: Buffer) {
@@ -95,23 +103,102 @@ export class VendorProductsService {
         return results;
     }
 
+    /**
+     * Check if product qualifies for free listing and validate limits
+     */
+    async checkFreeListingEligibility(vendorId: string, priceInPaise: number): Promise<{
+        isEligible: boolean;
+        isFreeListing: boolean;
+        freeListingCount: number;
+        freeListingLimit: number;
+    }> {
+        // Determine free listing limit based on price
+        const limitConfig = priceInPaise < this.FREE_LISTING_LIMITS.LOW_PRICE.threshold
+            ? this.FREE_LISTING_LIMITS.LOW_PRICE
+            : this.FREE_LISTING_LIMITS.HIGH_PRICE;
+
+        // Count current free listings for this vendor
+        const freeListingCount = await this.prisma.product.count({
+            where: {
+                vendorId,
+                // Free listings are tracked via metadata or a flag
+                // For now, we'll use a price-based heuristic or add metadata field
+                // Assuming free listings are products with price < threshold or marked in metadata
+                price: { lt: this.FREE_LISTING_LIMITS.LOW_PRICE.threshold },
+            },
+        });
+
+        const isEligible = freeListingCount < limitConfig.max;
+        const isFreeListing = priceInPaise < this.FREE_LISTING_LIMITS.LOW_PRICE.threshold;
+
+        return {
+            isEligible,
+            isFreeListing,
+            freeListingCount,
+            freeListingLimit: limitConfig.max,
+        };
+    }
+
+    /**
+     * Check if product is already listed as free by another vendor
+     */
+    async checkDuplicateFreeListing(sku: string, vendorId: string): Promise<boolean> {
+        const existing = await this.prisma.product.findFirst({
+            where: {
+                sku,
+                vendorId: { not: vendorId },
+                // Check if it's a free listing (price < ₹5,000)
+                price: { lt: this.FREE_LISTING_LIMITS.LOW_PRICE.threshold },
+            },
+        });
+
+        return !!existing;
+    }
+
     async createProduct(vendorId: string, dto: any) {
         // 1. Check Vendor & SKU Limit
         const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
         if (!vendor) throw new BadRequestException('Vendor not found');
 
-        const currentCount = await this.prisma.product.count({ where: { vendorId } });
-        if (currentCount >= vendor.skuLimit) {
-            throw new BadRequestException(`SKU limit of ${vendor.skuLimit} reached. Upgrade tier to add more.`);
+        const priceInPaise = Number(dto.price) * 100; // Convert to paise
+
+        // 2. Check free listing eligibility and limits
+        const freeListingCheck = await this.checkFreeListingEligibility(vendorId, priceInPaise);
+
+        // If product qualifies for free listing but limit reached
+        if (freeListingCheck.isFreeListing && !freeListingCheck.isEligible) {
+            throw new BadRequestException(
+                `Free listing limit reached. You have ${freeListingCheck.freeListingCount}/${freeListingCheck.freeListingLimit} free listings. ` +
+                `Products < ₹5,000: max ${this.FREE_LISTING_LIMITS.LOW_PRICE.max}, Products ≥ ₹5,000: max ${this.FREE_LISTING_LIMITS.HIGH_PRICE.max}`
+            );
         }
 
-        // 2. Uniqueness Check (SKU)
+        // 3. Check for duplicate free listings (same SKU by different vendor)
+        if (dto.sku && freeListingCheck.isFreeListing) {
+            const isDuplicate = await this.checkDuplicateFreeListing(dto.sku, vendorId);
+            if (isDuplicate) {
+                throw new BadRequestException(
+                    `This product (SKU: ${dto.sku}) is already listed as free by another vendor. ` +
+                    `Free listings cannot be duplicated across vendors.`
+                );
+            }
+        }
+
+        // 4. Check regular SKU limit (for paid listings or beyond free limit)
+        if (!freeListingCheck.isFreeListing || !freeListingCheck.isEligible) {
+            const currentCount = await this.prisma.product.count({ where: { vendorId } });
+            if (currentCount >= vendor.skuLimit) {
+                throw new BadRequestException(`SKU limit of ${vendor.skuLimit} reached. Upgrade tier to add more.`);
+            }
+        }
+
+        // 5. Uniqueness Check (SKU)
         if (dto.sku) {
             const existing = await this.prisma.product.findUnique({ where: { sku: dto.sku } });
             if (existing) throw new BadRequestException(`SKU '${dto.sku}' already exists.`);
         }
 
-        // 3. Create Product
+        // 6. Create Product
         return this.prisma.product.create({
             data: {
                 ...dto,
@@ -120,7 +207,9 @@ export class VendorProductsService {
                 brandName: dto.brandName || vendor.storeName || 'Generic',
                 stock: Number(dto.stock),
                 price: Number(dto.price),
-                offerPrice: dto.offerPrice ? Number(dto.offerPrice) : undefined
+                offerPrice: dto.offerPrice ? Number(dto.offerPrice) : undefined,
+                // Store free listing metadata in tags or a separate field
+                tags: freeListingCheck.isFreeListing ? [...(dto.tags || []), 'FREE_LISTING'] : (dto.tags || []),
             }
         });
     }
@@ -237,111 +326,91 @@ export class VendorProductsService {
 
     // --- VARIATIONS ENGINE ---
 
-    private recalculateStock(variants: any[]): number {
-        return variants
-            .filter(v => v.status === 'ACTIVE')
-            .reduce((sum, v) => sum + Number(v.stock), 0);
+    private async recalculateStockFromVariants(productId: string) {
+        const agg = await (this.prisma as any).productVariant.aggregate({
+            where: { productId, status: 'ACTIVE' },
+            _sum: { stock: true },
+        });
+        return Math.max(0, Number(agg?._sum?.stock || 0));
     }
 
     async addVariation(vendorId: string, productId: string, dto: any) {
-        // 1. Get Product
         const product = await this.prisma.product.findFirst({
             where: { id: productId, vendorId }
         });
         if (!product) throw new BadRequestException('Product not found or access denied');
 
-        // 2. Prepare Variants
-        const variants = (product.variants as any[]) || [];
-
-        // 3. Create New Variation
-        const newVariation = {
-            id: require('uuid').v4(),
-            ...dto,
-            stock: Number(dto.stock),
-            price: Number(dto.price),
-            offerPrice: dto.offerPrice ? Number(dto.offerPrice) : undefined
-        };
-
-        // 4. Update List & Stock
-        variants.push(newVariation);
-        const totalStock = this.recalculateStock(variants);
-
-        // 5. Save
-        return this.prisma.product.update({
-            where: { id: productId },
+        const created = await (this.prisma as any).productVariant.create({
             data: {
-                variants: variants,
-                stock: totalStock
+                productId,
+                sku: dto.sku || undefined,
+                attributes: dto.attributes || {},
+                price: dto.price !== undefined && dto.price !== null ? Number(dto.price) : null,
+                stock: dto.stock !== undefined && dto.stock !== null ? Number(dto.stock) : 0,
+                status: dto.status || 'ACTIVE',
             }
         });
+
+        const totalStock = await this.recalculateStockFromVariants(productId);
+        await this.prisma.product.update({
+            where: { id: productId },
+            data: { stock: totalStock },
+        });
+
+        return created;
     }
 
     async updateVariation(vendorId: string, productId: string, dto: any) {
+        if (!dto?.id) throw new BadRequestException('Variation ID required for update');
+
         const product = await this.prisma.product.findFirst({
             where: { id: productId, vendorId }
         });
-        if (!product) throw new BadRequestException('Product not found');
+        if (!product) throw new BadRequestException('Product not found or access denied');
 
-        let variants = (product.variants as any[]) || [];
-        const index = variants.findIndex(v => v.id === dto.id);
+        const updated = await (this.prisma as any).productVariant.update({
+            where: { id: dto.id },
+            data: {
+                sku: dto.sku !== undefined ? dto.sku : undefined,
+                attributes: dto.attributes !== undefined ? dto.attributes : undefined,
+                price: dto.price !== undefined ? (dto.price === null ? null : Number(dto.price)) : undefined,
+                stock: dto.stock !== undefined ? Number(dto.stock) : undefined,
+                status: dto.status !== undefined ? dto.status : undefined,
+            }
+        }).catch(() => null);
 
-        // If ID not provided in body (e.g. create/update confusion), maybe check if we can find by other means? 
-        // But PUT implies we know what we are updating or we might be replacing. 
-        // Here we assume dto.id is present for individual update.
-        // Actually, for PUT /:id/variations, usually we might expect modification of the listener. 
-        // But usually PUT /:id/variations would replace the whole list. 
-        // Given the requirement "PUT /vendor/products/:id/variations", keeping it as update-one logic if ID is present or replace all logic?
-        // User said "PUT .../variations", singular update is safer to implement if DTO has ID.
-        // If DTO has no ID, we can't find it.
-
-        if (!dto.id && index === -1) {
-            // Fallback: If it's a replacement of provided index or something? No.
-            throw new BadRequestException('Variation ID required for update');
+        if (!updated || updated.productId !== productId) {
+            throw new BadRequestException('Variation not found');
         }
 
-        if (index === -1) throw new BadRequestException('Variation not found');
-
-        // Merge updates
-        variants[index] = {
-            ...variants[index],
-            ...dto,
-            stock: dto.stock !== undefined ? Number(dto.stock) : variants[index].stock,
-            price: dto.price !== undefined ? Number(dto.price) : variants[index].price,
-            offerPrice: dto.offerPrice !== undefined ? Number(dto.offerPrice) : variants[index].offerPrice
-        };
-
-        const totalStock = this.recalculateStock(variants);
-
-        return this.prisma.product.update({
+        const totalStock = await this.recalculateStockFromVariants(productId);
+        await this.prisma.product.update({
             where: { id: productId },
-            data: {
-                variants: variants,
-                stock: totalStock
-            }
+            data: { stock: totalStock },
         });
+
+        return updated;
     }
 
     async deleteVariation(vendorId: string, productId: string, variationId: string) {
         const product = await this.prisma.product.findFirst({
             where: { id: productId, vendorId }
         });
-        if (!product) throw new BadRequestException('Product not found');
+        if (!product) throw new BadRequestException('Product not found or access denied');
 
-        let variants = (product.variants as any[]) || [];
-        const initialLength = variants.length;
-        variants = variants.filter(v => v.id !== variationId);
-
-        if (variants.length === initialLength) throw new BadRequestException('Variation not found');
-
-        const totalStock = this.recalculateStock(variants);
-
-        return this.prisma.product.update({
-            where: { id: productId },
-            data: {
-                variants: variants,
-                stock: totalStock
-            }
+        const deleted = await (this.prisma as any).productVariant.deleteMany({
+            where: { id: variationId, productId },
         });
+
+        if (!deleted || deleted.count === 0) throw new BadRequestException('Variation not found');
+
+        const totalStock = await this.recalculateStockFromVariants(productId);
+        await this.prisma.product.update({
+            where: { id: productId },
+            data: { stock: totalStock },
+        });
+
+        return { success: true };
     }
 
     async publishProduct(vendorId: string, productId: string) {
@@ -355,18 +424,19 @@ export class VendorProductsService {
         // 1. Price > 0
         if (product.price <= 0) throw new BadRequestException('Product price must be greater than 0');
 
-        // 2. Stock Logic (At least one active variation OR stock > 0 if no variations)
-        const variants = (product.variants as any[]) || [];
-        const activeVariants = variants.filter(v => v.status === 'ACTIVE');
+        // 2. Stock Logic (variants are stored in dedicated table)
+        const variants = await (this.prisma as any).productVariant.findMany({
+            where: { productId: product.id },
+            select: { id: true, status: true, stock: true },
+        });
+        const activeVariants = variants.filter((v: any) => v.status === 'ACTIVE');
 
         if (variants.length > 0) {
             if (activeVariants.length === 0) {
-                throw new BadRequestException('Product must have at least one active variation to publish');
+                throw new BadRequestException('Product must have at least one active variant to publish');
             }
-        } else {
-            if (product.stock <= 0) {
-                throw new BadRequestException('Product must have stock greater than 0 or active variations');
-            }
+        } else if (product.stock <= 0) {
+            throw new BadRequestException('Product must have stock greater than 0 or active variants');
         }
 
         // 3. Images (at least one)
@@ -410,5 +480,42 @@ export class VendorProductsService {
                 isActive: false
             }
         });
+    }
+
+    /**
+     * Get free listing statistics for a vendor
+     */
+    async getFreeListingStats(vendorId: string) {
+        const lowPriceCount = await this.prisma.product.count({
+            where: {
+                vendorId,
+                price: { lt: this.FREE_LISTING_LIMITS.LOW_PRICE.threshold },
+            },
+        });
+
+        const highPriceCount = await this.prisma.product.count({
+            where: {
+                vendorId,
+                price: { gte: this.FREE_LISTING_LIMITS.LOW_PRICE.threshold },
+            },
+        });
+
+        return {
+            lowPrice: {
+                current: lowPriceCount,
+                limit: this.FREE_LISTING_LIMITS.LOW_PRICE.max,
+                remaining: Math.max(0, this.FREE_LISTING_LIMITS.LOW_PRICE.max - lowPriceCount),
+            },
+            highPrice: {
+                current: highPriceCount,
+                limit: this.FREE_LISTING_LIMITS.HIGH_PRICE.max,
+                remaining: Math.max(0, this.FREE_LISTING_LIMITS.HIGH_PRICE.max - highPriceCount),
+            },
+            rules: {
+                lowPriceThreshold: this.FREE_LISTING_LIMITS.LOW_PRICE.threshold / 100, // Convert to ₹
+                lowPriceMax: this.FREE_LISTING_LIMITS.LOW_PRICE.max,
+                highPriceMax: this.FREE_LISTING_LIMITS.HIGH_PRICE.max,
+            },
+        };
     }
 }

@@ -85,7 +85,7 @@ describe('CartIntelligenceService', () => {
 
     it('should detect threshold near signals', async () => {
       const mockCart = {
-        items: [{ product: { categoryId: 'cat1', price: 950 } }],
+        items: [{ product: { categoryId: 'cat1', price: 95000 } }], // ₹950
       };
 
       mockPrismaService.cart.findUnique.mockResolvedValue(mockCart);
@@ -129,17 +129,17 @@ describe('CartIntelligenceService', () => {
 
   describe('detectThresholdNear', () => {
     it('should detect free shipping threshold', () => {
-      const result = (service as any).detectThresholdNear(950);
+      const result = (service as any).detectThresholdNear(95000); // ₹950
 
       expect(result).toHaveLength(1);
       expect(result[0].type).toBe('THRESHOLD_NEAR');
-      expect(result[0].metadata.threshold).toBe(1000);
+      expect(result[0].metadata.threshold).toBe(100000); // ₹1000
     });
 
     it('should detect gift eligibility threshold', () => {
-      const result = (service as any).detectThresholdNear(1950);
+      const result = (service as any).detectThresholdNear(195000); // ₹1950
 
-      expect(result.some(signal => signal.metadata.threshold === 2000)).toBe(true);
+      expect(result.some(signal => signal.metadata.threshold === 200000)).toBe(true); // ₹2000
     });
   });
 
