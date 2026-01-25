@@ -7,12 +7,11 @@ import { PaymentsModule } from '../payments/payments.module';
 import { GiftsModule } from '../gifts/gifts.module';
 import { CouponsModule } from '../coupons/coupons.module';
 import { InventoryModule } from '../inventory/inventory.module';
-import { SharedModule } from '../shared/shared.module';
 import { CommonModule } from '../common/common.module';
 import { DeliveryModule } from '../delivery/delivery.module';
 
 @Module({
-    imports: [PrismaModule, CartModule, PaymentsModule, GiftsModule, CouponsModule, InventoryModule, SharedModule, CommonModule, DeliveryModule],
+    imports: [PrismaModule, CartModule, PaymentsModule, GiftsModule, CouponsModule, InventoryModule, CommonModule, DeliveryModule],
     controllers: [CheckoutController],
     providers: [CheckoutService],
     exports: [CheckoutService],

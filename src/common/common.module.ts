@@ -6,11 +6,10 @@ import { FinancialSnapshotGuardService } from './financial-snapshot-guard.servic
 import { RedisLockService } from './redis-lock.service';
 import { FraudService } from './fraud.service';
 import { AuditModule } from '../audit/audit.module';
-import { SharedModule } from '../shared/shared.module';
 
 @Global()
 @Module({
-    imports: [AuditModule, SharedModule],
+    imports: [AuditModule],
     providers: [CommissionService, SettlementService, PriceResolverService, FinancialSnapshotGuardService, RedisLockService, FraudService],
     exports: [CommissionService, SettlementService, PriceResolverService, FinancialSnapshotGuardService, RedisLockService, FraudService],
 })

@@ -7,10 +7,9 @@ import { OrderStateMachine } from '../orders/order-state-machine'; // Service is
 // Providing it here directly or importing Shared/OrdersModule.
 import { PrismaModule } from '../prisma/prisma.module';
 import { PackingProofService } from './packing-proof.service';
-import { SharedModule } from '../shared/shared.module';
 
 @Module({
-    imports: [PrismaModule, SharedModule],
+    imports: [PrismaModule],
     controllers: [VendorOrdersController],
     providers: [VendorOrdersService, OrderStateMachine, PackingProofService], // Providing SM directly for simplicity
 })

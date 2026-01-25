@@ -30,9 +30,10 @@ import { InventoryModule } from '../inventory/inventory.module';
 import { CouponsModule } from '../coupons/coupons.module';
 import { RecommendationsModule } from '../recommendations/recommendations.module';
 import { RecommendationsController } from '../recommendations/recommendations.controller';
+import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
-    imports: [forwardRef(() => CartModule), PrismaModule, InventoryModule, CouponsModule, forwardRef(() => RecommendationsModule)],
+    imports: [forwardRef(() => CartModule), PrismaModule, InventoryModule, CouponsModule, forwardRef(() => RecommendationsModule), forwardRef(() => PaymentsModule)],
     controllers: [BowController, RecommendationsController],
     providers: [
         BowService,
