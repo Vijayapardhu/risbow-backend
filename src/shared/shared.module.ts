@@ -15,10 +15,11 @@ import { CommonModule } from '../common/common.module';
 import { TelecallerModule } from '../telecaller/telecaller.module';
 import { QueuesModule } from '../queues/queues.module';
 import { CoinsModule } from '../coins/coins.module';
+import { VendorMembershipsModule } from '../vendor-memberships/vendor-memberships.module';
 
 @Global()
 @Module({
-    imports: [AnalyticsModule, CatalogModule, CommonModule, TelecallerModule, QueuesModule, CoinsModule],
+    imports: [AnalyticsModule, CatalogModule, CommonModule, TelecallerModule, QueuesModule, CoinsModule, VendorMembershipsModule],
     providers: [SchedulerService, NotificationsService, RedisService, SupabaseService, CacheService, CommunicationService, LogisticsService, OpenRouterService, GeoService, AzureStorageService],
     exports: [SchedulerService, NotificationsService, RedisService, SupabaseService, CacheService, CommunicationService, LogisticsService, OpenRouterService, GeoService, AzureStorageService],
 })

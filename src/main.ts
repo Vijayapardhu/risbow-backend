@@ -30,11 +30,17 @@ async function bootstrap() {
         console.log('✅ Application Insights initialized');
     }
 
-    // SUPPRESSION: BullMQ warns about 'volatile-lru' eviction policy on Cloud Redis.
-    // We cannot change this on managed instances easily, so we suppress the log.
+    // SUPPRESSION: BullMQ warns about Redis version and eviction policy on Cloud Redis.
+    // We cannot change these on managed instances easily, so we suppress the logs.
     const originalWarn = console.warn;
     console.warn = (...args) => {
-        if (typeof args[0] === 'string' && args[0].includes('Eviction policy is volatile-lru')) {
+        const message = typeof args[0] === 'string' ? args[0] : String(args[0]);
+        // Suppress Redis version warnings (6.0.14 is acceptable for development)
+        if (message.includes('It is highly recommended to use a minimum Redis version of 6.2.0')) {
+            return;
+        }
+        // Suppress eviction policy warnings
+        if (message.includes('Eviction policy is volatile-lru')) {
             return;
         }
         originalWarn.apply(console, args);

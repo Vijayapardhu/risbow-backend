@@ -12,5 +12,6 @@ import { PackingProofService } from './packing-proof.service';
     imports: [PrismaModule],
     controllers: [VendorOrdersController],
     providers: [VendorOrdersService, OrderStateMachine, PackingProofService], // Providing SM directly for simplicity
+    exports: [VendorOrdersService, PackingProofService], // Export PackingProofService so OrdersModule can use it
 })
 export class VendorOrdersModule { }

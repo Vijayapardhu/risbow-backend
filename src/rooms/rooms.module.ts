@@ -8,9 +8,10 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { BowRoomIntelligenceService } from '../bow/bow-room-intelligence.service';
 import { AuditModule } from '../audit/audit.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { CoinsModule } from '../coins/coins.module';
 
 @Module({
-    imports: [PrismaModule, AuditModule, forwardRef(() => PaymentsModule)],
+    imports: [PrismaModule, AuditModule, forwardRef(() => PaymentsModule), CoinsModule],
     controllers: [RoomsController],
     providers: [RoomsService, RoomMonetizationService, RoomPromotionPackagesService, RoomsGateway, BowRoomIntelligenceService],
     exports: [RoomsService, RoomMonetizationService, RoomPromotionPackagesService, RoomsGateway, BowRoomIntelligenceService],

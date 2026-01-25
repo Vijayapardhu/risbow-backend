@@ -1,13 +1,14 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../shared/redis.service';
+import { WalletService } from '../wallet/wallet.service';
 
 @Injectable()
 export class BetService {
   constructor(
     private prisma: PrismaService,
     private redis: RedisService,
-    private walletService: any, // Inject WalletService
+    private walletService: WalletService,
   ) {}
 
   async placeBet(userId: string, selections: any, stake: number, odds: number, idempotencyKey: string) {

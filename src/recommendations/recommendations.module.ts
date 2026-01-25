@@ -9,7 +9,7 @@ import { VendorsModule } from '../vendors/vendors.module';
   imports: [
     PrismaModule,
     DeliveryModule,
-    VendorsModule,
+    forwardRef(() => VendorsModule),
   ],
   providers: [EcommerceEventsService, ProductSuggestionsService],
   exports: [EcommerceEventsService, ProductSuggestionsService],
