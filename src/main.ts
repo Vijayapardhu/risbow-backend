@@ -186,9 +186,22 @@ Welcome to the RISBOW API documentation! This API powers the RISBOW platform wit
         customCss: '.swagger-ui .topbar { display: none }',
     });
 
-    const port = process.env.PORT || 3000;
+    // Azure App Service injects PORT dynamically - MUST use process.env.PORT
+    // Azure App Service injects PORT dynamically - MUST use process.env.PORT
+    const port = parseInt(process.env.PORT || '3000', 10);
     await app.listen(port, '0.0.0.0');
-    console.log(`Worker ${process.pid} started on: http://0.0.0.0:${port}`);
+    
+    // Log startup information for Azure App Service
+    const baseUrl = process.env.BASE_URL || `http://0.0.0.0:${port}`;
+    console.log('='.repeat(60));
+    console.log(`🚀 RISBOW Backend API Started Successfully`);
+    console.log(`📡 Listening on: 0.0.0.0:${port}`);
+    console.log(`🌐 Base URL: ${baseUrl}`);
+    console.log(`📚 API Docs: ${baseUrl}/api/docs`);
+    console.log(`❤️  Health Check: ${baseUrl}/health`);
+    console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`👷 Worker PID: ${process.pid}`);
+    console.log('='.repeat(60));
 }
 
 import * as os from 'os';

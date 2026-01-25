@@ -69,9 +69,12 @@ jobs:
         run: npx prisma generate
         env:
           DATABASE_URL: postgresql://user:password@localhost:5432/test?schema=public
+          FORCE_COLOR: 0
 
       - name: Type check
         run: npm run build --if-present || npx tsc --noEmit
+        env:
+          FORCE_COLOR: 0
 
   test:
     name: Unit & Integration Tests
@@ -98,6 +101,7 @@ jobs:
         run: npx prisma generate
         env:
           DATABASE_URL: postgresql://user:password@localhost:5432/test?schema=public
+          FORCE_COLOR: 0
 
       - name: Run tests
         run: npm test -- --coverage --maxWorkers=2
@@ -107,6 +111,7 @@ jobs:
           REDIS_HOST: localhost
           REDIS_PORT: 6379
           JWT_SECRET: test-secret-key
+          FORCE_COLOR: 0
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
@@ -140,11 +145,13 @@ jobs:
         run: npx prisma generate
         env:
           DATABASE_URL: postgresql://user:password@localhost:5432/test?schema=public
+          FORCE_COLOR: 0
 
       - name: Build application
         run: npm run build
         env:
           NODE_ENV: production
+          FORCE_COLOR: 0
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

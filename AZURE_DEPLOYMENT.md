@@ -119,12 +119,15 @@ Both endpoints:
 
 ### Port Handling
 
-The app uses `process.env.PORT` (set by Azure App Service):
+**⚠️ CRITICAL**: Azure App Service injects `PORT` dynamically. The app MUST use `process.env.PORT` and listen on `0.0.0.0`:
 
 ```typescript
-const port = process.env.PORT || 3000;
+// Azure App Service injects PORT dynamically - MUST use process.env.PORT
+const port = parseInt(process.env.PORT || '3000', 10);
 await app.listen(port, '0.0.0.0');
 ```
+
+**If you hardcode port 3000, Azure will NOT route traffic.**
 
 ### HTTPS Redirects
 

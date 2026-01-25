@@ -75,11 +75,13 @@ jobs:
         run: npx prisma generate
         env:
           DATABASE_URL: ${{ secrets[format('{0}_DATABASE_URL', github.event.inputs.environment)] }}
+          FORCE_COLOR: 0
 
       - name: Deploy migrations
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets[format('{0}_DATABASE_URL', github.event.inputs.environment)] }}
+          FORCE_COLOR: 0
 
       - name: Verify migration
         run: npx prisma migrate status

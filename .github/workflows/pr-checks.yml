@@ -69,6 +69,8 @@ jobs:
 
       - name: Type check
         run: npm run build --if-present || npx tsc --noEmit
+        env:
+          FORCE_COLOR: 0
 
       - name: Run tests
         run: npm test -- --passWithNoTests
@@ -78,6 +80,7 @@ jobs:
           REDIS_HOST: localhost
           REDIS_PORT: 6379
           JWT_SECRET: test-secret-key
+          FORCE_COLOR: 0
 
       - name: Check for TODO/FIXME comments
         run: |
