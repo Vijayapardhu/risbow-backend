@@ -3,6 +3,7 @@ import { CartService } from './cart.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../shared/redis.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { EcommerceEventsService } from '../recommendations/ecommerce-events.service';
 
 describe('CartService', () => {
   let service: CartService;
@@ -38,11 +39,16 @@ describe('CartService', () => {
       del: jest.fn(),
     };
 
+    const mockEvents = {
+      track: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CartService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: RedisService, useValue: mockRedisService },
+        { provide: EcommerceEventsService, useValue: mockEvents },
       ],
     }).compile();
 

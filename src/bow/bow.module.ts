@@ -20,6 +20,11 @@ import { BowAutoActionService } from './bow-auto-action.service';
 import { RecommendationStrategyService } from './recommendation-strategy.service';
 import { BowRevenueService } from './bow-revenue.service';
 import { BowLlmRerankerService } from './bow-llm-reranker.service';
+import { BowVoiceAssistantService } from './bow-voice-assistant.service';
+import { BowVisualSearchService } from './bow-visual-search.service';
+import { BowMLPersonalizationEngine } from './bow-ml-personalization.service';
+import { BowFraudDetectionService } from './bow-fraud-detection.service';
+import { BowDemandForecastingService } from './bow-demand-forecasting.service';
 import { CartModule } from '../cart/cart.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { InventoryModule } from '../inventory/inventory.module';
@@ -50,8 +55,13 @@ import { RecommendationsController } from '../recommendations/recommendations.co
         BowAutoActionService,
         RecommendationStrategyService,
         BowRevenueService,
-        BowLlmRerankerService
+        BowLlmRerankerService,
+        BowVoiceAssistantService,
+        BowVisualSearchService,
+        BowMLPersonalizationEngine,
+        BowFraudDetectionService,
+        BowDemandForecastingService
     ],
-    exports: [BowService, BowRoomIntelligenceService, AdminAnalyticsService, BowAutoActionService, BowRecommendationEngine, CartIntelligenceService, RecommendationStrategyService, BowRevenueService]
+    exports: [BowService, BowRoomIntelligenceService, AdminAnalyticsService, BowAutoActionService, BowRecommendationEngine, CartIntelligenceService, RecommendationStrategyService, BowRevenueService, BowVoiceAssistantService, BowVisualSearchService, BowMLPersonalizationEngine, BowFraudDetectionService, BowDemandForecastingService]
 })
 export class BowModule { }

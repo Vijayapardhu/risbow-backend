@@ -7,7 +7,9 @@ import { CouponsService } from '../coupons/coupons.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { RedisService } from '../shared/redis.service';
 import { PriceResolverService } from '../common/price-resolver.service';
-import { CommissionService } from '../common/commission.service';
+import { DeliveryOptionsService } from '../delivery/delivery-options.service';
+import { GeoService } from '../shared/geo.service';
+import { OrderStatus } from '@prisma/client';
 
 @Injectable()
 export class CheckoutService {
@@ -21,11 +23,108 @@ export class CheckoutService {
         private readonly inventoryService: InventoryService,  // 🔐 P0 FIX: Add InventoryService
         private readonly redisService: RedisService,
         private readonly priceResolver: PriceResolverService,
-        private readonly commissionService: CommissionService,
+        private readonly deliveryOptions: DeliveryOptionsService,
+        private readonly geoService: GeoService,
     ) { }
+
+    private allocateDiscountProportionally(totalDiscount: number, vendorSubtotals: Array<{ vendorId: string; subtotal: number }>) {
+        const total = vendorSubtotals.reduce((s, v) => s + v.subtotal, 0);
+        if (total <= 0 || totalDiscount <= 0) return vendorSubtotals.map((v) => ({ vendorId: v.vendorId, discount: 0 }));
+
+        const raw = vendorSubtotals.map((v) => {
+            const exact = (totalDiscount * v.subtotal) / total;
+            const floor = Math.floor(exact);
+            return { vendorId: v.vendorId, floor, frac: exact - floor };
+        });
+        let remaining = totalDiscount - raw.reduce((s, r) => s + r.floor, 0);
+        raw.sort((a, b) => b.frac - a.frac);
+        const out = raw.map((r) => ({ vendorId: r.vendorId, discount: r.floor }));
+        let i = 0;
+        while (remaining > 0 && out.length > 0) {
+            out[i % out.length].discount += 1;
+            remaining -= 1;
+            i += 1;
+        }
+        return out;
+    }
+
+    private pickDeliverySelection(dto: CheckoutDto, vendorId: string): { slotStartAt: string; slotEndAt: string } | null {
+        const selections = Array.isArray((dto as any).deliverySelections) ? ((dto as any).deliverySelections as any[]) : [];
+        const found = selections.find((s) => String(s.vendorId) === String(vendorId));
+        if (!found) return null;
+        return { slotStartAt: String(found.slotStartAt), slotEndAt: String(found.slotEndAt) };
+    }
+
+    async getDeliveryOptionsForCart(userId: string, shippingAddressId: string) {
+        const cart = await this.prisma.cart.findUnique({
+            where: { userId },
+            include: { items: { include: { product: true } } },
+        });
+        if (!cart || cart.items.length === 0) throw new BadRequestException('Cart is empty');
+
+        const address = await this.prisma.address.findUnique({ where: { id: shippingAddressId } });
+        if (!address || address.userId !== userId) throw new BadRequestException('Invalid shipping address');
+
+        // Best-effort geo fill if missing
+        let lat = (address as any).latitude != null ? Number((address as any).latitude) : null;
+        let lng = (address as any).longitude != null ? Number((address as any).longitude) : null;
+        if ((lat == null || lng == null) && address.pincode) {
+            const geo = await this.geoService.resolveAddressGeo({
+                addressLine1: (address as any).addressLine1,
+                addressLine2: (address as any).addressLine2,
+                city: (address as any).city,
+                state: (address as any).state,
+                pincode: (address as any).pincode,
+            });
+            if (geo?.point?.lat != null && geo?.point?.lng != null) {
+                lat = geo.point.lat;
+                lng = geo.point.lng;
+                await this.prisma.address
+                    .update({
+                        where: { id: address.id },
+                        data: { latitude: lat, longitude: lng, geoSource: geo.source as any, geoUpdatedAt: new Date() } as any,
+                    })
+                    .catch(() => undefined);
+            }
+        }
+        if (lat == null || lng == null) throw new BadRequestException('Address geo is missing (lat/lng)');
+
+        const vendorIds = Array.from(new Set(cart.items.map((i) => i.product.vendorId))).filter(Boolean);
+        const results = await Promise.all(
+            vendorIds.map(async (vendorId) => {
+                const res = await this.deliveryOptions.getDeliveryOptions({ vendorId, point: { lat: lat!, lng: lng! } });
+                return { vendorId, ...res };
+            }),
+        );
+
+        return { shippingAddressId, point: { lat, lng }, vendors: results };
+    }
 
     async checkout(userId: string, dto: CheckoutDto) {
         const { paymentMode, shippingAddressId, notes, giftId, couponCode } = dto;
+
+        // Best-effort: ensure address has geo before entering transaction (no external calls inside tx)
+        const addr = await this.prisma.address.findUnique({ where: { id: shippingAddressId } });
+        if (!addr || addr.userId !== userId) throw new BadRequestException('Invalid shipping address');
+        const lat0 = (addr as any).latitude != null ? Number((addr as any).latitude) : null;
+        const lng0 = (addr as any).longitude != null ? Number((addr as any).longitude) : null;
+        if ((lat0 == null || lng0 == null) && (addr as any).pincode) {
+            const geo = await this.geoService.resolveAddressGeo({
+                addressLine1: (addr as any).addressLine1,
+                addressLine2: (addr as any).addressLine2,
+                city: (addr as any).city,
+                state: (addr as any).state,
+                pincode: (addr as any).pincode,
+            });
+            if (geo?.point?.lat != null && geo?.point?.lng != null) {
+                await this.prisma.address
+                    .update({
+                        where: { id: addr.id },
+                        data: { latitude: geo.point.lat, longitude: geo.point.lng, geoSource: geo.source as any, geoUpdatedAt: new Date() } as any,
+                    })
+                    .catch(() => undefined);
+            }
+        }
 
         // 🔐 P0 FIX: Pre-fetch cart for stock reservation BEFORE transaction
         const cartForReservation = await this.prisma.cart.findUnique({
@@ -67,310 +166,314 @@ export class CheckoutService {
 
         try {
             return await this.prisma.$transaction(async (tx) => {
-                // 1. Fetch Cart
                 const cart = await tx.cart.findUnique({
                     where: { userId },
-                    include: { items: { include: { product: true } } }
+                    include: { items: { include: { product: true } } },
                 });
+                if (!cart || cart.items.length === 0) throw new BadRequestException('Cart is empty');
 
-                if (!cart || cart.items.length === 0) {
-                    throw new BadRequestException('Cart is empty');
-                }
+                const address = await tx.address.findUnique({ where: { id: shippingAddressId } });
+                if (!address || address.userId !== userId) throw new BadRequestException('Invalid shipping address');
 
-                // 2. Validate Address
-                const address = await tx.address.findUnique({
-                    where: { id: shippingAddressId }
-                });
+                const lat = (address as any).latitude != null ? Number((address as any).latitude) : null;
+                const lng = (address as any).longitude != null ? Number((address as any).longitude) : null;
+                if (lat == null || lng == null) throw new BadRequestException('Address geo is missing (lat/lng)');
 
-                if (!address) {
-                    throw new NotFoundException('Shipping address not found');
-                }
-
-                if (address.userId !== userId) {
-                    throw new BadRequestException('Invalid shipping address');
-                }
-
-                // 🔐 P0 FIX: Stock deduction moved AFTER payment verification
-                // This happens in OrdersService.confirmOrder() after payment is verified
-                // Here we just validate stock is available
-                let totalAmount = 0;
-                const orderItems = [];
+                // Build order items with server-side pricing (paise) + validate stock
+                const orderItems: any[] = [];
                 const categoryIds = new Set<string>();
+                const vendorToCategories = new Map<string, Set<string>>();
 
                 for (const item of cart.items) {
                     const product = await tx.product.findUnique({ where: { id: item.productId } });
                     if (!product) throw new NotFoundException(`Product ${item.productId} not found`);
-
                     categoryIds.add(product.categoryId);
+                    if (!vendorToCategories.has(product.vendorId)) vendorToCategories.set(product.vendorId, new Set<string>());
+                    vendorToCategories.get(product.vendorId)!.add(product.categoryId);
 
-                    // 🏢 Track 5.1: Wholesale & MOQ Logic
-                    let price = product.offerPrice || product.price;
+                    // Price resolver (includes local promos); returns paise
+                    const priceOut = await this.priceResolver.resolvePriceDetailed({
+                        productId: product.id,
+                        variantId: item.variantId || undefined,
+                        location: { lat, lng, pincode: (address as any).pincode },
+                    });
+                    let pricePaise = Number(priceOut.unitPrice);
 
-                    if (product.isWholesale) {
-                        if (item.quantity < (product.moq || 1)) {
-                            throw new BadRequestException(`Minimum order quantity for ${product.title} is ${product.moq}`);
+                    // Wholesale MOQ enforcement (best-effort, uses product flags)
+                    if ((product as any).isWholesale) {
+                        if (item.quantity < ((product as any).moq || 1)) {
+                            throw new BadRequestException(`Minimum order quantity for ${product.title} is ${(product as any).moq}`);
                         }
-                        price = product.wholesalePrice || price;
+                        pricePaise = Number((product as any).wholesalePrice || pricePaise);
                     }
 
-                    let stock = product.stock;
-                    let variantSnapshot = null;
-
-                    // Variant handling
+                    // Stock check (variant-aware)
+                    let stock = Number(product.stock);
+                    let variantSnapshot: any = null;
                     if (item.variantId) {
                         const variant = await (tx as any).productVariant.findFirst({
                             where: { id: item.variantId, productId: product.id },
                         });
-                        if (!variant) {
-                            throw new BadRequestException(`Variant not found for product ${product.title}`);
-                        }
-
-                        price = (variant.price ?? null) ? Number(variant.price) : price;
+                        if (!variant) throw new BadRequestException(`Variant not found for product ${product.title}`);
                         stock = Number(variant.stock);
-                        variantSnapshot = {
-                            attributes: variant.attributes,
-                            sku: variant.sku,
-                        };
+                        variantSnapshot = { attributes: variant.attributes, sku: variant.sku };
+                        if (variant.price != null) pricePaise = Number(variant.price);
                     }
+                    if (stock < item.quantity) throw new BadRequestException(`Insufficient stock for ${product.title}`);
 
-                    if (stock < item.quantity) {
-                        throw new BadRequestException(`Insufficient stock for ${product.title}`);
-                    }
-
-                    const subtotal = price * item.quantity;
-                    totalAmount += subtotal;
-
+                    const subtotalPaise = pricePaise * item.quantity;
                     orderItems.push({
                         productId: product.id,
                         variantId: item.variantId,
                         vendorId: product.vendorId,
                         productTitle: product.title,
                         quantity: item.quantity,
-                        price: price,
-                        subtotal: subtotal,
-                        variantSnapshot
+                        price: pricePaise,
+                        subtotal: subtotalPaise,
+                        variantSnapshot,
+                        appliedLocalPromotionId: priceOut.appliedLocalPromotionId,
                     });
                 }
 
-                // 4. Validate and Apply Gift (if provided)
+                // Split by vendor
+                const vendorGroups = new Map<string, any[]>();
+                for (const it of orderItems) {
+                    if (!vendorGroups.has(it.vendorId)) vendorGroups.set(it.vendorId, []);
+                    vendorGroups.get(it.vendorId)!.push(it);
+                }
+                const vendorIds = Array.from(vendorGroups.keys());
+
+                // Validate deliverability per vendor
+                const perVendorEligibility = await Promise.all(
+                    vendorIds.map(async (vendorId) => ({ vendorId, res: await this.deliveryOptions.getDeliveryOptions({ vendorId, point: { lat, lng } }) })),
+                );
+                for (const e of perVendorEligibility) {
+                    if (!e.res.eligible) throw new BadRequestException(`Vendor ${e.vendorId} not deliverable: ${e.res.reason || 'OUT_OF_COVERAGE'}`);
+                    if (!e.res.availableSlots || e.res.availableSlots.length === 0) throw new BadRequestException(`No delivery slots available for vendor ${e.vendorId}`);
+                }
+
+                // Gift validation (whole-cart), but we attach gift to one vendor order deterministically
                 let selectedGiftId: string | null = null;
+                let giftVendorId: string | null = null;
                 if (giftId) {
                     const gift = await tx.giftSKU.findUnique({ where: { id: giftId } });
-                    if (!gift) {
-                        throw new NotFoundException('Gift not found');
-                    }
+                    if (!gift) throw new NotFoundException('Gift not found');
+                    if (gift.stock <= 0) throw new BadRequestException('Gift out of stock');
 
-                    if (gift.stock <= 0) {
-                        throw new BadRequestException('Gift out of stock');
-                    }
-
-                    // Validate gift eligibility
-                    const eligibleCategories = gift.eligibleCategories as string[];
+                    const eligibleCategories = (gift.eligibleCategories as any as string[]) || [];
                     const cartCategories = Array.from(categoryIds);
-                    const hasEligibleCategory = eligibleCategories.some(cat => cartCategories.includes(cat));
-
-                    if (!hasEligibleCategory && eligibleCategories.length > 0) {
-                        throw new BadRequestException('Gift not eligible for cart items');
-                    }
-
-                    if (totalAmount < gift.cost) {
-                        throw new BadRequestException(`Minimum cart value of ₹${gift.cost} required for this gift`);
-                    }
-
-                    // Decrement gift stock
-                    await tx.giftSKU.update({
-                        where: { id: giftId },
-                        data: { stock: { decrement: 1 } }
-                    });
+                    const hasEligibleCategory = eligibleCategories.length === 0 || eligibleCategories.some((cat) => cartCategories.includes(cat));
+                    if (!hasEligibleCategory) throw new BadRequestException('Gift not eligible for cart items');
 
                     selectedGiftId = giftId;
+                    // Pick vendor with highest subtotal that also contains an eligible category (if any)
+                    const vendorSubtotals = vendorIds.map((vId) => ({
+                        vendorId: vId,
+                        subtotal: vendorGroups.get(vId)!.reduce((s, x) => s + Number(x.subtotal), 0),
+                        hasEligibleCat:
+                            eligibleCategories.length === 0 ||
+                            Array.from(vendorToCategories.get(vId) || []).some((cat) => eligibleCategories.includes(cat)),
+                    }));
+                    const eligibleVendors = vendorSubtotals.filter((v) => v.hasEligibleCat);
+                    eligibleVendors.sort((a, b) => b.subtotal - a.subtotal);
+                    giftVendorId = eligibleVendors[0]?.vendorId || vendorIds[0];
+
+                    await tx.giftSKU.update({ where: { id: giftId }, data: { stock: { decrement: 1 } } });
                 }
 
-                // 🔐 P0 FIX: ATOMIC COUPON USAGE
-                let discountAmount = 0;
+                // Coupon validation on whole-cart subtotal (paise)
+                const cartSubtotalPaise = orderItems.reduce((s, it) => s + Number(it.subtotal), 0);
+                let discountAmountPaise = 0;
                 let appliedCouponCode: string | null = null;
-
                 if (couponCode) {
-                    const coupon = await tx.coupon.findUnique({
-                        where: { code: couponCode }
-                    });
-
-                    if (!coupon) {
-                        throw new NotFoundException('Coupon not found');
+                    const coupon = await tx.coupon.findUnique({ where: { code: couponCode } });
+                    if (!coupon) throw new NotFoundException('Coupon not found');
+                    if (!coupon.isActive) throw new BadRequestException('Coupon is inactive');
+                    if (coupon.validUntil && new Date() > coupon.validUntil) throw new BadRequestException('Coupon has expired');
+                    if (coupon.minOrderAmount && cartSubtotalPaise < coupon.minOrderAmount) {
+                        throw new BadRequestException(`Minimum order amount of ₹${Math.round(coupon.minOrderAmount / 100)} required`);
                     }
 
-                    if (!coupon.isActive) {
-                        throw new BadRequestException('Coupon is inactive');
-                    }
-
-                    if (coupon.validUntil && new Date() > coupon.validUntil) {
-                        throw new BadRequestException('Coupon has expired');
-                    }
-
-                    if (coupon.minOrderAmount && totalAmount < coupon.minOrderAmount) {
-                        throw new BadRequestException(`Minimum order amount of ₹${coupon.minOrderAmount} required`);
-                    }
-
-                    // 🔐 ATOMIC CHECK: Increment usage count atomically
                     const couponUpdateResult = await tx.coupon.updateMany({
                         where: {
                             id: coupon.id,
-                            OR: [
-                                { usageLimit: null },
-                                { usedCount: { lt: coupon.usageLimit } }
-                            ]
+                            OR: [{ usageLimit: null }, { usedCount: { lt: coupon.usageLimit } }],
                         },
-                        data: { usedCount: { increment: 1 } }
+                        data: { usedCount: { increment: 1 } },
                     });
+                    if (couponUpdateResult.count === 0) throw new BadRequestException('Coupon usage limit exceeded');
 
-                    if (couponUpdateResult.count === 0) {
-                        throw new BadRequestException('Coupon usage limit exceeded');
-                    }
-
-                    // Calculate discount
                     if (coupon.discountType === 'PERCENTAGE') {
-                        discountAmount = Math.floor((totalAmount * coupon.discountValue) / 100);
-                        if (coupon.maxDiscount && discountAmount > coupon.maxDiscount) {
-                            discountAmount = coupon.maxDiscount;
-                        }
+                        discountAmountPaise = Math.floor((cartSubtotalPaise * coupon.discountValue) / 100);
+                        if (coupon.maxDiscount && discountAmountPaise > coupon.maxDiscount) discountAmountPaise = coupon.maxDiscount;
                     } else if (coupon.discountType === 'FLAT') {
-                        discountAmount = coupon.discountValue;
+                        discountAmountPaise = coupon.discountValue;
                     }
-
-                    // Ensure discount doesn't exceed total
-                    if (discountAmount > totalAmount) {
-                        discountAmount = totalAmount;
-                    }
-
+                    if (discountAmountPaise > cartSubtotalPaise) discountAmountPaise = cartSubtotalPaise;
                     appliedCouponCode = couponCode;
                 }
 
-                // Calculate final amount
-                const finalAmount = totalAmount - discountAmount;
+                const vendorSubtotals = vendorIds.map((vendorId) => ({
+                    vendorId,
+                    subtotal: vendorGroups.get(vendorId)!.reduce((s, it) => s + Number(it.subtotal), 0),
+                }));
+                const perVendorDiscount = this.allocateDiscountProportionally(discountAmountPaise, vendorSubtotals);
+                const discountByVendor = new Map(perVendorDiscount.map((d) => [d.vendorId, d.discount]));
 
-                // 6. Create Order
-                const orderStatus = paymentMode === PaymentMode.COD ? 'CONFIRMED' : 'PENDING_PAYMENT';
-
-                const order = await tx.order.create({
-                    data: {
-                        userId,
-                        addressId: shippingAddressId,
-                        totalAmount: finalAmount,
-                        status: orderStatus,
-                        items: orderItems,
-                        giftId: selectedGiftId,
-                        couponCode: appliedCouponCode,
-                        discountAmount,
+                // Delivery slot selection per vendor
+                const chosenSlotByVendor = new Map<string, { startAt: string; endAt: string; source: 'AUTO' | 'CUSTOMER' }>();
+                for (const e of perVendorEligibility) {
+                    const selection = this.pickDeliverySelection(dto, e.vendorId);
+                    if (selection) {
+                        const ok = e.res.availableSlots.some((s) => s.startAt === selection.slotStartAt && s.endAt === selection.slotEndAt);
+                        if (!ok) throw new BadRequestException(`Invalid delivery slot selection for vendor ${e.vendorId}`);
+                        chosenSlotByVendor.set(e.vendorId, { startAt: selection.slotStartAt, endAt: selection.slotEndAt, source: 'CUSTOMER' });
+                    } else {
+                        const first = e.res.availableSlots[0];
+                        chosenSlotByVendor.set(e.vendorId, { startAt: first.startAt, endAt: first.endAt, source: 'AUTO' });
                     }
+                }
+
+                // Create split orders
+                const isCod = paymentMode === PaymentMode.COD;
+                const orderStatus = isCod ? OrderStatus.CONFIRMED : OrderStatus.PENDING_PAYMENT;
+
+                // Abandoned checkout only for ONLINE
+                const paymentTimeoutMinutes = parseInt(process.env.PAYMENT_TIMEOUT_MINUTES || '10', 10);
+                const ttlSeconds = paymentTimeoutMinutes * 60;
+
+                let checkoutGroup: any = null;
+                let razorpayOrder: any = null;
+                let abandonedCheckout: any = null;
+
+                // Pre-create CheckoutGroup for ONLINE (so orders can reference)
+                if (!isCod) {
+                    checkoutGroup = await tx.checkoutGroup.create({
+                        data: {
+                            userId,
+                            totalAmountPaise: 0, // set after computing totals
+                            currency: 'INR',
+                            status: 'PENDING_PAYMENT',
+                        } as any,
+                    });
+                }
+
+                const createdOrders: any[] = [];
+                for (const vendorId of vendorIds) {
+                    const items = vendorGroups.get(vendorId)!;
+                    const subtotal = vendorSubtotals.find((v) => v.vendorId === vendorId)!.subtotal;
+                    const allocDiscount = Number(discountByVendor.get(vendorId) || 0);
+                    const totalAmountPaise = Math.max(0, subtotal - allocDiscount);
+
+                    const created = await tx.order.create({
+                        data: {
+                            userId,
+                            addressId: shippingAddressId,
+                            totalAmount: totalAmountPaise,
+                            status: orderStatus,
+                            items: items as any,
+                            giftId: selectedGiftId && giftVendorId === vendorId ? selectedGiftId : null,
+                            couponCode: appliedCouponCode,
+                            discountAmount: allocDiscount,
+                            abandonedCheckoutId: null,
+                            checkoutGroupId: checkoutGroup?.id || null,
+                        } as any,
+                    });
+                    createdOrders.push({ ...created, vendorId, subtotal, allocDiscount, totalAmountPaise });
+
+                    const slot = chosenSlotByVendor.get(vendorId)!;
+                    await tx.orderDeliverySlotSnapshot.create({
+                        data: {
+                            orderId: created.id,
+                            vendorId,
+                            slotStartAt: new Date(slot.startAt),
+                            slotEndAt: new Date(slot.endAt),
+                            timezone: 'Asia/Kolkata',
+                            source: slot.source,
+                        } as any,
+                    });
+                }
+
+                // Clear cart items (both COD + ONLINE)
+                await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+
+                if (isCod) {
+                    // COD: deduct stock now (no payment confirm path). This also releases Redis reservations.
+                    for (const o of createdOrders) {
+                        const items = Array.isArray((o as any).items) ? ((o as any).items as any[]) : (vendorGroups.get(o.vendorId) || []);
+                        for (const it of items) {
+                            await this.inventoryService.deductStock(it.productId, it.quantity, it.variantId, tx);
+                        }
+                    }
+                    return {
+                        message: 'Orders placed successfully',
+                        paymentMode: 'COD',
+                        orders: createdOrders.map((o) => ({ orderId: o.id, vendorId: o.vendorId, totalAmountPaise: o.totalAmountPaise, discountPaise: o.allocDiscount })),
+                    };
+                }
+
+                const groupTotalPaise = createdOrders.reduce((s, o) => s + Number(o.totalAmountPaise), 0);
+                razorpayOrder = await this.paymentsService.generateRazorpayOrder(groupTotalPaise, 'INR', checkoutGroup.id, {
+                    userId,
+                    checkoutGroupId: checkoutGroup.id,
+                    orderIds: createdOrders.map((o) => o.id),
                 });
 
-                // 7. Handle Payment Mode
-                if (paymentMode === PaymentMode.COD) {
-                    // 🔐 P0 FIX: CLEAR CART FOR COD
-                    await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+                await tx.checkoutGroup.update({
+                    where: { id: checkoutGroup.id },
+                    data: { totalAmountPaise: groupTotalPaise, providerOrderId: razorpayOrder.id },
+                });
 
-                    return {
-                        message: 'Order placed successfully',
-                        id: order.id,
-                        orderId: order.id,
-                        status: 'CONFIRMED',
-                        paymentMode: 'COD',
-                        totalAmount: finalAmount,
-                        discountAmount,
-                        giftId: selectedGiftId,
-                        couponCode: appliedCouponCode,
-                    };
+                abandonedCheckout = await tx.abandonedCheckout.create({
+                    data: {
+                        userId,
+                        cartSnapshot: { checkoutGroupId: checkoutGroup.id, orders: createdOrders.map((o) => ({ orderId: o.id, vendorId: o.vendorId, items: vendorGroups.get(o.vendorId) })) } as any,
+                        financeSnapshot: { totalAmount: groupTotalPaise, currency: 'INR', discountAmount: discountAmountPaise } as any,
+                        status: 'NEW',
+                        abandonReason: 'PAYMENT_PENDING',
+                        paymentMethod: 'ONLINE',
+                        metadata: {
+                            type: 'CHECKOUT_GROUP',
+                            checkoutGroupId: checkoutGroup.id,
+                            razorpayOrderId: razorpayOrder.id,
+                            createdAt: new Date().toISOString(),
+                        },
+                        abandonedAt: new Date(),
+                    } as any,
+                });
 
-                } else {
-                    // ONLINE Flow (Razorpay)
-                    const razorpayOrder = await this.paymentsService.generateRazorpayOrder(
-                        finalAmount * 100, // Amount in paise
-                        'INR',
-                        order.id,
-                        { userId, internalOrderId: order.id }
-                    );
-
+                // Link orders to abandoned checkout + provider order id + payments
+                for (const o of createdOrders) {
                     await tx.payment.create({
                         data: {
-                            orderId: order.id,
-                            amount: finalAmount * 100,
+                            orderId: o.id,
+                            amount: o.totalAmountPaise,
                             currency: 'INR',
                             provider: 'RAZORPAY',
                             providerOrderId: razorpayOrder.id,
-                            status: 'PENDING'
-                        }
+                            status: 'PENDING',
+                        } as any,
                     });
-
                     await tx.order.update({
-                        where: { id: order.id },
-                        data: { razorpayOrderId: razorpayOrder.id }
+                        where: { id: o.id },
+                        data: { razorpayOrderId: razorpayOrder.id, abandonedCheckoutId: abandonedCheckout.id },
                     });
-
-                    // 🔐 P0 FIX: Create AbandonedCheckout record for payment recovery
-                    // This enables automated detection if payment is not completed
-                    const cartSnapshot = {
-                        orderId: order.id,
-                        items: orderItems,
-                        itemCount: orderItems.length,
-                    };
-
-                    const financeSnapshot = {
-                        subtotal: totalAmount,
-                        taxAmount: Math.round(totalAmount * 0.18), // 18% GST
-                        shippingAmount: 0, // Included in totalAmount
-                        discountAmount,
-                        totalAmount: finalAmount,
-                        currency: 'INR',
-                    };
-
-                    const abandonedCheckout = await tx.abandonedCheckout.create({
-                        data: {
-                            userId,
-                            cartSnapshot,
-                            financeSnapshot,
-                            status: 'NEW',
-                            abandonReason: 'PAYMENT_PENDING',
-                            paymentMethod: 'ONLINE',
-                            metadata: {
-                                type: 'CHECKOUT',
-                                orderId: order.id,
-                                razorpayOrderId: razorpayOrder.id,
-                                createdAt: new Date().toISOString(),
-                            },
-                            abandonedAt: new Date(),
-                        },
-                    });
-
-                    // 🔐 P0 FIX: Set Redis TTL for payment timeout detection (10 minutes default)
-                    const paymentTimeoutMinutes = parseInt(process.env.PAYMENT_TIMEOUT_MINUTES || '10', 10);
-                    const ttlSeconds = paymentTimeoutMinutes * 60;
-                    await this.redisService.set(
-                        `payment:timeout:${order.id}`,
-                        abandonedCheckout.id,
-                        ttlSeconds
-                    ).catch(err => {
-                        this.logger.warn(`Failed to set payment timeout TTL: ${err.message}`);
-                    });
-
-                    // 🔐 P0 FIX: CLEAR CART FOR ONLINE PAYMENT TOO
-                    await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
-
-                    return {
-                        message: 'Order created, proceed to payment',
-                        id: order.id,
-                        orderId: order.id,
-                        status: 'PENDING_PAYMENT',
-                        paymentMode: 'ONLINE',
-                        razorpayOrderId: razorpayOrder.id,
-                        amount: razorpayOrder.amount,
-                        currency: razorpayOrder.currency,
-                        key: process.env.RAZORPAY_KEY_ID,
-                        totalAmount: finalAmount,
-                        discountAmount,
-                        giftId: selectedGiftId,
-                        couponCode: appliedCouponCode,
-                    };
                 }
+
+                await this.redisService
+                    .set(`payment:timeout:cg:${checkoutGroup.id}`, abandonedCheckout.id, ttlSeconds)
+                    .catch((err) => this.logger.warn(`Failed to set payment timeout TTL: ${err.message}`));
+
+                return {
+                    message: 'Checkout created, proceed to payment',
+                    paymentMode: 'ONLINE',
+                    checkoutGroupId: checkoutGroup.id,
+                    razorpayOrderId: razorpayOrder.id,
+                    amountPaise: razorpayOrder.amount,
+                    currency: razorpayOrder.currency,
+                    key: process.env.RAZORPAY_KEY_ID,
+                    orders: createdOrders.map((o) => ({ orderId: o.id, vendorId: o.vendorId, totalAmountPaise: o.totalAmountPaise, discountPaise: o.allocDiscount })),
+                };
             });
         } catch (error) {
             // 🔐 P0 FIX: Release reservations on transaction failure

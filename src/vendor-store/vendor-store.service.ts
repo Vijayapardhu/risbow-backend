@@ -1,11 +1,16 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateStoreProfileDto, UpdateStoreTimingsDto, UpdatePickupSettingsDto } from './dto/store-settings.dto';
-import { CreatePickupPointDto, UpdatePickupPointDto, CreateVendorServiceAreaDto, UpdateVendorServiceAreaDto } from './dto/store-settings.dto';
+import { CreatePickupPointDto, UpdatePickupPointDto, CreateVendorServiceAreaDto, UpdateVendorServiceAreaDto, CreateVendorDeliveryWindowDto, UpdateVendorDeliveryWindowDto } from './dto/store-settings.dto';
 
 @Injectable()
 export class VendorStoreService {
     constructor(private prisma: PrismaService) { }
+
+    private hhmmToMinute(hhmm: string): number {
+        const [hh, mm] = hhmm.split(':').map((x) => Number(x));
+        return hh * 60 + mm;
+    }
 
     async getProfile(vendorId: string) {
         const vendor = await this.prisma.vendor.findUnique({
@@ -195,6 +200,48 @@ export class VendorStoreService {
                 centerLng: dto.centerLng,
                 radiusKm: dto.radiusKm,
                 polygon: dto.polygon as any,
+                isActive: dto.isActive,
+            } as any,
+        });
+    }
+
+    async listDeliveryWindows(vendorId: string) {
+        return this.prisma.vendorDeliveryWindow.findMany({
+            where: { vendorId },
+            orderBy: [{ weekday: 'asc' }, { startMinute: 'asc' }],
+        });
+    }
+
+    async createDeliveryWindow(vendorId: string, dto: CreateVendorDeliveryWindowDto) {
+        const startMinute = this.hhmmToMinute(dto.start);
+        const endMinute = this.hhmmToMinute(dto.end);
+        if (endMinute <= startMinute) throw new BadRequestException('end must be after start');
+
+        return this.prisma.vendorDeliveryWindow.create({
+            data: {
+                vendorId,
+                weekday: dto.weekday,
+                startMinute,
+                endMinute,
+                isActive: dto.isActive ?? true,
+            } as any,
+        });
+    }
+
+    async updateDeliveryWindow(vendorId: string, id: string, dto: UpdateVendorDeliveryWindowDto) {
+        const existing = await this.prisma.vendorDeliveryWindow.findFirst({ where: { id, vendorId } });
+        if (!existing) throw new NotFoundException('Delivery window not found');
+
+        const startMinute = this.hhmmToMinute(dto.start);
+        const endMinute = this.hhmmToMinute(dto.end);
+        if (endMinute <= startMinute) throw new BadRequestException('end must be after start');
+
+        return this.prisma.vendorDeliveryWindow.update({
+            where: { id },
+            data: {
+                weekday: dto.weekday,
+                startMinute,
+                endMinute,
                 isActive: dto.isActive,
             } as any,
         });

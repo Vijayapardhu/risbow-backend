@@ -5,6 +5,7 @@ import { RoomsGateway } from './rooms.gateway';
 import { RedisService } from '../shared/redis.service';
 import { ConfigService } from '@nestjs/config';
 import { RoomStatus, MemberStatus } from '@prisma/client';
+import { AuditLogService } from '../audit/audit.service';
 
 describe('RoomsService', () => {
     let service: RoomsService;
@@ -49,6 +50,10 @@ describe('RoomsService', () => {
         get: jest.fn(),
     };
 
+    const mockAudit = {
+        logAdminAction: jest.fn(),
+    };
+
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -74,6 +79,10 @@ describe('RoomsService', () => {
                             }),
                         },
                     },
+                },
+                {
+                    provide: AuditLogService,
+                    useValue: mockAudit,
                 },
             ],
         }).compile();
@@ -122,7 +131,11 @@ describe('RoomsService', () => {
         });
 
         it('should reject room size below minimum', async () => {
-            mockConfig.get.mockReturnValue(2);
+            mockConfig.get.mockImplementation((key: string, defaultValue: any) => {
+                if (key === 'ROOM_MIN_SIZE') return 2;
+                if (key === 'ROOM_MAX_SIZE') return 10;
+                return defaultValue;
+            });
 
             const createRoomDto = {
                 name: 'Test Room',
@@ -132,7 +145,7 @@ describe('RoomsService', () => {
             };
 
             await expect(service.create('user1', createRoomDto)).rejects.toThrow(
-                'Room size must be at least 2 members'
+                'Room size must be between 2 and 10 members'
             );
         });
 
@@ -151,7 +164,7 @@ describe('RoomsService', () => {
             };
 
             await expect(service.create('user1', createRoomDto)).rejects.toThrow(
-                'Room size cannot exceed 10 members'
+                'Room size must be between 2 and 10 members'
             );
         });
     });
@@ -165,6 +178,8 @@ describe('RoomsService', () => {
                 id: roomId,
                 status: RoomStatus.ACTIVE,
                 size: 5,
+                memberCount: 0,
+                members: [],
             };
 
             const mockMember = {
@@ -179,8 +194,7 @@ describe('RoomsService', () => {
             });
 
             mockPrisma.room.findUnique.mockResolvedValue(mockRoom);
-            mockPrisma.roomMember.findUnique.mockResolvedValue(null);
-            mockPrisma.roomMember.count.mockResolvedValue(2);
+            mockPrisma.room.updateMany.mockResolvedValue({ count: 1 });
             mockPrisma.roomMember.create.mockResolvedValue(mockMember);
 
             const result = await service.join(roomId, userId);

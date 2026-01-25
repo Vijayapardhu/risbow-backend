@@ -172,139 +172,156 @@ export class OrdersService {
             throw new BadRequestException('Invalid Payment Signature');
         }
 
-        // 2. Fetch order with coin usage details
-        const order = await this.prisma.order.findFirst({
+        // 2. Fetch ALL internal orders for this Razorpay order id (split-checkout uses one provider order id)
+        const orders = await this.prisma.order.findMany({
             where: { razorpayOrderId: dto.razorpayOrderId },
         });
+        if (!orders || orders.length === 0) throw new BadRequestException('Order not found');
 
-        if (!order) throw new BadRequestException('Order not found');
-
-        // 🔐 P0 FIX 2: EXPANDED IDEMPOTENCY CHECK
-        // Check all final states to prevent duplicate processing
+        // 🔐 P0 FIX 2: EXPANDED IDEMPOTENCY CHECK (multi-order)
         const finalStatuses = [OrderStatus.CONFIRMED, OrderStatus.DELIVERED, OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.PACKED];
-        if (finalStatuses.includes(order.status as any)) {
-            return { status: 'success', orderId: order.id, message: `Already processed (${order.status})` };
+        if (orders.every((o) => finalStatuses.includes(o.status as any))) {
+            return { status: 'success', orderIds: orders.map((o) => o.id), message: `Already processed (${orders[0]?.status})` };
         }
 
-        // 🔐 P0 FIX 3: ALL CRITICAL OPERATIONS IN SINGLE TRANSACTION
-        const updatedOrder = await this.prisma.$transaction(async (tx) => {
-            // 3a. Update order status FIRST (prevents duplicate processing)
-            const confirmedOrder = await tx.order.update({
-                where: { id: order.id },
-                data: { status: OrderStatus.CONFIRMED },
-            });
+        // 🔐 P0 FIX 3: ALL CRITICAL OPERATIONS IN SINGLE TRANSACTION (multi-order safe)
+        const confirmedIds: string[] = [];
+        const checkoutGroupIds = new Set<string>();
+        const abandonedCheckoutIds = new Set<string>();
 
-            // 3b. Deduct stock for each item
-            const items = Array.isArray(order.items) ? (order.items as any[]) : [];
-            for (const item of items) {
-                // Use centralized, atomic InventoryService
-                await this.inventoryService.deductStock(item.productId, item.quantity, item.variantId, tx);
-            }
+        await this.prisma.$transaction(async (tx) => {
+            for (const order of orders) {
+                if ((order as any).checkoutGroupId) checkoutGroupIds.add(String((order as any).checkoutGroupId));
+                if (order.abandonedCheckoutId) abandonedCheckoutIds.add(order.abandonedCheckoutId);
 
-            // 🔐 P0 FIX 4: ATOMIC COINS DEBIT
-            // Use updateMany to ensure coins only debited once
-            if (order.coinsUsed > 0) {
-                const coinsDebitResult = await tx.order.updateMany({
-                    where: {
-                        id: order.id,
-                        coinsUsedDebited: false
-                    },
-                    data: { coinsUsedDebited: true }
+                const upd = await tx.order.updateMany({
+                    where: { id: order.id, status: { notIn: finalStatuses as any } as any },
+                    data: { status: OrderStatus.CONFIRMED },
                 });
+                if (upd.count !== 1) continue; // already final / already processed
 
-                // Only debit if we successfully set the flag (atomic check-and-set)
-                if (coinsDebitResult.count === 1) {
-                    await this.coinsService.debit(order.userId, order.coinsUsed, CoinSource.SPEND_ORDER, order.id, tx);
+                confirmedIds.push(order.id);
+
+                // Deduct stock
+                const items = Array.isArray(order.items) ? (order.items as any[]) : [];
+                for (const item of items) {
+                    await this.inventoryService.deductStock(item.productId, item.quantity, item.variantId, tx);
+                }
+
+                // Atomic coins debit
+                if (order.coinsUsed > 0) {
+                    const coinsDebitResult = await tx.order.updateMany({
+                        where: { id: order.id, coinsUsedDebited: false },
+                        data: { coinsUsedDebited: true },
+                    });
+                    if (coinsDebitResult.count === 1) {
+                        await this.coinsService.debit(order.userId, order.coinsUsed, CoinSource.SPEND_ORDER, order.id, tx);
+                    }
                 }
             }
 
-            // 3c. Mark Abandoned Checkout as CONVERTED with recovery channel tracking
-            if (order.abandonedCheckoutId) {
+            // Mark AbandonedCheckout as converted once (if present)
+            for (const acId of Array.from(abandonedCheckoutIds)) {
                 const abandonedCheckout = await tx.abandonedCheckout.findUnique({
-                    where: { id: order.abandonedCheckoutId },
-                    select: { metadata: true, agentId: true }
+                    where: { id: acId },
+                    select: { metadata: true, agentId: true },
                 });
+                if (!abandonedCheckout) continue;
+                const metadata = (abandonedCheckout.metadata as any) || {};
+                let recoveryChannel = 'SELF';
+                if (metadata.escalationLevel === 'PUSH_SENT') recoveryChannel = 'PUSH';
+                else if (metadata.escalationLevel === 'WA_NUDGE_SENT') recoveryChannel = 'WHATSAPP';
+                else if (abandonedCheckout.agentId || metadata.escalationLevel === 'TELE_ASSIGNED') recoveryChannel = 'TELECALLER';
 
-                if (abandonedCheckout) {
-                    const metadata = (abandonedCheckout.metadata as any) || {};
-                    // Determine recovery channel based on escalation level and agent assignment
-                    let recoveryChannel = 'SELF'; // Default: user returned on their own
-
-                    if (metadata.escalationLevel === 'PUSH_SENT') {
-                        recoveryChannel = 'PUSH';
-                    } else if (metadata.escalationLevel === 'WA_NUDGE_SENT') {
-                        recoveryChannel = 'WHATSAPP';
-                    } else if (abandonedCheckout.agentId || metadata.escalationLevel === 'TELE_ASSIGNED') {
-                        recoveryChannel = 'TELECALLER';
-                    }
-
-                    await tx.abandonedCheckout.update({
-                        where: { id: order.abandonedCheckoutId },
+                await tx.abandonedCheckout
+                    .update({
+                        where: { id: acId },
                         data: {
                             status: 'CONVERTED',
-                            agentId: order.agentId || abandonedCheckout.agentId,
+                            agentId: abandonedCheckout.agentId,
                             metadata: {
                                 ...metadata,
                                 recoveryChannel,
                                 convertedAt: new Date().toISOString(),
-                                convertedOrderId: order.id,
-                            }
-                        }
-                    }).catch(e => this.logger.warn(`Failed to update abandoned checkout: ${e.message}`));
-                }
+                                convertedOrderId: confirmedIds[0] || orders[0].id,
+                            },
+                        },
+                    })
+                    .catch(() => undefined);
             }
-
-            return confirmedOrder;
         });
 
         // 3d. Best-effort purchase event capture (after successful confirm)
         try {
-            const items = Array.isArray(order.items) ? (order.items as any[]) : [];
-            for (const item of items) {
-                const unitPrice = item.price || item.offerPrice || undefined;
-                await this.events.track({
-                    userId: order.userId,
-                    type: 'PURCHASE' as any,
-                    source: 'CHECKOUT',
-                    productId: item.productId,
-                    variantId: item.variantId,
-                    quantity: item.quantity,
-                    price: unitPrice,
-                    metadata: { orderId: order.id },
-                } as any);
+            for (const order of orders) {
+                const items = Array.isArray(order.items) ? (order.items as any[]) : [];
+                for (const item of items) {
+                    const unitPrice = item.price || item.offerPrice || undefined;
+                    await this.events.track({
+                        userId: order.userId,
+                        type: 'PURCHASE' as any,
+                        source: 'CHECKOUT',
+                        productId: item.productId,
+                        variantId: item.variantId,
+                        quantity: item.quantity,
+                        price: unitPrice,
+                        metadata: { orderId: order.id },
+                    } as any);
+                }
             }
         } catch (e) {
             // never block order confirmation
         }
 
         // 4. Referral rewards (slab-based, first paid order only, idempotent)
-        await this.referralRewards.awardForOrderIfEligible(order.id).catch(() => undefined);
+        for (const order of orders) {
+            try {
+                await this.referralRewards.awardForOrderIfEligible(order.id);
+            } catch {
+                // never block order confirmation
+            }
+        }
 
         // 5. Room Logic: If order belongs to a room
-        if (order.roomId) {
+        for (const order of orders) {
+            if (!order.roomId) continue;
             try {
                 await this.prisma.roomMember.updateMany({
                     where: { roomId: order.roomId, userId: order.userId },
-                    data: { status: MemberStatus.ORDERED }
+                    data: { status: MemberStatus.ORDERED },
                 });
                 await this.roomsService.checkUnlockStatus(order.roomId);
-            } catch (error) {
+            } catch (error: any) {
                 this.logger.error(`Room update failed: ${error.message}`);
-                // Don't fail order confirmation if room update fails
             }
         }
 
         // 6. Clear payment timeout TTL from Redis (payment completed)
-        // Note: This is done outside transaction to avoid Redis dependency in transaction
-        // The TTL cleanup is best-effort and failures are non-critical
-        await this.redisService.del(`payment:timeout:${order.id}`).catch(() => {
-            // Ignore errors - TTL might have already expired or Redis unavailable
-        });
+        for (const order of orders) {
+            try {
+                await this.redisService.del(`payment:timeout:${order.id}`);
+            } catch {
+                // ignore
+            }
+            if ((order as any).checkoutGroupId) {
+                try {
+                    await this.redisService.del(`payment:timeout:cg:${String((order as any).checkoutGroupId)}`);
+                } catch {
+                    // ignore
+                }
+            }
+        }
 
         // 7. Bow Action Attribution
-        await this.bowRevenueService.attributeOutcome(updatedOrder.id, updatedOrder.userId);
+        for (const order of orders) {
+            try {
+                await this.bowRevenueService.attributeOutcome(order.id, order.userId);
+            } catch {
+                // ignore
+            }
+        }
 
-        return { status: 'success', orderId: updatedOrder.id };
+        return { status: 'success', orderIds: orders.map((o) => o.id), confirmedIds };
     }
 
     /* Fixed Method Structure */

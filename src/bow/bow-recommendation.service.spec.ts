@@ -3,6 +3,7 @@ import { BowRecommendationEngine } from './bow-recommendation.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EcommerceEventsService } from '../recommendations/ecommerce-events.service';
 import { UserProductEventType } from '@prisma/client';
+import { BowLlmRerankerService } from './bow-llm-reranker.service';
 
 describe('BowRecommendationEngine', () => {
   let service: BowRecommendationEngine;
@@ -26,12 +27,17 @@ describe('BowRecommendationEngine', () => {
     getTrending: jest.fn(),
   };
 
+  const mockReranker: any = {
+    rerank: jest.fn().mockResolvedValue([]),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BowRecommendationEngine,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: EcommerceEventsService, useValue: mockEventsService },
+        { provide: BowLlmRerankerService, useValue: mockReranker },
       ],
     }).compile();
 

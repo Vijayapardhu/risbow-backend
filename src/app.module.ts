@@ -44,7 +44,7 @@ import { MetricsModule } from './metrics/metrics.module';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { SharedModule } from './shared/shared.module';
 import { CommonModule } from './common/common.module';
-import { HealthController } from './common/health.controller';
+import { HealthController, RootHealthController } from './common/health.controller';
 
 @Module({
     imports: [
@@ -62,6 +62,7 @@ import { HealthController } from './common/health.controller';
                     port: parseInt(process.env.REDIS_PORT) || 6379,
                     username: process.env.REDIS_USERNAME,
                     password: process.env.REDIS_PASSWORD,
+                    tls: (process.env.REDIS_TLS === 'true' || process.env.REDIS_TLS === '1') ? {} : undefined, // Azure Redis requires TLS
                 },
             }),
             QueuesModule,
@@ -106,7 +107,7 @@ import { HealthController } from './common/health.controller';
         WholesalersModule,
         // QueuesModule handled above in conditional import
     ],
-    controllers: [HealthController],
+    controllers: [HealthController, RootHealthController],
 })
 export class AppModule {
     configure(consumer: any) {

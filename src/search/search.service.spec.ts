@@ -6,6 +6,7 @@ import { BowRecommendationEngine } from '../bow/bow-recommendation.service';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
 import { getQueueToken } from '@nestjs/bullmq';
 import { TrendingService } from './trending.service';
+import { OpenRouterService } from '../shared/openrouter.service';
 
 describe('SearchService', () => {
   let service: SearchService;
@@ -59,6 +60,10 @@ describe('SearchService', () => {
       getTrendingWithDelta: jest.fn().mockResolvedValue([]),
     };
 
+    const mockOpenRouter = {
+      getEmbedding: jest.fn().mockResolvedValue([]),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SearchService,
@@ -68,6 +73,7 @@ describe('SearchService', () => {
         { provide: ElasticsearchService, useValue: mockElasticsearch },
         { provide: getQueueToken('search-sync'), useValue: mockQueue },
         { provide: TrendingService, useValue: mockTrendingService },
+        { provide: OpenRouterService, useValue: mockOpenRouter },
       ],
     }).compile();
 

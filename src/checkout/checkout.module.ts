@@ -9,9 +9,10 @@ import { CouponsModule } from '../coupons/coupons.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { SharedModule } from '../shared/shared.module';
 import { CommonModule } from '../common/common.module';
+import { DeliveryModule } from '../delivery/delivery.module';
 
 @Module({
-    imports: [PrismaModule, CartModule, PaymentsModule, GiftsModule, CouponsModule, InventoryModule, SharedModule, CommonModule],
+    imports: [PrismaModule, CartModule, PaymentsModule, GiftsModule, CouponsModule, InventoryModule, SharedModule, CommonModule, DeliveryModule],
     controllers: [CheckoutController],
     providers: [CheckoutService],
     exports: [CheckoutService],

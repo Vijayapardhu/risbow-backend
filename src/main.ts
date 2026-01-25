@@ -10,9 +10,26 @@ import {
 import { join } from 'path';
 import fastifyHelmet from '@fastify/helmet';
 import compression from '@fastify/compress';
+import * as appInsights from 'applicationinsights';
 
 // Trigger deployment update - v6 - Fastify Migration
 async function bootstrap() {
+    // Initialize Azure Application Insights
+    const aiConnectionString = process.env.APPLICATIONINSIGHTS_CONNECTION_STRING;
+    if (aiConnectionString) {
+        appInsights.setup(aiConnectionString)
+            .setAutoDependencyCorrelation(true)
+            .setAutoCollectRequests(true)
+            .setAutoCollectPerformance(true, true)
+            .setAutoCollectExceptions(true)
+            .setAutoCollectDependencies(true)
+            .setAutoCollectConsole(true)
+            .setUseDiskRetryCaching(true)
+            .setSendLiveMetrics(true)
+            .start();
+        console.log('✅ Application Insights initialized');
+    }
+
     // SUPPRESSION: BullMQ warns about 'volatile-lru' eviction policy on Cloud Redis.
     // We cannot change this on managed instances easily, so we suppress the log.
     const originalWarn = console.warn;

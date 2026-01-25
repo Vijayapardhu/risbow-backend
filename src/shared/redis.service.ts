@@ -13,6 +13,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         const port = parseInt(process.env.REDIS_PORT) || 6379;
         const username = process.env.REDIS_USERNAME;
         const password = process.env.REDIS_PASSWORD;
+        const useTls = process.env.REDIS_TLS === 'true' || process.env.REDIS_TLS === '1';
 
         if (!host) {
             this.useMemory = true;
@@ -25,6 +26,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             port,
             username,
             password,
+            tls: useTls ? {} : undefined, // Azure Redis requires TLS
             lazyConnect: true,
             maxRetriesPerRequest: 1,
             retryStrategy: () => null, // Do not spam reconnect attempts

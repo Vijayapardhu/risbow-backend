@@ -3,7 +3,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { VendorStoreService } from './vendor-store.service';
 import { UploadService } from '../upload/upload.service';
-import { UpdateStoreProfileDto, UpdateStoreTimingsDto, UpdatePickupSettingsDto, CreatePickupPointDto, UpdatePickupPointDto, CreateVendorServiceAreaDto, UpdateVendorServiceAreaDto } from './dto/store-settings.dto';
+import { UpdateStoreProfileDto, UpdateStoreTimingsDto, UpdatePickupSettingsDto, CreatePickupPointDto, UpdatePickupPointDto, CreateVendorServiceAreaDto, UpdateVendorServiceAreaDto, CreateVendorDeliveryWindowDto, UpdateVendorDeliveryWindowDto } from './dto/store-settings.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('Vendor Store')
@@ -92,6 +92,30 @@ export class VendorStoreController {
     @ApiOperation({ summary: 'Update a service area' })
     async updateServiceArea(@Req() req, @Param('id') id: string, @Body() dto: UpdateVendorServiceAreaDto) {
         return this.storeService.updateServiceArea(req.user.id, id, dto);
+    }
+
+    @Get('delivery-windows')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'List my delivery windows (weekly time slots)' })
+    async listDeliveryWindows(@Req() req) {
+        return this.storeService.listDeliveryWindows(req.user.id);
+    }
+
+    @Post('delivery-windows')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Create a delivery window (weekly schedule)' })
+    async createDeliveryWindow(@Req() req, @Body() dto: CreateVendorDeliveryWindowDto) {
+        return this.storeService.createDeliveryWindow(req.user.id, dto);
+    }
+
+    @Put('delivery-windows/:id')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Update a delivery window (weekly schedule)' })
+    async updateDeliveryWindow(@Req() req, @Param('id') id: string, @Body() dto: UpdateVendorDeliveryWindowDto) {
+        return this.storeService.updateDeliveryWindow(req.user.id, id, dto);
     }
 
     @Get('public/:vendorCode')

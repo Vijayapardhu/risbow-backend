@@ -27,6 +27,8 @@ export class CartIntelligenceService {
   private readonly GIFT_ELIGIBILITY_THRESHOLD = 200000; // ₹2000
   private readonly ROOM_UNLOCK_MIN_ORDERS = 3;
   private readonly ROOM_UNLOCK_MIN_VALUE = 150000; // ₹1500
+  private readonly THRESHOLD_NEAR_WINDOW_PAISE = 30000; // ₹300
+  private readonly THRESHOLD_NEAR_HIGH_PAISE = 10000; // ₹100
 
   constructor(
     private prisma: PrismaService,
@@ -86,7 +88,7 @@ export class CartIntelligenceService {
     signals.push(...removalSignals);
 
     // 6. Gift Eligibility
-    if (cartValue >= this.GIFT_ELIGIBILITY_THRESHOLD - 300) {
+    if (cartValue >= this.GIFT_ELIGIBILITY_THRESHOLD - this.THRESHOLD_NEAR_WINDOW_PAISE) {
       signals.push({
         type: CartInsightType.GIFT_ELIGIBLE,
         severity: cartValue >= this.GIFT_ELIGIBILITY_THRESHOLD ? InsightSeverity.HIGH : InsightSeverity.MEDIUM,
@@ -145,8 +147,8 @@ export class CartIntelligenceService {
 
     for (const threshold of thresholds) {
       const difference = threshold.value - cartValue;
-      if (difference > 0 && difference <= 300) { // Within ₹300
-        const severity = difference <= 100 ? InsightSeverity.HIGH : InsightSeverity.MEDIUM;
+      if (difference > 0 && difference <= this.THRESHOLD_NEAR_WINDOW_PAISE) { // Within ₹300
+        const severity = difference <= this.THRESHOLD_NEAR_HIGH_PAISE ? InsightSeverity.HIGH : InsightSeverity.MEDIUM;
 
         signals.push({
           type: CartInsightType.THRESHOLD_NEAR,
@@ -167,14 +169,20 @@ export class CartIntelligenceService {
     const signals: CartSignal[] = [];
 
     // Check if user frequently removes expensive items
-    const recentRemovals = await (this.prisma as any).bowActionLog.findMany({
-      where: {
-        userId,
-        actionType: 'REMOVE_FROM_CART',
-        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } // Last 30 days
-      },
-      include: { product: true }
-    });
+    let recentRemovals: any[] = [];
+    try {
+      recentRemovals = await (this.prisma as any).bowActionLog.findMany({
+        where: {
+          userId,
+          actionType: 'REMOVE_FROM_CART',
+          createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } // Last 30 days
+        },
+        include: { product: true }
+      });
+    } catch {
+      recentRemovals = [];
+    }
+    if (!Array.isArray(recentRemovals)) recentRemovals = [];
 
     if (recentRemovals.length >= 2) {
       const avgPrice = recentRemovals.reduce((sum, log) => sum + (log.price || 0), 0) / recentRemovals.length;
@@ -201,13 +209,19 @@ export class CartIntelligenceService {
     const signals: CartSignal[] = [];
 
     // Check for items removed 2+ times
-    const recentLogs = await (this.prisma as any).bowActionLog.findMany({
-      where: {
-        userId,
-        actionType: 'REMOVE_FROM_CART',
-        createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // Last 7 days
-      }
-    });
+    let recentLogs: any[] = [];
+    try {
+      recentLogs = await (this.prisma as any).bowActionLog.findMany({
+        where: {
+          userId,
+          actionType: 'REMOVE_FROM_CART',
+          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // Last 7 days
+        }
+      });
+    } catch {
+      recentLogs = [];
+    }
+    if (!Array.isArray(recentLogs)) recentLogs = [];
 
     const removalCount = {};
     recentLogs.forEach(log => {
@@ -240,16 +254,22 @@ export class CartIntelligenceService {
     const signals: CartSignal[] = [];
 
     // Check active rooms near unlock thresholds
-    const activeRooms = await (this.prisma as any).room.findMany({
-      where: {
-        status: 'LOCKED',
-        endAt: { gt: new Date() },
-        OR: [
-          { unlockMinOrders: { lte: itemCount + 1 } },
-          { unlockMinValue: { lte: cartValue + 500 } }
-        ]
-      }
-    });
+    let activeRooms: any[] = [];
+    try {
+      activeRooms = await (this.prisma as any).room.findMany({
+        where: {
+          status: 'LOCKED',
+          endAt: { gt: new Date() },
+          OR: [
+            { unlockMinOrders: { lte: itemCount + 1 } },
+            { unlockMinValue: { lte: cartValue + 500 } }
+          ]
+        }
+      });
+    } catch {
+      activeRooms = [];
+    }
+    if (!Array.isArray(activeRooms)) activeRooms = [];
 
     for (const room of activeRooms) {
       let reason = '';

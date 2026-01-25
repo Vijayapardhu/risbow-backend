@@ -5,6 +5,7 @@ import { CoinsService } from '../coins/coins.service';
 import { AuditLogService } from '../audit/audit.service';
 import { RedisService } from '../shared/redis.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { VendorAvailabilityService } from './vendor-availability.service';
 
 const mockPrisma = {
     vendor: {
@@ -54,6 +55,7 @@ describe('VendorsService', () => {
                 { provide: CoinsService, useValue: {} },
                 { provide: AuditLogService, useValue: mockAudit },
                 { provide: RedisService, useValue: mockRedis },
+                { provide: VendorAvailabilityService, useValue: { getAvailability: jest.fn().mockReturnValue({ openNow: true }) } },
             ],
         }).compile();
 

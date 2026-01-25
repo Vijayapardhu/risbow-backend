@@ -5,6 +5,10 @@ import { PaymentsService } from '../payments/payments.service';
 import { GiftsService } from '../gifts/gifts.service';
 import { CouponsService } from '../coupons/coupons.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { RedisService } from '../shared/redis.service';
+import { PriceResolverService } from '../common/price-resolver.service';
+import { DeliveryOptionsService } from '../delivery/delivery-options.service';
+import { GeoService } from '../shared/geo.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PaymentMode } from './dto/checkout.dto';
 
@@ -43,6 +47,15 @@ describe('CheckoutService', () => {
       cartItem: {
         deleteMany: jest.fn(),
       },
+      productVariant: {
+        findFirst: jest.fn(),
+      },
+      checkoutGroup: {
+        create: jest.fn(),
+      },
+      orderDeliverySlotSnapshot: {
+        create: jest.fn(),
+      },
       $transaction: jest.fn((callback) => callback(mockPrismaService)),
     };
 
@@ -58,6 +71,34 @@ describe('CheckoutService', () => {
 
     const mockGiftsService = {};
     const mockCouponsService = {};
+    const mockRedisService = {
+      get: jest.fn(),
+      set: jest.fn(),
+      del: jest.fn(),
+      setnx: jest.fn(),
+      expire: jest.fn(),
+    };
+    const mockPriceResolver = {
+      resolvePriceDetailed: jest.fn().mockResolvedValue({ unitPrice: 1000 }),
+      resolvePrice: jest.fn().mockResolvedValue(1000),
+      calculateTax: jest.fn().mockReturnValue(0),
+    };
+    const mockDeliveryOptions = {
+      checkEligibility: jest.fn().mockResolvedValue({ eligible: true }),
+      generateSlotsForVendorAndPoint: jest.fn().mockResolvedValue([]),
+      getDeliveryOptions: jest.fn().mockResolvedValue({
+        eligible: true,
+        availableSlots: [
+          { startAt: '2026-01-25T04:00:00.000Z', endAt: '2026-01-25T05:00:00.000Z' },
+          { startAt: '2026-01-25T05:00:00.000Z', endAt: '2026-01-25T06:00:00.000Z' },
+        ],
+      }),
+    };
+    const mockGeoService = {
+      geocodeAddress: jest.fn(),
+      getOrCreateGeoForPincode: jest.fn(),
+      resolveAddressGeo: jest.fn().mockResolvedValue({ lat: 19.076, lng: 72.8777, pincode: '400001' }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -67,6 +108,10 @@ describe('CheckoutService', () => {
         { provide: GiftsService, useValue: mockGiftsService },
         { provide: CouponsService, useValue: mockCouponsService },
         { provide: InventoryService, useValue: mockInventoryService },
+        { provide: RedisService, useValue: mockRedisService },
+        { provide: PriceResolverService, useValue: mockPriceResolver },
+        { provide: DeliveryOptionsService, useValue: mockDeliveryOptions },
+        { provide: GeoService, useValue: mockGeoService },
       ],
     }).compile();
 
@@ -82,7 +127,16 @@ describe('CheckoutService', () => {
 
   describe('Stock Reservation - P0 Security Fix', () => {
     const userId = 'user-123';
-    const mockAddress = { id: 'addr-1', userId, city: 'Mumbai', state: 'MH', pincode: '400001' };
+    const mockAddress = {
+      id: 'addr-1',
+      userId,
+      city: 'Mumbai',
+      state: 'MH',
+      pincode: '400001',
+      latitude: 19.076,
+      longitude: 72.8777,
+      addressLine1: 'Test',
+    };
     const mockProduct = {
       id: 'product-1',
       title: 'Test Product',
@@ -153,6 +207,15 @@ describe('CheckoutService', () => {
       (prismaService.product.findUnique as jest.Mock).mockResolvedValue(cartWithVariant.items[0].product);
       inventoryService.reserveStock.mockResolvedValue(true);
 
+      // Mock transaction with productVariant.findFirst
+      const txMock = {
+        ...prismaService,
+        productVariant: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'variant-1', stock: 5, price: 1100, attributes: {}, sku: 'SKU-1' }),
+        },
+      };
+      (prismaService.$transaction as jest.Mock).mockImplementation((callback) => callback(txMock));
+
       await service.checkout(userId, {
         paymentMode: PaymentMode.COD,
         shippingAddressId: 'addr-1',
@@ -167,7 +230,10 @@ describe('CheckoutService', () => {
 
     it('should release reservations if checkout transaction fails', async () => {
       inventoryService.reserveStock.mockResolvedValue(true);
-      (prismaService.address.findUnique as jest.Mock).mockResolvedValue(null); // Will cause failure
+      // First call succeeds (for reservation), second call fails (in transaction)
+      (prismaService.address.findUnique as jest.Mock)
+        .mockResolvedValueOnce(mockAddress) // For initial address check before reservation
+        .mockResolvedValueOnce(null); // Will cause failure in transaction
 
       await expect(
         service.checkout(userId, {
@@ -244,7 +310,7 @@ describe('CheckoutService', () => {
         },
       ],
     };
-    const mockAddress = { id: 'addr-1', userId };
+    const mockAddress = { id: 'addr-1', userId, pincode: '400001', latitude: 19.076, longitude: 72.8777, addressLine1: 'Test' };
 
     beforeEach(() => {
       (prismaService.cart.findUnique as jest.Mock).mockResolvedValue(mockCart);
@@ -329,7 +395,7 @@ describe('CheckoutService', () => {
         },
       ],
     };
-    const mockAddress = { id: 'addr-1', userId };
+    const mockAddress = { id: 'addr-1', userId, pincode: '400001', latitude: 19.076, longitude: 72.8777, addressLine1: 'Test' };
 
     beforeEach(() => {
       (prismaService.cart.findUnique as jest.Mock).mockResolvedValue(mockCart);
@@ -372,6 +438,21 @@ describe('CheckoutService', () => {
   });
 
   describe('Empty Cart Handling', () => {
+    const mockAddress = {
+      id: 'addr-1',
+      userId: 'user-1',
+      city: 'Mumbai',
+      state: 'MH',
+      pincode: '400001',
+      latitude: 19.076,
+      longitude: 72.8777,
+      addressLine1: 'Test',
+    };
+
+    beforeEach(() => {
+      (prismaService.address.findUnique as jest.Mock).mockResolvedValue(mockAddress);
+    });
+
     it('should reject checkout with empty cart', async () => {
       (prismaService.cart.findUnique as jest.Mock).mockResolvedValue({
         id: 'cart-1',

@@ -16,6 +16,7 @@ describe('BowAutoActionService', () => {
     },
     bowActionLog: {
       create: jest.fn(),
+      findMany: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
     },
@@ -59,6 +60,9 @@ describe('BowAutoActionService', () => {
     prismaService = module.get<PrismaService>(PrismaService);
     redisService = module.get<RedisService>(RedisService);
     cartService = module.get<CartService>(CartService);
+
+    // Default safe mocks for behavior checks
+    mockPrismaService.bowActionLog.findMany.mockResolvedValue([]);
   });
 
   it('should be defined', () => {
@@ -114,7 +118,7 @@ describe('BowAutoActionService', () => {
       const result = await service.executeAutoAction(request);
 
       expect(result.success).toBe(false);
-      expect(result.message).toContain('exceeds auto-add limit');
+      expect(result.message).toContain('Auto-add not allowed');
     });
 
     it('should block action due to cooldown', async () => {
@@ -126,13 +130,18 @@ describe('BowAutoActionService', () => {
         reason: 'Test action'
       };
 
-      // Mock active cooldown
-      mockRedisService.get.mockResolvedValueOnce((Date.now() - 1000).toString()); // Recent action
+      // Mock rate limit ok + active cooldown + daily count ok
+      mockRedisService.get.mockImplementation(async (key: string) => {
+        if (key.startsWith('ratelimit:ai:')) return '0';
+        if (key.startsWith('bow:auto:cooldown:')) return (Date.now() - 1000).toString();
+        if (key.startsWith('bow:auto:daily:')) return '0';
+        return null as any;
+      });
 
       const result = await service.executeAutoAction(request);
 
       expect(result.success).toBe(false);
-      expect(result.message).toContain('cooldown active');
+      expect(result.message).toContain('Auto-action cooldown active');
     });
 
     it('should block action for insufficient stock', async () => {
@@ -156,7 +165,7 @@ describe('BowAutoActionService', () => {
       const result = await service.executeAutoAction(request);
 
       expect(result.success).toBe(false);
-      expect(result.message).toContain('insufficient stock');
+      expect(result.message).toContain('Insufficient stock');
     });
   });
 
@@ -244,7 +253,7 @@ describe('BowAutoActionService', () => {
       const result = await (service as any).validateGuardrails(request);
 
       expect(result.allowed).toBe(false);
-      expect(result.reason).toContain('restricted category');
+      expect(result.reason).toContain('Auto-actions not allowed');
     });
   });
 });

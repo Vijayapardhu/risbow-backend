@@ -8,6 +8,7 @@ import { CommunicationService } from './communication.service';
 import { LogisticsService } from './logistics.service';
 import { OpenRouterService } from './openrouter.service';
 import { GeoService } from './geo.service';
+import { AzureStorageService } from './azure-storage.service';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { CatalogModule } from '../catalog/catalog.module';
 import { CommonModule } from '../common/common.module';
@@ -18,7 +19,7 @@ import { CoinsModule } from '../coins/coins.module';
 @Global()
 @Module({
     imports: [AnalyticsModule, CatalogModule, CommonModule, TelecallerModule, QueuesModule, CoinsModule],
-    providers: [SchedulerService, NotificationsService, RedisService, SupabaseService, CacheService, CommunicationService, LogisticsService, OpenRouterService, GeoService],
-    exports: [SchedulerService, NotificationsService, RedisService, SupabaseService, CacheService, CommunicationService, LogisticsService, OpenRouterService, GeoService],
+    providers: [SchedulerService, NotificationsService, RedisService, SupabaseService, CacheService, CommunicationService, LogisticsService, OpenRouterService, GeoService, AzureStorageService],
+    exports: [SchedulerService, NotificationsService, RedisService, SupabaseService, CacheService, CommunicationService, LogisticsService, OpenRouterService, GeoService, AzureStorageService],
 })
 export class SharedModule { }

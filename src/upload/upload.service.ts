@@ -1,5 +1,7 @@
 import { Injectable, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { SupabaseService } from '../shared/supabase.service';
+import { AzureStorageService } from '../shared/azure-storage.service';
+import { ConfigService } from '@nestjs/config';
 import sharp = require('sharp');
 import { v4 as uuidv4 } from 'uuid';
 import { UploadContext } from './dto/upload.dto';
@@ -7,12 +9,27 @@ import { UploadContext } from './dto/upload.dto';
 @Injectable()
 export class UploadService {
     private readonly logger = new Logger(UploadService.name);
-    private readonly BUCKET_NAME = 'risbow-uploads';
+    private readonly SUPABASE_BUCKET = 'risbow-uploads';
 
-    constructor(private readonly supabaseService: SupabaseService) { }
+    constructor(
+        private readonly supabaseService: SupabaseService,
+        private readonly azureStorageService: AzureStorageService,
+        private readonly configService: ConfigService,
+    ) { }
 
-    private getClient() {
+    private getSupabaseClient() {
         return this.supabaseService.getClient();
+    }
+
+    private getAzureContainer(context: UploadContext): string {
+        switch (context) {
+            case UploadContext.PRODUCT:
+                return this.configService.get<string>('AZURE_STORAGE_CONTAINER_PRODUCTS') || 'products';
+            case UploadContext.VENDOR:
+                return this.configService.get<string>('AZURE_STORAGE_CONTAINER_USERS') || 'users';
+            default:
+                return 'general';
+        }
     }
 
     async uploadImage(file: Express.Multer.File, context: UploadContext, contextId: string): Promise<{ url: string, path: string }> {
@@ -34,16 +51,22 @@ export class UploadService {
                 .resize({ width: 1200, withoutEnlargement: true }) // Max width 1200
                 .webp({ quality: 80 }) // Convert to WebP
                 .toBuffer();
-            // const optimizedBuffer = file.buffer; // DEBUG: Bypass sharp
 
             // 4. Generate Path
             const filename = `${Date.now()}-${uuidv4()}.webp`;
             const path = `${context}/${contextId}/${filename}`;
 
-            // 5. Upload to Supabase
-            const { data, error } = await this.getClient()
+            // 5. Upload to Preferred Storage (Azure vs Supabase)
+            if (this.azureStorageService.isEnabled()) {
+                const container = this.getAzureContainer(context);
+                const url = await this.azureStorageService.uploadFile(container, path, optimizedBuffer, 'image/webp');
+                return { url, path };
+            }
+
+            // Fallback to Supabase
+            const { data, error } = await this.getSupabaseClient()
                 .storage
-                .from(this.BUCKET_NAME)
+                .from(this.SUPABASE_BUCKET)
                 .upload(path, optimizedBuffer, {
                     contentType: 'image/webp',
                     upsert: false
@@ -54,10 +77,9 @@ export class UploadService {
                 throw new InternalServerErrorException('Failed to upload image');
             }
 
-            // 6. Get Public URL
-            const { data: publicData } = this.getClient()
+            const { data: publicData } = this.getSupabaseClient()
                 .storage
-                .from(this.BUCKET_NAME)
+                .from(this.SUPABASE_BUCKET)
                 .getPublicUrl(path);
 
             return {
@@ -91,12 +113,19 @@ export class UploadService {
             // 3. Generate Path
             const ext = file.originalname.split('.').pop() || 'bin';
             const filename = `${Date.now()}-${uuidv4()}.${ext}`;
-            const path = `documents/${userId}/${filename}`; // documentType could be a subfolder if needed
+            const path = `documents/${userId}/${filename}`;
 
-            // 4. Upload to Supabase (No optimization for docs)
-            const { data, error } = await this.getClient()
+            // 4. Upload to Preferred Storage
+            if (this.azureStorageService.isEnabled()) {
+                const container = this.configService.get<string>('AZURE_STORAGE_CONTAINER_USERS') || 'users';
+                const url = await this.azureStorageService.uploadFile(container, path, file.buffer, file.mimetype);
+                return { url, path };
+            }
+
+            // Fallback to Supabase
+            const { data, error } = await this.getSupabaseClient()
                 .storage
-                .from(this.BUCKET_NAME)
+                .from(this.SUPABASE_BUCKET)
                 .upload(path, file.buffer, {
                     contentType: file.mimetype,
                     upsert: false,
@@ -108,10 +137,9 @@ export class UploadService {
                 throw new InternalServerErrorException('Failed to upload document');
             }
 
-            // 5. Get Public URL
-            const { data: publicData } = this.getClient()
+            const { data: publicData } = this.getSupabaseClient()
                 .storage
-                .from(this.BUCKET_NAME)
+                .from(this.SUPABASE_BUCKET)
                 .getPublicUrl(path);
 
             return {
@@ -128,10 +156,16 @@ export class UploadService {
         }
     }
 
-    async deleteFile(path: string) {
-        const { error } = await this.getClient()
+    async deleteFile(path: string, context?: UploadContext) {
+        if (this.azureStorageService.isEnabled()) {
+            const container = context ? this.getAzureContainer(context) : (this.configService.get<string>('AZURE_STORAGE_CONTAINER_USERS') || 'users');
+            await this.azureStorageService.deleteFile(container, path);
+            return { message: 'File deleted from Azure successfully' };
+        }
+
+        const { error } = await this.getSupabaseClient()
             .storage
-            .from(this.BUCKET_NAME)
+            .from(this.SUPABASE_BUCKET)
             .remove([path]);
 
         if (error) {
@@ -139,6 +173,6 @@ export class UploadService {
             throw new InternalServerErrorException('Failed to delete file');
         }
 
-        return { message: 'File deleted successfully' };
+        return { message: 'File deleted from Supabase successfully' };
     }
 }

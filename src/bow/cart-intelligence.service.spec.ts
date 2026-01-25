@@ -69,7 +69,7 @@ describe('CartIntelligenceService', () => {
 
     it('should detect hesitation signals', async () => {
       const mockCart = {
-        items: [{ product: { categoryId: 'cat1' } }],
+        items: [{ quantity: 1, product: { categoryId: 'cat1', price: 10000, offerPrice: null } }],
       };
       const mockLastInsight = {
         triggeredAt: new Date(Date.now() - 20 * 60 * 1000), // 20 minutes ago
@@ -85,7 +85,13 @@ describe('CartIntelligenceService', () => {
 
     it('should detect threshold near signals', async () => {
       const mockCart = {
-        items: [{ product: { categoryId: 'cat1', price: 95000 } }], // ₹950
+        items: [
+          {
+            productId: 'p1',
+            quantity: 1,
+            product: { categoryId: 'cat1', price: 95000, offerPrice: null },
+          },
+        ], // ₹950
       };
 
       mockPrismaService.cart.findUnique.mockResolvedValue(mockCart);
@@ -98,7 +104,13 @@ describe('CartIntelligenceService', () => {
 
     it('should detect bundle opportunity for single item cart', async () => {
       const mockCart = {
-        items: [{ product: { categoryId: 'cat1' } }],
+        items: [
+          {
+            productId: 'p1',
+            quantity: 1,
+            product: { categoryId: 'cat1', price: 10000, offerPrice: null },
+          },
+        ],
       };
 
       mockPrismaService.cart.findUnique.mockResolvedValue(mockCart);
@@ -123,7 +135,7 @@ describe('CartIntelligenceService', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].type).toBe('HESITATION');
-      expect(result[0].severity).toBe('MEDIUM');
+      expect(result[0].severity).toBe('LOW');
     });
   });
 

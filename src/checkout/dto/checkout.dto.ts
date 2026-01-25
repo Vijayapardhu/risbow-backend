@@ -1,5 +1,6 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsEnum, IsISO8601, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export enum PaymentMode {
     COD = 'COD',
@@ -31,4 +32,29 @@ export class CheckoutDto {
     @IsOptional()
     @IsString()
     couponCode?: string;
+
+    @ApiPropertyOptional({
+        description: 'Optional per-vendor delivery slot selections (ISO timestamps). If omitted, system auto-assigns earliest slots.',
+        example: [{ vendorId: 'vendor_123', slotStartAt: '2026-01-25T04:00:00.000Z', slotEndAt: '2026-01-25T05:00:00.000Z' }],
+    })
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => DeliverySelectionDto)
+    deliverySelections?: DeliverySelectionDto[];
+}
+
+export class DeliverySelectionDto {
+    @ApiProperty({ example: 'vendor_123' })
+    @IsString()
+    @IsNotEmpty()
+    vendorId: string;
+
+    @ApiProperty({ example: '2026-01-25T04:00:00.000Z' })
+    @IsISO8601()
+    slotStartAt: string;
+
+    @ApiProperty({ example: '2026-01-25T05:00:00.000Z' })
+    @IsISO8601()
+    slotEndAt: string;
 }

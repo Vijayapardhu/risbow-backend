@@ -220,46 +220,43 @@ export class PaymentsService {
             throw new BadRequestException('Invalid payment signature');
         }
 
-        // 2. Find internal payment record
-        // Note: providerOrderId is not unique in schema, but practically should be.
-        const payment = await this.prisma.payment.findFirst({
+        // 2. Find internal payment record(s) (split-checkout can have multiple payments sharing providerOrderId)
+        const payments = await this.prisma.payment.findMany({
             where: { providerOrderId: razorpay_order_id },
             include: { order: true }
         });
 
-        if (!payment) {
+        if (!payments || payments.length === 0) {
             throw new BadRequestException('Payment record not found for this order');
         }
 
-        // 3. Security Check: Ensure user owns the order
-        if (payment.order.userId !== userId) {
+        // 3. Security Check: Ensure user owns all orders
+        if (payments.some((p) => p.order.userId !== userId)) {
             throw new BadRequestException('Unauthorized access to this payment');
         }
 
-        if (payment.status === 'SUCCESS') {
-            return { status: 'SUCCESS', paymentId: payment.id, message: 'Payment already verified' };
+        if (payments.every((p) => p.status === 'SUCCESS')) {
+            return { status: 'SUCCESS', paymentId: payments[0].id, message: 'Payment already verified' };
         }
 
         // 4. Update Payment Status safely
         try {
-            const updatedPayment = await this.prisma.payment.update({
-                where: { id: payment.id },
+            await this.prisma.payment.updateMany({
+                where: { providerOrderId: razorpay_order_id, status: { not: 'SUCCESS' } as any },
                 data: {
                     status: 'SUCCESS',
                     paymentId: razorpay_payment_id,
-                    // We could store signature or verification time in metadata if schema allowed, 
-                    // but restricting to existing fields as per instructions.
                 }
             });
 
             // Consider updating Order status here if strictly required, but usually handled by webhook/separate flow.
             // Checklist says: "Do not mark orders as completed". So we just update Payment.
 
-            this.logger.log(`Payment verified successfully for order ${payment.orderId}`);
+            this.logger.log(`Payment verified successfully for provider order ${razorpay_order_id}`);
 
             return {
                 status: 'SUCCESS',
-                paymentId: updatedPayment.id,
+                paymentId: payments[0].id,
                 transactionId: razorpay_payment_id
             };
         } catch (error) {
@@ -302,26 +299,26 @@ export class PaymentsService {
 
         this.logger.log(`Received webhook: ${event} for order ${razorpayOrderId}`);
 
-        // 3. Find Internal Payment (order payments) OR PaymentIntent (non-order payments)
-        const payment = await this.prisma.payment.findFirst({
+        // 3. Find Internal Payment(s) (order payments) OR PaymentIntent (non-order payments)
+        const payments = await this.prisma.payment.findMany({
             where: { providerOrderId: razorpayOrderId },
             include: { order: true }
-        }).catch(() => null);
+        }).catch(() => []);
 
-        const paymentIntent = !payment
+        const paymentIntent = (!payments || payments.length === 0)
             ? await (this.prisma as any).paymentIntent.findFirst({
                 where: { providerOrderId: razorpayOrderId },
             }).catch(() => null)
             : null;
 
-        if (!payment && !paymentIntent) {
+        if ((!payments || payments.length === 0) && !paymentIntent) {
             this.logger.warn(`Webhook received for unknown provider order: ${razorpayOrderId}`);
             return { status: 'ignored', message: 'Order/Intent not found' };
         }
 
         // 4. Idempotent Handling
-        if (payment && (payment.status === 'SUCCESS' || payment.status === 'REFUNDED')) {
-            this.logger.log(`Payment ${payment.id} already final: ${payment.status}. Ignoring webhook.`);
+        if (payments && payments.length > 0 && payments.every((p) => p.status === 'SUCCESS' || p.status === 'REFUNDED')) {
+            this.logger.log(`Payments already final for provider order ${razorpayOrderId}. Ignoring webhook.`);
             return { status: 'ignored', message: 'Already processed' };
         }
         if (paymentIntent && (paymentIntent.status === 'SUCCESS' || paymentIntent.status === 'REFUNDED')) {
@@ -330,15 +327,12 @@ export class PaymentsService {
         }
 
         if (event === 'payment.captured') {
-            if (payment) {
-                await this.prisma.payment.update({
-                    where: { id: payment.id },
-                    data: {
-                        status: 'SUCCESS',
-                        paymentId: razorpayPaymentId,
-                    }
+            if (payments && payments.length > 0) {
+                await this.prisma.payment.updateMany({
+                    where: { providerOrderId: razorpayOrderId, status: { not: 'SUCCESS' } as any },
+                    data: { status: 'SUCCESS', paymentId: razorpayPaymentId }
                 });
-                this.logger.log(`Payment ${payment.id} updated to SUCCESS via webhook`);
+                this.logger.log(`Payments updated to SUCCESS via webhook for provider order ${razorpayOrderId}`);
             } else if (paymentIntent) {
                 await (this.prisma as any).paymentIntent.update({
                     where: { id: paymentIntent.id },
@@ -350,18 +344,18 @@ export class PaymentsService {
                 this.logger.log(`PaymentIntent ${paymentIntent.id} updated to SUCCESS via webhook`);
             }
         } else if (event === 'payment.failed') {
-            if (payment) {
-                await this.prisma.payment.update({
-                    where: { id: payment.id },
-                    data: {
-                        status: 'FAILED',
-                        paymentId: razorpayPaymentId
-                    }
+            if (payments && payments.length > 0) {
+                await this.prisma.payment.updateMany({
+                    where: { providerOrderId: razorpayOrderId, status: { notIn: ['SUCCESS', 'REFUNDED'] } as any },
+                    data: { status: 'FAILED', paymentId: razorpayPaymentId }
                 });
-                this.logger.log(`Payment ${payment.id} updated to FAILED via webhook`);
+                this.logger.log(`Payments updated to FAILED via webhook for provider order ${razorpayOrderId}`);
 
-                // TRIGGER BOW RECOVERY NUDGE (order payments only)
-                await this.bowService.handlePaymentFailure(payment.order.userId, payment.orderId);
+                // TRIGGER BOW RECOVERY NUDGE (best-effort, once)
+                const first = payments[0];
+                if (first?.order?.userId && first?.orderId) {
+                    await this.bowService.handlePaymentFailure(first.order.userId, first.orderId);
+                }
             } else if (paymentIntent) {
                 await (this.prisma as any).paymentIntent.update({
                     where: { id: paymentIntent.id },

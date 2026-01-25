@@ -6,12 +6,25 @@ import { RoomsService } from '../rooms/rooms.service';
 import { CoinsService } from '../coins/coins.service';
 import { BadRequestException } from '@nestjs/common';
 import * as crypto from 'crypto';
+import { CoinValuationService } from '../coins/coin-valuation.service';
+import { CommissionService } from '../common/commission.service';
+import { PriceResolverService } from '../common/price-resolver.service';
+import { InventoryService } from '../inventory/inventory.service';
+import { BowRevenueService } from '../bow/bow-revenue.service';
+import { OrderStateValidatorService } from './order-state-validator.service';
+import { FinancialSnapshotGuardService } from '../common/financial-snapshot-guard.service';
+import { RedisService } from '../shared/redis.service';
+import { CheckoutService } from '../checkout/checkout.service';
+import { EcommerceEventsService } from '../recommendations/ecommerce-events.service';
+import { ReferralRewardsService } from '../referrals/referral-rewards.service';
 
 describe('OrdersService', () => {
   let service: OrdersService;
   let prismaService: jest.Mocked<PrismaService>;
   let configService: jest.Mocked<ConfigService>;
   let coinsService: jest.Mocked<CoinsService>;
+  let inventoryService: jest.Mocked<InventoryService>;
+  let module: TestingModule;
 
   const RAZORPAY_SECRET = 'test_secret_key';
 
@@ -23,7 +36,7 @@ describe('OrdersService', () => {
         findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
-        updateMany: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         count: jest.fn(),
       },
       product: {
@@ -41,12 +54,28 @@ describe('OrdersService', () => {
         findFirst: jest.fn(),
       },
       abandonedCheckout: {
+        findUnique: jest.fn(),
+        findMany: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
       },
       auditLog: {
         create: jest.fn(),
       },
-      $transaction: jest.fn((callback) => callback(mockPrismaService)),
+      payment: {
+        findMany: jest.fn(),
+        updateMany: jest.fn(),
+      },
+      $transaction: jest.fn((callback) => {
+        const txMock = {
+          ...mockPrismaService,
+          order: {
+            ...mockPrismaService.order,
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+        };
+        return callback(txMock);
+      }),
     };
 
     const mockConfigService = {
@@ -66,13 +95,64 @@ describe('OrdersService', () => {
       debit: jest.fn(),
     };
 
-    const module: TestingModule = await Test.createTestingModule({
+    const mockCoinValuation = {
+      getActivePaisePerCoin: jest.fn().mockResolvedValue(100), // default
+    };
+
+    const mockCommissionService = {
+      calculateCommission: jest.fn().mockResolvedValue(0),
+      calculateNetVendorEarnings: jest.fn().mockReturnValue(0),
+    };
+
+    const mockPriceResolver = {
+      resolvePrice: jest.fn().mockResolvedValue(10000),
+      calculateTax: jest.fn().mockReturnValue(0),
+    };
+
+    const mockInventory = {
+      deductStock: jest.fn().mockResolvedValue(undefined),
+    };
+    inventoryService = mockInventory as any;
+
+    const mockBowRevenue = {
+      attributeOutcome: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const mockStateValidator = {};
+    const mockSnapshotGuard = {};
+
+    const mockRedis = {
+      del: jest.fn().mockResolvedValue(1),
+    };
+
+    const mockCheckout = {};
+
+    const mockEvents = {
+      track: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const mockReferralRewards = {
+      awardForOrderIfEligible: jest.fn().mockResolvedValue(false),
+    };
+
+    module = await Test.createTestingModule({
       providers: [
         OrdersService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: RoomsService, useValue: mockRoomsService },
         { provide: CoinsService, useValue: mockCoinsService },
+        { provide: CoinValuationService, useValue: mockCoinValuation },
+        { provide: CommissionService, useValue: mockCommissionService },
+        { provide: PriceResolverService, useValue: mockPriceResolver },
+        { provide: InventoryService, useValue: mockInventory },
+        { provide: BowRevenueService, useValue: mockBowRevenue },
+        { provide: OrderStateValidatorService, useValue: mockStateValidator },
+        { provide: FinancialSnapshotGuardService, useValue: mockSnapshotGuard },
+        { provide: RedisService, useValue: mockRedis },
+        { provide: CheckoutService, useValue: mockCheckout },
+        { provide: EcommerceEventsService, useValue: mockEvents },
+        { provide: ReferralRewardsService, useValue: mockReferralRewards },
       ],
     }).compile();
 
@@ -109,10 +189,11 @@ describe('OrdersService', () => {
         coinsUsedDebited: false,
       };
 
-      (prismaService.order.findFirst as jest.Mock).mockResolvedValue(mockOrder);
-      (prismaService.order.update as jest.Mock).mockResolvedValue({ ...mockOrder, status: 'CONFIRMED' });
+      (prismaService.order.findMany as jest.Mock).mockResolvedValue([mockOrder]);
       (prismaService.product.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (prismaService.user.findUnique as jest.Mock).mockResolvedValue({ id: 'user-1', referredBy: null });
+      (prismaService.payment.findMany as jest.Mock).mockResolvedValue([]);
+      (prismaService.abandonedCheckout.findMany as jest.Mock).mockResolvedValue([]);
 
       const result = await service.confirmOrder({
         razorpayOrderId,
@@ -181,13 +262,15 @@ describe('OrdersService', () => {
         .update('rzp_order_1|pay_1')
         .digest('hex');
 
-      (prismaService.order.findFirst as jest.Mock).mockResolvedValue(mockOrder);
+        (prismaService.order.findMany as jest.Mock).mockResolvedValue([mockOrder]);
+        (prismaService.payment.findMany as jest.Mock).mockResolvedValue([]);
+        (prismaService.abandonedCheckout.findMany as jest.Mock).mockResolvedValue([]);
 
-      const result = await service.confirmOrder({
-        razorpayOrderId: 'rzp_order_1',
-        razorpayPaymentId: 'pay_1',
-        razorpaySignature: validSignature,
-      });
+        const result = await service.confirmOrder({
+          razorpayOrderId: 'rzp_order_1',
+          razorpayPaymentId: 'pay_1',
+          razorpaySignature: validSignature,
+        });
 
       expect(result.status).toBe('success');
       expect(result.message).toContain('Already processed');
@@ -210,7 +293,9 @@ describe('OrdersService', () => {
           .update('rzp_order_1|pay_1')
           .digest('hex');
 
-        (prismaService.order.findFirst as jest.Mock).mockResolvedValue(mockOrder);
+        (prismaService.order.findMany as jest.Mock).mockResolvedValue([mockOrder]);
+        (prismaService.payment.findMany as jest.Mock).mockResolvedValue([]);
+        (prismaService.abandonedCheckout.findMany as jest.Mock).mockResolvedValue([]);
 
         const result = await service.confirmOrder({
           razorpayOrderId: 'rzp_order_1',
@@ -243,11 +328,26 @@ describe('OrdersService', () => {
         coinsUsedDebited: false,
       };
 
-      (prismaService.order.findFirst as jest.Mock).mockResolvedValue(mockOrder);
-      (prismaService.order.update as jest.Mock).mockResolvedValue({ ...mockOrder, status: 'CONFIRMED' });
-      (prismaService.order.updateMany as jest.Mock).mockResolvedValue({ count: 1 }); // Atomic flag set succeeded
-      (prismaService.product.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (prismaService.order.findMany as jest.Mock).mockResolvedValue([mockOrder]);
       (prismaService.user.findUnique as jest.Mock).mockResolvedValue({ id: 'user-1', referredBy: null });
+      (prismaService.payment.findMany as jest.Mock).mockResolvedValue([]);
+      (prismaService.abandonedCheckout.findMany as jest.Mock).mockResolvedValue([]);
+
+      // Mock transaction to return a mock with updateMany that succeeds
+      const txMock = {
+        order: {
+          ...prismaService.order,
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        product: prismaService.product,
+        user: prismaService.user,
+        payment: prismaService.payment,
+        abandonedCheckout: prismaService.abandonedCheckout,
+        auditLog: prismaService.auditLog,
+        coinLedger: prismaService.coinLedger,
+        roomMember: prismaService.roomMember,
+      };
+      (prismaService.$transaction as jest.Mock).mockImplementation((callback) => callback(txMock));
 
       await service.confirmOrder({
         razorpayOrderId,
@@ -256,7 +356,7 @@ describe('OrdersService', () => {
       });
 
       // Verify atomic check: updateMany with coinsUsedDebited: false condition
-      expect(prismaService.order.updateMany).toHaveBeenCalledWith(
+      expect(txMock.order.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             id: mockOrder.id,
@@ -294,11 +394,12 @@ describe('OrdersService', () => {
         coinsUsedDebited: false,
       };
 
-      (prismaService.order.findFirst as jest.Mock).mockResolvedValue(mockOrder);
-      (prismaService.order.update as jest.Mock).mockResolvedValue({ ...mockOrder, status: 'CONFIRMED' });
-      (prismaService.order.updateMany as jest.Mock).mockResolvedValue({ count: 0 }); // Atomic flag set FAILED (already set)
+      (prismaService.order.findMany as jest.Mock).mockResolvedValue([mockOrder]);
+      (prismaService.order.updateMany = jest.fn().mockResolvedValue({ count: 0 })); // Atomic flag set FAILED (already set)
       (prismaService.product.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (prismaService.user.findUnique as jest.Mock).mockResolvedValue({ id: 'user-1', referredBy: null });
+      (prismaService.payment.findMany as jest.Mock).mockResolvedValue([]);
+      (prismaService.abandonedCheckout.findMany as jest.Mock).mockResolvedValue([]);
 
       await service.confirmOrder({
         razorpayOrderId,
@@ -328,10 +429,11 @@ describe('OrdersService', () => {
         coinsUsedDebited: false,
       };
 
-      (prismaService.order.findFirst as jest.Mock).mockResolvedValue(mockOrder);
-      (prismaService.order.update as jest.Mock).mockResolvedValue({ ...mockOrder, status: 'CONFIRMED' });
+      (prismaService.order.findMany as jest.Mock).mockResolvedValue([mockOrder]);
       (prismaService.product.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (prismaService.user.findUnique as jest.Mock).mockResolvedValue({ id: 'user-1', referredBy: null });
+      (prismaService.payment.findMany as jest.Mock).mockResolvedValue([]);
+      (prismaService.abandonedCheckout.findMany as jest.Mock).mockResolvedValue([]);
 
       await service.confirmOrder({
         razorpayOrderId,
@@ -363,9 +465,28 @@ describe('OrdersService', () => {
         coinsUsedDebited: false,
       };
 
-      (prismaService.order.findFirst as jest.Mock).mockResolvedValue(mockOrder);
-      (prismaService.order.update as jest.Mock).mockResolvedValue({ ...mockOrder, status: 'CONFIRMED' });
-      (prismaService.product.updateMany as jest.Mock).mockResolvedValue({ count: 0 }); // Stock check failed
+      (prismaService.order.findMany as jest.Mock).mockResolvedValue([mockOrder]);
+      (prismaService.payment.findMany as jest.Mock).mockResolvedValue([]);
+      (prismaService.abandonedCheckout.findMany as jest.Mock).mockResolvedValue([]);
+
+      // Mock inventoryService.deductStock to throw (insufficient stock)
+      (inventoryService.deductStock as jest.Mock).mockRejectedValue(new BadRequestException('Insufficient stock'));
+
+      // Mock transaction
+      const txMock = {
+        order: {
+          ...prismaService.order,
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        product: prismaService.product,
+        user: prismaService.user,
+        payment: prismaService.payment,
+        abandonedCheckout: prismaService.abandonedCheckout,
+        auditLog: prismaService.auditLog,
+        coinLedger: prismaService.coinLedger,
+        roomMember: prismaService.roomMember,
+      };
+      (prismaService.$transaction as jest.Mock).mockImplementation((callback) => callback(txMock));
 
       await expect(
         service.confirmOrder({

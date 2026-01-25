@@ -9,6 +9,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { SearchSyncProcessor } from './search-sync.processor';
 import { SharedModule } from '../shared/shared.module';
 import { BowModule } from '../bow/bow.module';
+import { RecommendationsModule } from '../recommendations/recommendations.module';
 
 
 @Module({
@@ -16,6 +17,7 @@ import { BowModule } from '../bow/bow.module';
     SharedModule,
     ElasticsearchModule,
     BowModule,
+    RecommendationsModule,
     BullModule.registerQueue({
       name: 'search-sync',
     }),

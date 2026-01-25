@@ -1,4 +1,4 @@
-import { Controller, Post, Delete, Body, UseGuards, Request, Param } from '@nestjs/common';
+import { Controller, Post, Delete, Body, UseGuards, Request, Get, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { CheckoutService } from './checkout.service';
 import { CheckoutDto } from './dto/checkout.dto';
@@ -27,6 +27,12 @@ export class CheckoutController {
     @Throttle({ default: { limit: 2, ttl: 60000 } }) // Limit to 2 checkout attempts per minute
     checkout(@Request() req, @Body() dto: CheckoutDto) {
         return this.checkoutService.checkout(req.user.id, dto);
+    }
+
+    @Get('delivery-options')
+    @ApiOperation({ summary: 'Get delivery eligibility + available slots per vendor for current cart' })
+    async getDeliveryOptions(@Request() req, @Query('shippingAddressId') shippingAddressId: string) {
+        return this.checkoutService.getDeliveryOptionsForCart(req.user.id, shippingAddressId);
     }
 
     @Post('select-gift')

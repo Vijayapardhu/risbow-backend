@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { SearchService } from './search.service';
 import { TrendingService } from './trending.service';
 import { AutocompleteService } from './autocomplete.service';
+import { ProductSuggestionsService } from '../recommendations/product-suggestions.service';
 import { 
   SearchQueryDto, 
   AutocompleteDto, 
@@ -22,6 +23,7 @@ export class SearchController {
     private readonly searchService: SearchService,
     private readonly trendingService: TrendingService,
     private readonly autocompleteService: AutocompleteService,
+    private readonly productSuggestions: ProductSuggestionsService,
   ) { }
 
   private computeRegion(params: { lat?: number; lng?: number; pincode?: string; region?: string }): string {
@@ -63,6 +65,18 @@ export class SearchController {
       query.limit || 10, 
       region
     );
+  }
+
+  @Get('suggest/products')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({ summary: 'Get product suggestions for search dropdown' })
+  async suggestProducts(@Query() query: AutocompleteDto, @Request() req) {
+    const region = this.computeRegion(query as any);
+    const location =
+      typeof query.lat === 'number' && typeof query.lng === 'number'
+        ? { lat: query.lat, lng: query.lng, pincode: query.pincode }
+        : undefined;
+    return this.productSuggestions.suggestSearchDropdown(query.q, { limit: query.limit || 10, region, location });
   }
 
   @Get('suggestions')
