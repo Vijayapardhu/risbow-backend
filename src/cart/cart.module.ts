@@ -6,7 +6,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { RecommendationsModule } from '../recommendations/recommendations.module';
 
 @Module({
-    imports: [PrismaModule, forwardRef(() => BuyLaterModule), RecommendationsModule],
+    imports: [PrismaModule, forwardRef(() => BuyLaterModule), forwardRef(() => RecommendationsModule)],
     controllers: [CartController],
     providers: [CartService],
     exports: [CartService, BuyLaterModule], // Exported for CheckoutModule usage

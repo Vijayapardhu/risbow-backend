@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BowService } from './bow.service';
 import { BowController } from './bow.controller';
 import { BowIntentService } from './bow-intent.service';
@@ -32,7 +32,7 @@ import { RecommendationsModule } from '../recommendations/recommendations.module
 import { RecommendationsController } from '../recommendations/recommendations.controller';
 
 @Module({
-    imports: [CartModule, PrismaModule, InventoryModule, CouponsModule, RecommendationsModule],
+    imports: [forwardRef(() => CartModule), PrismaModule, InventoryModule, CouponsModule, forwardRef(() => RecommendationsModule)],
     controllers: [BowController, RecommendationsController],
     providers: [
         BowService,

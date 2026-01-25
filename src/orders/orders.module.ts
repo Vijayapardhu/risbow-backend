@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
 import { OrdersAdminController } from './orders.admin.controller';
@@ -18,7 +18,7 @@ import { OrderStateValidatorService } from './order-state-validator.service';
 import { BowModule } from '../bow/bow.module';
 
 @Module({
-    imports: [RoomsModule, CoinsModule, InventoryModule, VendorsModule, CommonModule, BowModule, AuditModule, CheckoutModule, RecommendationsModule, ReferralsModule],
+    imports: [RoomsModule, CoinsModule, InventoryModule, VendorsModule, CommonModule, forwardRef(() => BowModule), AuditModule, CheckoutModule, forwardRef(() => RecommendationsModule), ReferralsModule],
     controllers: [OrdersController, OrdersAdminController],
     providers: [OrdersService, OrderStateMachine, OrderStateValidatorService],
     exports: [OrdersService],
