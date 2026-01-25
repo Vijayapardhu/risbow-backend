@@ -1,13 +1,13 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BuyLaterService } from './buy-later.service';
 import { BuyLaterController } from './buy-later.controller';
 import { PrismaModule } from '../prisma/prisma.module';
-import { SharedModule } from '../shared/shared.module';
+import { CartModule } from './cart.module';
 
 @Module({
   imports: [
     PrismaModule,
-    SharedModule
+    forwardRef(() => CartModule), // Use forwardRef to handle circular dependency
   ],
   controllers: [BuyLaterController],
   providers: [BuyLaterService],

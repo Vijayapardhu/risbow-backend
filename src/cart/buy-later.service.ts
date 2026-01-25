@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddToBuyLaterDto, UpdateBuyLaterDto, BuyLaterResponseDto } from './dto/buy-later.dto';
 import { NotificationsService } from '../shared/notifications.service';
@@ -12,6 +12,7 @@ export class BuyLaterService {
     constructor(
         private prisma: PrismaService,
         private notificationsService: NotificationsService,
+        @Inject(forwardRef(() => CartService))
         private cartService: CartService
     ) {}
 
