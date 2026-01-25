@@ -6,10 +6,54 @@ This guide covers deploying the RISBOW backend to Azure App Service (Linux) for 
 
 ## Architecture
 
-- **App Service**: Node.js API (Fastify)
+- **App Service**: Node.js API (Fastify) - **Node.js 22.x required**
 - **Database**: Azure PostgreSQL Flexible Server (private endpoint)
 - **Cache**: Azure Redis Cache
 - **Storage**: Azure Blob Storage
+
+## Node.js Version Configuration
+
+**IMPORTANT**: This project requires **Node.js 22.x**. Azure App Service must be configured to use Node.js 22.
+
+### Setting Node.js Version in Azure App Service
+
+1. **Via Azure Portal:**
+   - Go to Azure Portal → Your App Service → Configuration → General Settings
+   - Set **Stack** to `Node.js`
+   - Set **Stack Version** to `22.x` (or latest 22.x LTS)
+   - Click **Save**
+
+2. **Via Azure CLI:**
+   ```bash
+   az webapp config appsettings set \
+     --resource-group <your-resource-group> \
+     --name <your-app-name> \
+     --settings WEBSITE_NODE_DEFAULT_VERSION="~22"
+   ```
+
+3. **Via Application Settings (Environment Variable):**
+   Add to Application Settings:
+   ```
+   WEBSITE_NODE_DEFAULT_VERSION=~22
+   ```
+
+4. **Verify Node.js Version:**
+   After setting, verify via SSH or Kudu Console:
+   ```bash
+   node --version  # Should show v22.x.x
+   ```
+
+### Troubleshooting Node.js Version Issues
+
+If you see errors like:
+```
+TypeError: ansiStyles.bgColor[levelMapping[level]][model] is not a function
+```
+
+This indicates Node.js version mismatch. Ensure:
+- Azure App Service is set to Node.js 22.x
+- Restart the App Service after changing the version
+- Clear any cached build artifacts
 
 ## Environment Variables
 
@@ -160,7 +204,8 @@ Ensure the storage account key is set in `AZURE_STORAGE_ACCOUNT_KEY`.
 
 ### Development Checklist
 
-- [ ] App Service created (Linux, Node.js 20)
+- [ ] App Service created (Linux, Node.js 22)
+- [ ] Node.js version set to 22.x in App Service Configuration
 - [ ] PostgreSQL Flexible Server created (private endpoint)
 - [ ] Redis Cache created
 - [ ] Blob Storage account created

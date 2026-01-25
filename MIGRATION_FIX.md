@@ -28,6 +28,21 @@ END $$;
 
 ## Resolution Steps
 
+### ⚠️ IMPORTANT: If Migration Already Failed
+
+If you see error `P3009` saying the migration failed, you need to resolve it first:
+
+```bash
+# Step 1: Mark the failed migration as rolled back
+npx prisma migrate resolve --rolled-back manual_financial_snapshot_immutability
+
+# Step 2: Mark it as applied (since table doesn't exist yet)
+npx prisma migrate resolve --applied manual_financial_snapshot_immutability
+
+# Step 3: Continue with other migrations
+npx prisma migrate deploy
+```
+
 ### Option 1: Mark Migration as Applied (Recommended if table doesn't exist yet)
 
 If the `OrderFinancialSnapshot` table doesn't exist yet and will be created by a future Prisma migration:
