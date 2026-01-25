@@ -1,7 +1,6 @@
 import { Controller, Post, Body, UseGuards, Request, Logger, Get, Query, UseInterceptors, UploadedFile, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger';
 import { BowService } from './bow.service';
-import { BowVoiceAssistantService } from './bow-voice-assistant.service';
 import { BowVisualSearchService } from './bow-visual-search.service';
 import { BowMLPersonalizationEngine } from './bow-ml-personalization.service';
 import { BowFraudDetectionService } from './bow-fraud-detection.service';
@@ -17,7 +16,6 @@ export class BowController {
 
     constructor(
         private readonly bowService: BowService,
-        private readonly voiceAssistantService: BowVoiceAssistantService,
         private readonly visualSearchService: BowVisualSearchService,
         private readonly mlPersonalizationEngine: BowMLPersonalizationEngine,
         private readonly fraudDetectionService: BowFraudDetectionService,
@@ -46,66 +44,6 @@ export class BowController {
     async executeAction(@Request() req, @Body() dto: BowActionExecuteDto) {
         const userId = req.user?.id;
         return this.bowService.executeAction(userId, dto);
-    }
-
-    @Post('voice/process')
-    @UseGuards(JwtAuthGuard)
-    @UseInterceptors(FileInterceptor('audio'))
-    @ApiConsumes('multipart/form-data')
-    @ApiOperation({ summary: 'Process voice input and return audio response' })
-    async processVoice(
-        @Request() req,
-        @UploadedFile() audio: Express.Multer.File,
-        @Body('config') configJson?: string
-    ) {
-        try {
-            const userId = req.user?.id;
-            const config = configJson ? JSON.parse(configJson) : { provider: 'openai', language: 'en-US' };
-            
-            this.logger.log(`Voice request from user ${userId} with provider ${config.provider}`);
-
-            if (!audio) {
-                throw new Error('Audio file is required');
-            }
-
-            const response = await this.voiceAssistantService.processVoiceInput({
-                userId,
-                audioBuffer: audio.buffer,
-                config,
-                context: {}
-            });
-
-            // Return response with base64 encoded audio
-            return {
-                text: response.text,
-                audio: response.audioBuffer ? response.audioBuffer.toString('base64') : null,
-                confidence: response.confidence,
-                processingTime: response.processingTime
-            };
-        } catch (error) {
-            this.logger.error(`Voice processing error: ${error.message}`, error.stack);
-            throw error;
-        }
-    }
-
-    @Get('voice/voices')
-    @ApiOperation({ summary: 'Get available voices for text-to-speech' })
-    async getAvailableVoices(@Query('provider') provider: 'google' | 'openai' = 'openai') {
-        return await this.voiceAssistantService.getAvailableVoices(provider);
-    }
-
-    @Get('voice/status')
-    @ApiOperation({ summary: 'Check if voice assistant is ready' })
-    async getVoiceStatus() {
-        return await this.voiceAssistantService.isVoiceAssistantReady();
-    }
-
-    @Get('voice/stats')
-    @UseGuards(JwtAuthGuard)
-    @ApiOperation({ summary: 'Get voice assistant usage statistics' })
-    async getVoiceStats(@Request() req) {
-        const userId = req.user?.id;
-        return await this.voiceAssistantService.getVoiceStats(userId);
     }
 
     @Post('visual-search')
