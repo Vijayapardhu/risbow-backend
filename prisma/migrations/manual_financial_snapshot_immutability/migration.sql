@@ -15,4 +15,15 @@
 -- A database trigger could be added for additional protection, but application-level is preferred
 -- for better error messages and audit logging.
 
-COMMENT ON TABLE "OrderFinancialSnapshot" IS 'IMMUTABLE after order confirmation. Financial snapshot captures state at checkout and must never be modified once order status moves beyond PENDING. Protected by FinancialSnapshotGuardService.';
+-- Add comment only if table exists (table will be created by Prisma schema migration)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 
+    FROM information_schema.tables 
+    WHERE table_schema = 'public' 
+    AND table_name = 'OrderFinancialSnapshot'
+  ) THEN
+    COMMENT ON TABLE "OrderFinancialSnapshot" IS 'IMMUTABLE after order confirmation. Financial snapshot captures state at checkout and must never be modified once order status moves beyond PENDING. Protected by FinancialSnapshotGuardService.';
+  END IF;
+END $$;
