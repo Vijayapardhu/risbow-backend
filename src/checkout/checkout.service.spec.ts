@@ -51,7 +51,11 @@ describe('CheckoutService', () => {
         findFirst: jest.fn(),
       },
       checkoutGroup: {
-        create: jest.fn(),
+        create: jest.fn().mockResolvedValue({ id: 'checkout-group-1' }),
+        update: jest.fn().mockResolvedValue({ id: 'checkout-group-1' }),
+      },
+      abandonedCheckout: {
+        create: jest.fn().mockResolvedValue({ id: 'abandoned-1' }),
       },
       orderDeliverySlotSnapshot: {
         create: jest.fn(),
@@ -66,17 +70,17 @@ describe('CheckoutService', () => {
     };
 
     const mockPaymentsService = {
-      generateRazorpayOrder: jest.fn(),
+      generateRazorpayOrder: jest.fn().mockResolvedValue({ id: 'rzp_order_test123' }),
     };
 
     const mockGiftsService = {};
     const mockCouponsService = {};
     const mockRedisService = {
-      get: jest.fn(),
-      set: jest.fn(),
-      del: jest.fn(),
-      setnx: jest.fn(),
-      expire: jest.fn(),
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue('OK'),
+      del: jest.fn().mockResolvedValue(1),
+      setnx: jest.fn().mockResolvedValue(1),
+      expire: jest.fn().mockResolvedValue(1),
     };
     const mockPriceResolver = {
       resolvePriceDetailed: jest.fn().mockResolvedValue({ unitPrice: 1000 }),
@@ -207,12 +211,21 @@ describe('CheckoutService', () => {
       (prismaService.product.findUnique as jest.Mock).mockResolvedValue(cartWithVariant.items[0].product);
       inventoryService.reserveStock.mockResolvedValue(true);
 
-      // Mock transaction with productVariant.findFirst
+      // Mock transaction with all required Prisma methods
       const txMock = {
-        ...prismaService,
+        cart: prismaService.cart,
+        address: prismaService.address,
+        product: prismaService.product,
         productVariant: {
           findFirst: jest.fn().mockResolvedValue({ id: 'variant-1', stock: 5, price: 1100, attributes: {}, sku: 'SKU-1' }),
         },
+        checkoutGroup: prismaService.checkoutGroup,
+        order: prismaService.order,
+        orderDeliverySlotSnapshot: prismaService.orderDeliverySlotSnapshot,
+        cartItem: prismaService.cartItem,
+        giftSKU: prismaService.giftSKU,
+        coupon: prismaService.coupon,
+        abandonedCheckout: prismaService.abandonedCheckout,
       };
       (prismaService.$transaction as jest.Mock).mockImplementation((callback) => callback(txMock));
 

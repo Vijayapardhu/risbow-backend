@@ -395,11 +395,34 @@ describe('OrdersService', () => {
       };
 
       (prismaService.order.findMany as jest.Mock).mockResolvedValue([mockOrder]);
-      (prismaService.order.updateMany = jest.fn().mockResolvedValue({ count: 0 })); // Atomic flag set FAILED (already set)
-      (prismaService.product.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (prismaService.user.findUnique as jest.Mock).mockResolvedValue({ id: 'user-1', referredBy: null });
       (prismaService.payment.findMany as jest.Mock).mockResolvedValue([]);
       (prismaService.abandonedCheckout.findMany as jest.Mock).mockResolvedValue([]);
+
+      // Mock transaction - updateMany for coins flag returns count: 0 (already set by another process)
+      const txMock = {
+        order: {
+          ...prismaService.order,
+          updateMany: jest.fn()
+            .mockResolvedValueOnce({ count: 1 }) // First call: order status update succeeds
+            .mockResolvedValueOnce({ count: 0 }), // Second call: coins flag update fails (already set)
+        },
+        product: {
+          ...prismaService.product,
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        user: prismaService.user,
+        payment: prismaService.payment,
+        abandonedCheckout: {
+          ...prismaService.abandonedCheckout,
+          findUnique: jest.fn().mockResolvedValue({ metadata: {}, agentId: null }),
+          update: jest.fn().mockResolvedValue({}),
+        },
+        auditLog: prismaService.auditLog,
+        coinLedger: prismaService.coinLedger,
+        roomMember: prismaService.roomMember,
+      };
+      (prismaService.$transaction as jest.Mock).mockImplementation((callback) => callback(txMock));
 
       await service.confirmOrder({
         razorpayOrderId,
@@ -407,7 +430,7 @@ describe('OrdersService', () => {
         razorpaySignature: validSignature,
       });
 
-      // Coins should NOT be debited because updateMany returned count: 0
+      // Coins should NOT be debited because updateMany for coins flag returned count: 0 (already set)
       expect(coinsService.debit).not.toHaveBeenCalled();
     });
 
@@ -430,10 +453,32 @@ describe('OrdersService', () => {
       };
 
       (prismaService.order.findMany as jest.Mock).mockResolvedValue([mockOrder]);
-      (prismaService.product.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (prismaService.user.findUnique as jest.Mock).mockResolvedValue({ id: 'user-1', referredBy: null });
       (prismaService.payment.findMany as jest.Mock).mockResolvedValue([]);
       (prismaService.abandonedCheckout.findMany as jest.Mock).mockResolvedValue([]);
+
+      // Mock transaction - coinsUsed is 0, so coins debit should not be called
+      const txMock = {
+        order: {
+          ...prismaService.order,
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        product: {
+          ...prismaService.product,
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        user: prismaService.user,
+        payment: prismaService.payment,
+        abandonedCheckout: {
+          ...prismaService.abandonedCheckout,
+          findUnique: jest.fn().mockResolvedValue({ metadata: {}, agentId: null }),
+          update: jest.fn().mockResolvedValue({}),
+        },
+        auditLog: prismaService.auditLog,
+        coinLedger: prismaService.coinLedger,
+        roomMember: prismaService.roomMember,
+      };
+      (prismaService.$transaction as jest.Mock).mockImplementation((callback) => callback(txMock));
 
       await service.confirmOrder({
         razorpayOrderId,
@@ -441,7 +486,7 @@ describe('OrdersService', () => {
         razorpaySignature: validSignature,
       });
 
-      // Should not call updateMany for coins flag when coinsUsed is 0
+      // Should not call debit when coinsUsed is 0 (the if condition in orders.service.ts line 212 checks coinsUsed > 0)
       expect(coinsService.debit).not.toHaveBeenCalled();
     });
   });
@@ -472,16 +517,23 @@ describe('OrdersService', () => {
       // Mock inventoryService.deductStock to throw (insufficient stock)
       (inventoryService.deductStock as jest.Mock).mockRejectedValue(new BadRequestException('Insufficient stock'));
 
-      // Mock transaction
+      // Mock transaction with all required Prisma methods
       const txMock = {
         order: {
           ...prismaService.order,
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         },
-        product: prismaService.product,
+        product: {
+          ...prismaService.product,
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
         user: prismaService.user,
         payment: prismaService.payment,
-        abandonedCheckout: prismaService.abandonedCheckout,
+        abandonedCheckout: {
+          ...prismaService.abandonedCheckout,
+          findUnique: jest.fn().mockResolvedValue({ metadata: {}, agentId: null }),
+          update: jest.fn().mockResolvedValue({}),
+        },
         auditLog: prismaService.auditLog,
         coinLedger: prismaService.coinLedger,
         roomMember: prismaService.roomMember,
