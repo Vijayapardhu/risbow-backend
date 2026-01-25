@@ -117,6 +117,28 @@ Both endpoints:
 
 ## Server Configuration
 
+### Startup Command
+
+**⚠️ CRITICAL**: Azure App Service must use the production startup script:
+
+1. Go to **Azure Portal** → Your App Service → **Configuration** → **General Settings**
+2. Set **Startup Command** to:
+   ```bash
+   bash start.sh
+   ```
+   Or:
+   ```bash
+   npm run start:azure
+   ```
+3. Click **Save** and **Restart** the app
+
+**The `start.sh` script:**
+- Checks if `dist` folder exists (builds if missing)
+- Sets production environment
+- Starts the application with proper error handling
+
+**If you don't set this, Azure will try to run `npm start` which uses `nest start` (development mode) and will fail.**
+
 ### Port Handling
 
 **⚠️ CRITICAL**: Azure App Service injects `PORT` dynamically. The app MUST use `process.env.PORT` and listen on `0.0.0.0`:
