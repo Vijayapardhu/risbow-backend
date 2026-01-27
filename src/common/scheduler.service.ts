@@ -11,6 +11,9 @@ import { RedisService } from '../shared/redis.service';
 import { TelecallerService } from '../telecaller/telecaller.service';
 import { VendorMembershipsService } from '../vendor-memberships/vendor-memberships.service';
 import { CoinsService } from '../coins/coins.service';
+import { StoriesService } from '../stories/stories.service';
+import { ClearanceService } from '../clearance/clearance.service';
+import { VendorDisciplineService } from '../vendors/vendor-discipline.service';
 
 @Injectable()
 export class SchedulerService {
@@ -26,6 +29,9 @@ export class SchedulerService {
         private telecallerService: TelecallerService,
         private vendorMembershipsService: VendorMembershipsService,
         private coinsService: CoinsService,
+        private storiesService: StoriesService,
+        private clearanceService: ClearanceService,
+        private vendorDisciplineService: VendorDisciplineService,
     ) { }
 
     // SRS FR-2: Check expiry every min -> EXPIRED if past endAt.
@@ -236,6 +242,92 @@ export class SchedulerService {
                 }
             } catch (error) {
                 this.logger.error(`Membership auto-renewal failed: ${error.message}`);
+            }
+        }, 3600); // 1 hour lock TTL
+    }
+
+    // Stories Expiry - runs every hour
+    @Cron(CronExpression.EVERY_HOUR)
+    async handleStoriesExpiry() {
+        await this.redisLock.withLock('cron:stories-expiry', async () => {
+            this.logger.debug('Checking for expired stories...');
+            try {
+                const result = await this.storiesService.deleteExpiredStories();
+                if (result.deleted > 0) {
+                    this.logger.log(`Deleted ${result.deleted} expired stories`);
+                }
+            } catch (error) {
+                this.logger.error(`Stories expiry check failed: ${error.message}`);
+            }
+        }, 3600); // 1 hour lock TTL
+    }
+
+    // Clearance Expiry - runs daily at midnight
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    async handleClearanceExpiry() {
+        await this.redisLock.withLock('cron:clearance-expiry', async () => {
+            this.logger.debug('Checking for expired clearance products...');
+            try {
+                const result = await this.clearanceService.expireClearanceProducts();
+                if (result.deactivated > 0) {
+                    this.logger.log(`Deactivated ${result.deactivated} expired clearance products`);
+                }
+            } catch (error) {
+                this.logger.error(`Clearance expiry check failed: ${error.message}`);
+            }
+        }, 3600); // 1 hour lock TTL
+    }
+
+    // Auto-add products to clearance when near expiry (runs every 6 hours)
+    @Cron('0 */6 * * *')
+    async autoAddToClearance() {
+        await this.redisLock.withLock('cron:auto-clearance', async () => {
+            this.logger.debug('Checking for products near expiry to auto-add to clearance...');
+            try {
+                const result = await this.clearanceService.autoAddToClearance();
+                this.logger.log(`Auto-clearance check completed. Added ${result.added} products.`);
+            } catch (error) {
+                this.logger.error(`Auto-clearance check failed: ${error.message}`);
+            }
+        }, 1800); // 30 minute lock TTL
+    }
+
+    // Process Discipline State - runs every hour
+    @Cron(CronExpression.EVERY_HOUR)
+    async handleDisciplineStateProcessing() {
+        await this.redisLock.withLock('cron:discipline-state', async () => {
+            this.logger.debug('Processing discipline state updates...');
+            try {
+                // This would typically process any pending discipline state recalculations
+                // For now, we'll just log - actual processing happens on-demand via Edge Functions
+                this.logger.debug('Discipline state processing check completed');
+            } catch (error) {
+                this.logger.error(`Discipline state processing failed: ${error.message}`);
+            }
+        }, 3600); // 1 hour lock TTL
+    }
+
+    // Banner Expiry - runs every hour
+    @Cron(CronExpression.EVERY_HOUR)
+    async handleBannerExpiry() {
+        await this.redisLock.withLock('cron:banner-expiry', async () => {
+            this.logger.debug('Checking for expired banners...');
+            try {
+                const now = new Date();
+                const result = await this.prisma.banner.updateMany({
+                    where: {
+                        isActive: true,
+                        endDate: { lt: now },
+                    },
+                    data: {
+                        isActive: false,
+                    },
+                });
+                if (result.count > 0) {
+                    this.logger.log(`Deactivated ${result.count} expired banners`);
+                }
+            } catch (error) {
+                this.logger.error(`Banner expiry check failed: ${error.message}`);
             }
         }, 3600); // 1 hour lock TTL
     }

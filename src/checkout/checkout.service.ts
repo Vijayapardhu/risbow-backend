@@ -9,6 +9,7 @@ import { RedisService } from '../shared/redis.service';
 import { PriceResolverService } from '../common/price-resolver.service';
 import { DeliveryOptionsService } from '../delivery/delivery-options.service';
 import { GeoService } from '../shared/geo.service';
+import { VendorAvailabilityService } from '../vendors/vendor-availability.service';
 import { OrderStatus } from '@prisma/client';
 
 @Injectable()
@@ -25,6 +26,7 @@ export class CheckoutService {
         private readonly priceResolver: PriceResolverService,
         private readonly deliveryOptions: DeliveryOptionsService,
         private readonly geoService: GeoService,
+        private readonly vendorAvailability: VendorAvailabilityService,
     ) { }
 
     private allocateDiscountProportionally(totalDiscount: number, vendorSubtotals: Array<{ vendorId: string; subtotal: number }>) {
@@ -242,6 +244,16 @@ export class CheckoutService {
                     vendorGroups.get(it.vendorId)!.push(it);
                 }
                 const vendorIds = Array.from(vendorGroups.keys());
+
+                // 🔐 DB-LEVEL ENFORCEMENT: Check shop availability for each vendor
+                for (const vendorId of vendorIds) {
+                    const availability = await this.vendorAvailability.checkShopOpen(vendorId);
+                    if (!availability.isOpen) {
+                        throw new BadRequestException(
+                            `Cannot place order: Shop with vendor ID ${vendorId} is closed.${availability.nextOpenAt ? ` Next open at: ${availability.nextOpenAt}` : ''}`
+                        );
+                    }
+                }
 
                 // Validate deliverability per vendor
                 const perVendorEligibility = await Promise.all(

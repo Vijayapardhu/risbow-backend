@@ -942,6 +942,16 @@ export class AdminService {
         const order = await this.prisma.order.findUnique({ where: { id: orderId } });
         if (!order) throw new NotFoundException("Order not found");
 
+        // 🔐 ENFORCEMENT: Packing proof is mandatory before SHIPPED status (even for admins)
+        if (status === 'SHIPPED' || status === 'DISPATCHED') {
+            const proof = await this.prisma.orderPackingProof.findUnique({
+                where: { orderId },
+            });
+            if (!proof) {
+                throw new BadRequestException('Packing video proof is mandatory before order can be shipped. Please upload packing video first.');
+            }
+        }
+
         const updated = await this.prisma.order.update({
             where: { id: orderId },
             data: {

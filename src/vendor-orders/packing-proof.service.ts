@@ -51,16 +51,18 @@ export class PackingProofService {
       throw new BadRequestException('Failed to upload packing video to Supabase Storage');
     }
 
-    const proof = await this.prisma.orderPackingProof.upsert({
+    // Check if proof already exists (immutable after upload)
+    const existingProof = await this.prisma.orderPackingProof.findUnique({
       where: { orderId },
-      update: {
-        vendorId,
-        uploadedByUserId: userId,
-        videoPath: path,
-        videoMime: file.mimetype,
-        videoSizeBytes: file.size,
-      } as any,
-      create: {
+    });
+
+    if (existingProof) {
+      throw new BadRequestException('Packing proof already exists and cannot be modified. Video is immutable after upload.');
+    }
+
+    // Create proof (immutable - no updates allowed)
+    const proof = await this.prisma.orderPackingProof.create({
+      data: {
         orderId,
         vendorId,
         uploadedByUserId: userId,

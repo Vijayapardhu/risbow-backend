@@ -104,5 +104,53 @@ export class CoinValuationService {
       return created;
     });
   }
+
+  /**
+   * Get coins awarded per 5-star rating (configurable by admin)
+   * Default: 2 coins
+   */
+  async getCoinsPerFiveStarRating(): Promise<number> {
+    try {
+      const config = await (this.prisma as any).platformConfig.findUnique({
+        where: { key: 'RATING_5_STAR_COINS' },
+      });
+
+      if (!config || !config.value) {
+        return 2; // Default: 2 coins
+      }
+
+      const coins = parseInt(config.value as string, 10);
+      return Number.isNaN(coins) ? 2 : coins;
+    } catch (error) {
+      this.logger.warn('Failed to get rating coins config, using default: 2');
+      return 2;
+    }
+  }
+
+  /**
+   * Set coins awarded per 5-star rating (configurable by admin)
+   * Stores in PlatformConfig table
+   */
+  async setCoinsPerFiveStarRating(actorUserId: string, coins: number): Promise<any> {
+    if (!Number.isInteger(coins) || coins < 0) {
+      throw new BadRequestException('coins must be a non-negative integer');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const config = await (tx as any).platformConfig.upsert({
+        where: { key: 'RATING_5_STAR_COINS' },
+        create: {
+          key: 'RATING_5_STAR_COINS',
+          value: coins.toString(),
+        },
+        update: {
+          value: coins.toString(),
+        },
+      });
+
+      this.logger.log(`Admin ${actorUserId} set rating coins to ${coins}`);
+      return config;
+    });
+  }
 }
 

@@ -2,6 +2,7 @@ import { Controller, Post, UseInterceptors, UploadedFile, UseGuards, Req, BadReq
 import { CreateProductDto, UpdateProductDto, ProductStatusDto } from './dto/product.dto';
 import { SaveProductSpecsDto } from './dto/product-specs.dto';
 import { VariationDto } from './dto/variation.dto';
+import { UpdateProductExpiryDto, BulkUpdateExpiryDto } from './dto/update-product-expiry.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { VendorProductsService } from './vendor-products.service';
@@ -57,8 +58,16 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get all products for vendor' })
-    async findAll(@Req() req) {
-        return this.productsService.findAllProducts(req.user.id);
+    async findAll(@Req() req, @Query('includeExpiry') includeExpiry?: string) {
+        return this.productsService.findAllProducts(req.user.id, includeExpiry === 'true');
+    }
+
+    @Get('expiring-soon')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Get products expiring soon (for auto-clearance preview)' })
+    async getExpiringSoon(@Req() req, @Query('days') days?: string) {
+        return this.productsService.getExpiringSoon(req.user.id, days ? parseInt(days) : 7);
     }
 
     @Put(':id')
@@ -131,5 +140,21 @@ export class VendorProductsController {
     @ApiOperation({ summary: 'Unpublish a product (Published -> Draft)' })
     async unpublish(@Req() req, @Param('id') id: string) {
         return this.productsService.unpublishProduct(req.user.id, id);
+    }
+
+    @Patch(':id/expiry')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Update product expiry date and auto-clearance settings' })
+    async updateExpiry(@Req() req, @Param('id') id: string, @Body() dto: UpdateProductExpiryDto) {
+        return this.productsService.updateProductExpiry(req.user.id, id, dto);
+    }
+
+    @Post('bulk-update-expiry')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Bulk update expiry dates for multiple products' })
+    async bulkUpdateExpiry(@Req() req, @Body() dto: BulkUpdateExpiryDto) {
+        return this.productsService.bulkUpdateExpiry(req.user.id, dto);
     }
 }

@@ -19,6 +19,8 @@ import { CheckoutService } from '../checkout/checkout.service';
 import { PaymentMode } from '../checkout/dto/checkout.dto';
 import { EcommerceEventsService } from '../recommendations/ecommerce-events.service';
 import { ReferralRewardsService } from '../referrals/referral-rewards.service';
+import { PackingProofService } from '../vendor-orders/packing-proof.service';
+import { VendorDisciplineService } from '../vendors/vendor-discipline.service';
 // import { UserProductEventType } from '@prisma/client'; // Use any casting in code to bypass lint
 
 @Injectable()
@@ -44,6 +46,8 @@ export class OrdersService {
         private checkoutService: CheckoutService,
         private events: EcommerceEventsService,
         private referralRewards: ReferralRewardsService,
+        private packingProof: PackingProofService,
+        private vendorDiscipline: VendorDisciplineService,
     ) {
         this.razorpay = new Razorpay({
             key_id: this.configService.get('RAZORPAY_KEY_ID'),
@@ -677,6 +681,13 @@ export class OrdersService {
     }
 
     async updateOrderStatus(orderId: string, status: OrderStatus, adminId?: string, role?: string, notes?: string) {
+        // 🔐 ENFORCEMENT: Packing proof is mandatory before SHIPPED status (even for admins)
+        if (status === OrderStatus.SHIPPED) {
+            const hasProof = await this.packingProof.hasProof(orderId);
+            if (!hasProof) {
+                throw new BadRequestException('Packing video proof is mandatory before order can be shipped. Please upload packing video first.');
+            }
+        }
         const order = await this.prisma.order.findUnique({
             where: { id: orderId }
         });
@@ -704,6 +715,44 @@ export class OrdersService {
             where: { id: orderId },
             data: { status }
         });
+
+        // Process vendor discipline for DELIVERED orders
+        if (status === OrderStatus.DELIVERED && order.status !== OrderStatus.DELIVERED) {
+            try {
+                // Extract vendor ID from order items
+                const items = (order.items as any[]) || [];
+                const vendorIds = [...new Set(items.map(item => item.vendorId).filter(Boolean))];
+                
+                // Process successful delivery for each vendor
+                for (const vendorId of vendorIds) {
+                    await this.vendorDiscipline.processSuccessfulDelivery(vendorId, orderId);
+                }
+            } catch (error) {
+                this.logger.error(`Failed to process successful delivery for order ${orderId}: ${error.message}`);
+                // Don't fail the order update if discipline processing fails
+            }
+        }
+
+        // Process vendor discipline for CANCELLED/RETURNED orders (missed delivery = strike)
+        if ((status === OrderStatus.CANCELLED || status === OrderStatus.RETURNED) && 
+            (order.status === OrderStatus.SHIPPED || order.status === OrderStatus.PACKED)) {
+            try {
+                const items = (order.items as any[]) || [];
+                const vendorIds = [...new Set(items.map(item => item.vendorId).filter(Boolean))];
+                
+                // Add strike for missed delivery
+                for (const vendorId of vendorIds) {
+                    await this.vendorDiscipline.addStrike(
+                        vendorId,
+                        orderId,
+                        `Order ${status.toLowerCase()} after being shipped/packed`
+                    );
+                }
+            } catch (error) {
+                this.logger.error(`Failed to add strike for missed delivery for order ${orderId}: ${error.message}`);
+                // Don't fail the order update if discipline processing fails
+            }
+        }
 
         // Audit Log if admin context is provided
         if (adminId) {

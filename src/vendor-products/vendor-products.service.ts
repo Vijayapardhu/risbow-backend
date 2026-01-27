@@ -239,10 +239,74 @@ export class VendorProductsService {
         });
     }
 
-    async findAllProducts(vendorId: string) {
+    async findAllProducts(vendorId: string, includeExpiry: boolean = false) {
+        const select: any = {};
+        if (includeExpiry) {
+            select.expiryDate = true;
+            select.disableAutoClearance = true;
+        }
+
         return this.prisma.product.findMany({
             where: { vendorId },
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
+            select: includeExpiry ? {
+                ...select,
+                id: true,
+                title: true,
+                price: true,
+                offerPrice: true,
+                stock: true,
+                images: true,
+                isActive: true,
+                expiryDate: true,
+                disableAutoClearance: true,
+                createdAt: true,
+                updatedAt: true,
+            } : undefined,
+        });
+    }
+
+    async getExpiringSoon(vendorId: string, days: number = 7) {
+        const vendor = await this.prisma.vendor.findUnique({
+            where: { id: vendorId },
+            select: {
+                autoClearanceThresholdDays: true,
+            },
+        });
+
+        const thresholdDays = vendor?.autoClearanceThresholdDays ?? days;
+        const thresholdDate = new Date();
+        thresholdDate.setDate(thresholdDate.getDate() + thresholdDays);
+
+        return this.prisma.product.findMany({
+            where: {
+                vendorId,
+                expiryDate: {
+                    not: null,
+                    gte: new Date(),
+                    lte: thresholdDate,
+                },
+                isActive: true,
+                disableAutoClearance: false,
+                clearanceProducts: {
+                    none: {
+                        isActive: true,
+                    },
+                },
+            },
+            select: {
+                id: true,
+                title: true,
+                price: true,
+                offerPrice: true,
+                stock: true,
+                expiryDate: true,
+                images: true,
+            },
+            orderBy: {
+                expiryDate: 'asc',
+            },
+            take: 50,
         });
     }
 
@@ -516,6 +580,78 @@ export class VendorProductsService {
                 lowPriceMax: this.FREE_LISTING_LIMITS.LOW_PRICE.max,
                 highPriceMax: this.FREE_LISTING_LIMITS.HIGH_PRICE.max,
             },
+        };
+    }
+
+    async updateProductExpiry(vendorId: string, productId: string, dto: { expiryDate?: string; disableAutoClearance?: boolean }) {
+        // Verify product belongs to vendor
+        const product = await this.prisma.product.findUnique({
+            where: { id: productId },
+            select: { vendorId: true },
+        });
+
+        if (!product) {
+            throw new BadRequestException('Product not found');
+        }
+
+        if (product.vendorId !== vendorId) {
+            throw new BadRequestException('Unauthorized. Product does not belong to you.');
+        }
+
+        const updateData: any = {};
+        if (dto.expiryDate !== undefined) {
+            updateData.expiryDate = dto.expiryDate ? new Date(dto.expiryDate) : null;
+        }
+        if (dto.disableAutoClearance !== undefined) {
+            updateData.disableAutoClearance = dto.disableAutoClearance;
+        }
+
+        return this.prisma.product.update({
+            where: { id: productId },
+            data: updateData,
+            select: {
+                id: true,
+                title: true,
+                expiryDate: true,
+                disableAutoClearance: true,
+            },
+        });
+    }
+
+    async bulkUpdateExpiry(vendorId: string, dto: { productIds: string[]; expiryDate: string; disableAutoClearance?: boolean }) {
+        // Verify all products belong to vendor
+        const products = await this.prisma.product.findMany({
+            where: {
+                id: { in: dto.productIds },
+                vendorId,
+            },
+            select: { id: true },
+        });
+
+        if (products.length !== dto.productIds.length) {
+            throw new BadRequestException('Some products do not belong to you or were not found.');
+        }
+
+        const expiryDate = new Date(dto.expiryDate);
+        const updateData: any = {
+            expiryDate,
+        };
+
+        if (dto.disableAutoClearance !== undefined) {
+            updateData.disableAutoClearance = dto.disableAutoClearance;
+        }
+
+        const result = await this.prisma.product.updateMany({
+            where: {
+                id: { in: dto.productIds },
+                vendorId,
+            },
+            data: updateData,
+        });
+
+        return {
+            updated: result.count,
+            message: `Updated expiry date for ${result.count} products`,
         };
     }
 }

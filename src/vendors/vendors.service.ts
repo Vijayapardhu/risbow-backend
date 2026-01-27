@@ -18,6 +18,48 @@ export class VendorsService {
         private availability: VendorAvailabilityService,
     ) { }
 
+    async updateAutoClearanceSettings(vendorId: string, dto: { autoClearanceThresholdDays?: number; defaultClearanceDiscountPercent?: number }) {
+        const updateData: any = {};
+        if (dto.autoClearanceThresholdDays !== undefined) {
+            updateData.autoClearanceThresholdDays = dto.autoClearanceThresholdDays;
+        }
+        if (dto.defaultClearanceDiscountPercent !== undefined) {
+            updateData.defaultClearanceDiscountPercent = dto.defaultClearanceDiscountPercent;
+        }
+
+        const vendor = await this.prisma.vendor.update({
+            where: { id: vendorId },
+            data: updateData,
+            select: {
+                id: true,
+                autoClearanceThresholdDays: true,
+                defaultClearanceDiscountPercent: true,
+            },
+        });
+
+        return vendor;
+    }
+
+    async getAutoClearanceSettings(vendorId: string) {
+        const vendor = await this.prisma.vendor.findUnique({
+            where: { id: vendorId },
+            select: {
+                id: true,
+                autoClearanceThresholdDays: true,
+                defaultClearanceDiscountPercent: true,
+            },
+        });
+
+        if (!vendor) {
+            throw new NotFoundException('Vendor not found');
+        }
+
+        return {
+            autoClearanceThresholdDays: vendor.autoClearanceThresholdDays ?? 7,
+            defaultClearanceDiscountPercent: vendor.defaultClearanceDiscountPercent ?? 20,
+        };
+    }
+
     private distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
         const toRad = (x: number) => (x * Math.PI) / 180;
         const R = 6371;

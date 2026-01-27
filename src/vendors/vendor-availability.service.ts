@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 // VendorStatus enum - defined in Prisma schema but may not be exported
 enum VendorStatus {
@@ -19,6 +20,40 @@ type Availability = {
 
 @Injectable()
 export class VendorAvailabilityService {
+  constructor(private prisma: PrismaService) {}
+
+  /**
+   * Checks if shop is open using PostgreSQL function (DB-level enforcement)
+   */
+  async checkShopOpen(vendorId: string): Promise<{ isOpen: boolean; nextOpenAt?: Date }> {
+    try {
+      // Call PostgreSQL function: is_shop_open(vendor_id, NOW())
+      const result = await this.prisma.$queryRaw<Array<{ is_shop_open: boolean }>>`
+        SELECT is_shop_open(${vendorId}, NOW()) as is_shop_open
+      `;
+
+      const isOpen = result[0]?.is_shop_open || false;
+
+      // Get vendor details for nextOpenAt if closed
+      let nextOpenAt: Date | undefined;
+      if (!isOpen) {
+        const vendor = await this.prisma.vendor.findUnique({
+          where: { id: vendorId },
+          select: { storeClosedUntil: true, storeTimings: true },
+        });
+
+        if (vendor?.storeClosedUntil) {
+          nextOpenAt = vendor.storeClosedUntil;
+        }
+      }
+
+      return { isOpen, nextOpenAt };
+    } catch (error) {
+      console.error('Error checking shop availability:', error);
+      return { isOpen: false };
+    }
+  }
+
   /**
    * Computes if a vendor is open now based on:
    * - storeStatus (ACTIVE/SUSPENDED)

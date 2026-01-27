@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Put, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Put, Query, Req, UseGuards, BadRequestException } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -47,6 +47,50 @@ export class CoinValuationController {
     );
 
     return created;
+  }
+
+  @Put('rating-coins')
+  @ApiOperation({ summary: 'Set coins awarded per 5-star rating (configurable)' })
+  async setRatingCoins(@Req() req: any, @Body() body: { coins: number }) {
+    const actorUserId = req?.user?.id;
+    const { coins } = body;
+
+    if (!Number.isInteger(coins) || coins < 0) {
+      throw new BadRequestException('coins must be a non-negative integer');
+    }
+
+    // Store in PlatformConfig
+    const config = await this.valuation['prisma'].platformConfig.upsert({
+      where: { key: 'RATING_5_STAR_COINS' },
+      create: {
+        key: 'RATING_5_STAR_COINS',
+        value: coins.toString(),
+      },
+      update: {
+        value: coins.toString(),
+      },
+    });
+
+    await this.audit.logAdminAction(
+      actorUserId,
+      'SET_RATING_COINS',
+      'PlatformConfig',
+      'RATING_5_STAR_COINS',
+      { coins },
+    );
+
+    return { success: true, coins, message: `5-star ratings will now award ${coins} Bow Coins to vendors` };
+  }
+
+  @Get('rating-coins')
+  @ApiOperation({ summary: 'Get current coins awarded per 5-star rating' })
+  async getRatingCoins() {
+    const config = await this.valuation['prisma'].platformConfig.findUnique({
+      where: { key: 'RATING_5_STAR_COINS' },
+    });
+
+    const coins = config ? parseInt(config.value as string) || 2 : 2; // Default: 2 coins
+    return { coins };
   }
 }
 

@@ -1,8 +1,9 @@
-import { Controller, Post, Body, Get, UseGuards, Request, Query } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Request, Query, Patch } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { VendorsService } from './vendors.service';
 import { RegisterVendorDto } from './dto/vendor.dto';
 import { PurchaseBannerDto } from './dto/purchase-banner.dto';
+import { UpdateAutoClearanceSettingsDto } from './dto/update-auto-clearance-settings.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -92,6 +93,27 @@ export class VendorsController {
             startDate: new Date(dto.startDate),
             endDate: new Date(dto.endDate)
         });
+    }
+
+    @Patch('settings/auto-clearance')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('VENDOR')
+    @ApiOperation({ summary: 'Update auto-clearance settings (threshold days and discount %)' })
+    @ApiResponse({ status: 200, description: 'Auto-clearance settings updated successfully' })
+    async updateAutoClearanceSettings(
+      @Request() req: any,
+      @Body() dto: UpdateAutoClearanceSettingsDto,
+    ) {
+      return this.vendorsService.updateAutoClearanceSettings(req.user.id, dto);
+    }
+
+    @Get('settings/auto-clearance')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('VENDOR')
+    @ApiOperation({ summary: 'Get current auto-clearance settings' })
+    @ApiResponse({ status: 200, description: 'Auto-clearance settings' })
+    async getAutoClearanceSettings(@Request() req: any) {
+      return this.vendorsService.getAutoClearanceSettings(req.user.id);
     }
 
     @Post('kyc')

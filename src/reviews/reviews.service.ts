@@ -2,12 +2,16 @@ import { Injectable, BadRequestException, NotFoundException, ForbiddenException 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReviewDto, UpdateReviewDto, ReportReviewDto } from './dto/review.dto';
 import { CacheService } from '../shared/cache.service';
+import { VendorBowCoinLedgerService } from '../vendors/vendor-bow-coin-ledger.service';
+import { CoinValuationService } from '../coins/coin-valuation.service';
 
 @Injectable()
 export class ReviewsService {
     constructor(
         private prisma: PrismaService,
-        private cache: CacheService
+        private cache: CacheService,
+        private vendorBowCoinLedger: VendorBowCoinLedgerService,
+        private coinValuation: CoinValuationService,
     ) { }
 
     async create(userId: string, productId: string, dto: CreateReviewDto) {
@@ -57,6 +61,23 @@ export class ReviewsService {
                 status: 'ACTIVE'
             }
         });
+
+        // 5. If 5-star rating, award Bow Coins to vendor (ledger-based)
+        if (dto.rating === 5) {
+            try {
+                // Get coins per rating from config (default: 2 coins)
+                const coinsPerRating = await this.coinValuation.getCoinsPerFiveStarRating();
+                await this.vendorBowCoinLedger.creditVendorCoins(
+                    product.vendorId,
+                    coinsPerRating,
+                    'RATING_5_STAR',
+                    review.id,
+                );
+            } catch (error) {
+                // Log error but don't fail review creation
+                console.error('Failed to award Bow Coins for 5-star rating:', error);
+            }
+        }
 
         // Invalidate Product Reviews Cache
         await this.cache.delPattern(`reviews:product:${productId}:*`);

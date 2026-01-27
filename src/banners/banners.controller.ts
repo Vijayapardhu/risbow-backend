@@ -75,11 +75,12 @@ export class BannersController {
     @HttpCode(HttpStatus.OK)
     @ApiOperation({
         summary: 'Track banner event',
-        description: 'Track impression or click event for analytics',
+        description: 'Track impression or click event for analytics (ledger-based)',
     })
     @ApiResponse({ status: 200, description: 'Event tracked successfully' })
-    async trackBannerEvent(@Param('id') id: string, @Body() dto: TrackBannerDto) {
-        await this.bannersService.trackBannerEvent(id, dto.event);
+    async trackBannerEvent(@Param('id') id: string, @Body() dto: TrackBannerDto, @Request() req?: any) {
+        const userId = req?.user?.id;
+        await this.bannersService.trackBannerEvent(id, dto.event, userId);
         return { message: 'Event tracked successfully' };
     }
 

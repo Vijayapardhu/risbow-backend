@@ -40,6 +40,13 @@ import { BetModule } from './bet/bet.module';
 import { WholesalersModule } from './wholesalers/wholesalers.module';
 import { IdempotencyModule } from './idempotency/idempotency.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { StoriesModule } from './stories/stories.module';
+import { ReelsModule } from './reels/reels.module';
+import { CreatorsModule } from './creators/creators.module';
+import { ClearanceModule } from './clearance/clearance.module';
+import { VendorDocumentsModule } from './vendor-documents/vendor-documents.module';
+import { ContentModerationModule } from './moderation/content-moderation.module';
+import { BannerCampaignsModule } from './banner-campaigns/banner-campaigns.module';
 
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { SharedModule } from './shared/shared.module';
@@ -105,6 +112,13 @@ import { HealthController } from './common/health.controller';
         WalletModule,
         BetModule,
         WholesalersModule,
+        StoriesModule,
+        ReelsModule,
+        CreatorsModule,
+        ClearanceModule,
+        VendorDocumentsModule,
+        ContentModerationModule,
+        BannerCampaignsModule,
         // QueuesModule handled above in conditional import
     ],
     controllers: [HealthController], // RootHealthController registered manually in main.ts

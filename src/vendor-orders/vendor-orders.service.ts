@@ -97,6 +97,14 @@ export class VendorOrdersService {
     }
 
     async updateOrderStatus(vendorId: string, orderId: string, status: string) {
+        // 🔐 ENFORCEMENT: Packing proof is mandatory before SHIPPED status
+        if (status === 'SHIPPED' || status === OrderStatus.SHIPPED) {
+            const hasProof = await this.packingProof.hasProof(orderId);
+            if (!hasProof) {
+                throw new BadRequestException('Packing video proof is mandatory before order can be shipped. Please upload packing video first.');
+            }
+        }
+
         // 1. Verify Ownership
         const order = await this.prisma.order.findUnique({ where: { id: orderId } });
         if (!order) throw new NotFoundException('Order not found');

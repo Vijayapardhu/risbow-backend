@@ -435,52 +435,110 @@ export class BannersService {
     }
 
     /**
-     * Track banner event (impression or click)
-     * Now uses background queue for non-blocking analytics
+     * Track banner impression (ledger-based, NO counter)
      */
-    async trackBannerEvent(id: string, event: string): Promise<void> {
-        this.logger.log(`Tracking ${event} for banner ${id}`);
-
-        // Verify banner exists (quick check)
+    async trackImpression(bannerId: string, userId?: string): Promise<void> {
+        // Verify banner exists
         const banner = await this.prisma.banner.findUnique({
-            where: { id },
+            where: { id: bannerId },
             select: { id: true },
         });
 
         if (!banner) {
-            this.logger.warn(`Banner ${id} not found, skipping tracking`);
+            this.logger.warn(`Banner ${bannerId} not found, skipping tracking`);
             return;
         }
 
-        // Queue analytics event for background processing
-        await this.queues.addBannerAnalytics({
-            bannerId: id,
-            eventType: event as 'impression' | 'click',
-            timestamp: new Date(),
+        // Create ledger entry (NO counter update)
+        await this.prisma.bannerImpressionLedger.create({
+            data: {
+                bannerId,
+                userId: userId || null,
+                viewedAt: new Date(),
+            },
         });
-
-        this.logger.debug(`${event} queued for banner ${id}`);
     }
 
     /**
-     * Get banner analytics (admin)
+     * Track banner click (ledger-based, NO counter)
      */
-    async getBannerAnalytics(id: string) {
-        const banner = await this.getBannerById(id);
+    async trackClick(bannerId: string, userId?: string): Promise<void> {
+        // Find the most recent impression for this user/banner
+        const impression = await this.prisma.bannerImpressionLedger.findFirst({
+            where: {
+                bannerId,
+                userId: userId || null,
+                clickedAt: null,
+            },
+            orderBy: { viewedAt: 'desc' },
+        });
+
+        if (impression) {
+            // Update existing impression with click
+            await this.prisma.bannerImpressionLedger.update({
+                where: { id: impression.id },
+                data: { clickedAt: new Date() },
+            });
+        } else {
+            // Create new entry with both view and click
+            await this.prisma.bannerImpressionLedger.create({
+                data: {
+                    bannerId,
+                    userId: userId || null,
+                    viewedAt: new Date(),
+                    clickedAt: new Date(),
+                },
+            });
+        }
+    }
+
+    /**
+     * Track banner event (impression or click) - Legacy method for compatibility
+     */
+    async trackBannerEvent(id: string, event: string, userId?: string): Promise<void> {
+        if (event === 'impression') {
+            await this.trackImpression(id, userId);
+        } else if (event === 'click') {
+            await this.trackClick(id, userId);
+        }
+    }
+
+    /**
+     * Get banner analytics (ledger-based, NO counters)
+     */
+    async getBannerStats(bannerId: string) {
+        const banner = await this.getBannerById(bannerId);
+
+        // Count impressions from ledger
+        const impressions = await this.prisma.bannerImpressionLedger.count({
+            where: { bannerId },
+        });
+
+        // Count clicks from ledger
+        const clicks = await this.prisma.bannerImpressionLedger.count({
+            where: {
+                bannerId,
+                clickedAt: { not: null },
+            },
+        });
 
         const metadata = this.parseMetadata(banner as any);
 
         return {
-            bannerId: id,
+            bannerId,
             slotType: banner.slotType,
             slotKey: metadata.slotKey,
-            impressions: metadata.analytics?.impressions || 0,
-            clicks: metadata.analytics?.clicks || 0,
-            ctr: this.calculateCTR(
-                metadata.analytics?.impressions || 0,
-                metadata.analytics?.clicks || 0,
-            ),
+            impressions, // Calculated from ledger
+            clicks, // Calculated from ledger
+            ctr: this.calculateCTR(impressions, clicks),
         };
+    }
+
+    /**
+     * Get banner analytics (admin) - Legacy method for compatibility
+     */
+    async getBannerAnalytics(id: string) {
+        return this.getBannerStats(id);
     }
 
     /**

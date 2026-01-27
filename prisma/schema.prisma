@@ -146,15 +146,15 @@ model UserPreferenceProfile {
 }
 
 model User {
-  id                                                 String                  @id @default(cuid())
-  mobile                                             String                  @unique
+  id                                                 String                   @id @default(cuid())
+  mobile                                             String                   @unique
   name                                               String?
-  email                                              String?                 @unique
+  email                                              String?                  @unique
   password                                           String?
-  role                                               UserRole                @default(CUSTOMER)
-  status                                             UserStatus              @default(ACTIVE)
-  coinsBalance                                       Int                     @default(0)
-  referralCode                                       String                  @unique @default(cuid())
+  role                                               UserRole                 @default(CUSTOMER)
+  status                                             UserStatus               @default(ACTIVE)
+  coinsBalance                                       Int                      @default(0)
+  referralCode                                       String                   @unique @default(cuid())
   referredBy                                         String?
   dateOfBirth                                        DateTime?
   gender                                             String?
@@ -162,22 +162,22 @@ model User {
   footwearSize                                       Int?
   stylePrefs                                         String?
   colors                                             String?
-  riskTag                                            RiskTag                 @default(LOW)
-  valueTag                                           ValueTag                @default(NORMAL)
-  isCodDisabled                                      Boolean                 @default(false)
-  isRefundsDisabled                                  Boolean                 @default(false)
-  createdAt                                          DateTime                @default(now())
+  riskTag                                            RiskTag                  @default(LOW)
+  valueTag                                           ValueTag                 @default(NORMAL)
+  isCodDisabled                                      Boolean                  @default(false)
+  isRefundsDisabled                                  Boolean                  @default(false)
+  createdAt                                          DateTime                 @default(now())
   forceLogoutAt                                      DateTime?
   kycDocuments                                       Json?
-  kycStatus                                          String                  @default("NOT_SUBMITTED")
+  kycStatus                                          String                   @default("NOT_SUBMITTED")
   miscDocuments                                      Json?
-  updatedAt                                          DateTime                @updatedAt
-  metadata                                           Json?                   @default("{}")
-  assignedLeads                                      AbandonedCheckout[]     @relation("AgentCheckouts")
+  updatedAt                                          DateTime                 @updatedAt
+  metadata                                           Json?                    @default("{}")
+  assignedLeads                                      AbandonedCheckout[]      @relation("AgentCheckouts")
   abandonedCheckouts                                 AbandonedCheckout[]
   addresses                                          Address[]
-  authoredNotes                                      AdminNote[]             @relation("AdminAuthor")
-  receivedNotes                                      AdminNote[]             @relation("UserNotes")
+  authoredNotes                                      AdminNote[]              @relation("AdminAuthor")
+  receivedNotes                                      AdminNote[]              @relation("UserNotes")
   auditLogs                                          AuditLog[]
   bets                                               Bet[]
   bowActionLogs                                      BowActionLog[]
@@ -187,21 +187,21 @@ model User {
   cartInsights                                       CartInsight[]
   leadFollowups                                      CheckoutFollowup[]
   coinLedger                                         CoinLedger[]
-  coinValuationsSet                                  CoinValuation[]         @relation("CoinValuationSetBy")
+  coinValuationsSet                                  CoinValuation[]          @relation("CoinValuationSetBy")
   ledger                                             LedgerEntry[]
   notifications                                      Notification[]
   orders                                             Order[]
-  paymentIntentsCreated                              PaymentIntent[]         @relation("PaymentIntentCreatedBy")
+  paymentIntentsCreated                              PaymentIntent[]          @relation("PaymentIntentCreatedBy")
   productSearchMisses                                ProductSearchMiss[]
   recommendationEvents                               RecommendationEvent[]
-  ReferralTracking_ReferralTracking_refereeIdToUser  ReferralTracking[]      @relation("ReferralTracking_refereeIdToUser")
-  ReferralTracking_ReferralTracking_referrerIdToUser ReferralTracking[]      @relation("ReferralTracking_referrerIdToUser")
-  ReferralRewardGrantsAsInviter                      ReferralRewardGrant[]   @relation("ReferralInviter")
-  ReferralRewardGrantsAsInvitee                      ReferralRewardGrant[]   @relation("ReferralInvitee")
+  ReferralTracking_ReferralTracking_refereeIdToUser  ReferralTracking[]       @relation("ReferralTracking_refereeIdToUser")
+  ReferralTracking_ReferralTracking_referrerIdToUser ReferralTracking[]       @relation("ReferralTracking_referrerIdToUser")
+  ReferralRewardGrantsAsInviter                      ReferralRewardGrant[]    @relation("ReferralInviter")
+  ReferralRewardGrantsAsInvitee                      ReferralRewardGrant[]    @relation("ReferralInvitee")
   checkoutGroups                                     CheckoutGroup[]
   localPromotionsSet                                 LocalPromotion[]
   referralRewardRulesSet                             ReferralRewardRule[]
-  packingProofsUploaded                             OrderPackingProof[]
+  packingProofsUploaded                              OrderPackingProof[]
   reports                                            Report[]
   returns                                            ReturnRequest[]
   reviews                                            Review[]
@@ -212,9 +212,12 @@ model User {
   userPreferenceProfile                              UserPreferenceProfile?
   productEvents                                      UserProductEvent[]
   VendorFollower                                     VendorFollower[]
-  vendorInquiriesRequested                           VendorInquiry[]         @relation("VendorInquiryRequester")
+  vendorInquiriesRequested                           VendorInquiry[]          @relation("VendorInquiryRequester")
   wallet                                             Wallet?
   wishlist                                           Wishlist[]
+  bannerImpressions                                  BannerImpressionLedger[]
+  reelInteractions                                   ReelInteractionLedger[]
+  creatorProfile                                     CreatorProfile?
 
   @@index([role])
   @@index([status])
@@ -368,54 +371,66 @@ model CoinLedger {
 }
 
 model Vendor {
-  id                 String            @id @default(cuid())
-  name               String
-  mobile             String            @unique
-  email              String?
-  kycStatus          String            @default("PENDING")
-  tier               String            @default("BASIC")
-  gstNumber          String?
-  isGstVerified      Boolean           @default(false)
-  kycDocuments       Json?
-  skuLimit           Int               @default(100)
-  role               VendorRole        @default(RETAILER)
-  coinsBalance       Int               @default(0)
-  followCount        Int               @default(0)
-  vendorCode         String?           @unique
-  commissionRate     Float             @default(0.0)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  strikes            Int               @default(0)
-  bankDetails        Json?
-  lastPayoutDate     DateTime?
-  pendingEarnings    Int               @default(0)
-  performanceScore   Float             @default(0.0)
-  pickupEnabled      Boolean           @default(false)
-  pickupTimings      Json?
-  storeBanner        String?
-  storeLogo          String?
-  storeName          String?
-  storeTimings       Json?
-  commissionOverride Decimal?          @db.Decimal(5, 4)
-  latitude           Float?
-  longitude          Float?
-  pincode            String?
-  coupons            Coupon[]
-  orderSettlements   OrderSettlement[]
-  products           Product[]
-  returns            ReturnRequest[]
-  reviews            Review[]
-  VendorFollower     VendorFollower[]
-  inquiriesReceived  VendorInquiry[]   @relation("VendorInquiryWholesaler")
-  VendorMembership   VendorMembership?
-  VendorPayout       VendorPayout[]
-  VendorPromotion    VendorPromotion[]
-  localPromotions    LocalPromotion[]
-  serviceAreas       VendorServiceArea[]
-  deliveryWindows    VendorDeliveryWindow[]
-  packingProofs      OrderPackingProof[]
-  pickupPoints       PickupPoint[]
-  deliverySlotSnapshots OrderDeliverySlotSnapshot[]
+  id                              String                      @id @default(cuid())
+  name                            String
+  mobile                          String                      @unique
+  email                           String?
+  kycStatus                       String                      @default("PENDING")
+  tier                            String                      @default("BASIC")
+  gstNumber                       String?
+  isGstVerified                   Boolean                     @default(false)
+  kycDocuments                    Json?
+  skuLimit                        Int                         @default(100)
+  role                            VendorRole                  @default(RETAILER)
+  coinsBalance                    Int                         @default(0)
+  followCount                     Int                         @default(0)
+  vendorCode                      String?                     @unique
+  commissionRate                  Float                       @default(0.0)
+  createdAt                       DateTime                    @default(now())
+  updatedAt                       DateTime                    @updatedAt
+  storeStatus                     String?                     @default("ACTIVE") // ACTIVE, SUSPENDED (for shop availability)
+  storeClosedUntil                DateTime? // Temporary closure
+  bankDetails                     Json?
+  lastPayoutDate                  DateTime?
+  pendingEarnings                 Int                         @default(0)
+  performanceScore                Float                       @default(0.0)
+  pickupEnabled                   Boolean                     @default(false)
+  pickupTimings                   Json?
+  storeBanner                     String?
+  storeLogo                       String?
+  storeName                       String?
+  storeTimings                    Json?
+  commissionOverride              Decimal?                    @db.Decimal(5, 4)
+  latitude                        Float?
+  longitude                       Float?
+  pincode                         String?
+  // Auto-clearance settings
+  autoClearanceThresholdDays      Int?                        @default(7) // Days before expiry to auto-add to clearance
+  defaultClearanceDiscountPercent Int?                        @default(20) // Default discount % for auto-clearance (0-100)
+  coupons                         Coupon[]
+  orderSettlements                OrderSettlement[]
+  products                        Product[]
+  returns                         ReturnRequest[]
+  reviews                         Review[]
+  VendorFollower                  VendorFollower[]
+  inquiriesReceived               VendorInquiry[]             @relation("VendorInquiryWholesaler")
+  VendorMembership                VendorMembership?
+  VendorPayout                    VendorPayout[]
+  VendorPromotion                 VendorPromotion[]
+  localPromotions                 LocalPromotion[]
+  serviceAreas                    VendorServiceArea[]
+  deliveryWindows                 VendorDeliveryWindow[]
+  packingProofs                   OrderPackingProof[]
+  pickupPoints                    PickupPoint[]
+  deliverySlotSnapshots           OrderDeliverySlotSnapshot[]
+  bowCoinLedger                   VendorBowCoinLedger[]
+  disciplineEvents                VendorDisciplineEvent[]
+  disciplineState                 VendorDisciplineState?
+  stories                         Story[]
+  reels                           Reel[]
+  clearanceProducts               ClearanceProduct[]
+  documents                       VendorDocument[]
+  bannerCampaigns                 BannerCampaign[]
 
   @@index([kycStatus])
   @@index([tier])
@@ -431,7 +446,7 @@ model RoomPackage {
 }
 
 model Address {
-  id           String   @id @default(cuid())
+  id           String     @id @default(cuid())
   userId       String
   title        String?
   name         String
@@ -440,18 +455,18 @@ model Address {
   city         String
   state        String
   pincode      String
-  isDefault    Boolean  @default(false)
-  addressLine1 String   @default("")
+  isDefault    Boolean    @default(false)
+  addressLine1 String     @default("")
   addressLine2 String?
-  createdAt    DateTime @default(now())
-  label        String   @default("Home")
+  createdAt    DateTime   @default(now())
+  label        String     @default("Home")
   phone        String
-  updatedAt    DateTime @updatedAt
+  updatedAt    DateTime   @updatedAt
   latitude     Float?
   longitude    Float?
   geoSource    GeoSource?
   geoUpdatedAt DateTime?
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   orders       Order[]
 
   @@index([userId])
@@ -575,16 +590,18 @@ model PaymentIntent {
 }
 
 model Banner {
-  id          String   @id @default(cuid())
+  id          String                   @id @default(cuid())
   vendorId    String?
   imageUrl    String
   redirectUrl String?
   slotType    String
   startDate   DateTime
   endDate     DateTime
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  isActive    Boolean                  @default(true)
+  createdAt   DateTime                 @default(now())
   metadata    Json?
+  impressions BannerImpressionLedger[]
+  campaign    BannerCampaign?
 
   @@index([vendorId])
   @@index([slotType, isActive])
@@ -608,48 +625,48 @@ model Notification {
 }
 
 model Order {
-  id                  String                  @id @default(cuid())
-  userId              String
-  roomId              String?
-  addressId           String?
-  items               Json
-  totalAmount         Int
-  coinsUsed           Int                     @default(0)
-  coinsUsedDebited    Boolean                 @default(false)
-  status              OrderStatus             @default(PENDING)
-  razorpayOrderId     String?
-  awbNumber           String?
-  courierPartner      String?
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
-  abandonedCheckoutId String?
-  agentId             String?
-  shippingCharges     Int                     @default(0)
-  couponCode          String?
-  discountAmount      Int                     @default(0)
-  giftId              String?
-  deliveredAt         DateTime?
-  isReturnable        Boolean                 @default(true)
-  returnWindow        Int                     @default(7)
-  obdOtp              String?
-  obdVerifiedAt       DateTime?
-  checkout            AbandonedCheckout?      @relation(fields: [abandonedCheckoutId], references: [id])
-  address             Address?                @relation(fields: [addressId], references: [id])
-  gift                GiftSKU?                @relation(fields: [giftId], references: [id])
-  user                User                    @relation(fields: [userId], references: [id])
-  financialSnapshot   OrderFinancialSnapshot?
-  settlement          OrderSettlement?
-  payment             Payment?
-  replacementChild    ReplacementOrder?       @relation("ReplacementOrder")
-  replacementParent   ReplacementOrder[]      @relation("OriginalOrder")
-  qcChecklist         ReturnQCChecklist?
-  returns             ReturnRequest[]
-  checkoutGroupId     String?
-  checkoutGroup       CheckoutGroup?          @relation(fields: [checkoutGroupId], references: [id], onDelete: SetNull)
+  id                   String                     @id @default(cuid())
+  userId               String
+  roomId               String?
+  addressId            String?
+  items                Json
+  totalAmount          Int
+  coinsUsed            Int                        @default(0)
+  coinsUsedDebited     Boolean                    @default(false)
+  status               OrderStatus                @default(PENDING)
+  razorpayOrderId      String?
+  awbNumber            String?
+  courierPartner       String?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  abandonedCheckoutId  String?
+  agentId              String?
+  shippingCharges      Int                        @default(0)
+  couponCode           String?
+  discountAmount       Int                        @default(0)
+  giftId               String?
+  deliveredAt          DateTime?
+  isReturnable         Boolean                    @default(true)
+  returnWindow         Int                        @default(7)
+  obdOtp               String?
+  obdVerifiedAt        DateTime?
+  checkout             AbandonedCheckout?         @relation(fields: [abandonedCheckoutId], references: [id])
+  address              Address?                   @relation(fields: [addressId], references: [id])
+  gift                 GiftSKU?                   @relation(fields: [giftId], references: [id])
+  user                 User                       @relation(fields: [userId], references: [id])
+  financialSnapshot    OrderFinancialSnapshot?
+  settlement           OrderSettlement?
+  payment              Payment?
+  replacementChild     ReplacementOrder?          @relation("ReplacementOrder")
+  replacementParent    ReplacementOrder[]         @relation("OriginalOrder")
+  qcChecklist          ReturnQCChecklist?
+  returns              ReturnRequest[]
+  checkoutGroupId      String?
+  checkoutGroup        CheckoutGroup?             @relation(fields: [checkoutGroupId], references: [id], onDelete: SetNull)
   referralRewardGrant  ReferralRewardGrant?
   deliverySlotSnapshot OrderDeliverySlotSnapshot?
-  packingProof        OrderPackingProof?
-  shipment            Shipment?
+  packingProof         OrderPackingProof?
+  shipment             Shipment?
 
   @@index([userId])
   @@index([status])
@@ -708,6 +725,8 @@ model Product {
   storageInstructions  String?
   totalAllowedQuantity Int                @default(10)
   freeListingExpiresAt DateTime?
+  expiryDate           DateTime? // Product expiry date (for auto-clearance)
+  disableAutoClearance Boolean   @default(false) // Vendor can disable auto-clearance for specific products
   visibility           ProductVisibility  @default(DRAFT)
   popularityScore      Float              @default(0)
   embedding            Json?
@@ -725,6 +744,8 @@ model Product {
   vendorInquiries      VendorInquiry[]
   wishlists            Wishlist[]
   localPromotions      LocalPromotion[]
+  Reel                 Reel[]
+  ClearanceProduct     ClearanceProduct[]
 
   @@index([vendorId])
   @@index([categoryId])
@@ -1333,18 +1354,18 @@ model LocalPromotion {
 }
 
 model ReferralRewardRule {
-  id           String    @id @default(cuid())
+  id            String                @id @default(cuid())
   minOrderPaise Int
   maxOrderPaise Int?
   coinsInviter  Int
   coinsInvitee  Int
-  isActive      Boolean   @default(true)
-  effectiveFrom DateTime  @default(now())
+  isActive      Boolean               @default(true)
+  effectiveFrom DateTime              @default(now())
   effectiveTo   DateTime?
   setByAdminId  String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  setByAdmin    User?     @relation(fields: [setByAdminId], references: [id], onDelete: SetNull)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  setByAdmin    User?                 @relation(fields: [setByAdminId], references: [id], onDelete: SetNull)
   grants        ReferralRewardGrant[]
 
   @@index([isActive, effectiveFrom, effectiveTo])
@@ -1354,11 +1375,11 @@ model ReferralRewardRule {
 }
 
 model ReferralRewardGrant {
-  id                    String             @id @default(cuid())
-  orderId               String             @unique
-  inviterUserId         String
-  inviteeUserId         String
-  ruleId                String
+  id                     String             @id @default(cuid())
+  orderId                String             @unique
+  inviterUserId          String
+  inviteeUserId          String
+  ruleId                 String
   orderValuePaiseAtAward Int
   coinsInviterAtAward    Int
   coinsInviteeAtAward    Int
@@ -1374,33 +1395,33 @@ model ReferralRewardGrant {
 }
 
 model CheckoutGroup {
-  id              String              @id @default(uuid())
-  userId          String
-  provider        String              @default("RAZORPAY")
-  providerOrderId String?
+  id               String              @id @default(uuid())
+  userId           String
+  provider         String              @default("RAZORPAY")
+  providerOrderId  String?
   totalAmountPaise Int
-  currency        String              @default("INR")
-  status          CheckoutGroupStatus @default(PENDING_PAYMENT)
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders          Order[]
+  currency         String              @default("INR")
+  status           CheckoutGroupStatus @default(PENDING_PAYMENT)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders           Order[]
 
   @@index([userId, createdAt])
   @@index([providerOrderId])
 }
 
 model OrderDeliverySlotSnapshot {
-  id        String            @id @default(uuid())
-  orderId   String            @unique
-  vendorId  String
+  id          String             @id @default(uuid())
+  orderId     String             @unique
+  vendorId    String
   slotStartAt DateTime
   slotEndAt   DateTime
-  timezone    String            @default("Asia/Kolkata")
+  timezone    String             @default("Asia/Kolkata")
   source      DeliverySlotSource @default(AUTO)
-  createdAt   DateTime            @default(now())
-  order       Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  vendor      Vendor              @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime           @default(now())
+  order       Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vendor      Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([vendorId, slotStartAt])
 }
@@ -1414,9 +1435,9 @@ model VendorServiceArea {
   radiusKm  Float?
   polygon   Json?
   isActive  Boolean  @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  vendor    Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([vendorId])
   @@index([isActive])
@@ -1438,70 +1459,266 @@ model VendorDeliveryWindow {
 }
 
 model OrderPackingProof {
-  id              String   @id @default(uuid())
-  orderId         String   @unique
-  vendorId        String
+  id               String   @id @default(uuid())
+  orderId          String   @unique
+  vendorId         String
   uploadedByUserId String
-  videoPath       String
-  videoMime       String?
-  videoSizeBytes  Int?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  vendor          Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  uploadedByUser  User     @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  videoPath        String
+  videoMime        String?
+  videoSizeBytes   Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vendor           Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  uploadedByUser   User     @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
 
   @@index([vendorId])
   @@index([createdAt])
 }
 
 model PickupPoint {
-  id          String   @id @default(uuid())
-  vendorId    String
-  name        String
+  id           String     @id @default(uuid())
+  vendorId     String
+  name         String
   addressLine1 String
   addressLine2 String?
-  city        String
-  state       String
-  pincode     String
-  latitude    Float?
-  longitude   Float?
-  timings     Json?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  shipments   Shipment[]
+  city         String
+  state        String
+  pincode      String
+  latitude     Float?
+  longitude    Float?
+  timings      Json?
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  vendor       Vendor     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  shipments    Shipment[]
 
   @@index([vendorId])
   @@index([pincode])
 }
 
 model Shipment {
-  id            String      @id @default(uuid())
-  orderId       String      @unique
-  mode          String
-  status        String
+  id              String       @id @default(uuid())
+  orderId         String       @unique
+  mode            String
+  status          String
   courierProvider String?
-  awb           String?
-  trackingUrl   String?
-  pickupPointId String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  order         Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  pickupPoint   PickupPoint? @relation(fields: [pickupPointId], references: [id], onDelete: SetNull)
+  awb             String?
+  trackingUrl     String?
+  pickupPointId   String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  order           Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  pickupPoint     PickupPoint? @relation(fields: [pickupPointId], references: [id], onDelete: SetNull)
 
   @@index([awb])
   @@index([pickupPointId])
 }
 
 model PincodeGeo {
-  pincode   String   @id
+  pincode   String    @id
   latitude  Float
   longitude Float
   source    GeoSource @default(PINCODE_DB)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+}
+
+// ============================================
+// LEDGER MODELS (NO COUNTERS - ALL LEDGER-BASED)
+// ============================================
+
+model VendorBowCoinLedger {
+  id           String   @id @default(cuid())
+  vendorId     String
+  sourceType   String // RATING_5_STAR, ADMIN_ADJUSTMENT, PENALTY, etc.
+  sourceId     String? // ratingId, adminId, orderId, etc.
+  coinsDelta   Int // +2 for rating, -5 for penalty, etc.
+  balanceAfter Int // Calculated balance after this entry
+  createdAt    DateTime @default(now())
+  vendor       Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, createdAt])
+  @@index([sourceType, sourceId])
+}
+
+model BannerImpressionLedger {
+  id        String    @id @default(cuid())
+  bannerId  String
+  userId    String? // null for anonymous
+  viewedAt  DateTime  @default(now())
+  clickedAt DateTime?
+  banner    Banner    @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([bannerId, viewedAt])
+  @@index([userId, viewedAt])
+}
+
+model ReelInteractionLedger {
+  id              String   @id @default(cuid())
+  reelId          String
+  userId          String
+  interactionType String // VIEW, LIKE
+  createdAt       DateTime @default(now())
+  reel            Reel     @relation(fields: [reelId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reelId, userId, interactionType]) // Prevent duplicate views/likes
+  @@index([reelId, interactionType])
+  @@index([userId, createdAt])
+}
+
+// ============================================
+// DISCIPLINE STATE MACHINE (NO COUNTERS)
+// ============================================
+
+model VendorDisciplineEvent {
+  id          String   @id @default(cuid())
+  vendorId    String
+  eventType   String // STRIKE_ADDED, STRIKE_REMOVED, AUTO_BLOCKED, AUTO_UNBLOCKED, ADMIN_OVERRIDE
+  orderId     String? // For delivery-related events
+  reason      String?
+  performedBy String? // adminId for overrides, null for auto
+  createdAt   DateTime @default(now())
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, createdAt])
+  @@index([eventType])
+}
+
+model VendorDisciplineState {
+  vendorId             String   @id
+  state                String // ACTIVE, WARNING, BLOCKED
+  activeStrikes        Int      @default(0) // Derived from events
+  consecutiveSuccesses Int      @default(0) // Derived from orders
+  lastStateChange      DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  vendor               Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([state])
+}
+
+// ============================================
+// CORE MODELS (NO COUNTERS)
+// ============================================
+
+model Story {
+  id               String   @id @default(cuid())
+  vendorId         String
+  mediaUrl         String
+  mediaType        String // IMAGE, VIDEO
+  expiresAt        DateTime
+  isActive         Boolean  @default(true)
+  flaggedForReview Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  vendor           Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, expiresAt])
+  @@index([isActive, expiresAt])
+}
+
+model Reel {
+  id               String                  @id @default(cuid())
+  vendorId         String?
+  creatorId        String?
+  mediaUrl         String
+  thumbnailUrl     String?
+  productId        String?
+  description      String?
+  flaggedForReview Boolean                 @default(false)
+  createdAt        DateTime                @default(now())
+  vendor           Vendor?                 @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  creator          CreatorProfile?         @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  product          Product?                @relation(fields: [productId], references: [id], onDelete: SetNull)
+  interactions     ReelInteractionLedger[]
+
+  @@index([vendorId])
+  @@index([creatorId])
+  @@index([productId])
+  @@index([createdAt])
+}
+
+model ClearanceProduct {
+  id             String   @id @default(cuid())
+  productId      String
+  vendorId       String
+  clearancePrice Int
+  originalPrice  Int
+  expiryDate     DateTime
+  quantity       Int
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  vendor         Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, isActive])
+  @@index([expiryDate, isActive])
+}
+
+model CreatorProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  displayName     String
+  bio             String?
+  profileImageUrl String?
+  isVerified      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reels           Reel[]
+
+  @@index([userId])
+}
+
+model VendorDocument {
+  id              String    @id @default(cuid())
+  vendorId        String
+  documentType    String // AADHAAR, PAN, BANK, GST, UPI
+  documentUrl     String
+  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  uploadedAt      DateTime  @default(now())
+  reviewedAt      DateTime?
+  reviewedBy      String? // adminId
+  rejectionReason String?
+  vendor          Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, status])
+  @@index([status])
+}
+
+model BannerCampaign {
+  id             String   @id @default(cuid())
+  bannerId       String   @unique
+  vendorId       String
+  campaignType   String // WEEKLY, MONTHLY
+  targetAudience String // CUSTOMERS, RETAILERS
+  startDate      DateTime
+  endDate        DateTime
+  amountPaid     Int // In paise
+  paymentStatus  String   @default("PENDING") // PENDING, PAID, REFUNDED
+  createdAt      DateTime @default(now())
+  banner         Banner   @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+  vendor         Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([startDate, endDate])
+}
+
+model ContentModeration {
+  id          String    @id @default(cuid())
+  contentType String // STORY, REEL
+  contentId   String
+  flaggedBy   String? // userId (null for auto-flag)
+  reason      String
+  status      String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  reviewedBy  String? // adminId
+  reviewedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([contentType, contentId])
+  @@index([status])
 }
 
 model ReturnQCChecklist {
