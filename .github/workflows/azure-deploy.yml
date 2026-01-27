@@ -107,7 +107,6 @@ jobs:
           app-name: ${{ secrets.AZURE_APP_SERVICE_NAME }}
           publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
           package: .
-          slot-name: production
 
       - name: Run database migrations
         run: |
