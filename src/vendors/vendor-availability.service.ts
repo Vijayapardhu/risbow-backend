@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { VendorStatus } from '@prisma/client';
+
+// VendorStatus enum - defined in Prisma schema but may not be exported
+enum VendorStatus {
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+}
 
 type VendorLike = {
   storeStatus?: VendorStatus | string | null;
