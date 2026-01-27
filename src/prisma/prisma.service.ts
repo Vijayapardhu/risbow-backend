@@ -21,11 +21,24 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         
         if (!databaseUrl) {
             // Try ConfigService first, then process.env
-            const dbHost = this.configService?.get<string>('DB_HOST') || process.env.DB_HOST;
-            const dbPort = this.configService?.get<string>('DB_PORT') || process.env.DB_PORT || '5432';
-            const dbName = this.configService?.get<string>('DB_NAME') || process.env.DB_NAME || 'postgres';
-            const dbUser = this.configService?.get<string>('DB_USER') || process.env.DB_USER;
-            const dbPassword = this.configService?.get<string>('DB_PASSWORD') || process.env.DB_PASSWORD;
+            // Support both standard DB_* vars and PostgreSQL client vars (PGHOST, PGUSER, etc.)
+            const dbHost = this.configService?.get<string>('DB_HOST') || 
+                          process.env.DB_HOST || 
+                          process.env.PGHOST;
+            const dbPort = this.configService?.get<string>('DB_PORT') || 
+                         process.env.DB_PORT || 
+                         process.env.PGPORT || 
+                         '5432';
+            const dbName = this.configService?.get<string>('DB_NAME') || 
+                          process.env.DB_NAME || 
+                          process.env.PGDATABASE || 
+                          'postgres';
+            const dbUser = this.configService?.get<string>('DB_USER') || 
+                          process.env.DB_USER || 
+                          process.env.PGUSER;
+            const dbPassword = this.configService?.get<string>('DB_PASSWORD') || 
+                              process.env.DB_PASSWORD || 
+                              process.env.PGPASSWORD;
             const dbSsl = (this.configService?.get<string>('DB_SSL') || process.env.DB_SSL) === 'true' || 
                           (this.configService?.get<string>('DB_SSL') || process.env.DB_SSL) === '1';
 
