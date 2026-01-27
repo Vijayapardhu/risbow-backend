@@ -4,7 +4,7 @@ import { AdminGuard } from '../auth/admin.guard';
 import { BowAdminService } from './bow-admin.service';
 
 @ApiTags('Admin - Bow AI')
-@Controller('api/v1/admin/bow')
+@Controller('admin/bow')
 @UseGuards(AdminGuard)
 export class BowAdminController {
     constructor(private readonly bowAdminService: BowAdminService) {}

@@ -11,6 +11,7 @@ import { join } from 'path';
 import fastifyHelmet from '@fastify/helmet';
 import compression from '@fastify/compress';
 import * as appInsights from 'applicationinsights';
+import { PrismaService } from './prisma/prisma.service';
 
 // Trigger deployment update - v6 - Fastify Migration
 async function bootstrap() {
@@ -186,22 +187,43 @@ Welcome to the RISBOW API documentation! This API powers the RISBOW platform wit
         customCss: '.swagger-ui .topbar { display: none }',
     });
 
+    // Register root-level /health endpoint manually for Azure App Service health probes
+    // This must be at /health (not /api/v1/health) for Azure health checks
+    const fastifyInstance = app.getHttpAdapter().getInstance();
+    fastifyInstance.get('/health', async (request, reply) => {
+        try {
+            // Get PrismaService from the app context using NestJS DI
+            const prisma = app.get(PrismaService);
+            await prisma.$queryRaw`SELECT 1`;
+            return { status: 'ok', timestamp: new Date().toISOString() };
+        } catch (e) {
+            reply.code(503);
+            return { status: 'error', message: 'Database unreachable' };
+        }
+    });
+
     // Azure App Service injects PORT dynamically - MUST use process.env.PORT
     // CRITICAL: Must listen on 0.0.0.0 (not localhost/127.0.0.1) for Azure App Service
     const port = parseInt(process.env.PORT || '3000', 10);
-    await app.listen(port, '0.0.0.0');
     
-    // Log startup information for Azure App Service
-    const baseUrl = process.env.BASE_URL || `http://0.0.0.0:${port}`;
-    console.log('='.repeat(60));
-    console.log(`🚀 RISBOW Backend API Started Successfully`);
-    console.log(`📡 Listening on: 0.0.0.0:${port}`);
-    console.log(`🌐 Base URL: ${baseUrl}`);
-    console.log(`📚 API Docs: ${baseUrl}/api/docs`);
-    console.log(`❤️  Health Check: ${baseUrl}/health`);
-    console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`👷 Worker PID: ${process.pid}`);
-    console.log('='.repeat(60));
+    try {
+        await app.listen(port, '0.0.0.0');
+        
+        // Log startup information for Azure App Service
+        const baseUrl = process.env.BASE_URL || `http://localhost:${port}`;
+        console.log('='.repeat(60));
+        console.log(`🚀 RISBOW Backend API Started Successfully`);
+        console.log(`📡 Listening on: 0.0.0.0:${port}`);
+        console.log(`🌐 Base URL: ${baseUrl}`);
+        console.log(`📚 API Docs: ${baseUrl}/api/docs`);
+        console.log(`❤️  Health Check: ${baseUrl}/health`);
+        console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`👷 Worker PID: ${process.pid}`);
+        console.log('='.repeat(60));
+    } catch (error) {
+        console.error('❌ Failed to start server on port', port, ':', error);
+        throw error;
+    }
 }
 
 import * as os from 'os';
@@ -224,8 +246,14 @@ if (process.env.CLUSTER_MODE === 'true') {
         });
     } else {
         // Worker processes run the app
-        bootstrap();
+        bootstrap().catch((error) => {
+            console.error('❌ Failed to start application:', error);
+            process.exit(1);
+        });
     }
-} else {
-    bootstrap();
-}
+    } else {
+        bootstrap().catch((error) => {
+            console.error('❌ Failed to start application:', error);
+            process.exit(1);
+        });
+    }

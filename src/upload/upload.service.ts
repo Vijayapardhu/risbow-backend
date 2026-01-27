@@ -3,7 +3,7 @@ import { SupabaseService } from '../shared/supabase.service';
 import { AzureStorageService } from '../shared/azure-storage.service';
 import { ConfigService } from '@nestjs/config';
 import sharp = require('sharp');
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { UploadContext } from './dto/upload.dto';
 
 @Injectable()
@@ -53,7 +53,7 @@ export class UploadService {
                 .toBuffer();
 
             // 4. Generate Path
-            const filename = `${Date.now()}-${uuidv4()}.webp`;
+            const filename = `${Date.now()}-${randomUUID()}.webp`;
             const path = `${context}/${contextId}/${filename}`;
 
             // 5. Upload to Preferred Storage (Azure vs Supabase)
@@ -112,7 +112,7 @@ export class UploadService {
         try {
             // 3. Generate Path
             const ext = file.originalname.split('.').pop() || 'bin';
-            const filename = `${Date.now()}-${uuidv4()}.${ext}`;
+            const filename = `${Date.now()}-${randomUUID()}.${ext}`;
             const path = `documents/${userId}/${filename}`;
 
             // 4. Upload to Preferred Storage

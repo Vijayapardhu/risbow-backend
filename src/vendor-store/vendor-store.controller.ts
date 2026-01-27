@@ -7,7 +7,7 @@ import { UpdateStoreProfileDto, UpdateStoreTimingsDto, UpdatePickupSettingsDto, 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('Vendor Store')
-@Controller('api/v1/vendor-store')
+@Controller('vendor-store')
 export class VendorStoreController {
     constructor(
         private readonly storeService: VendorStoreService,

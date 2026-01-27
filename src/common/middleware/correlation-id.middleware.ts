@@ -1,11 +1,11 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class CorrelationIdMiddleware implements NestMiddleware {
     use(req: any, res: any, next: () => void) {
-        const correlationId = req.headers['x-correlation-id'] || uuidv4();
+        const correlationId = req.headers['x-correlation-id'] || randomUUID();
 
         // Fastify specific handling if needed, but Nest handles raw req/res here usually
         req.id = correlationId;

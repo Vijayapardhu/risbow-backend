@@ -1,7 +1,6 @@
 import { IsString, IsNotEmpty, IsNumber, IsOptional, Min, IsEnum, ValidateNested, IsObject } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { v4 as uuidv4 } from 'uuid';
 
 export enum VariationStatus {
     ACTIVE = 'ACTIVE',

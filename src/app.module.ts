@@ -44,7 +44,7 @@ import { MetricsModule } from './metrics/metrics.module';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { SharedModule } from './shared/shared.module';
 import { CommonModule } from './common/common.module';
-import { HealthController, RootHealthController } from './common/health.controller';
+import { HealthController } from './common/health.controller';
 
 @Module({
     imports: [
@@ -107,7 +107,7 @@ import { HealthController, RootHealthController } from './common/health.controll
         WholesalersModule,
         // QueuesModule handled above in conditional import
     ],
-    controllers: [HealthController, RootHealthController],
+    controllers: [HealthController], // RootHealthController registered manually in main.ts
 })
 export class AppModule {
     configure(consumer: any) {

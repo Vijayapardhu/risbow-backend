@@ -276,21 +276,9 @@ export class AdminController {
 
 
     // --- MARKETING ---
-
-    @Get('banners')
-    getBanners() {
-        return this.adminService.getBanners();
-    }
-
-    @Post('banners')
-    createBanner(@Request() req, @Body() body: any) {
-        return this.adminService.createBanner(req.user.id, body);
-    }
-
-    @Post('banners/:id/toggle')
-    toggleBanner(@Param('id') id: string, @Body('isActive') isActive: boolean) {
-        return this.adminService.toggleBannerStatus(id, isActive);
-    }
+    // Note: All banner routes are handled by BannersController to avoid duplicates
+    // Removed @Get('banners'), @Post('banners'), and @Post('banners/:id/toggle')
+    // Use /api/v1/admin/banners endpoints from BannersController instead
 
     @Post('notifications/broadcast')
     @Roles('ADMIN', 'SUPER_ADMIN')
@@ -343,12 +331,7 @@ export class AdminController {
 
 
 
-    @Delete('banners/:id')
-    @Roles('ADMIN', 'SUPER_ADMIN')
-    deleteBanner(@Param('id') id: string) {
-        // Assume deleteBanner exists in service or needs to be added back if I removed it erroneously
-        return this.adminService.deleteBanner(id);
-    }
+    // @Delete('banners/:id') removed - use /api/v1/admin/banners/:id DELETE from BannersController instead
 
     // --- SETTINGS ---
 

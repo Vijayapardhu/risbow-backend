@@ -23,6 +23,7 @@ export class HealthController {
 
 // Root-level health endpoint for Azure App Service health checks
 // Azure expects /health (not /api/v1/health) for health probes
+// This controller is excluded from the global prefix in main.ts
 @Controller()
 export class RootHealthController {
     constructor(private prisma: PrismaService) { }

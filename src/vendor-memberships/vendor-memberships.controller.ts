@@ -11,7 +11,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Idempotent } from '../idempotency/idempotency.decorator';
 
 @ApiTags('Vendor Memberships')
-@Controller('api/v1/vendor-memberships')
+@Controller('vendor-memberships')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class VendorMembershipsController {
