@@ -119,30 +119,11 @@ jobs:
           type: zip
           resource-group: risbow-prod
 
-      - name: Install Prisma for migrations
+      - name: Note about migrations
         run: |
-          echo "Installing Prisma CLI..."
-          npm install -g prisma@^5.7.0
-          prisma --version
-
-      - name: Run database migrations
-        run: |
-          echo "Running Prisma migrations..."
-          cd ${{ github.workspace }}
-          # Ensure we have the prisma directory
-          if [ ! -d "prisma" ]; then
-            echo "Error: prisma directory not found"
-            exit 1
-          fi
-          # Test database connection first
-          echo "Testing database connection..."
-          prisma migrate status || echo "Connection test failed, but continuing..."
-          # Run migrations
-          prisma migrate deploy
-        env:
-          DATABASE_URL: ${{ secrets.AZURE_DATABASE_URL }}
-          FORCE_COLOR: 0
-        continue-on-error: true
+          echo "ℹ️  Database migrations will run automatically in start.sh when the app starts."
+          echo "ℹ️  This is because GitHub Actions cannot access private database endpoints."
+          echo "ℹ️  Migrations run from Azure App Service, which has access to the private endpoint."
 
       - name: Verify deployment
         run: |
