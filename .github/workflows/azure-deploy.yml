@@ -119,11 +119,22 @@ jobs:
           type: zip
           resource-group: risbow-prod
 
+      - name: Install Prisma for migrations
+        run: |
+          echo "Installing Prisma CLI..."
+          npm install -g prisma@^5.7.0
+          prisma --version
+
       - name: Run database migrations
         run: |
           echo "Running Prisma migrations..."
-          # Use npx to ensure we use the project's Prisma version (5.x)
-          npx prisma migrate deploy
+          cd ${{ github.workspace }}
+          # Ensure we have the prisma directory
+          if [ ! -d "prisma" ]; then
+            echo "Error: prisma directory not found"
+            exit 1
+          fi
+          prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.AZURE_DATABASE_URL }}
           FORCE_COLOR: 0
