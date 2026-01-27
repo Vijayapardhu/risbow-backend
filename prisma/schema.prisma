@@ -156,9 +156,10 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  // directUrl is optional - only needed when using connection poolers (e.g., PgBouncer)
-  // If using a pooler, uncomment and set DIRECT_URL env var:
-  // directUrl = env("DIRECT_URL")
+  // directUrl is optional - only needed when using connection poolers (e.g., PgBouncer, Supabase)
+  // For Supabase: Use pooler (port 6543) for app, direct connection (port 5432) for migrations
+  // Uncomment if using Supabase or other poolers:
+  directUrl = env("DIRECT_URL")
 }
 
 enum SettlementStatus {
