@@ -51,13 +51,11 @@ REDIS_PASSWORD="<your-redis-password>"  # ⚠️ Replace with your actual Redis 
 REDIS_TLS=true
 
 # ============================================
-# AZURE BLOB STORAGE (Keep as is)
+# FILE STORAGE: Supabase Storage
 # ============================================
-AZURE_STORAGE_ACCOUNT_NAME="risbowstorageprod"
-AZURE_STORAGE_ACCOUNT_KEY="<your-azure-storage-key>"  # ⚠️ Replace with your actual Azure Storage key
-AZURE_STORAGE_CONTAINER_PRODUCTS="products"
-AZURE_STORAGE_CONTAINER_USERS="users"
-AZURE_STORAGE_CONTAINER_VIDEOS="videos"
+# Supabase Storage uses the same credentials as Supabase Auth above
+# Buckets (products, users, videos) are created automatically
+# No additional configuration needed - uses SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
 
 # ============================================
 # ANALYTICS (Application Insights - Keep as is)
