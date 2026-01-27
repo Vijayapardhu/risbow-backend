@@ -54,8 +54,8 @@ import { HealthController } from './common/health.controller';
             ttl: parseInt(process.env.THROTTLE_TTL) || 60000,
             limit: parseInt(process.env.THROTTLE_LIMIT) || 100,
         }]),
-        // Redis & Queues - Disabled in Test Environment to handle missing Redis
-        ...(process.env.NODE_ENV === 'test' ? [] : [
+        // Redis & Queues - Disabled in Test Environment or when Redis is not configured
+        ...(process.env.NODE_ENV === 'test' || !process.env.REDIS_HOST ? [] : [
             BullModule.forRoot({
                 connection: {
                     host: process.env.REDIS_HOST || 'localhost',
