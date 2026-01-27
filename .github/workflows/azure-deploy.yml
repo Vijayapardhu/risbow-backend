@@ -124,6 +124,7 @@ jobs:
           app-name: ${{ secrets.AZURE_APP_SERVICE_NAME }}
           package: deploy.zip
           type: zip
+          resource-group: risbow-prod
 
       - name: Run database migrations
         run: |
