@@ -1,14 +1,15 @@
-import { Injectable, UnauthorizedException, ConflictException, NotFoundException, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException, BadRequestException, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../shared/redis.service';
 import { GeoService } from '../shared/geo.service';
+import { SupabaseService } from '../shared/supabase.service';
 import * as bcrypt from 'bcrypt';
 import { FraudService } from '../common/fraud.service';
 
 @Injectable()
 export class AuthService {
-    private supabase: any;
+    private readonly logger = new Logger(AuthService.name);
 
     constructor(
         private prisma: PrismaService,
@@ -16,14 +17,8 @@ export class AuthService {
         private redisService: RedisService,
         private fraudService: FraudService,
         private geoService: GeoService,
-    ) {
-        // Initialize Supabase client
-        const { createClient } = require('@supabase/supabase-js');
-        this.supabase = createClient(
-            process.env.SUPABASE_URL,
-            process.env.SUPABASE_SERVICE_ROLE_KEY
-        );
-    }
+        private supabaseService: SupabaseService,
+    ) {}
 
     async sendOtp(mobile: string) {
         try {
@@ -37,17 +32,22 @@ export class AuthService {
             }
 
             // Use Supabase to send OTP via SMS
-            const { data, error } = await this.supabase.auth.signInWithOtp({
+            const supabase = this.supabaseService.getClient();
+            if (!supabase || !this.supabaseService.isAuthEnabled()) {
+                throw new HttpException('OTP service is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.', HttpStatus.SERVICE_UNAVAILABLE);
+            }
+
+            const { data, error } = await supabase.auth.signInWithOtp({
                 phone: mobile,
             });
 
             if (error) {
-                console.error('Supabase OTP send error:', error);
+                this.logger.error(`Supabase OTP send error: ${error.message}`);
                 const status = (error as any)?.status ?? HttpStatus.CONFLICT;
                 throw new HttpException(`Failed to send OTP: ${error.message}`, status);
             }
 
-            console.log(`[Supabase] OTP sent to ${mobile}`);
+            this.logger.log(`[Supabase] OTP sent to ${mobile}`);
 
             // Set rate limit - OTP can be resent after 60 seconds
             await this.redisService.set(rateLimitKey, Date.now().toString(), 60);
@@ -74,14 +74,19 @@ export class AuthService {
             }
 
             // Verify OTP with Supabase
-            const { data, error } = await this.supabase.auth.verifyOtp({
+            const supabase = this.supabaseService.getClient();
+            if (!supabase || !this.supabaseService.isAuthEnabled()) {
+                throw new UnauthorizedException('OTP verification service is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
+            }
+
+            const { data, error } = await supabase.auth.verifyOtp({
                 phone: mobile,
                 token: otp,
                 type: 'sms',
             });
 
             if (error) {
-                console.error('Supabase OTP verification error:', error);
+                this.logger.error(`Supabase OTP verification error: ${error.message}`);
 
                 // Provide more specific error messages
                 if (error.code === 'otp_expired') {
@@ -97,7 +102,7 @@ export class AuthService {
                 throw new UnauthorizedException('Verification failed');
             }
 
-            console.log(`[Supabase] OTP verified for ${mobile}, user ID: ${data.user.id}`);
+            this.logger.log(`[Supabase] OTP verified for ${mobile}, user ID: ${data.user.id}`);
 
             // Check if user exists in our database
             const user = await this.prisma.user.findUnique({
@@ -157,27 +162,16 @@ export class AuthService {
         // Hash password
         const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
-        // Create user in Supabase Auth first
-        try {
-            const { createClient } = require('@supabase/supabase-js');
-            const supabase = createClient(
-                process.env.SUPABASE_URL,
-                process.env.SUPABASE_SERVICE_ROLE_KEY
-            );
-
-            const { data: authUser, error } = await supabase.auth.admin.createUser({
-                email: registerDto.email,
-                password: registerDto.password,
-                email_confirm: true,
-            });
-
-            if (error) {
-                console.error('Supabase auth creation failed:', error.message);
-            } else {
-                console.log('Created Supabase auth user:', authUser.user?.id);
+        // Create user in Supabase Auth first (if enabled)
+        if (this.supabaseService.isAuthEnabled()) {
+            try {
+                await this.supabaseService.createAuthUser(registerDto.email, registerDto.password);
+                this.logger.log(`Created Supabase auth user for: ${registerDto.email}`);
+            } catch (error) {
+                this.logger.warn(`Supabase auth creation failed (continuing anyway): ${error.message}`);
             }
-        } catch (error) {
-            console.error('Failed to create Supabase auth user:', error);
+        } else {
+            this.logger.warn('Supabase Auth not enabled - skipping auth user creation');
         }
 
         // Create user with all details
@@ -284,12 +278,17 @@ export class AuthService {
 
     async forgotPassword(email: string) {
         try {
-            const { error } = await this.supabase.auth.resetPasswordForEmail(email, {
+            const supabase = this.supabaseService.getClient();
+            if (!supabase || !this.supabaseService.isAuthEnabled()) {
+                throw new HttpException('Password reset service is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.', HttpStatus.SERVICE_UNAVAILABLE);
+            }
+
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: `${process.env.APP_BASE_URL || 'http://localhost:3000'}/auth/reset-password`,
             });
 
             if (error) {
-                console.error('Supabase password reset error:', error);
+                this.logger.error(`Supabase password reset error: ${error.message}`);
                 throw new ConflictException(error.message);
             }
 
