@@ -1,14 +1,7 @@
 name: Deploy to Azure App Service
 
 on:
-  push:
-    branches:
-      - main
-      - master
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - '.editorconfig'
+  # Manual trigger only - Azure Deployment Center handles automatic deployments
   workflow_dispatch:
     inputs:
       environment:
