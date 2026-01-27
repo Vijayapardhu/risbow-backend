@@ -119,13 +119,11 @@ jobs:
           type: zip
           resource-group: risbow-prod
 
-      - name: Install Prisma CLI
-        run: npm install -g prisma
-
       - name: Run database migrations
         run: |
           echo "Running Prisma migrations..."
-          prisma migrate deploy
+          # Use npx to ensure we use the project's Prisma version (5.x)
+          npx prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.AZURE_DATABASE_URL }}
           FORCE_COLOR: 0
