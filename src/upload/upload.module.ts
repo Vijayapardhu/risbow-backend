@@ -3,7 +3,7 @@ import { UploadController } from './upload.controller';
 import { UploadService } from './upload.service';
 
 @Module({
-    imports: [], // SharedModule is @Global(), so AzureStorageService is available
+    imports: [], // SharedModule is @Global(), so SupabaseStorageService is available
     controllers: [UploadController],
     providers: [UploadService],
     exports: [UploadService]

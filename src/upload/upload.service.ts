@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
-import { AzureStorageService } from '../shared/azure-storage.service';
+import { SupabaseStorageService } from '../shared/supabase-storage.service';
 import { ConfigService } from '@nestjs/config';
 import sharp = require('sharp');
 import { randomUUID } from 'crypto';
@@ -10,23 +10,23 @@ export class UploadService {
     private readonly logger = new Logger(UploadService.name);
 
     constructor(
-        private readonly azureStorageService: AzureStorageService,
+        private readonly supabaseStorageService: SupabaseStorageService,
         private readonly configService: ConfigService,
     ) {
-        // Ensure Azure Storage is enabled
-        if (!this.azureStorageService.isEnabled()) {
-            throw new Error('Azure Blob Storage is required but not configured. Please set AZURE_STORAGE_ACCOUNT_NAME and AZURE_STORAGE_ACCOUNT_KEY.');
+        // Ensure Supabase Storage is enabled
+        if (!this.supabaseStorageService.isEnabled()) {
+            throw new Error('Supabase Storage is required but not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
         }
     }
 
-    private getAzureContainer(context: UploadContext): string {
+    private getSupabaseBucket(context: UploadContext): string {
         switch (context) {
             case UploadContext.PRODUCT:
-                return this.configService.get<string>('AZURE_STORAGE_CONTAINER_PRODUCTS') || 'products';
+                return 'products';
             case UploadContext.VENDOR:
-                return this.configService.get<string>('AZURE_STORAGE_CONTAINER_USERS') || 'users';
+                return 'users';
             default:
-                return 'general';
+                return 'products';
         }
     }
 
@@ -54,9 +54,9 @@ export class UploadService {
             const filename = `${Date.now()}-${randomUUID()}.webp`;
             const path = `${context}/${contextId}/${filename}`;
 
-            // 5. Upload to Azure Blob Storage
-            const container = this.getAzureContainer(context);
-            const url = await this.azureStorageService.uploadFile(container, path, optimizedBuffer, 'image/webp');
+            // 5. Upload to Supabase Storage
+            const bucket = this.getSupabaseBucket(context);
+            const url = await this.supabaseStorageService.uploadFile(bucket, path, optimizedBuffer, 'image/webp');
             return { url, path };
 
         } catch (error) {
@@ -87,9 +87,9 @@ export class UploadService {
             const filename = `${Date.now()}-${randomUUID()}.${ext}`;
             const path = `documents/${userId}/${filename}`;
 
-            // 4. Upload to Azure Blob Storage
-            const container = this.configService.get<string>('AZURE_STORAGE_CONTAINER_USERS') || 'users';
-            const url = await this.azureStorageService.uploadFile(container, path, file.buffer, file.mimetype);
+            // 4. Upload to Supabase Storage
+            const bucket = 'users';
+            const url = await this.supabaseStorageService.uploadFile(bucket, path, file.buffer, file.mimetype);
             return { url, path };
 
         } catch (error) {
@@ -102,8 +102,8 @@ export class UploadService {
     }
 
     async deleteFile(path: string, context?: UploadContext) {
-        const container = context ? this.getAzureContainer(context) : (this.configService.get<string>('AZURE_STORAGE_CONTAINER_USERS') || 'users');
-        await this.azureStorageService.deleteFile(container, path);
-        return { message: 'File deleted from Azure Blob Storage successfully' };
+        const bucket = context ? this.getSupabaseBucket(context) : 'users';
+        await this.supabaseStorageService.deleteFile(bucket, path);
+        return { message: 'File deleted from Supabase Storage successfully' };
     }
 }

@@ -1,21 +1,21 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AzureStorageService } from '../shared/azure-storage.service';
+import { SupabaseStorageService } from '../shared/supabase-storage.service';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 
 @Injectable()
 export class PackingProofService {
   private readonly logger = new Logger(PackingProofService.name);
-  private readonly container = 'videos'; // Azure Blob Storage container for videos
+  private readonly bucket = 'videos'; // Supabase Storage bucket for videos
 
   constructor(
     private prisma: PrismaService,
-    private azureStorage: AzureStorageService,
+    private supabaseStorage: SupabaseStorageService,
     private configService: ConfigService,
   ) {
-    if (!this.azureStorage.isEnabled()) {
-      throw new Error('Azure Blob Storage is required but not configured. Please set AZURE_STORAGE_ACCOUNT_NAME and AZURE_STORAGE_ACCOUNT_KEY.');
+    if (!this.supabaseStorage.isEnabled()) {
+      throw new Error('Supabase Storage is required but not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
     }
   }
 
@@ -44,11 +44,11 @@ export class PackingProofService {
     const path = `vendor/${vendorId}/order/${orderId}/${Date.now()}-${randomUUID()}.${ext}`;
 
     try {
-      await this.azureStorage.uploadFile(this.container, path, file.buffer, file.mimetype);
-      this.logger.log(`Packing video uploaded to Azure: ${path}`);
+      await this.supabaseStorage.uploadFile(this.bucket, path, file.buffer, file.mimetype);
+      this.logger.log(`Packing video uploaded to Supabase: ${path}`);
     } catch (error) {
-      this.logger.error(`Azure video upload failed: ${error.message}`);
-      throw new BadRequestException('Failed to upload packing video to Azure Storage');
+      this.logger.error(`Supabase video upload failed: ${error.message}`);
+      throw new BadRequestException('Failed to upload packing video to Supabase Storage');
     }
 
     const proof = await this.prisma.orderPackingProof.upsert({
@@ -95,7 +95,7 @@ export class PackingProofService {
     if (!proof) throw new NotFoundException('Packing video not available');
 
     try {
-      const signedUrl = await this.azureStorage.getSignedUrl(this.container, proof.videoPath, 600);
+      const signedUrl = await this.supabaseStorage.getSignedUrl(this.bucket, proof.videoPath, 600);
       return { signedUrl, expiresInSeconds: 600 };
     } catch (error) {
       this.logger.error(`Failed to generate signed URL: ${error.message}`);

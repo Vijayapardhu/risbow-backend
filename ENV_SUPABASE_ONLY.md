@@ -33,13 +33,11 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 SUPABASE_ANON_KEY=your-supabase-anon-key
 
 # ============================================
-# AZURE BLOB STORAGE (For file uploads)
+# FILE STORAGE: Supabase Storage (For file uploads)
 # ============================================
-AZURE_STORAGE_ACCOUNT_NAME=risbowstorageprod
-AZURE_STORAGE_ACCOUNT_KEY=your-azure-storage-key
-AZURE_STORAGE_CONTAINER_PRODUCTS=products
-AZURE_STORAGE_CONTAINER_USERS=users
-AZURE_STORAGE_CONTAINER_VIDEOS=videos
+# Supabase Storage uses the same credentials as Supabase Auth
+# Buckets are created automatically: products, users, videos
+# No additional configuration needed - uses SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY above
 
 # ============================================
 # JWT AUTHENTICATION (REQUIRED)
@@ -97,7 +95,7 @@ REDIS_PASSWORD=
 - **DATABASE_URL is REQUIRED** - The application will not start without it
 - **URL-encode special characters** in password (e.g., `@` becomes `%40`)
 - **Do NOT commit `.env` file** to version control
-- **Azure Blob Storage** is still used for file uploads (not Supabase Storage)
+- **Supabase Storage** is used for all file uploads (products, users, videos buckets)
 
 ## After Setting Up
 
