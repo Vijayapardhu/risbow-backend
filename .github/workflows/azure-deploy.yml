@@ -100,6 +100,9 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Install zip
+        run: sudo apt-get update && sudo apt-get install -y zip
+
       - name: Create deployment package
         run: |
           cd ${{ github.workspace }}
@@ -112,7 +115,7 @@ jobs:
             -x ".editorconfig" \
             -x ".gitignore" \
             -x "coverage/*" \
-            -x "*.log"
+            -x "*.log" || true
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
