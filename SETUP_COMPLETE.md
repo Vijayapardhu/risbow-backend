@@ -36,7 +36,17 @@ Example format (replace with your actual values):
 ### Secret 2: `AZURE_APP_SERVICE_NAME`
 
 **Name:** `AZURE_APP_SERVICE_NAME`  
-**Value:** `risbow-api-prod-f4dua9fsc4d9hqgs`
+**Value:** `risbow-api-prod` OR `risbow-api-prod-f4dua9fsc4d9hqgs`
+
+**⚠️ IMPORTANT:** Verify the exact name in Azure Portal:
+1. Go to Azure Portal → App Services
+2. Check the **Resource name** (not the hostname)
+3. Use that exact name in the secret
+
+To verify, run:
+```bash
+az webapp list --resource-group risbow-prod --query "[].name" --output table
+```
 
 ### Secret 3: `AZURE_PUBLISH_PROFILE`   
 
