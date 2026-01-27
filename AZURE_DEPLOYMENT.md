@@ -7,7 +7,7 @@ This guide covers deploying the RISBOW backend to Azure App Service (Linux) for 
 ## Architecture
 
 - **App Service**: Node.js API (Fastify) - **Node.js 22.x required**
-- **Database**: Azure PostgreSQL Flexible Server (private endpoint)
+- **Database**: Supabase PostgreSQL (managed PostgreSQL with public access)
 - **Cache**: Azure Redis Cache
 - **Storage**: Azure Blob Storage
 
@@ -70,15 +70,11 @@ Set these in Azure App Service → Configuration → Application Settings.
 NODE_ENV=production  # ⚠️ Set to 'production' for production
 BASE_URL=https://<app-name>.azurewebsites.net
 
-# Database (Azure PostgreSQL Flexible Server)
-DATABASE_URL=postgresql://user:password@host:5432/db?sslmode=require
-# OR use individual variables:
-DB_HOST=<azure-postgres-host>.private.postgres.database.azure.com
-DB_PORT=5432
-DB_NAME=postgres
-DB_USER=<user>
-DB_PASSWORD=<password>  # URL-encode special characters (@ becomes %40)
-DB_SSL=true
+# Database (Supabase PostgreSQL)
+# Get connection strings from: Supabase Dashboard → Settings → Database
+DATABASE_URL=postgresql://postgres.rxticediycnboewmsfmi:<password>@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require
+DIRECT_URL=postgresql://postgres.rxticediycnboewmsfmi:<password>@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require
+# ⚠️ Replace <password> with your Supabase database password (URL-encode special characters)
 
 # Redis (Azure Redis Cache)
 REDIS_HOST=<redis-host>.redis.cache.windows.net

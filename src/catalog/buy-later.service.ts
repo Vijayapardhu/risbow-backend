@@ -25,8 +25,8 @@ export class BuyLaterService {
                 currentPrice,
                 targetPrice: currentPrice, // Default to current, user can update later
                 updatedAt: new Date(),
-                user: { connect: { id: userId } },
-                product: { connect: { id: productId } },
+                User: { connect: { id: userId } },
+                Product: { connect: { id: productId } },
             },
         });
     }
@@ -34,7 +34,7 @@ export class BuyLaterService {
     async getBuyLaterItems(userId: string) {
         return this.prisma.buyLater.findMany({
             where: { userId, isActive: true },
-            include: { product: true }
+            include: { Product: true }
         });
     }
 
@@ -59,11 +59,11 @@ export class BuyLaterService {
     async checkPriceDrops() {
         const activeItems = await this.prisma.buyLater.findMany({
             where: { isActive: true, isNotified: false },
-            include: { product: true }
+            include: { Product: true }
         });
 
         for (const item of activeItems) {
-            const currentPrice = (item as any).product.offerPrice || (item as any).product.price;
+            const currentPrice = (item as any).Product.offerPrice || (item as any).Product.price;
 
             if (currentPrice <= item.targetPrice) {
                 const dropPercent = ((item.currentPrice - currentPrice) / item.currentPrice) * 100;
@@ -77,7 +77,7 @@ export class BuyLaterService {
                 });
 
                 // Emit Notification (Simulated here)
-                console.log(`NOTIFY: User ${item.userId} - ${(item as any).product.title} price dropped to ${currentPrice}!`);
+                console.log(`NOTIFY: User ${item.userId} - ${(item as any).Product.title} price dropped to ${currentPrice}!`);
             }
         }
     }

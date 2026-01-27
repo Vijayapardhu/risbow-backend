@@ -122,7 +122,7 @@ export class OrdersService {
                 razorpayOrderId: rzpOrder.id,
                 abandonedCheckoutId: dto.abandonedCheckoutId,
                 // P0: Immutable Snapshot
-                financialSnapshot: {
+                OrderFinancialSnapshot: {
                     create: {
                         subtotal: totalBasePrice,
                         taxAmount: totalTaxAmount,
@@ -137,12 +137,12 @@ export class OrdersService {
                     }
                 } as any,
                 // P0: Initial Settlement state
-                settlement: {
+                OrderSettlement: {
                     create: {
                         id: require('crypto').randomUUID(),
                         amount: netVendorEarnings,
                         status: 'PENDING',
-                        vendor: { connect: { id: vendorId || '' } },
+                        Vendor: { connect: { id: vendorId || '' } },
                     }
                 }
             },

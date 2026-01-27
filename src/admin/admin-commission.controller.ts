@@ -22,7 +22,7 @@ export class AdminCommissionController {
     @ApiOperation({ summary: 'List all category commissions' })
     async listCategoryCommissions() {
         return this.prisma.categoryCommission.findMany({
-            include: { category: true }
+            include: { Category: true }
         });
     }
 
@@ -39,7 +39,7 @@ export class AdminCommissionController {
                 id: randomUUID(),
                 commissionRate: dto.commissionRate,
                 isActive: dto.isActive ?? true,
-                category: { connect: { id: dto.categoryId } }
+                Category: { connect: { id: dto.categoryId } }
             }
         });
     }
@@ -51,8 +51,8 @@ export class AdminCommissionController {
             where: status ? { status } : {},
             orderBy: { createdAt: 'desc' },
             include: {
-                order: { select: { totalAmount: true, createdAt: true } },
-                vendor: { select: { name: true, storeName: true } }
+                Order: { select: { totalAmount: true, createdAt: true } },
+                Vendor: { select: { name: true, storeName: true } }
             },
             take: 50
         });

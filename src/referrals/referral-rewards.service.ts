@@ -42,8 +42,8 @@ export class ReferralRewardsService {
     // Must be in a “paid” state at time of awarding
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { payment: true, financialSnapshot: true },
-    });
+      include: { payment: true, OrderFinancialSnapshot: true },
+    } as any);
     if (!order) return { awarded: false, reason: 'ORDER_NOT_FOUND' };
 
     if (!paidStatuses.includes(order.status)) return { awarded: false, reason: 'ORDER_NOT_PAID' };
@@ -65,18 +65,16 @@ export class ReferralRewardsService {
     const orderValuePaise = this.computeOrderValuePaise({
       order,
       payment: order.payment,
-      snapshot: order.financialSnapshot,
+      snapshot: order.OrderFinancialSnapshot,
     });
 
     const rule = await this.prisma.referralRewardRule.findFirst({
       where: {
         isActive: true,
         effectiveFrom: { lte: now },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }],
         minOrderPaise: { lte: orderValuePaise },
-        AND: [
-          { OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }] },
-          { OR: [{ maxOrderPaise: null }, { maxOrderPaise: { gt: orderValuePaise } }] },
-        ],
+        OR: [{ maxOrderPaise: null }, { maxOrderPaise: { gt: orderValuePaise } }],
       } as any,
       orderBy: { minOrderPaise: 'desc' },
     });
@@ -87,7 +85,7 @@ export class ReferralRewardsService {
     try {
       await this.prisma.$transaction(async (tx) => {
         // Idempotency: unique per order
-        const existing = await tx.referralRewardGrant.findUnique({ where: { orderId } });
+        const existing = await tx.referralRewardGrant.findUnique({ where: { orderId } }).catch(() => null);
         if (existing) return;
 
         await tx.referralRewardGrant.create({
@@ -106,8 +104,8 @@ export class ReferralRewardsService {
         await this.coins.credit(invitee.id, rule.coinsInvitee, CoinSource.REFERRAL, referenceId, tx);
         await this.coins.credit(invitee.referredBy, rule.coinsInviter, CoinSource.REFERRAL, referenceId, tx);
 
-        try {
-          await tx.auditLog.create({
+        await tx.auditLog
+          .create({
             data: {
               adminId: invitee.referredBy,
               entity: 'Order',
@@ -122,10 +120,8 @@ export class ReferralRewardsService {
                 coinsInviter: rule.coinsInviter,
               },
             } as any,
-          });
-        } catch {
-          // never block awarding on audit failure
-        }
+          })
+          .catch(() => undefined);
       });
     } catch (e: any) {
       this.logger.error(`Referral award failed for order ${orderId}: ${e?.message || e}`);

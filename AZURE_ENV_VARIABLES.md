@@ -20,23 +20,33 @@ BASE_URL=https://risbow-api-prod-f4dua9fsc4d9hqgs.centralindia-01.azurewebsites.
 WEBSITE_HEALTHCHECK_MAXPINGFAILURES=10
 ```
 
-### Database (Azure PostgreSQL)
+### Database (Supabase PostgreSQL)
 
 ```bash
-# Direct Connection String (Preferred)
-DATABASE_URL=postgresql://risbow_admin:<password>@risbow-postgres-prod.postgres.database.azure.com:5432/postgres?sslmode=require
-# ⚠️ Replace <password> with your actual password (URL-encode special characters: @ becomes %40)
+# Supabase Connection Strings
+# Get from: Supabase Dashboard → Settings → Database → Connection string
 
-# Individual Variables (Alternative)
-DB_HOST=risbow-postgres-prod.private.postgres.database.azure.com
-DB_PORT=5432
-DB_NAME=postgres
-DB_USER=risbow_admin
-DB_PASSWORD=<your-database-password>  # ⚠️ Use strong password - DO NOT commit to repo
-DB_SSL=true
+# Pooler connection (for application - port 6543)
+DATABASE_URL=postgresql://postgres.rxticediycnboewmsfmi:<password>@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require
+# ⚠️ Replace <password> with your Supabase database password (URL-encode special characters)
+
+# Direct connection (for migrations - port 5432)
+DIRECT_URL=postgresql://postgres.rxticediycnboewmsfmi:<password>@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require
+# ⚠️ Replace <password> with your Supabase database password
+
+# Optional: Individual Variables (if needed)
+# DB_HOST=aws-0-ap-south-1.pooler.supabase.com
+# DB_PORT=6543
+# DB_NAME=postgres
+# DB_USER=postgres.rxticediycnboewmsfmi
+# DB_PASSWORD=<your-supabase-password>  # ⚠️ Use strong password - DO NOT commit to repo
+# DB_SSL=true
 ```
 
-**Note**: If using private endpoint, `DB_HOST` should use `.private.postgres.database.azure.com` domain.
+**Note**: 
+- Use **pooler connection** (port 6543) for application runtime
+- Use **direct connection** (port 5432) for Prisma migrations
+- Get exact connection strings from Supabase Dashboard → Settings → Database
 
 ### Redis Cache (Azure Redis)
 

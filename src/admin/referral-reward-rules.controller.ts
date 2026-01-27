@@ -6,7 +6,6 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AuditLogService } from '../audit/audit.service';
 import { CreateReferralRewardRuleDto, UpdateReferralRewardRuleDto } from './dto/referral-reward-rule.dto';
-import { BadRequestException } from '@nestjs/common';
 
 @ApiTags('Admin Referral Rewards')
 @ApiBearerAuth()
@@ -34,23 +33,17 @@ export class ReferralRewardRulesController {
     const overlaps = await this.prisma.referralRewardRule.findFirst({
       where: {
         isActive: true,
-        AND: [
-          // time window overlap
-          {
-            effectiveFrom: { lte: effectiveTo ?? new Date('9999-12-31') },
-            OR: [{ effectiveTo: null }, { effectiveTo: { gt: effectiveFrom } }],
-          },
-          // range overlap
-          {
-            minOrderPaise: { lt: dto.maxOrderPaise ?? 2147483647 },
-            OR: [{ maxOrderPaise: null }, { maxOrderPaise: { gt: dto.minOrderPaise } }],
-          },
-        ],
+        // time window overlap
+        effectiveFrom: { lte: effectiveTo ?? new Date('9999-12-31') },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gt: effectiveFrom } }],
+        // range overlap
+        minOrderPaise: { lt: dto.maxOrderPaise ?? 2147483647 },
+        OR: [{ maxOrderPaise: null }, { maxOrderPaise: { gt: dto.minOrderPaise } }],
       } as any,
       select: { id: true },
     });
     if (overlaps) {
-      throw new BadRequestException('Overlapping slab rule exists for the active window');
+      throw new Error('Overlapping slab rule exists for the active window');
     }
 
     const created = await this.prisma.referralRewardRule.create({
