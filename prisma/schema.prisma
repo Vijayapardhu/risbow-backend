@@ -1,21 +1,29 @@
-// 1ÃƒÂ¯Ã‚Â¸Ã‚ÂÃƒÂ¢Ã†â€™Ã‚Â£ ProductSearchMiss: Tracks failed searches with analytics for demand mining
-model ProductSearchMiss {
-  id                 String   @id @default(cuid())
-  query              String
-  normalizedQuery    String
-  keywords           String[]
-  inferredCategoryId String?
-  userId             String?
-  count              Int      @default(1)
-  firstSearchedAt    DateTime @default(now())
-  lastSearchedAt     DateTime @updatedAt
-  resolved           Boolean  @default(false)
-  resolvedProductId  String?
-  metadata           Json?
-  region             String? // Region where search originated
+generator client {
+  provider = "prisma-client-js"
+}
 
-  user     User?     @relation(fields: [userId], references: [id])
-  category Category? @relation(fields: [inferredCategoryId], references: [id])
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model ProductSearchMiss {
+  id                 String    @id @default(cuid())
+  query              String
+  userId             String?
+  count              Int       @default(1)
+  lastSearchedAt     DateTime  @updatedAt
+  firstSearchedAt    DateTime  @default(now())
+  inferredCategoryId String?
+  keywords           String[]
+  metadata           Json?
+  normalizedQuery    String
+  resolved           Boolean   @default(false)
+  resolvedProductId  String?
+  region             String?
+  category           Category? @relation(fields: [inferredCategoryId], references: [id])
+  user               User?     @relation(fields: [userId], references: [id])
 
   @@index([normalizedQuery])
   @@index([count])
@@ -24,7 +32,6 @@ model ProductSearchMiss {
   @@index([region])
 }
 
-// 1ÃƒÂ¯Ã‚Â¸Ã‚ÂÃƒÂ¢Ã†â€™Ã‚Â£b SearchTrending: Tracks trending searches by region for autocomplete and analytics
 model SearchTrending {
   id       String   @id @default(cuid())
   query    String
@@ -37,22 +44,20 @@ model SearchTrending {
   @@index([lastSeen])
 }
 
-// 2ÃƒÂ¯Ã‚Â¸Ã‚ÂÃƒÂ¢Ã†â€™Ã‚Â£ CartInsight: Analyzes cart state for behavioral patterns and risk
 model CartInsight {
   id              String          @id @default(cuid())
   userId          String
   cartValue       Int
   itemCount       Int
   categories      String[]
-  cartPattern     String // SINGLE_ITEM, VALUE_BUYER, BUNDLE_POTENTIAL, etc.
+  cartPattern     String
   hesitationScore Float
   abandonRisk     Float
-  type            CartInsightType
+  resolvedAt      DateTime?
   severity        InsightSeverity
   triggeredAt     DateTime        @default(now())
-  resolvedAt      DateTime?
-
-  user User @relation(fields: [userId], references: [id])
+  type            CartInsightType
+  user            User            @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([cartPattern])
@@ -61,41 +66,36 @@ model CartInsight {
   @@index([severity])
 }
 
-// 3ÃƒÂ¯Ã‚Â¸Ã‚ÂÃƒÂ¢Ã†â€™Ã‚Â£ RecommendationEvent: Tracks AI/System recommendations and their conversion
 model RecommendationEvent {
   id              String   @id @default(cuid())
   userId          String
-  source          String // BOW, CART_PAGE, SEARCH
-  strategy        String // BUNDLE, THRESHOLD, LOOK, ALTERNATIVE
+  source          String
+  strategy        String
   productIds      String[]
   accepted        Boolean?
   cartValueBefore Int
   cartValueAfter  Int?
   createdAt       DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
+  user            User     @relation(fields: [userId], references: [id])
 
   @@index([strategy])
   @@index([accepted])
 }
 
-// 6ÃƒÂ¯Ã‚Â¸Ã‚ÂÃƒÂ¢Ã†â€™Ã‚Â£ UserProductEvent: Commerce-grade event stream for personalization and analytics.
-// Money safety: store prices in integer paise.
 model UserProductEvent {
   id        String               @id @default(cuid())
   userId    String?
   sessionId String?
   type      UserProductEventType
-  source    String? // PDP | SEARCH | CART | RECO | ROOM | CHECKOUT
+  source    String?
   productId String
   variantId String?
   quantity  Int?
-  price     Int? // paise at event time (best-effort snapshot)
+  price     Int?
   metadata  Json?
   createdAt DateTime             @default(now())
-
-  user    User?   @relation(fields: [userId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  product   Product              @relation(fields: [productId], references: [id])
+  user      User?                @relation(fields: [userId], references: [id])
 
   @@index([userId, createdAt])
   @@index([productId, createdAt])
@@ -103,7 +103,6 @@ model UserProductEvent {
   @@index([source, createdAt])
 }
 
-// 4ÃƒÂ¯Ã‚Â¸Ã‚ÂÃƒÂ¢Ã†â€™Ã‚Â£ BowActionLog: Tracks automatic Bow actions with guardrails and attribution
 model BowActionLog {
   id                String        @id @default(cuid())
   userId            String
@@ -112,16 +111,15 @@ model BowActionLog {
   variantId         String?
   quantity          Int?
   price             Int?
-  reason            String // Why this action was taken
-  guardrailCheck    Json? // Stock, price, user preferences validation
+  reason            String
+  guardrailCheck    Json?
   autoReversed      Boolean       @default(false)
   reverseReason     String?
-  attributedRevenue Int? // Revenue attributed to this action
+  attributedRevenue Int?
   createdAt         DateTime      @default(now())
   reversedAt        DateTime?
-
-  user    User     @relation(fields: [userId], references: [id])
-  product Product? @relation(fields: [productId], references: [id])
+  product           Product?      @relation(fields: [productId], references: [id])
+  user              User          @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([actionType])
@@ -130,43 +128,21 @@ model BowActionLog {
   @@index([autoReversed])
 }
 
-// 5ÃƒÂ¯Ã‚Â¸Ã‚ÂÃƒÂ¢Ã†â€™Ã‚Â£ UserPreferenceProfile: Safe preference storage for personalization
 model UserPreferenceProfile {
   id                  String   @id @default(cuid())
   userId              String   @unique
   preferredCategories String[]
   preferredBrands     String[]
   sizePreferences     String[]
-  priceSensitivity    String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  priceSensitivity    String   @default("MEDIUM")
   colorAffinity       String[]
-  styleTags           String[] // casual, formal, festive, etc.
+  styleTags           String[]
   lastUpdated         DateTime @updatedAt
-  confidenceScore     Float    @default(0.1) // 0.0 to 1.0
-
-  user User @relation(fields: [userId], references: [id])
+  confidenceScore     Float    @default(0.1)
+  user                User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([priceSensitivity])
-}
-
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  // directUrl is optional - only needed when using connection poolers (e.g., PgBouncer, Supabase)
-  // For Supabase: Use pooler (port 6543) for app, direct connection (port 5432) for migrations
-  // Uncomment if using Supabase or other poolers:
-  directUrl = env("DIRECT_URL")
-}
-
-enum SettlementStatus {
-  PENDING
-  ELIGIBLE
-  SETTLED
-  REVERSED
 }
 
 model User {
@@ -203,14 +179,21 @@ model User {
   authoredNotes                                      AdminNote[]             @relation("AdminAuthor")
   receivedNotes                                      AdminNote[]             @relation("UserNotes")
   auditLogs                                          AuditLog[]
+  bets                                               Bet[]
+  bowActionLogs                                      BowActionLog[]
   BowInteraction                                     BowInteraction[]
+  buyLater                                           BuyLater[]
   cart                                               Cart?
+  cartInsights                                       CartInsight[]
   leadFollowups                                      CheckoutFollowup[]
   coinLedger                                         CoinLedger[]
+  coinValuationsSet                                  CoinValuation[]         @relation("CoinValuationSetBy")
+  ledger                                             LedgerEntry[]
   notifications                                      Notification[]
-  devices                                            UserDevice[]
   orders                                             Order[]
-  checkoutGroups                                     CheckoutGroup[]
+  paymentIntentsCreated                              PaymentIntent[]         @relation("PaymentIntentCreatedBy")
+  productSearchMisses                                ProductSearchMiss[]
+  recommendationEvents                               RecommendationEvent[]
   ReferralTracking_ReferralTracking_refereeIdToUser  ReferralTracking[]      @relation("ReferralTracking_refereeIdToUser")
   ReferralTracking_ReferralTracking_referrerIdToUser ReferralTracking[]      @relation("ReferralTracking_referrerIdToUser")
   reports                                            Report[]
@@ -218,47 +201,30 @@ model User {
   reviews                                            Review[]
   createdRooms                                       Room[]
   rooms                                              RoomMember[]
-  VendorFollower                                     VendorFollower[]
-  wishlist                                           Wishlist[]
-  wallet                                             Wallet?
-  buyLater                                           BuyLater[]
-  bets                                               Bet[]
-  ledger                                             LedgerEntry[]
   telecallerPerformance                              TelecallerPerformance[]
-
-  productSearchMisses        ProductSearchMiss[]
-  cartInsights               CartInsight[]
-  recommendationEvents       RecommendationEvent[]
-  bowActionLogs              BowActionLog[]
-  userPreferenceProfile      UserPreferenceProfile?
-  productEvents              UserProductEvent[]
-  vendorInquiriesRequested   VendorInquiry[]        @relation("VendorInquiryRequester")
-  paymentIntentsCreated      PaymentIntent[]        @relation("PaymentIntentCreatedBy")
-  coinValuationsSet          CoinValuation[]        @relation("CoinValuationSetBy")
-  ReferralRewardRule         ReferralRewardRule[]
-  ReferralRewardGrantInviter ReferralRewardGrant[]  @relation("ReferralGrantInviter")
-  ReferralRewardGrantInvitee ReferralRewardGrant[]  @relation("ReferralGrantInvitee")
-  localPromotionsSet         LocalPromotion[]
-  uploadedPackingProofs      OrderPackingProof[]
+  devices                                            UserDevice[]
+  userPreferenceProfile                              UserPreferenceProfile?
+  productEvents                                      UserProductEvent[]
+  VendorFollower                                     VendorFollower[]
+  vendorInquiriesRequested                           VendorInquiry[]         @relation("VendorInquiryRequester")
+  wallet                                             Wallet?
+  wishlist                                           Wishlist[]
 
   @@index([role])
   @@index([status])
   @@index([referredBy])
 }
 
-// User device tokens for push notifications (FCM).
-// This is required for real push delivery; otherwise we only store in-app notifications.
 model UserDevice {
   id         String   @id @default(cuid())
   userId     String
-  platform   String // ANDROID | IOS | WEB
+  platform   String
   token      String   @unique
   isActive   Boolean  @default(true)
   lastSeenAt DateTime @default(now())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isActive])
   @@index([lastSeenAt])
@@ -276,20 +242,17 @@ model Room {
   unlockMinValue  Int
   createdById     String?
   isSystemRoom    Boolean       @default(false)
-  memberCount     Int           @default(1)
   createdAt       DateTime      @default(now())
+  memberCount     Int           @default(1)
+  maxDiscount     Float?
+  maxMembers      Int?
+  productId       String?
+  type            RoomType      @default(GOAL_BASED)
   createdBy       User?         @relation(fields: [createdById], references: [id])
-  members         RoomMember[]
+  product         Product?      @relation(fields: [productId], references: [id])
   boosts          RoomBoost[]
   insights        RoomInsight[]
-
-  // Phase 3.1: Group Discount Room fields
-  type        RoomType @default(GOAL_BASED)
-  productId   String?
-  maxDiscount Float? // Max discount percentage (e.g. 80.0)
-  maxMembers  Int? // Limit of members (can use size but let's be explicit as per request)
-
-  product Product? @relation(fields: [productId], references: [id])
+  members         RoomMember[]
 
   @@index([status, endAt])
   @@index([createdById])
@@ -306,8 +269,7 @@ model RoomBoost {
   endAt     DateTime
   isActive  Boolean       @default(true)
   createdAt DateTime      @default(now())
-
-  room Room @relation(fields: [roomId], references: [id])
+  room      Room          @relation(fields: [roomId], references: [id])
 
   @@index([roomId])
   @@index([type, isActive])
@@ -320,8 +282,7 @@ model RoomInsight {
   metric    String
   value     Float
   createdAt DateTime @default(now())
-
-  room Room @relation(fields: [roomId], references: [id])
+  room      Room     @relation(fields: [roomId], references: [id])
 
   @@index([roomId])
   @@index([metric])
@@ -349,22 +310,21 @@ model RoomMember {
 }
 
 model Category {
-  id                  String               @id @default(cuid())
+  id                  String              @id @default(cuid())
   name                String
   image               String?
   nameTE              String?
   parentId            String?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
   attributeSchema     Json?
-  isActive            Boolean              @default(true)
-  parent              Category?            @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children            Category[]           @relation("CategoryHierarchy")
+  isActive            Boolean             @default(true)
+  parent              Category?           @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children            Category[]          @relation("CategoryHierarchy")
+  commissions         CategoryCommission?
   specs               CategorySpec[]
   products            Product[]
   productSearchMisses ProductSearchMiss[]
-  commissions         CategoryCommission[]
-  localPromotions     LocalPromotion[]
 
   @@index([parentId])
   @@index([isActive])
@@ -386,34 +346,25 @@ model CoinLedger {
   amount            Int
   source            String
   referenceId       String?
-  // ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â Bow Coin Valuation Snapshot (future-only, audit-safe)
-  // Stores the rupee valuation used at the time of this ledger entry.
-  // Money is stored in integer paise; valuation is "paise per 1 coin".
+  expiresAt         DateTime?
+  createdAt         DateTime  @default(now())
+  isExpired         Boolean   @default(false)
   paisePerCoinAtTxn Int       @default(100)
   roleAtTxn         UserRole  @default(CUSTOMER)
-  expiresAt         DateTime?
-  isExpired         Boolean   @default(false) // ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â P0 FIX: Preserve ledger history
-  createdAt         DateTime  @default(now())
   user              User      @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([createdAt])
-  @@index([isExpired]) // For efficient expiry queries
-  @@index([expiresAt]) // ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â P0 FIX: Index for expiry cron job
+  @@index([isExpired])
+  @@index([expiresAt])
   @@index([roleAtTxn, createdAt])
 }
 
 model Vendor {
-  id        String  @id @default(cuid())
-  name      String
-  mobile    String  @unique
-  email     String?
-  pincode   String? // For hyper-local sourcing
-  latitude  Float?
-  longitude Float?
-
-  storeStatus        VendorStatus      @default(ACTIVE)
-  storeClosedUntil   DateTime?
+  id                 String            @id @default(cuid())
+  name               String
+  mobile             String            @unique
+  email              String?
   kycStatus          String            @default("PENDING")
   tier               String            @default("BASIC")
   gstNumber          String?
@@ -425,42 +376,37 @@ model Vendor {
   followCount        Int               @default(0)
   vendorCode         String?           @unique
   commissionRate     Float             @default(0.0)
-  commissionOverride Decimal?          @db.Decimal(5, 4) // e.g. 0.1250 for 12.5%
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   strikes            Int               @default(0)
-  storeName          String?
-  storeLogo          String?
-  storeBanner        String?
-  storeTimings       Json?
-  pickupEnabled      Boolean           @default(false)
-  pickupTimings      Json?
   bankDetails        Json?
   lastPayoutDate     DateTime?
   pendingEarnings    Int               @default(0)
   performanceScore   Float             @default(0.0)
+  pickupEnabled      Boolean           @default(false)
+  pickupTimings      Json?
+  storeBanner        String?
+  storeLogo          String?
+  storeName          String?
+  storeTimings       Json?
+  commissionOverride Decimal?          @db.Decimal(5, 4)
+  latitude           Float?
+  longitude          Float?
+  pincode            String?
+  coupons            Coupon[]
+  orderSettlements   OrderSettlement[]
   products           Product[]
   returns            ReturnRequest[]
   reviews            Review[]
   VendorFollower     VendorFollower[]
+  inquiriesReceived  VendorInquiry[]   @relation("VendorInquiryWholesaler")
   VendorMembership   VendorMembership?
   VendorPayout       VendorPayout[]
   VendorPromotion    VendorPromotion[]
-  inquiriesReceived  VendorInquiry[]   @relation("VendorInquiryWholesaler")
-  coupons            Coupon[]
-  orderSettlements   OrderSettlement[]
-
-  serviceAreas    VendorServiceArea[]
-  pickupPoints    PickupPoint[]
-  localPromotions LocalPromotion[]
-  packingProofs   OrderPackingProof[]
-  deliveryWindows VendorDeliveryWindow[]
-  deliverySlots   OrderDeliverySlotSnapshot[]
 
   @@index([kycStatus])
   @@index([tier])
   @@index([pincode])
-  @@index([storeStatus])
 }
 
 model RoomPackage {
@@ -472,28 +418,23 @@ model RoomPackage {
 }
 
 model Address {
-  id      String  @id @default(cuid())
-  userId  String
-  title   String?
-  name    String
-  mobile  String?
-  street  String?
-  city    String
-  state   String
-  pincode String
-
-  latitude     Float?
-  longitude    Float?
-  geoSource    GeoSource?
-  geoUpdatedAt DateTime?
-  isDefault    Boolean    @default(false)
-  addressLine1 String     @default("")
+  id           String   @id @default(cuid())
+  userId       String
+  title        String?
+  name         String
+  mobile       String?
+  street       String?
+  city         String
+  state        String
+  pincode      String
+  isDefault    Boolean  @default(false)
+  addressLine1 String   @default("")
   addressLine2 String?
-  createdAt    DateTime   @default(now())
-  label        String     @default("Home")
+  createdAt    DateTime @default(now())
+  label        String   @default("Home")
   phone        String
-  updatedAt    DateTime   @updatedAt
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   orders       Order[]
 
   @@index([userId])
@@ -533,7 +474,6 @@ model Wishlist {
   @@unique([userId, productId])
 }
 
-// B2B: Vendor inquiries to wholesalers for bulk purchase negotiation.
 model VendorInquiry {
   id                 String        @id @default(cuid())
   wholesalerVendorId String
@@ -546,10 +486,9 @@ model VendorInquiry {
   respondedAt        DateTime?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
-
-  wholesaler Vendor  @relation("VendorInquiryWholesaler", fields: [wholesalerVendorId], references: [id], onDelete: Cascade)
-  requester  User    @relation("VendorInquiryRequester", fields: [requesterUserId], references: [id], onDelete: Cascade)
-  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product            Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  requester          User          @relation("VendorInquiryRequester", fields: [requesterUserId], references: [id], onDelete: Cascade)
+  wholesaler         Vendor        @relation("VendorInquiryWholesaler", fields: [wholesalerVendorId], references: [id], onDelete: Cascade)
 
   @@index([wholesalerVendorId, status])
   @@index([requesterUserId, status])
@@ -565,11 +504,11 @@ model Review {
   rating       Int
   comment      String?
   images       String[]
-  isVerified   Boolean  @default(false)
-  status       String   @default("ACTIVE")
-  helpfulCount Int      @default(0)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  helpfulCount Int      @default(0)
+  isVerified   Boolean  @default(false)
+  status       String   @default("ACTIVE")
   product      Product? @relation(fields: [productId], references: [id])
   user         User     @relation(fields: [userId], references: [id])
   vendor       Vendor?  @relation(fields: [vendorId], references: [id])
@@ -595,8 +534,6 @@ model Payment {
   order           Order         @relation(fields: [orderId], references: [id])
 }
 
-// PaymentIntent for non-order payments (vendor monetization, memberships, etc.)
-// Keeps order payments isolated in `Payment` to preserve invariants.
 model PaymentIntent {
   id              String               @id @default(cuid())
   purpose         PaymentIntentPurpose
@@ -611,8 +548,7 @@ model PaymentIntent {
   createdByUserId String?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
-
-  createdByUser User? @relation("PaymentIntentCreatedBy", fields: [createdByUserId], references: [id])
+  createdByUser   User?                @relation("PaymentIntentCreatedBy", fields: [createdByUserId], references: [id])
 
   @@unique([purpose, referenceId])
   @@index([status, createdAt])
@@ -630,8 +566,8 @@ model Banner {
   startDate   DateTime
   endDate     DateTime
   isActive    Boolean  @default(true)
-  metadata    Json?
   createdAt   DateTime @default(now())
+  metadata    Json?
 
   @@index([vendorId])
   @@index([slotType, isActive])
@@ -655,52 +591,42 @@ model Notification {
 }
 
 model Order {
-  id                  String             @id @default(cuid())
+  id                  String                  @id @default(cuid())
   userId              String
   roomId              String?
   addressId           String?
   items               Json
   totalAmount         Int
-  coinsUsed           Int                @default(0)
-  coinsUsedDebited    Boolean            @default(false)
-  status              OrderStatus        @default(PENDING)
+  coinsUsed           Int                     @default(0)
+  coinsUsedDebited    Boolean                 @default(false)
+  status              OrderStatus             @default(PENDING)
   razorpayOrderId     String?
   awbNumber           String?
   courierPartner      String?
-  giftId              String?
-  couponCode          String?
-  obdOtp              String? // OTP for Open-Box Delivery
-  obdVerifiedAt       DateTime?
-  discountAmount      Int                @default(0)
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
   abandonedCheckoutId String?
-  checkoutGroupId     String?
   agentId             String?
-  shippingCharges     Int                @default(0)
-  checkout            AbandonedCheckout? @relation(fields: [abandonedCheckoutId], references: [id])
-  checkoutGroup       CheckoutGroup?     @relation(fields: [checkoutGroupId], references: [id])
-  address             Address?           @relation(fields: [addressId], references: [id])
-  user                User               @relation(fields: [userId], references: [id])
+  shippingCharges     Int                     @default(0)
+  couponCode          String?
+  discountAmount      Int                     @default(0)
+  giftId              String?
+  deliveredAt         DateTime?
+  isReturnable        Boolean                 @default(true)
+  returnWindow        Int                     @default(7)
+  obdOtp              String?
+  obdVerifiedAt       DateTime?
+  checkout            AbandonedCheckout?      @relation(fields: [abandonedCheckoutId], references: [id])
+  address             Address?                @relation(fields: [addressId], references: [id])
+  gift                GiftSKU?                @relation(fields: [giftId], references: [id])
+  user                User                    @relation(fields: [userId], references: [id])
+  financialSnapshot   OrderFinancialSnapshot?
+  settlement          OrderSettlement?
   payment             Payment?
-  gift                GiftSKU?           @relation(fields: [giftId], references: [id])
-
-  financialSnapshot OrderFinancialSnapshot?
-  settlement        OrderSettlement?
-
-  replacementParent ReplacementOrder[] @relation("OriginalOrder")
-  replacementChild  ReplacementOrder?  @relation("ReplacementOrder")
-
-  deliveredAt  DateTime?
-  returnWindow Int       @default(7) // Days
-  isReturnable Boolean   @default(true)
-
-  returns             ReturnRequest[]
+  replacementChild    ReplacementOrder?       @relation("ReplacementOrder")
+  replacementParent   ReplacementOrder[]      @relation("OriginalOrder")
   qcChecklist         ReturnQCChecklist?
-  ReferralRewardGrant ReferralRewardGrant?
-  shipment            Shipment?
-  packingProof        OrderPackingProof?
-  deliverySlot        OrderDeliverySlotSnapshot?
+  returns             ReturnRequest[]
 
   @@index([userId])
   @@index([status])
@@ -708,10 +634,8 @@ model Order {
   @@index([razorpayOrderId])
   @@index([awbNumber])
   @@index([userId, status])
-  @@index([userId, status, createdAt])
   @@index([status, createdAt])
   @@index([roomId, userId])
-  @@index([checkoutGroupId])
 }
 
 model Product {
@@ -720,18 +644,14 @@ model Product {
   title                String
   description          String?
   price                Int
-  embedding            Json? // Vector embedding for semantic search
   offerPrice           Int?
   stock                Int                @default(0)
   categoryId           String
-  variants             ProductVariant[]
   images               String[]
   isWholesale          Boolean            @default(false)
   wholesalePrice       Int?
   moq                  Int                @default(1)
   isActive             Boolean            @default(false)
-  visibility           ProductVisibility  @default(DRAFT)
-  popularityScore      Float              @default(0)
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   brandName            String?
@@ -763,20 +683,23 @@ model Product {
   shippingDetails      Json?
   storageInstructions  String?
   totalAllowedQuantity Int                @default(10)
-  rooms                Room[]
   freeListingExpiresAt DateTime?
+  visibility           ProductVisibility  @default(DRAFT)
+  popularityScore      Float              @default(0)
+  embedding            Json?
+  bowActionLogs        BowActionLog[]
+  buyLater             BuyLater[]
   cartItems            CartItem[]
   category             Category           @relation(fields: [categoryId], references: [id])
   vendor               Vendor             @relation(fields: [vendorId], references: [id])
   specValues           ProductSpecValue[]
+  variants             ProductVariant[]
   returnItems          ReturnItem[]
   reviews              Review[]
-  wishlists            Wishlist[]
-  buyLater             BuyLater[]
-  bowActionLogs        BowActionLog[]
+  rooms                Room[]
   productEvents        UserProductEvent[]
   vendorInquiries      VendorInquiry[]
-  localPromotions      LocalPromotion[]
+  wishlists            Wishlist[]
 
   @@index([vendorId])
   @@index([categoryId])
@@ -791,7 +714,6 @@ model Product {
   @@index([isActive, price])
   @@index([isActive, createdAt])
   @@index([vendorId, stock])
-  @@index([vendorId, isActive, stock])
 }
 
 model Admin {
@@ -827,21 +749,15 @@ model PlatformConfig {
   updatedAt   DateTime @updatedAt
 }
 
-// Bow Coin Valuation (admin-controlled, future-only).
-// Append-only with effective dating. Service enforces "one active row per role".
 model CoinValuation {
   id            String    @id @default(cuid())
   role          UserRole
-  // integer paise per 1 coin (e.g., 100 => ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹1/coin, 10 => ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹0.10/coin)
   paisePerCoin  Int
   effectiveFrom DateTime  @default(now())
   effectiveTo   DateTime?
-  // Nullable to allow bootstrapping in fresh environments before an admin user exists.
-  // All admin-initiated changes must provide setByUserId and be audit logged.
   setByUserId   String?
   createdAt     DateTime  @default(now())
-
-  setByUser User? @relation("CoinValuationSetBy", fields: [setByUserId], references: [id])
+  setByUser     User?     @relation("CoinValuationSetBy", fields: [setByUserId], references: [id])
 
   @@index([role, effectiveTo])
   @@index([role, effectiveFrom])
@@ -860,13 +776,13 @@ model Coupon {
   usageLimit     Int?
   usedCount      Int       @default(0)
   isActive       Boolean   @default(true)
-  vendorId       String?
-  productIds     String[]
-  categoryIds    String[]
-  minQuantity    Int?
-  vendor         Vendor?   @relation(fields: [vendorId], references: [id])
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  categoryIds    String[]
+  minQuantity    Int?
+  productIds     String[]
+  vendorId       String?
+  vendor         Vendor?   @relation(fields: [vendorId], references: [id])
 
   @@index([vendorId])
   @@index([isActive])
@@ -890,14 +806,14 @@ model AbandonedCheckout {
   financeSnapshot Json
   metadata        Json?
   status          CheckoutRecoveryStatus @default(NEW)
-  abandonReason   String? // PAYMENT_FAILED, USER_BACK, TIMEOUT
-  paymentMethod   String? // UPI, CARD, COD
-  lastErrorCode   String?
   agentId         String?
   lockedUntil     DateTime?
   createdAt       DateTime               @default(now())
   abandonedAt     DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
+  abandonReason   String?
+  lastErrorCode   String?
+  paymentMethod   String?
   agent           User?                  @relation("AgentCheckouts", fields: [agentId], references: [id])
   user            User?                  @relation(fields: [userId], references: [id])
   followups       CheckoutFollowup[]
@@ -920,90 +836,36 @@ model CheckoutFollowup {
   checkout   AbandonedCheckout @relation(fields: [checkoutId], references: [id])
 }
 
-// --- RETURNS SYSTEM ---
-
-enum ReturnStatus {
-  PENDING_APPROVAL
-  APPROVED
-  REJECTED
-  PICKUP_SCHEDULED
-  PICKUP_COMPLETED
-  IN_TRANSIT
-  RECEIVED_AT_WAREHOUSE
-  QC_IN_PROGRESS
-  QC_PASSED
-  QC_FAILED
-  REFUND_INITIATED
-  REFUND_COMPLETED
-  REPLACEMENT_INITIATED
-  REPLACEMENT_SHIPPED
-  REPLACEMENT_COMPLETED
-  CANCELLED
-}
-
-enum ReturnReason {
-  DAMAGED_PRODUCT
-  WRONG_ITEM
-  MISSING_PARTS
-  QUALITY_ISSUE
-  SIZE_FIT_ISSUE
-  NOT_AS_DESCRIBED
-  DEFECTIVE
-  CHANGED_MIND
-  OTHER
-}
-
-enum ItemCondition {
-  UNOPENED
-  OPENED_UNUSED
-  USED_LIKE_NEW
-  USED_GOOD
-  USED_FAIR
-  DAMAGED
-  DEFECTIVE
-}
-
-enum CostBearer {
-  PLATFORM
-  VENDOR
-  CUSTOMER
-  SHARED
-}
-
 model ReturnRequest {
-  id             String       @id @default(cuid())
-  returnNumber   String       @unique // RET-{timestamp}-{orderIdShort}
-  orderId        String
-  userId         String
-  vendorId       String?
-  status         ReturnStatus @default(PENDING_APPROVAL)
-  reason         ReturnReason
-  description    String?
-  evidenceImages String[]
-  evidenceVideo  String?
-
-  requestedAt DateTime  @default(now())
-  approvedAt  DateTime?
-  rejectedAt  DateTime?
-  completedAt DateTime?
-  updatedAt   DateTime  @updatedAt
-
+  id                    String            @id @default(cuid())
+  returnNumber          String            @unique
+  orderId               String
+  userId                String
+  vendorId              String?
+  status                ReturnStatus      @default(PENDING_APPROVAL)
+  reason                ReturnReason
+  description           String?
+  evidenceImages        String[]
+  evidenceVideo         String?
+  requestedAt           DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
   pickupDate            DateTime?
   pickupAddress         Json?
   courierPartner        String?
   trackingId            String?
+  qcNotes               String?
+  qcBy                  String?
   replacementTrackingId String?
-
-  qcNotes String?
-  qcBy    String?
-
-  order       Order             @relation(fields: [orderId], references: [id])
-  user        User              @relation(fields: [userId], references: [id])
-  vendor      Vendor?           @relation(fields: [vendorId], references: [id])
-  items       ReturnItem[]
-  settlement  ReturnSettlement?
-  timeline    ReturnTimeline[]
-  replacement ReplacementOrder?
+  approvedAt            DateTime?
+  completedAt           DateTime?
+  rejectedAt            DateTime?
+  replacement           ReplacementOrder?
+  items                 ReturnItem[]
+  order                 Order             @relation(fields: [orderId], references: [id])
+  user                  User              @relation(fields: [userId], references: [id])
+  vendor                Vendor?           @relation(fields: [vendorId], references: [id])
+  settlement            ReturnSettlement?
+  timeline              ReturnTimeline[]
 
   @@index([orderId])
   @@index([status])
@@ -1013,80 +875,67 @@ model ReturnRequest {
 }
 
 model ReturnItem {
-  id          String        @id @default(cuid())
-  returnId    String
-  productId   String
-  variantId   String?
-  quantity    Int
-  reason      ReturnReason?
-  description String?
-  condition   String?
-
-  qcStatus ItemCondition?
-  qcNotes  String?
-
-  returnRequest ReturnRequest @relation(fields: [returnId], references: [id])
-  product       Product       @relation(fields: [productId], references: [id])
+  id            String         @id @default(cuid())
+  returnId      String
+  productId     String
+  quantity      Int
+  reason        ReturnReason?
+  condition     String?
+  description   String?
+  qcNotes       String?
+  qcStatus      ItemCondition?
+  variantId     String?
+  product       Product        @relation(fields: [productId], references: [id])
+  returnRequest ReturnRequest  @relation(fields: [returnId], references: [id])
 
   @@index([returnId])
   @@index([productId])
 }
 
 model ReturnSettlement {
-  id             String     @id @default(cuid())
-  returnId       String     @unique
-  costBearer     CostBearer @default(PLATFORM)
-  penaltyAmount  Int        @default(0) // In paise
-  penaltyReason  String?
-  penaltyApplied Boolean    @default(false)
+  id             String        @id @default(cuid())
+  returnId       String        @unique
+  penaltyApplied Boolean       @default(false)
+  penaltyAmount  Int           @default(0)
   adminNotes     String?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-
-  returnRequest ReturnRequest @relation(fields: [returnId], references: [id])
+  createdAt      DateTime      @default(now())
+  penaltyReason  String?
+  updatedAt      DateTime      @updatedAt
+  costBearer     CostBearer    @default(PLATFORM)
+  returnRequest  ReturnRequest @relation(fields: [returnId], references: [id])
 }
 
 model ReturnTimeline {
-  id          String       @id @default(cuid())
-  returnId    String
-  status      ReturnStatus
-  action      String
-  performedBy String // CUSTOMER, ADMIN, VENDOR, SYSTEM
-  actorId     String? // ID of the person performing action
-  notes       String?
-  metadata    Json?
-  timestamp   DateTime     @default(now())
-
+  id            String        @id @default(cuid())
+  returnId      String
+  status        ReturnStatus
+  action        String
+  performedBy   String
+  timestamp     DateTime      @default(now())
+  notes         String?
+  actorId       String?
+  metadata      Json?
   returnRequest ReturnRequest @relation(fields: [returnId], references: [id])
 
   @@index([returnId])
   @@index([timestamp])
 }
 
-// CRITICAL: OrderFinancialSnapshot is IMMUTABLE after order confirmation.
-// This snapshot captures the financial state at checkout time and must NEVER be modified
-// once the order status moves beyond PENDING. This ensures financial integrity and audit compliance.
-// Application-level protection is enforced via FinancialSnapshotGuardService.
-// Database-level enforcement: Updates are prevented by checking order.status before allowing modifications.
 model OrderFinancialSnapshot {
-  id      String @id @default(cuid())
-  orderId String @unique
-
-  subtotal       Int
-  taxAmount      Int
-  shippingAmount Int
-  discountAmount Int
-  giftCost       Int
-
+  id               String   @id @default(cuid())
+  orderId          String   @unique
+  subtotal         Int
+  taxAmount        Int
+  shippingAmount   Int
+  discountAmount   Int
+  giftCost         Int
   commissionRate   Float
   commissionAmount Int
   vendorEarnings   Int
   platformEarnings Int
-
-  currency     String   @default("INR")
-  calculatedAt DateTime @default(now())
-
-  order Order @relation(fields: [orderId], references: [id])
+  currency         String   @default("INR")
+  calculatedAt     DateTime @default(now())
+  order            Order    @relation(fields: [orderId], references: [id])
 
   @@index([orderId])
 }
@@ -1100,35 +949,30 @@ model OrderSettlement {
   eligibleAt DateTime?
   settledAt  DateTime?
   createdAt  DateTime         @default(now())
-
-  order  Order  @relation(fields: [orderId], references: [id])
-  vendor Vendor @relation(fields: [vendorId], references: [id])
+  order      Order            @relation(fields: [orderId], references: [id])
+  vendor     Vendor           @relation(fields: [vendorId], references: [id])
 
   @@index([vendorId, status])
 }
 
 model CategoryCommission {
   id             String   @id @default(cuid())
-  categoryId     String
+  categoryId     String   @unique
   commissionRate Float
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
-
-  category Category @relation(fields: [categoryId], references: [id])
-
-  @@unique([categoryId])
+  category       Category @relation(fields: [categoryId], references: [id])
 }
 
 model ReplacementOrder {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   originalOrderId String
-  returnId        String   @unique
-  newOrderId      String   @unique
-  createdAt       DateTime @default(now())
-
-  originalOrder Order         @relation("OriginalOrder", fields: [originalOrderId], references: [id])
-  newOrder      Order         @relation("ReplacementOrder", fields: [newOrderId], references: [id])
-  returnRequest ReturnRequest @relation(fields: [returnId], references: [id])
+  returnId        String        @unique
+  newOrderId      String        @unique
+  createdAt       DateTime      @default(now())
+  newOrder        Order         @relation("ReplacementOrder", fields: [newOrderId], references: [id])
+  originalOrder   Order         @relation("OriginalOrder", fields: [originalOrderId], references: [id])
+  returnRequest   ReturnRequest @relation(fields: [returnId], references: [id])
 }
 
 model SearchClick {
@@ -1150,8 +994,7 @@ model TelecallerPerformance {
   contacted Int      @default(0)
   converted Int      @default(0)
   dropped   Int      @default(0)
-
-  agent User @relation(fields: [agentId], references: [id])
+  agent     User     @relation(fields: [agentId], references: [id])
 
   @@unique([agentId, date])
 }
@@ -1164,8 +1007,7 @@ model ProductVariant {
   price      Int?
   stock      Int             @default(0)
   status     VariationStatus @default(ACTIVE)
-
-  product Product @relation(fields: [productId], references: [id])
+  product    Product         @relation(fields: [productId], references: [id])
 
   @@index([productId])
   @@index([stock])
@@ -1233,55 +1075,23 @@ model BowInteraction {
   type            InteractionType
   query           String?
   response        String?
-  intent          String? // ADD_TO_CART, etc.
-  confidence      Float? // 0.0 to 1.0
+  intent          String?
+  confidence      Float?
   actionType      BowActionType?
   actionPayload   Json?
   metadata        Json?
   context         Json?
   sentiment       String?
-  conversionEvent String? // ADD_TO_CART, CHECKOUT_STARTED, ORDER_PLACED
-  conversionValue Int? // Value attributed to this interaction
   escalated       Boolean         @default(false)
   createdAt       DateTime        @default(now())
+  conversionEvent String?
+  conversionValue Int?
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([escalated])
   @@index([sessionId])
   @@index([userId])
   @@index([sessionId, createdAt])
-}
-
-enum CartInsightType {
-  HESITATION
-  THRESHOLD_NEAR
-  BUNDLE_OPPORTUNITY
-  PRICE_SENSITIVITY
-  REPEAT_REMOVAL
-  GIFT_ELIGIBLE
-}
-
-enum InsightSeverity {
-  LOW
-  MEDIUM
-  HIGH
-}
-
-enum BowActionType {
-  ADD_TO_CART
-  REMOVE_FROM_CART
-  UPDATE_QUANTITY
-  APPLY_COUPON
-  SELECT_GIFT
-  NAVIGATE
-  VIEW_CART
-  GET_RECOMMENDATIONS
-  CLIENT_CONTROL
-  ROOM_NUDGE
-  SUGGEST_BUNDLE
-  SUGGEST_GIFT
-  SUGGEST_UPSELL
-  REMOVE_SUGGESTION
 }
 
 model ReferralTracking {
@@ -1369,13 +1179,13 @@ model VendorPromotion {
   coinsCost   Int             @default(0)
   moneyCost   Int?
   status      PromotionStatus @default(ACTIVE)
-  metadata    Json?
   impressions Int             @default(0)
   clicks      Int             @default(0)
   orders      Int             @default(0)
   revenue     Int             @default(0)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+  metadata    Json?
   vendor      Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([startDate, endDate])
@@ -1383,6 +1193,190 @@ model VendorPromotion {
   @@index([type])
   @@index([vendorId])
   @@index([vendorId, status])
+}
+
+model Wallet {
+  id        String        @id @default(cuid())
+  userId    String        @unique
+  balance   Int           @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  ledger    LedgerEntry[]
+  user      User          @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model BuyLater {
+  id               String   @id @default(cuid())
+  userId           String
+  productId        String
+  variantId        String?
+  targetPrice      Int
+  currentPrice     Int
+  quantity         Int      @default(1)
+  isActive         Boolean  @default(true)
+  isNotified       Boolean  @default(false)
+  isAddedToCart    Boolean  @default(false)
+  priceDropPercent Float?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  product          Product  @relation(fields: [productId], references: [id])
+  user             User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([productId])
+  @@index([isActive])
+  @@index([isNotified])
+  @@index([createdAt])
+}
+
+model Bet {
+  id             String        @id @default(cuid())
+  userId         String
+  idempotencyKey String        @unique
+  type           BetType       @default(SINGLE)
+  selections     Json
+  stake          Int
+  odds           Float
+  potentialWin   Int
+  status         BetStatus     @default(PENDING)
+  placedAt       DateTime      @default(now())
+  settledAt      DateTime?
+  result         String?
+  payout         Int?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  user           User          @relation(fields: [userId], references: [id])
+  ledgerEntries  LedgerEntry[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([idempotencyKey])
+}
+
+model LedgerEntry {
+  id           String   @id @default(cuid())
+  userId       String
+  walletId     String
+  betId        String?
+  amount       Int
+  type         String
+  description  String
+  balanceAfter Int
+  createdAt    DateTime @default(now())
+  bet          Bet?     @relation(fields: [betId], references: [id])
+  user         User     @relation(fields: [userId], references: [id])
+  wallet       Wallet   @relation(fields: [walletId], references: [id])
+
+  @@index([userId])
+  @@index([walletId])
+  @@index([betId])
+  @@index([createdAt])
+}
+
+model ReturnQCChecklist {
+  id                    String   @id @default(cuid())
+  orderId               String   @unique
+  inspectorId           String
+  status                Boolean  @default(false)
+  isOriginalPackaging   Boolean  @default(false)
+  isUnused              Boolean  @default(false)
+  allAccessoriesPresent Boolean  @default(false)
+  hasPhysicalDamage     Boolean  @default(false)
+  imeiMatch             Boolean  @default(true)
+  photos                String[]
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  order                 Order    @relation(fields: [orderId], references: [id])
+}
+
+enum SettlementStatus {
+  PENDING
+  ELIGIBLE
+  SETTLED
+  REVERSED
+}
+
+enum ReturnStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PICKUP_SCHEDULED
+  PICKUP_COMPLETED
+  IN_TRANSIT
+  RECEIVED_AT_WAREHOUSE
+  QC_IN_PROGRESS
+  QC_PASSED
+  QC_FAILED
+  REFUND_INITIATED
+  REFUND_COMPLETED
+  REPLACEMENT_INITIATED
+  REPLACEMENT_SHIPPED
+  REPLACEMENT_COMPLETED
+  CANCELLED
+}
+
+enum ReturnReason {
+  DAMAGED_PRODUCT
+  WRONG_ITEM
+  MISSING_PARTS
+  QUALITY_ISSUE
+  SIZE_FIT_ISSUE
+  OTHER
+  NOT_AS_DESCRIBED
+  DEFECTIVE
+  CHANGED_MIND
+}
+
+enum ItemCondition {
+  UNOPENED
+  OPENED_UNUSED
+  USED_LIKE_NEW
+  USED_GOOD
+  USED_FAIR
+  DAMAGED
+  DEFECTIVE
+}
+
+enum CostBearer {
+  PLATFORM
+  VENDOR
+  CUSTOMER
+  SHARED
+}
+
+enum CartInsightType {
+  HESITATION
+  THRESHOLD_NEAR
+  BUNDLE_OPPORTUNITY
+  PRICE_SENSITIVITY
+  REPEAT_REMOVAL
+  GIFT_ELIGIBLE
+}
+
+enum InsightSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum BowActionType {
+  ADD_TO_CART
+  REMOVE_FROM_CART
+  UPDATE_QUANTITY
+  APPLY_COUPON
+  SELECT_GIFT
+  NAVIGATE
+  VIEW_CART
+  GET_RECOMMENDATIONS
+  CLIENT_CONTROL
+  ROOM_NUDGE
+  SUGGEST_BUNDLE
+  SUGGEST_GIFT
+  SUGGEST_UPSELL
+  REMOVE_SUGGESTION
 }
 
 enum UserStatus {
@@ -1406,13 +1400,13 @@ enum RoomStatus {
   ACTIVE
   UNLOCKED
   EXPIRED
-  OPEN // Phase 3.1: Accepts members
-  COMPLETED // Phase 3.1: Purchase successful
+  OPEN
+  COMPLETED
 }
 
 enum RoomType {
-  GOAL_BASED // Phase 2
-  LINEAR_DISCOUNT // Phase 3.1
+  GOAL_BASED
+  LINEAR_DISCOUNT
 }
 
 enum MemberStatus {
@@ -1429,16 +1423,16 @@ enum RoomBoostType {
 }
 
 enum OrderStatus {
-  CREATED
   PENDING
-  PENDING_PAYMENT
   CONFIRMED
-  PAID
   PACKED
   SHIPPED
-  OUT_FOR_INSPECTION
   DELIVERED
   CANCELLED
+  CREATED
+  PENDING_PAYMENT
+  PAID
+  OUT_FOR_INSPECTION
   RETURN_REQUESTED
   QC_IN_PROGRESS
   RETURN_PICKED_UP
@@ -1617,8 +1611,6 @@ enum ReferralStatus {
   EXPIRED
 }
 
-// --- BETTING SYSTEM MODELS ---
-
 enum BetStatus {
   PENDING
   PLACED
@@ -1632,341 +1624,4 @@ enum BetType {
   SINGLE
   MULTIPLE
   SYSTEM
-}
-
-model Wallet {
-  id        String        @id @default(cuid())
-  userId    String        @unique
-  balance   Int           @default(0) // In paise
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  user      User          @relation(fields: [userId], references: [id])
-  ledger    LedgerEntry[]
-
-  @@index([userId])
-}
-
-model BuyLater {
-  id               String   @id @default(cuid())
-  userId           String
-  productId        String
-  variantId        String? // For product variants
-  targetPrice      Int // Target price in paise
-  currentPrice     Int // Price when added to buy later
-  quantity         Int      @default(1)
-  isActive         Boolean  @default(true)
-  isNotified       Boolean  @default(false) // Track if user was notified
-  isAddedToCart    Boolean  @default(false) // Track if added to cart
-  priceDropPercent Float? // Percentage of price drop when notified
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  user    User    @relation(fields: [userId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
-
-  @@index([userId])
-  @@index([productId])
-  @@index([isActive])
-  @@index([isNotified])
-  @@index([createdAt])
-}
-
-model Bet {
-  id             String        @id @default(cuid())
-  userId         String
-  idempotencyKey String        @unique
-  type           BetType       @default(SINGLE)
-  selections     Json // Bet selections
-  stake          Int // In paise
-  odds           Float
-  potentialWin   Int // Calculated payout
-  status         BetStatus     @default(PENDING)
-  placedAt       DateTime      @default(now())
-  settledAt      DateTime?
-  result         String? // WIN, LOSE, VOID
-  payout         Int? // Actual payout amount
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  user           User          @relation(fields: [userId], references: [id])
-  ledgerEntries  LedgerEntry[]
-
-  @@index([userId])
-  @@index([status])
-  @@index([idempotencyKey])
-}
-
-model LedgerEntry {
-  id           String   @id @default(cuid())
-  userId       String
-  walletId     String
-  betId        String?
-  amount       Int // Positive for credit, negative for debit
-  type         String // BET_PLACEMENT, BET_WIN, BET_LOSE, DEPOSIT, WITHDRAWAL
-  description  String
-  balanceAfter Int // Wallet balance after this entry
-  createdAt    DateTime @default(now())
-  user         User     @relation(fields: [userId], references: [id])
-  wallet       Wallet   @relation(fields: [walletId], references: [id])
-  bet          Bet?     @relation(fields: [betId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([walletId])
-  @@index([betId])
-  @@index([createdAt])
-}
-
-// B2B/B2C High-Trust Features: QC Return Protocol
-model ReturnQCChecklist {
-  id          String  @id @default(cuid())
-  orderId     String  @unique
-  inspectorId String // Telecaller/Agent ID
-  status      Boolean @default(false)
-
-  // Inspection Items (Checklist)
-  isOriginalPackaging   Boolean @default(false)
-  isUnused              Boolean @default(false)
-  allAccessoriesPresent Boolean @default(false)
-  hasPhysicalDamage     Boolean @default(false)
-  imeiMatch             Boolean @default(true)
-
-  photos    String[]
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  order Order @relation(fields: [orderId], references: [id])
-}
-
-model PincodeGeo {
-  pincode   String    @id
-  latitude  Float
-  longitude Float
-  source    GeoSource @default(PINCODE_DB)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  @@index([source])
-}
-
-model LocalPromotion {
-  id            String    @id @default(cuid())
-  name          String?
-  isActive      Boolean   @default(true)
-  targetType    String
-  centerLat     Float?
-  centerLng     Float?
-  radiusKm      Float?
-  pincodes      Json?
-  vendorId      String?
-  categoryId    String?
-  productId     String?
-  percentOff    Int?
-  flatOffAmount Int?
-  freeShipping  Boolean   @default(false)
-  boostOnly     Boolean   @default(false)
-  effectiveFrom DateTime  @default(now())
-  effectiveTo   DateTime?
-  setByUserId   String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  vendor    Vendor?   @relation(fields: [vendorId], references: [id])
-  category  Category? @relation(fields: [categoryId], references: [id])
-  product   Product?  @relation(fields: [productId], references: [id])
-  setByUser User?     @relation(fields: [setByUserId], references: [id])
-
-  @@index([isActive, effectiveFrom, effectiveTo])
-  @@index([vendorId])
-  @@index([categoryId])
-  @@index([productId])
-  @@index([setByUserId])
-}
-
-model VendorServiceArea {
-  id        String   @id @default(cuid())
-  vendorId  String
-  type      String
-  centerLat Float?
-  centerLng Float?
-  radiusKm  Float?
-  polygon   Json?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-
-  @@index([vendorId])
-  @@index([isActive])
-}
-
-model PickupPoint {
-  id           String   @id @default(cuid())
-  vendorId     String
-  name         String
-  addressLine1 String
-  addressLine2 String?
-  city         String
-  state        String
-  pincode      String
-  latitude     Float?
-  longitude    Float?
-  timings      Json?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  vendor    Vendor     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  shipments Shipment[]
-
-  @@index([vendorId])
-  @@index([pincode])
-}
-
-model Shipment {
-  id              String   @id @default(cuid())
-  orderId         String   @unique
-  mode            String
-  status          String
-  courierProvider String?
-  awb             String?
-  trackingUrl     String?
-  pickupPointId   String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  pickupPoint PickupPoint? @relation(fields: [pickupPointId], references: [id])
-
-  @@index([awb])
-  @@index([pickupPointId])
-}
-
-model OrderPackingProof {
-  id               String   @id @default(cuid())
-  orderId          String   @unique
-  vendorId         String
-  uploadedByUserId String
-  videoPath        String
-  videoMime        String?
-  videoSizeBytes   Int?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  order          Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  vendor         Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  uploadedByUser User   @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
-
-  @@index([vendorId])
-  @@index([createdAt])
-}
-
-model ReferralRewardRule {
-  id            String    @id @default(cuid())
-  minOrderPaise Int
-  maxOrderPaise Int?
-  coinsInviter  Int
-  coinsInvitee  Int
-  isActive      Boolean   @default(true)
-  effectiveFrom DateTime  @default(now())
-  effectiveTo   DateTime?
-  setByAdminId  String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  SetByAdmin User?                 @relation(fields: [setByAdminId], references: [id])
-  grants     ReferralRewardGrant[]
-
-  @@index([isActive, effectiveFrom, effectiveTo])
-  @@index([minOrderPaise])
-  @@index([maxOrderPaise])
-  @@index([setByAdminId])
-}
-
-model ReferralRewardGrant {
-  id                     String   @id @default(cuid())
-  orderId                String   @unique
-  inviterUserId          String
-  inviteeUserId          String
-  ruleId                 String
-  orderValuePaiseAtAward Int
-  coinsInviterAtAward    Int
-  coinsInviteeAtAward    Int
-  createdAt              DateTime @default(now())
-
-  Order   Order              @relation(fields: [orderId], references: [id])
-  Inviter User               @relation("ReferralGrantInviter", fields: [inviterUserId], references: [id])
-  Invitee User               @relation("ReferralGrantInvitee", fields: [inviteeUserId], references: [id])
-  Rule    ReferralRewardRule @relation(fields: [ruleId], references: [id])
-
-  @@index([inviterUserId, createdAt])
-  @@index([inviteeUserId, createdAt])
-  @@index([ruleId])
-}
-
-model CheckoutGroup {
-  id               String              @id @default(cuid())
-  userId           String
-  provider         String              @default("RAZORPAY")
-  providerOrderId  String?
-  totalAmountPaise Int
-  currency         String              @default("INR")
-  status           CheckoutGroupStatus @default(PENDING_PAYMENT)
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-
-  user   User    @relation(fields: [userId], references: [id])
-  orders Order[]
-
-  @@index([userId, createdAt])
-  @@index([providerOrderId])
-}
-
-model VendorDeliveryWindow {
-  id          String   @id @default(cuid())
-  vendorId    String
-  weekday     Int
-  startMinute Int
-  endMinute   Int
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-
-  @@index([vendorId, weekday, isActive])
-  @@index([vendorId, isActive])
-}
-
-model OrderDeliverySlotSnapshot {
-  id          String             @id @default(cuid())
-  orderId     String             @unique
-  vendorId    String
-  slotStartAt DateTime
-  slotEndAt   DateTime
-  timezone    String             @default("Asia/Kolkata")
-  source      DeliverySlotSource @default(AUTO)
-  createdAt   DateTime           @default(now())
-
-  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-
-  @@index([vendorId, slotStartAt])
-}
-
-enum GeoSource {
-  PINCODE_DB
-  NOMINATIM
-  MANUAL
-}
-
-enum CheckoutGroupStatus {
-  PENDING_PAYMENT
-  PAID
-  FAILED
-}
-
-enum DeliverySlotSource {
-  AUTO
-  CUSTOMER
 }
