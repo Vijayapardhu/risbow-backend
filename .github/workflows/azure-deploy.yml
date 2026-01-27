@@ -100,13 +100,27 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Create deployment package
+        run: |
+          cd ${{ github.workspace }}
+          # Create zip excluding unnecessary files
+          zip -r deploy.zip . \
+            -x "*.git*" \
+            -x "node_modules/.cache/*" \
+            -x ".github/*" \
+            -x "*.md" \
+            -x ".editorconfig" \
+            -x ".gitignore" \
+            -x "coverage/*" \
+            -x "*.log"
+
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         id: deploy-to-azure
         with:
           app-name: ${{ secrets.AZURE_APP_SERVICE_NAME }}
-          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
-          package: .
+          package: deploy.zip
+          type: zip
 
       - name: Run database migrations
         run: |
