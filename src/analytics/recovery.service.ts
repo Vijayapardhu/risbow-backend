@@ -213,12 +213,18 @@ export class RecoveryService {
         const fifteenMinsAgo = new Date(now.getTime() - 15 * 60000);
         const thirtyMinsAgo = new Date(now.getTime() - 30 * 60000);
 
-        const pushLeads = await (this.prisma as any).abandonedCheckout.findMany({
+        // Fetch all leads in time range, then filter in memory for undefined escalationLevel
+        const allPushLeads = await this.prisma.abandonedCheckout.findMany({
             where: {
                 status: CheckoutRecoveryStatus.NEW,
                 abandonedAt: { lte: fifteenMinsAgo, gte: thirtyMinsAgo },
-                metadata: { path: ['escalationLevel'], equals: undefined }
-            }
+            },
+        });
+        
+        // Filter for leads where escalationLevel is undefined or doesn't exist
+        const pushLeads = allPushLeads.filter(lead => {
+            const metadata = lead.metadata as any;
+            return !metadata || metadata.escalationLevel === undefined || metadata.escalationLevel === null;
         });
 
         for (const lead of pushLeads) {
@@ -234,7 +240,7 @@ export class RecoveryService {
         const oneHourAgo = new Date(now.getTime() - 60 * 60000);
         const twoHoursAgo = new Date(now.getTime() - 120 * 60000);
 
-        const waLeads = await (this.prisma as any).abandonedCheckout.findMany({
+        const waLeads = await this.prisma.abandonedCheckout.findMany({
             where: {
                 status: CheckoutRecoveryStatus.NEW,
                 abandonedAt: { lte: oneHourAgo, gte: twoHoursAgo },
@@ -253,12 +259,18 @@ export class RecoveryService {
         // 3. T+240 min+: Telecaller Priority Stage
         const fourHoursAgo = new Date(now.getTime() - 240 * 60000);
 
-        const callLeads = await (this.prisma as any).abandonedCheckout.findMany({
+        // Fetch all leads, then filter for those not assigned to telecaller
+        const allCallLeads = await this.prisma.abandonedCheckout.findMany({
             where: {
                 status: CheckoutRecoveryStatus.NEW,
                 abandonedAt: { lte: fourHoursAgo },
-                metadata: { path: ['escalationLevel'], not: 'TELE_ASSIGNED' }
-            }
+            },
+        });
+        
+        // Filter for leads where escalationLevel is not 'TELE_ASSIGNED'
+        const callLeads = allCallLeads.filter(lead => {
+            const metadata = lead.metadata as any;
+            return !metadata || metadata.escalationLevel !== 'TELE_ASSIGNED';
         });
 
         for (const lead of callLeads) {
