@@ -10,29 +10,11 @@ import {
 import { join } from 'path';
 import fastifyHelmet from '@fastify/helmet';
 import compression from '@fastify/compress';
-import * as appInsights from 'applicationinsights';
 import { PrismaService } from './prisma/prisma.service';
 
 // Trigger deployment update - v6 - Fastify Migration
 async function bootstrap() {
-    // Initialize Azure Application Insights
-    const aiConnectionString = process.env.APPLICATIONINSIGHTS_CONNECTION_STRING;
-    if (aiConnectionString) {
-        appInsights.setup(aiConnectionString)
-            .setAutoDependencyCorrelation(true)
-            .setAutoCollectRequests(true)
-            .setAutoCollectPerformance(true, true)
-            .setAutoCollectExceptions(true)
-            .setAutoCollectDependencies(true)
-            .setAutoCollectConsole(true)
-            .setUseDiskRetryCaching(true)
-            .setSendLiveMetrics(true)
-            .start();
-        console.log('✅ Application Insights initialized');
-    }
-
     // SUPPRESSION: BullMQ warns about Redis version and eviction policy on Cloud Redis.
-    // We cannot change these on managed instances easily, so we suppress the logs.
     const originalWarn = console.warn;
     console.warn = (...args) => {
         const message = typeof args[0] === 'string' ? args[0] : String(args[0]);
@@ -48,7 +30,6 @@ async function bootstrap() {
     };
 
     // Switch to Fastify Adapter for High Performance (25k+ Req/Sec capability)
-    // Casting to unknown/NestFastifyApplication to bypass strict generic constraints if versions mismatch
     const app = await NestFactory.create(
         AppModule,
         new FastifyAdapter() as any,
@@ -59,9 +40,7 @@ async function bootstrap() {
     // Enable graceful shutdown
     app.enableShutdownHooks();
 
-
     // Security headers (Fastify Helmet)
-    // Cast plugin to any to avoid TS definition conflicts between Fastify versions
     await app.register(fastifyHelmet as any, {
         crossOriginEmbedderPolicy: false,
         contentSecurityPolicy: false,
@@ -187,8 +166,7 @@ Welcome to the RISBOW API documentation! This API powers the RISBOW platform wit
         customCss: '.swagger-ui .topbar { display: none }',
     });
 
-    // Register root-level /health endpoint manually for Azure App Service health probes
-    // This must be at /health (not /api/v1/health) for Azure health checks
+    // Health Check
     const fastifyInstance = app.getHttpAdapter().getInstance();
     fastifyInstance.get('/health', async (request, reply) => {
         try {
@@ -202,14 +180,13 @@ Welcome to the RISBOW API documentation! This API powers the RISBOW platform wit
         }
     });
 
-    // Azure App Service injects PORT dynamically - MUST use process.env.PORT
-    // CRITICAL: Must listen on 0.0.0.0 (not localhost/127.0.0.1) for Azure App Service
+    // App Service injects PORT dynamically - MUST use process.env.PORT
     const port = parseInt(process.env.PORT || '3000', 10);
-    
+
     try {
         await app.listen(port, '0.0.0.0');
-        
-        // Log startup information for Azure App Service
+
+        // Log startup information
         const baseUrl = process.env.BASE_URL || `http://localhost:${port}`;
         console.log('='.repeat(60));
         console.log(`🚀 RISBOW Backend API Started Successfully`);
@@ -251,9 +228,9 @@ if (process.env.CLUSTER_MODE === 'true') {
             process.exit(1);
         });
     }
-    } else {
-        bootstrap().catch((error) => {
-            console.error('❌ Failed to start application:', error);
-            process.exit(1);
-        });
-    }
+} else {
+    bootstrap().catch((error) => {
+        console.error('❌ Failed to start application:', error);
+        process.exit(1);
+    });
+}

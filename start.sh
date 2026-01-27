@@ -1,5 +1,4 @@
-#!/bin/bash
-# Azure App Service Startup Script
+# Production Startup Script
 # This script ensures the application starts correctly in production
 
 set -e

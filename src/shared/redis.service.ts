@@ -31,6 +31,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             maxRetriesPerRequest: 1,
             retryStrategy: () => null, // Do not spam reconnect attempts
             enableOfflineQueue: false,
+            // Connection pooling to prevent "max clients reached" errors
+            keepAlive: 30000, // Keep connection alive
+            connectTimeout: 10000, // 10 second timeout
+            // Reuse connections
+            family: 4, // Use IPv4
         });
 
         this.client.on('error', (err) => {
