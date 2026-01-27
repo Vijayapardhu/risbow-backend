@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 
 const prisma = new PrismaClient();
 const API_URL = 'http://localhost:3001/api/v1';
-const JWT_SECRET = "eseLE0zNP_wDxDpYf3inMmX-VDdnRJ8jV-4bXZQbd9pLAVQYlfUkWqr0hANDvRKU"; // From .env
+const JWT_SECRET = process.env.JWT_SECRET || "CHANGE_ME_IN_PRODUCTION"; // Load from environment
 
 async function createToken(userId) {
     return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: '1h' });

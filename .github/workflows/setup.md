@@ -1,5 +1,15 @@
 # GitHub Actions Setup Guide
 
+## Overview
+
+This repository includes automated CI/CD workflows for:
+- **CI Pipeline** (`ci.yml`): Linting, type checking, testing, and building
+- **Azure Deployment** (`azure-deploy.yml`): Automated deployment to Azure App Service
+- **Database Migrations** (`database-migrations.yml`): Automated Prisma migrations
+- **Dependency Review** (`dependency-review.yml`): Security scanning
+- **Release Management** (`release.yml`): Semantic versioning and releases
+- **PR Checks** (`pr-checks.yml`): Quality checks on pull requests
+
 This guide helps you set up GitHub Actions for the RISBOW backend project.
 
 ## Quick Setup
@@ -12,28 +22,25 @@ GitHub Actions are automatically enabled for your repository. No additional setu
 
 Go to your repository → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
 
-#### Azure Deployment Secrets
+#### Azure Deployment Secrets (Required for `azure-deploy.yml`)
 
 ```bash
-# Azure Service Principal (for production deployments)
+# Azure Service Principal (create with Azure CLI)
+# Run: az ad sp create-for-rbac --name "risbow-github-actions" --role contributor --scopes /subscriptions/<subscription-id>/resourceGroups/<resource-group> --sdk-auth
 AZURE_CREDENTIALS={"clientId":"...","clientSecret":"...","subscriptionId":"...","tenantId":"..."}
 
-# App Service Names
-AZURE_APP_SERVICE_STAGING=risbow-backend-staging
-AZURE_APP_SERVICE_PROD=risbow-backend-prod
+# App Service Name (your Azure App Service name)
+AZURE_APP_SERVICE_NAME=risbow-api-prod-f4dua9fsc4d9hqgs
 
-# Publish Profiles (download from Azure Portal → App Service → Get publish profile)
-AZURE_PUBLISH_PROFILE_STAGING=<paste-publish-profile-xml>
-AZURE_PUBLISH_PROFILE_PROD=<paste-publish-profile-xml>
+# Publish Profile (download from Azure Portal → App Service → Get publish profile)
+# Copy entire XML content
+AZURE_PUBLISH_PROFILE=<paste-publish-profile-xml>
 
-# Database Connection Strings
-STAGING_DATABASE_URL=postgresql://user:pass@host:5432/db?sslmode=require
-PRODUCTION_DATABASE_URL=postgresql://user:pass@host:5432/db?sslmode=require
+# Database Connection String (for running migrations)
 AZURE_DATABASE_URL=postgresql://user:pass@host:5432/db?sslmode=require
 
-# Environment URLs (optional, for health checks)
-STAGING_URL=https://risbow-backend-staging.azurewebsites.net
-PRODUCTION_URL=https://risbow-backend-prod.azurewebsites.net
+# App Service URL (for health checks)
+AZURE_APP_SERVICE_URL=https://risbow-api-prod-f4dua9fsc4d9hqgs.centralindia-01.azurewebsites.net
 ```
 
 #### Optional Secrets
@@ -84,15 +91,23 @@ Go to **Settings** → **Branches** → **Add rule**
 1. **CI/CD Pipeline** (`ci.yml`)
    - Runs on push to `main`, `master`, `develop`
    - Runs on pull requests
-   - Jobs: lint, type-check, test, build, security-scan
-   - Auto-deploys to staging/production
+   - Jobs: lint, type-check, test, build, security-scan, docker-build
+   - **Note**: Deployment is handled by `azure-deploy.yml` workflow
 
-2. **PR Quality Checks** (`pr-checks.yml`)
+2. **Azure Deployment** (`azure-deploy.yml`) ⭐ **NEW**
+   - Runs on push to `main` or `master`
+   - Can be triggered manually via workflow dispatch
+   - Builds application with Node.js 22.x
+   - Deploys to Azure App Service
+   - Runs database migrations
+   - Verifies deployment with health check
+
+3. **PR Quality Checks** (`pr-checks.yml`)
    - Runs on PR open/update
    - Validates PR title format
    - Runs tests and type checks
 
-3. **Dependency Review** (`dependency-review.yml`)
+4. **Dependency Review** (`dependency-review.yml`)
    - Reviews dependency changes in PRs
    - Blocks vulnerable dependencies
 

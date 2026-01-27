@@ -7,7 +7,7 @@ const jwt = require('jsonwebtoken');
 const fetch = global.fetch || require('node-fetch');
 
 const API_URL = 'http://localhost:3001/api/v1';
-const JWT_SECRET = "eseLE0zNP_wDxDpYf3inMmX-VDdnRJ8jV-4bXZQbd9pLAVQYlfUkWqr0hANDvRKU";
+const JWT_SECRET = process.env.JWT_SECRET || "CHANGE_ME_IN_PRODUCTION";
 
 async function createToken(userId, role = 'CUSTOMER') {
     return jwt.sign({ sub: userId, role }, JWT_SECRET, { expiresIn: '1h' });

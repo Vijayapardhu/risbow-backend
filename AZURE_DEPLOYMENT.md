@@ -59,27 +59,32 @@ This indicates Node.js version mismatch. Ensure:
 
 ### Required Variables
 
-Set these in Azure App Service → Configuration → Application Settings:
+Set these in Azure App Service → Configuration → Application Settings.
+
+**📋 For a complete reference with all production variables, see [`AZURE_ENV_VARIABLES.md`](./AZURE_ENV_VARIABLES.md)**
+
+#### Essential Variables
 
 ```bash
 # Application
-NODE_ENV=development
-PORT=8080  # Azure App Service sets PORT automatically, but we default to 8080
+NODE_ENV=production  # ⚠️ Set to 'production' for production
 BASE_URL=https://<app-name>.azurewebsites.net
 
 # Database (Azure PostgreSQL Flexible Server)
+DATABASE_URL=postgresql://user:password@host:5432/db?sslmode=require
+# OR use individual variables:
 DB_HOST=<azure-postgres-host>.private.postgres.database.azure.com
 DB_PORT=5432
 DB_NAME=postgres
-DB_USER=<user>@<server-name>
-DB_PASSWORD=<password>
+DB_USER=<user>
+DB_PASSWORD=<password>  # URL-encode special characters (@ becomes %40)
 DB_SSL=true
 
 # Redis (Azure Redis Cache)
 REDIS_HOST=<redis-host>.redis.cache.windows.net
 REDIS_PORT=6380
 REDIS_PASSWORD=<password>
-REDIS_TLS=true
+REDIS_TLS=true  # Required for Azure Redis
 
 # Azure Blob Storage
 AZURE_STORAGE_ACCOUNT_NAME=<name>
@@ -90,18 +95,30 @@ AZURE_STORAGE_CONTAINER_VIDEOS=videos
 
 # JWT Authentication
 JWT_SECRET=<strong-secret>
-JWT_EXPIRES_IN=7d
+JWT_EXPIRY=7  # Days
 
-# Optional: Application Insights (auto-configured by Azure)
-APPLICATIONINSIGHTS_CONNECTION_STRING=<auto-set-by-azure>
+# Payment Gateway
+RAZORPAY_KEY_ID=<your-key-id>
+RAZORPAY_KEY_SECRET=<your-key-secret>
+
+# Supabase (if using)
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_ANON_KEY=<your-anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
+
+# Rate Limiting
+THROTTLE_TTL=60000  # Milliseconds
+THROTTLE_LIMIT=100000  # Max requests per window
 ```
 
 ### Notes
 
-- **DATABASE_URL**: If not set, the app constructs it from `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_SSL`.
+- **DATABASE_URL**: Preferred method. If not set, the app constructs it from `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_SSL`.
 - **DIRECT_URL**: Optional. Only needed if using a connection pooler (e.g., PgBouncer). If not using a pooler, omit this variable. If using a pooler, set it to the direct database connection string (bypassing the pooler).
 - **REDIS_TLS**: Must be `true` for Azure Redis Cache (port 6380).
-- **PORT**: Azure App Service sets `process.env.PORT` automatically. The app uses this value.
+- **PORT**: Azure App Service sets `process.env.PORT` automatically. The app uses this value. You can set `PORT=3000` as a fallback, but Azure will override it.
+- **NODE_ENV**: ⚠️ **Important**: Set to `production` for production deployments, not `development`.
+- **Password Encoding**: Special characters in database passwords must be URL-encoded in `DATABASE_URL` (e.g., `@` becomes `%40`).
 
 ## Health Check Endpoint
 
@@ -224,6 +241,66 @@ The app uses Azure Blob Storage for:
 - Videos (`AZURE_STORAGE_CONTAINER_VIDEOS`)
 
 Ensure the storage account key is set in `AZURE_STORAGE_ACCOUNT_KEY`.
+
+## GitHub Actions Deployment
+
+The project includes automated deployment via GitHub Actions. The workflow (`azure-deploy.yml`) automatically deploys to Azure App Service when code is pushed to `main` or `master` branch.
+
+### Required GitHub Secrets
+
+Configure these secrets in GitHub → Settings → Secrets and variables → Actions:
+
+1. **AZURE_CREDENTIALS** (Service Principal JSON)
+   ```bash
+   # Create service principal
+   az ad sp create-for-rbac --name "risbow-github-actions" \
+     --role contributor \
+     --scopes /subscriptions/<subscription-id>/resourceGroups/<resource-group> \
+     --sdk-auth
+   ```
+   Copy the entire JSON output and add it as `AZURE_CREDENTIALS` secret.
+
+2. **AZURE_APP_SERVICE_NAME**
+   - Your Azure App Service name (e.g., `risbow-api-prod-f4dua9fsc4d9hqgs`)
+
+3. **AZURE_PUBLISH_PROFILE**
+   - Download from Azure Portal → App Service → Get publish profile
+   - Copy entire XML content and add as secret
+
+4. **AZURE_DATABASE_URL**
+   - PostgreSQL connection string for migrations
+   - Format: `postgresql://user:password@host:5432/db?sslmode=require`
+
+5. **AZURE_APP_SERVICE_URL**
+   - Full URL of your app (e.g., `https://risbow-api-prod-f4dua9fsc4d9hqgs.centralindia-01.azurewebsites.net`)
+
+### Manual Deployment Trigger
+
+You can also trigger deployment manually:
+
+1. Go to GitHub → Actions → "Deploy to Azure App Service"
+2. Click "Run workflow"
+3. Select branch and environment (production/staging)
+4. Click "Run workflow"
+
+### Deployment Process
+
+The workflow:
+1. Builds the application with Node.js 22.x
+2. Generates Prisma Client
+3. Uploads build artifacts
+4. Deploys to Azure App Service
+5. Runs database migrations
+6. Verifies deployment with health check
+
+### Troubleshooting Deployment
+
+If deployment fails:
+- Check GitHub Actions logs for specific errors
+- Verify all secrets are set correctly
+- Check Azure App Service logs
+- Ensure Node.js 22.x is configured in Azure
+- Verify startup command is set to `npm run start:prod` or `bash start.sh`
 
 ## Deployment Checklist
 

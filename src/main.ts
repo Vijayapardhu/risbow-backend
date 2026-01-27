@@ -187,7 +187,7 @@ Welcome to the RISBOW API documentation! This API powers the RISBOW platform wit
     });
 
     // Azure App Service injects PORT dynamically - MUST use process.env.PORT
-    // Azure App Service injects PORT dynamically - MUST use process.env.PORT
+    // CRITICAL: Must listen on 0.0.0.0 (not localhost/127.0.0.1) for Azure App Service
     const port = parseInt(process.env.PORT || '3000', 10);
     await app.listen(port, '0.0.0.0');
     

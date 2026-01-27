@@ -7,6 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "prisma generate && nest build",
+    "build:prod": "prisma generate && FORCE_COLOR=0 nest build",
     "typecheck:strict": "tsc -p tsconfig.strict.json",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
@@ -14,7 +15,6 @@
     "start:prod": "node dist/main.js",
     "start:azure": "bash start.sh",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
