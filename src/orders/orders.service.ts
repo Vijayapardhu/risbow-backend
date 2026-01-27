@@ -142,7 +142,7 @@ export class OrdersService {
                         id: require('crypto').randomUUID(),
                         amount: netVendorEarnings,
                         status: 'PENDING',
-                        Vendor: { connect: { id: vendorId || '' } },
+                        vendor: { connect: { id: vendorId || '' } },
                     }
                 }
             },
