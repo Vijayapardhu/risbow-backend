@@ -27,7 +27,7 @@ export class PriceResolverService {
         const { productId, variantId } = args;
         const product = await this.prisma.product.findUnique({
             where: { id: productId },
-            include: { ProductVariant: true }
+            include: { variants: true }
         });
 
         if (!product) {

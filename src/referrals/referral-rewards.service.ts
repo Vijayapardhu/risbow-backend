@@ -42,7 +42,7 @@ export class ReferralRewardsService {
     // Must be in a “paid” state at time of awarding
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { payment: true, OrderFinancialSnapshot: true },
+      include: { payment: true, financialSnapshot: true },
     } as any);
     if (!order) return { awarded: false, reason: 'ORDER_NOT_FOUND' };
 
@@ -62,19 +62,34 @@ export class ReferralRewardsService {
     });
     if (!firstPaid || firstPaid.id !== orderId) return { awarded: false, reason: 'NOT_FIRST_PAID_ORDER' };
 
+    // Fetch order with relations
+    const orderWithRelations = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        payment: true,
+        financialSnapshot: true,
+      },
+    });
+
+    if (!orderWithRelations) {
+      return { awarded: false, reason: 'ORDER_NOT_FOUND' };
+    }
+
     const orderValuePaise = this.computeOrderValuePaise({
-      order,
-      payment: order.payment,
-      snapshot: order.OrderFinancialSnapshot,
+      order: orderWithRelations,
+      payment: orderWithRelations.payment,
+      snapshot: orderWithRelations.financialSnapshot,
     });
 
     const rule = await this.prisma.referralRewardRule.findFirst({
       where: {
         isActive: true,
         effectiveFrom: { lte: now },
-        OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }],
-        minOrderPaise: { lte: orderValuePaise },
-        OR: [{ maxOrderPaise: null }, { maxOrderPaise: { gt: orderValuePaise } }],
+        AND: [
+          { OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }] },
+          { minOrderPaise: { lte: orderValuePaise } },
+          { OR: [{ maxOrderPaise: null }, { maxOrderPaise: { gt: orderValuePaise } }] },
+        ],
       } as any,
       orderBy: { minOrderPaise: 'desc' },
     });

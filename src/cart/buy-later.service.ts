@@ -58,11 +58,11 @@ export class BuyLaterService {
                 currentPrice,
                 quantity: dto.quantity || 1,
                 updatedAt: new Date(),
-                User: { connect: { id: userId } },
-                Product: { connect: { id: dto.productId } }
+                user: { connect: { id: userId } },
+                product: { connect: { id: dto.productId } }
             },
             include: {
-                Product: {
+                product: {
                     select: {
                         id: true,
                         title: true,
@@ -93,7 +93,7 @@ export class BuyLaterService {
                 take: limit,
                 orderBy: { createdAt: 'desc' },
                 include: {
-                    Product: {
+                    product: {
                         select: {
                             id: true,
                             title: true,
@@ -144,7 +144,7 @@ export class BuyLaterService {
                 isActive: dto.isActive
             },
             include: {
-                Product: {
+                product: {
                     select: {
                         id: true,
                         title: true,
@@ -192,8 +192,8 @@ export class BuyLaterService {
                 isNotified: false
             },
             include: {
-                User: { select: { id: true, name: true, email: true, mobile: true } },
-                Product: { select: { id: true, title: true, price: true, offerPrice: true, images: true } }
+                user: { select: { id: true, name: true, email: true, mobile: true } },
+                product: { select: { id: true, title: true, price: true, offerPrice: true, images: true } }
             }
         });
 

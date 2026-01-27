@@ -48,7 +48,7 @@ export class CartService {
                         product: {
                             include: {
                                 vendor: true,
-                                ProductVariant: true,
+                                variants: true,
                                 // Assuming images are in mediaGallery or similar, keeping simple for now
                             }
                         },
@@ -85,6 +85,15 @@ export class CartService {
         // assume base product price if no variant. 
         // ACTUALLY, strict requirements say "Price is always fetched from product variant".
         // I must handle this.
+
+        if (!cart.items) {
+            return {
+                id: cart.id,
+                items: [],
+                totalAmount: 0,
+                totalItems: 0
+            };
+        }
 
         const enrichedItems = await Promise.all(cart.items.map(async (item) => {
             let price = item.product.price;

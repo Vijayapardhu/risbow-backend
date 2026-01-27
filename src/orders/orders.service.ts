@@ -122,7 +122,7 @@ export class OrdersService {
                 razorpayOrderId: rzpOrder.id,
                 abandonedCheckoutId: dto.abandonedCheckoutId,
                 // P0: Immutable Snapshot
-                OrderFinancialSnapshot: {
+                financialSnapshot: {
                     create: {
                         subtotal: totalBasePrice,
                         taxAmount: totalTaxAmount,
@@ -137,7 +137,7 @@ export class OrdersService {
                     }
                 } as any,
                 // P0: Initial Settlement state
-                OrderSettlement: {
+                settlement: {
                     create: {
                         id: require('crypto').randomUUID(),
                         amount: netVendorEarnings,

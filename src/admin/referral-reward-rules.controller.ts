@@ -38,7 +38,7 @@ export class ReferralRewardRulesController {
         OR: [{ effectiveTo: null }, { effectiveTo: { gt: effectiveFrom } }],
         // range overlap
         minOrderPaise: { lt: dto.maxOrderPaise ?? 2147483647 },
-        OR: [{ maxOrderPaise: null }, { maxOrderPaise: { gt: dto.minOrderPaise } }],
+        AND: [{ maxOrderPaise: null }, { maxOrderPaise: { gt: dto.minOrderPaise } }],
       } as any,
       select: { id: true },
     });

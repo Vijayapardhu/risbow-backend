@@ -25,8 +25,8 @@ export class BuyLaterService {
                 currentPrice,
                 targetPrice: currentPrice, // Default to current, user can update later
                 updatedAt: new Date(),
-                User: { connect: { id: userId } },
-                Product: { connect: { id: productId } },
+                user: { connect: { id: userId } },
+                product: { connect: { id: productId } },
             },
         });
     }
@@ -34,7 +34,7 @@ export class BuyLaterService {
     async getBuyLaterItems(userId: string) {
         return this.prisma.buyLater.findMany({
             where: { userId, isActive: true },
-            include: { Product: true }
+            include: { product: true }
         });
     }
 
@@ -59,7 +59,7 @@ export class BuyLaterService {
     async checkPriceDrops() {
         const activeItems = await this.prisma.buyLater.findMany({
             where: { isActive: true, isNotified: false },
-            include: { Product: true }
+            include: { product: true }
         });
 
         for (const item of activeItems) {
