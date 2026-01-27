@@ -196,6 +196,12 @@ model User {
   recommendationEvents                               RecommendationEvent[]
   ReferralTracking_ReferralTracking_refereeIdToUser  ReferralTracking[]      @relation("ReferralTracking_refereeIdToUser")
   ReferralTracking_ReferralTracking_referrerIdToUser ReferralTracking[]      @relation("ReferralTracking_referrerIdToUser")
+  ReferralRewardGrantsAsInviter                      ReferralRewardGrant[]   @relation("ReferralInviter")
+  ReferralRewardGrantsAsInvitee                      ReferralRewardGrant[]   @relation("ReferralInvitee")
+  checkoutGroups                                     CheckoutGroup[]
+  localPromotionsSet                                 LocalPromotion[]
+  referralRewardRulesSet                             ReferralRewardRule[]
+  packingProofsUploaded                             OrderPackingProof[]
   reports                                            Report[]
   returns                                            ReturnRequest[]
   reviews                                            Review[]
@@ -325,6 +331,7 @@ model Category {
   specs               CategorySpec[]
   products            Product[]
   productSearchMisses ProductSearchMiss[]
+  localPromotions     LocalPromotion[]
 
   @@index([parentId])
   @@index([isActive])
@@ -403,6 +410,12 @@ model Vendor {
   VendorMembership   VendorMembership?
   VendorPayout       VendorPayout[]
   VendorPromotion    VendorPromotion[]
+  localPromotions    LocalPromotion[]
+  serviceAreas       VendorServiceArea[]
+  deliveryWindows    VendorDeliveryWindow[]
+  packingProofs      OrderPackingProof[]
+  pickupPoints       PickupPoint[]
+  deliverySlotSnapshots OrderDeliverySlotSnapshot[]
 
   @@index([kycStatus])
   @@index([tier])
@@ -434,6 +447,10 @@ model Address {
   label        String   @default("Home")
   phone        String
   updatedAt    DateTime @updatedAt
+  latitude     Float?
+  longitude    Float?
+  geoSource    GeoSource?
+  geoUpdatedAt DateTime?
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   orders       Order[]
 
@@ -627,6 +644,12 @@ model Order {
   replacementParent   ReplacementOrder[]      @relation("OriginalOrder")
   qcChecklist         ReturnQCChecklist?
   returns             ReturnRequest[]
+  checkoutGroupId     String?
+  checkoutGroup       CheckoutGroup?          @relation(fields: [checkoutGroupId], references: [id], onDelete: SetNull)
+  referralRewardGrant  ReferralRewardGrant?
+  deliverySlotSnapshot OrderDeliverySlotSnapshot?
+  packingProof        OrderPackingProof?
+  shipment            Shipment?
 
   @@index([userId])
   @@index([status])
@@ -636,6 +659,7 @@ model Order {
   @@index([userId, status])
   @@index([status, createdAt])
   @@index([roomId, userId])
+  @@index([checkoutGroupId])
 }
 
 model Product {
@@ -700,6 +724,7 @@ model Product {
   productEvents        UserProductEvent[]
   vendorInquiries      VendorInquiry[]
   wishlists            Wishlist[]
+  localPromotions      LocalPromotion[]
 
   @@index([vendorId])
   @@index([categoryId])
@@ -1275,6 +1300,210 @@ model LedgerEntry {
   @@index([createdAt])
 }
 
+model LocalPromotion {
+  id            String    @id @default(cuid())
+  name          String?
+  isActive      Boolean   @default(true)
+  targetType    String
+  centerLat     Float?
+  centerLng     Float?
+  radiusKm      Float?
+  pincodes      Json?
+  vendorId      String?
+  categoryId    String?
+  productId     String?
+  percentOff    Int?
+  flatOffAmount Int?
+  freeShipping  Boolean   @default(false)
+  boostOnly     Boolean   @default(false)
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  setByUserId   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  vendor        Vendor?   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  category      Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  product       Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  setByUser     User?     @relation(fields: [setByUserId], references: [id], onDelete: SetNull)
+
+  @@index([isActive, effectiveFrom, effectiveTo])
+  @@index([vendorId])
+  @@index([categoryId])
+  @@index([productId])
+}
+
+model ReferralRewardRule {
+  id           String    @id @default(cuid())
+  minOrderPaise Int
+  maxOrderPaise Int?
+  coinsInviter  Int
+  coinsInvitee  Int
+  isActive      Boolean   @default(true)
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  setByAdminId  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  setByAdmin    User?     @relation(fields: [setByAdminId], references: [id], onDelete: SetNull)
+  grants        ReferralRewardGrant[]
+
+  @@index([isActive, effectiveFrom, effectiveTo])
+  @@index([minOrderPaise])
+  @@index([maxOrderPaise])
+  @@index([setByAdminId])
+}
+
+model ReferralRewardGrant {
+  id                    String             @id @default(cuid())
+  orderId               String             @unique
+  inviterUserId         String
+  inviteeUserId         String
+  ruleId                String
+  orderValuePaiseAtAward Int
+  coinsInviterAtAward    Int
+  coinsInviteeAtAward    Int
+  createdAt              DateTime           @default(now())
+  order                  Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  inviterUser            User               @relation("ReferralInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
+  inviteeUser            User               @relation("ReferralInvitee", fields: [inviteeUserId], references: [id], onDelete: Cascade)
+  rule                   ReferralRewardRule @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+
+  @@index([inviterUserId, createdAt])
+  @@index([inviteeUserId, createdAt])
+  @@index([ruleId])
+}
+
+model CheckoutGroup {
+  id              String              @id @default(uuid())
+  userId          String
+  provider        String              @default("RAZORPAY")
+  providerOrderId String?
+  totalAmountPaise Int
+  currency        String              @default("INR")
+  status          CheckoutGroupStatus @default(PENDING_PAYMENT)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders          Order[]
+
+  @@index([userId, createdAt])
+  @@index([providerOrderId])
+}
+
+model OrderDeliverySlotSnapshot {
+  id        String            @id @default(uuid())
+  orderId   String            @unique
+  vendorId  String
+  slotStartAt DateTime
+  slotEndAt   DateTime
+  timezone    String            @default("Asia/Kolkata")
+  source      DeliverySlotSource @default(AUTO)
+  createdAt   DateTime            @default(now())
+  order       Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vendor      Vendor              @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, slotStartAt])
+}
+
+model VendorServiceArea {
+  id        String   @id @default(uuid())
+  vendorId  String
+  type      String
+  centerLat Float?
+  centerLng Float?
+  radiusKm  Float?
+  polygon   Json?
+  isActive  Boolean  @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  vendor    Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([isActive])
+}
+
+model VendorDeliveryWindow {
+  id          String   @id @default(uuid())
+  vendorId    String
+  weekday     Int
+  startMinute Int
+  endMinute   Int
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, weekday, isActive])
+  @@index([vendorId, isActive])
+}
+
+model OrderPackingProof {
+  id              String   @id @default(uuid())
+  orderId         String   @unique
+  vendorId        String
+  uploadedByUserId String
+  videoPath       String
+  videoMime       String?
+  videoSizeBytes  Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vendor          Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  uploadedByUser  User     @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([createdAt])
+}
+
+model PickupPoint {
+  id          String   @id @default(uuid())
+  vendorId    String
+  name        String
+  addressLine1 String
+  addressLine2 String?
+  city        String
+  state       String
+  pincode     String
+  latitude    Float?
+  longitude   Float?
+  timings     Json?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  shipments   Shipment[]
+
+  @@index([vendorId])
+  @@index([pincode])
+}
+
+model Shipment {
+  id            String      @id @default(uuid())
+  orderId       String      @unique
+  mode          String
+  status        String
+  courierProvider String?
+  awb           String?
+  trackingUrl   String?
+  pickupPointId String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  order         Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  pickupPoint   PickupPoint? @relation(fields: [pickupPointId], references: [id], onDelete: SetNull)
+
+  @@index([awb])
+  @@index([pickupPointId])
+}
+
+model PincodeGeo {
+  pincode   String   @id
+  latitude  Float
+  longitude Float
+  source    GeoSource @default(PINCODE_DB)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
 model ReturnQCChecklist {
   id                    String   @id @default(cuid())
   orderId               String   @unique
@@ -1624,4 +1853,21 @@ enum BetType {
   SINGLE
   MULTIPLE
   SYSTEM
+}
+
+enum CheckoutGroupStatus {
+  PENDING_PAYMENT
+  PAID
+  FAILED
+}
+
+enum DeliverySlotSource {
+  AUTO
+  CUSTOMER
+}
+
+enum GeoSource {
+  PINCODE_DB
+  NOMINATIM
+  MANUAL
 }
