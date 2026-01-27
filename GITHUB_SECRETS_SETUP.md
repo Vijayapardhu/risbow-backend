@@ -56,14 +56,23 @@ az ad sp create-for-rbac \
 - **App Service Name:** `risbow-api-prod-f4dua9fsc4d9hqgs`
 - **Location:** Central India
 
-### 3. Database Connection (for Migrations)
+### 3. Database Connection (Supabase - for Migrations)
 
-**Name:** `AZURE_DATABASE_URL`  
-**Value:** `postgresql://risbow_admin:<password>@risbow-postgres-prod.postgres.database.azure.com:5432/postgres?sslmode=require`
+**Name:** `SUPABASE_DATABASE_URL` (or `AZURE_DATABASE_URL` for compatibility)  
+**Value:** Supabase PostgreSQL direct connection string (port 5432)
 
-**⚠️ Replace `<password>` with your actual database password. URL-encode special characters (e.g., `@` becomes `%40`).**
+Get from: **Supabase Dashboard** → **Settings** → **Database** → **Connection string** → **Direct connection**
+
+Example:
+```
+postgresql://postgres.rxticediycnboewmsfmi:[PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require
+```
+
+**⚠️ Replace `[PASSWORD]` with your Supabase database password. URL-encode special characters (e.g., `@` becomes `%40`).**
 
 **⚠️ Security Note:** This contains credentials. Ensure your repository has proper access controls.
+
+**Note:** Migrations now run from Azure App Service (in `start.sh`), so this secret may not be needed if migrations are handled there.
 
 ---
 
@@ -86,13 +95,8 @@ az webapp config appsettings set \
     NODE_ENV=production \
     BASE_URL=https://risbow-api-prod-f4dua9fsc4d9hqgs.centralindia-01.azurewebsites.net \
     PORT=3000 \
-    DATABASE_URL="postgresql://risbow_admin:<password>@risbow-postgres-prod.postgres.database.azure.com:5432/postgres?sslmode=require" \
-    DB_HOST=risbow-postgres-prod.private.postgres.database.azure.com \
-    DB_PORT=5432 \
-    DB_NAME=postgres \
-    DB_USER=risbow_admin \
-    DB_PASSWORD="<your-database-password>" \
-    DB_SSL=true \
+    DATABASE_URL="postgresql://postgres.rxticediycnboewmsfmi:[PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require" \
+    DIRECT_URL="postgresql://postgres.rxticediycnboewmsfmi:[PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require" \
     REDIS_HOST=risbow-redis-prod.redis.cache.windows.net \
     REDIS_PORT=6380 \
     REDIS_PASSWORD="<your-redis-password>" \
@@ -128,7 +132,7 @@ az webapp config appsettings set \
 | `AZURE_CREDENTIALS` | Service Principal JSON | Azure authentication for deployment |
 | `AZURE_APP_SERVICE_NAME` | `risbow-api-prod-f4dua9fsc4d9hqgs` | App Service name |
 | `AZURE_PUBLISH_PROFILE` | XML from Azure Portal | Deployment authentication |
-| `AZURE_DATABASE_URL` | PostgreSQL connection string | Run migrations during deployment |
+| `SUPABASE_DATABASE_URL` | Supabase PostgreSQL connection string | Run migrations during deployment (optional - migrations run from App Service) |
 | `AZURE_APP_SERVICE_URL` | `https://risbow-api-prod-f4dua9fsc4d9hqgs.centralindia-01.azurewebsites.net` | Health check URL |
 
 ### Azure App Service Settings (All others)
