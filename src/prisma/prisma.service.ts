@@ -1,22 +1,33 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, INestApplication, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
     private readonly logger = new Logger(PrismaService.name);
 
-    constructor() {
-        // Construct DATABASE_URL from individual env vars if DATABASE_URL is not set (Azure compatibility)
-        let databaseUrl = process.env.DATABASE_URL;
+    constructor(private configService?: ConfigService) {
+        // Try to get DATABASE_URL from ConfigService first, then fallback to process.env
+        // This ensures we get values from ConfigModule if available
+        let databaseUrl = this.configService?.get<string>('DATABASE_URL') || process.env.DATABASE_URL;
         let constructedFromEnvVars = false;
         
+        // Debug logging (only in development)
+        if (process.env.NODE_ENV === 'development') {
+            console.log('[PrismaService] DATABASE_URL from ConfigService:', this.configService?.get<string>('DATABASE_URL') ? 'SET' : 'NOT SET');
+            console.log('[PrismaService] DATABASE_URL from process.env:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
+            console.log('[PrismaService] DB_HOST:', process.env.DB_HOST || this.configService?.get<string>('DB_HOST') || 'NOT SET');
+        }
+        
         if (!databaseUrl) {
-            const dbHost = process.env.DB_HOST;
-            const dbPort = process.env.DB_PORT || '5432';
-            const dbName = process.env.DB_NAME || 'postgres';
-            const dbUser = process.env.DB_USER;
-            const dbPassword = process.env.DB_PASSWORD;
-            const dbSsl = process.env.DB_SSL === 'true' || process.env.DB_SSL === '1';
+            // Try ConfigService first, then process.env
+            const dbHost = this.configService?.get<string>('DB_HOST') || process.env.DB_HOST;
+            const dbPort = this.configService?.get<string>('DB_PORT') || process.env.DB_PORT || '5432';
+            const dbName = this.configService?.get<string>('DB_NAME') || process.env.DB_NAME || 'postgres';
+            const dbUser = this.configService?.get<string>('DB_USER') || process.env.DB_USER;
+            const dbPassword = this.configService?.get<string>('DB_PASSWORD') || process.env.DB_PASSWORD;
+            const dbSsl = (this.configService?.get<string>('DB_SSL') || process.env.DB_SSL) === 'true' || 
+                          (this.configService?.get<string>('DB_SSL') || process.env.DB_SSL) === '1';
 
             if (dbHost && dbUser && dbPassword) {
                 const sslParam = dbSsl ? '?sslmode=require' : '';
@@ -27,8 +38,22 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
         // Validate database URL is set
         if (!databaseUrl) {
+            // Debug: Show what environment variables are actually available
+            const availableVars = {
+                DATABASE_URL: process.env.DATABASE_URL ? 'SET (length: ' + process.env.DATABASE_URL.length + ')' : 'NOT SET',
+                DB_HOST: process.env.DB_HOST || 'NOT SET',
+                DB_USER: process.env.DB_USER ? 'SET' : 'NOT SET',
+                DB_PASSWORD: process.env.DB_PASSWORD ? 'SET' : 'NOT SET',
+                DB_NAME: process.env.DB_NAME || 'NOT SET',
+                DB_PORT: process.env.DB_PORT || 'NOT SET',
+                DB_SSL: process.env.DB_SSL || 'NOT SET',
+            };
+            
             const errorMessage = [
                 '❌ Database connection is not configured!',
+                '',
+                'Environment variables status:',
+                ...Object.entries(availableVars).map(([key, value]) => `  ${key}: ${value}`),
                 '',
                 'Please set one of the following:',
                 '  1. DATABASE_URL (full connection string)',
@@ -37,13 +62,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
                 'Example DATABASE_URL:',
                 '  postgresql://user:password@host:5432/database?sslmode=require',
                 '',
-                'Example individual variables:',
-                '  DB_HOST=your-db-host',
-                '  DB_USER=your-db-user',
-                '  DB_PASSWORD=your-db-password',
-                '  DB_NAME=postgres',
-                '  DB_PORT=5432',
-                '  DB_SSL=true',
+                'Note: After setting environment variables in Azure App Service, you must restart the application.',
             ].join('\n');
             
             console.error(errorMessage);
