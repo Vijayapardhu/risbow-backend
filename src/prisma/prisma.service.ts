@@ -5,42 +5,22 @@ import { PrismaClient } from '@prisma/client';
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
     private readonly logger = new Logger(PrismaService.name);
+    private configService?: ConfigService;
 
-    constructor(private configService?: ConfigService) {
-        // Try to get DATABASE_URL from ConfigService first, then fallback to process.env
-        // This ensures we get values from ConfigModule if available
-        let databaseUrl = this.configService?.get<string>('DATABASE_URL') || process.env.DATABASE_URL;
+    constructor(configService?: ConfigService) {
+        // Read environment variables BEFORE calling super() (can't use 'this' before super)
+        // Support both standard DB_* vars and PostgreSQL client vars (PGHOST, PGUSER, etc.)
+        let databaseUrl = process.env.DATABASE_URL;
         let constructedFromEnvVars = false;
         
-        // Debug logging (only in development)
-        if (process.env.NODE_ENV === 'development') {
-            console.log('[PrismaService] DATABASE_URL from ConfigService:', this.configService?.get<string>('DATABASE_URL') ? 'SET' : 'NOT SET');
-            console.log('[PrismaService] DATABASE_URL from process.env:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
-            console.log('[PrismaService] DB_HOST:', process.env.DB_HOST || this.configService?.get<string>('DB_HOST') || 'NOT SET');
-        }
-        
         if (!databaseUrl) {
-            // Try ConfigService first, then process.env
-            // Support both standard DB_* vars and PostgreSQL client vars (PGHOST, PGUSER, etc.)
-            const dbHost = this.configService?.get<string>('DB_HOST') || 
-                          process.env.DB_HOST || 
-                          process.env.PGHOST;
-            const dbPort = this.configService?.get<string>('DB_PORT') || 
-                         process.env.DB_PORT || 
-                         process.env.PGPORT || 
-                         '5432';
-            const dbName = this.configService?.get<string>('DB_NAME') || 
-                          process.env.DB_NAME || 
-                          process.env.PGDATABASE || 
-                          'postgres';
-            const dbUser = this.configService?.get<string>('DB_USER') || 
-                          process.env.DB_USER || 
-                          process.env.PGUSER;
-            const dbPassword = this.configService?.get<string>('DB_PASSWORD') || 
-                              process.env.DB_PASSWORD || 
-                              process.env.PGPASSWORD;
-            const dbSsl = (this.configService?.get<string>('DB_SSL') || process.env.DB_SSL) === 'true' || 
-                          (this.configService?.get<string>('DB_SSL') || process.env.DB_SSL) === '1';
+            // Try to construct from individual environment variables
+            const dbHost = process.env.DB_HOST || process.env.PGHOST;
+            const dbPort = process.env.DB_PORT || process.env.PGPORT || '5432';
+            const dbName = process.env.DB_NAME || process.env.PGDATABASE || 'postgres';
+            const dbUser = process.env.DB_USER || process.env.PGUSER;
+            const dbPassword = process.env.DB_PASSWORD || process.env.PGPASSWORD;
+            const dbSsl = process.env.DB_SSL === 'true' || process.env.DB_SSL === '1';
 
             if (dbHost && dbUser && dbPassword) {
                 const sslParam = dbSsl ? '?sslmode=require' : '';
@@ -92,9 +72,20 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
             log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
         });
 
-        // Now we can use this.logger after super()
+        // Store ConfigService for later use (after super())
+        this.configService = configService;
+
+        // Now we can use this.logger and this.configService after super()
         if (constructedFromEnvVars) {
             this.logger.log('Constructed DATABASE_URL from individual environment variables');
+        }
+
+        // Debug logging (only in development) - now we can use this.configService
+        if (process.env.NODE_ENV === 'development') {
+            const configServiceUrl = this.configService?.get<string>('DATABASE_URL');
+            this.logger.debug(`DATABASE_URL from ConfigService: ${configServiceUrl ? 'SET' : 'NOT SET'}`);
+            this.logger.debug(`DATABASE_URL from process.env: ${process.env.DATABASE_URL ? 'SET' : 'NOT SET'}`);
+            this.logger.debug(`DB_HOST: ${process.env.DB_HOST || process.env.PGHOST || 'NOT SET'}`);
         }
 
         // Add middleware to log slow queries
