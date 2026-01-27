@@ -19,7 +19,33 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
             if (dbHost && dbUser && dbPassword) {
                 const sslParam = dbSsl ? '?sslmode=require' : '';
                 databaseUrl = `postgresql://${encodeURIComponent(dbUser)}:${encodeURIComponent(dbPassword)}@${dbHost}:${dbPort}/${dbName}${sslParam}`;
+                this.logger.log('Constructed DATABASE_URL from individual environment variables');
             }
+        }
+
+        // Validate database URL is set
+        if (!databaseUrl) {
+            const errorMessage = [
+                '❌ Database connection is not configured!',
+                '',
+                'Please set one of the following:',
+                '  1. DATABASE_URL (full connection string)',
+                '  2. Or individual variables: DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT, DB_SSL',
+                '',
+                'Example DATABASE_URL:',
+                '  postgresql://user:password@host:5432/database?sslmode=require',
+                '',
+                'Example individual variables:',
+                '  DB_HOST=your-db-host',
+                '  DB_USER=your-db-user',
+                '  DB_PASSWORD=your-db-password',
+                '  DB_NAME=postgres',
+                '  DB_PORT=5432',
+                '  DB_SSL=true',
+            ].join('\n');
+            
+            this.logger.error(errorMessage);
+            throw new Error('DATABASE_URL is required. Please configure database connection in environment variables.');
         }
 
         super({
@@ -30,13 +56,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
             },
             log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
         });
-
-        // Log after super() is called
-        if (!process.env.DATABASE_URL && databaseUrl) {
-            this.logger.log('Constructed DATABASE_URL from individual environment variables');
-        } else if (!process.env.DATABASE_URL && !databaseUrl) {
-            this.logger.error('DATABASE_URL not set and individual DB_* variables are incomplete');
-        }
 
         // Add middleware to log slow queries
         this.$use(async (params, next) => {
