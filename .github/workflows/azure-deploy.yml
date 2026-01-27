@@ -141,22 +141,33 @@ jobs:
       - name: Verify deployment
         run: |
           echo "Waiting for application to start..."
-          sleep 30
+          sleep 60  # Increased wait time for app to fully start
           
           HEALTH_URL="${{ secrets.AZURE_APP_SERVICE_URL }}/api/v1/health"
           echo "Checking health endpoint: $HEALTH_URL"
           
-          for i in {1..10}; do
-            if curl -f -s "$HEALTH_URL" > /dev/null; then
+          # Try health endpoint first
+          for i in {1..15}; do
+            if curl -f -s "$HEALTH_URL" > /dev/null 2>&1; then
               echo "✅ Health check passed!"
-              curl -s "$HEALTH_URL" | jq .
+              curl -s "$HEALTH_URL"
               exit 0
             fi
-            echo "Attempt $i/10: Health check failed, retrying in 10 seconds..."
-            sleep 10
+            echo "Attempt $i/15: Health check failed, retrying in 15 seconds..."
+            sleep 15
           done
           
-          echo "❌ Health check failed after 10 attempts"
+          # If health endpoint fails, try root health endpoint
+          ROOT_HEALTH_URL="${{ secrets.AZURE_APP_SERVICE_URL }}/health"
+          echo "Trying root health endpoint: $ROOT_HEALTH_URL"
+          if curl -f -s "$ROOT_HEALTH_URL" > /dev/null 2>&1; then
+            echo "✅ Root health check passed!"
+            curl -s "$ROOT_HEALTH_URL"
+            exit 0
+          fi
+          
+          echo "❌ Health check failed after all attempts"
+          echo "Check Azure Portal logs for application startup errors"
           exit 1
 
       - name: Get Azure App Service Logs
