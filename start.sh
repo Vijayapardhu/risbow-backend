@@ -23,6 +23,14 @@ fi
 # Set Node.js to production mode if not set
 export NODE_ENV=${NODE_ENV:-production}
 
+# Run database migrations if Prisma is available
+if [ -f "prisma/schema.prisma" ] && command -v npx &> /dev/null; then
+    echo "🔄 Running database migrations..."
+    npx prisma migrate deploy || {
+        echo "⚠️  Migration failed or already applied. Continuing..."
+    }
+fi
+
 # Log environment info
 echo "📦 Node.js version: $(node --version)"
 echo "📦 NPM version: $(npm --version)"
