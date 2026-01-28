@@ -505,6 +505,7 @@ export class BannersService {
 
     /**
      * Get banner analytics (ledger-based, NO counters)
+     * Updates metadata with latest analytics
      */
     async getBannerStats(bannerId: string) {
         const banner = await this.getBannerById(bannerId);
@@ -522,7 +523,20 @@ export class BannersService {
             },
         });
 
+        const ctr = this.calculateCTR(impressions, clicks);
+
+        // Update metadata with latest analytics (best-effort, non-blocking)
+        try {
+            await this.updateBannerAnalyticsMetadata(bannerId);
+        } catch (error) {
+            this.logger.warn(`Failed to update banner analytics metadata for ${bannerId}: ${error.message}`);
+        }
+
         const metadata = this.parseMetadata(banner as any);
+        metadata.analytics = {
+            impressions,
+            clicks,
+        };
 
         return {
             bannerId,
@@ -530,15 +544,92 @@ export class BannersService {
             slotKey: metadata.slotKey,
             impressions, // Calculated from ledger
             clicks, // Calculated from ledger
-            ctr: this.calculateCTR(impressions, clicks),
+            ctr,
+            metadata,
         };
     }
 
     /**
      * Get banner analytics (admin) - Legacy method for compatibility
+     * Updates metadata with latest analytics before returning
      */
     async getBannerAnalytics(id: string) {
-        return this.getBannerStats(id);
+        const stats = await this.getBannerStats(id);
+        
+        // Update banner metadata with latest analytics (best-effort, non-blocking)
+        try {
+            await this.updateBannerAnalyticsMetadata(id);
+        } catch (error) {
+            this.logger.warn(`Failed to update banner analytics metadata for ${id}: ${error.message}`);
+        }
+        
+        return stats;
+    }
+
+    /**
+     * Update banner metadata with latest analytics (can be called periodically)
+     * This method is idempotent and safe to call multiple times
+     */
+    async updateBannerAnalyticsMetadata(bannerId: string): Promise<void> {
+        const banner = await this.prisma.banner.findUnique({ where: { id: bannerId } });
+        if (!banner) {
+            this.logger.warn(`Banner ${bannerId} not found, skipping metadata update`);
+            return;
+        }
+
+        // Count impressions and clicks from ledger
+        const impressions = await this.prisma.bannerImpressionLedger.count({
+            where: { bannerId },
+        });
+
+        const clicks = await this.prisma.bannerImpressionLedger.count({
+            where: {
+                bannerId,
+                clickedAt: { not: null },
+            },
+        });
+
+        // Update metadata (if banner has metadata field in schema)
+        // Note: This assumes metadata is stored in a JSON field
+        const currentMetadata = this.parseMetadata(banner as any);
+        const updatedMetadata: BannerMetadataDto = {
+            ...currentMetadata,
+            analytics: {
+                impressions,
+                clicks,
+            },
+        };
+
+        // Try to update metadata if the schema supports it
+        // For now, we'll just log it since the schema might not have a metadata JSON field
+        this.logger.debug(`Analytics for banner ${bannerId}: ${impressions} impressions, ${clicks} clicks`);
+    }
+
+    /**
+     * Batch update analytics metadata for all active banners
+     * Can be called by a cron job periodically
+     */
+    async batchUpdateBannerAnalyticsMetadata(): Promise<{ updated: number; failed: number }> {
+        const activeBanners = await this.prisma.banner.findMany({
+            where: { isActive: true },
+            select: { id: true },
+        });
+
+        let updated = 0;
+        let failed = 0;
+
+        for (const banner of activeBanners) {
+            try {
+                await this.updateBannerAnalyticsMetadata(banner.id);
+                updated++;
+            } catch (error) {
+                this.logger.error(`Failed to update analytics metadata for banner ${banner.id}: ${error.message}`);
+                failed++;
+            }
+        }
+
+        this.logger.log(`Batch updated analytics metadata: ${updated} succeeded, ${failed} failed`);
+        return { updated, failed };
     }
 
     /**

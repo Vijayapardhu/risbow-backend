@@ -104,6 +104,20 @@ export class WholesalersController {
         return this.wholesalersService.respondToInquiry(wholesalerVendorId, inquiryId, dto);
     }
 
+    @Post('inquiries/:id/accept')
+    @Roles(UserRole.VENDOR)
+    @ApiOperation({ summary: 'Accept a wholesaler\'s response to inquiry (Vendor buyer)' })
+    async acceptInquiry(@Request() req, @Param('id') inquiryId: string) {
+        return this.wholesalersService.acceptInquiry(req.user.id, inquiryId);
+    }
+
+    @Post('inquiries/:id/reject')
+    @Roles(UserRole.VENDOR)
+    @ApiOperation({ summary: 'Reject a wholesaler\'s response to inquiry (Vendor buyer)' })
+    async rejectInquiry(@Request() req, @Param('id') inquiryId: string) {
+        return this.wholesalersService.rejectInquiry(req.user.id, inquiryId);
+    }
+
     @Get('analytics')
     @Roles(UserRole.WHOLESALER, UserRole.ADMIN)
     @ApiOperation({ summary: 'Get wholesaler analytics' })

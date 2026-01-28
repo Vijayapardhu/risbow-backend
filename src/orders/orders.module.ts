@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
 import { OrdersAdminController } from './orders.admin.controller';
+import { OrdersAdminAliasController } from './orders.admin-alias.controller';
 import { RoomsModule } from '../rooms/rooms.module';
 import { CoinsModule } from '../coins/coins.module';
 import { InventoryModule } from '../inventory/inventory.module';
@@ -20,7 +21,7 @@ import { BowModule } from '../bow/bow.module';
 
 @Module({
     imports: [RoomsModule, CoinsModule, InventoryModule, VendorsModule, CommonModule, forwardRef(() => BowModule), AuditModule, CheckoutModule, forwardRef(() => RecommendationsModule), ReferralsModule, VendorOrdersModule],
-    controllers: [OrdersController, OrdersAdminController],
+    controllers: [OrdersController, OrdersAdminController, OrdersAdminAliasController],
     providers: [OrdersService, OrderStateMachine, OrderStateValidatorService],
     exports: [OrdersService],
 })

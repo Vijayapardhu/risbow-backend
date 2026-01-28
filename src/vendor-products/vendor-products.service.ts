@@ -288,7 +288,7 @@ export class VendorProductsService {
                 },
                 isActive: true,
                 disableAutoClearance: false,
-                clearanceProducts: {
+                ClearanceProduct: {
                     none: {
                         isActive: true,
                     },

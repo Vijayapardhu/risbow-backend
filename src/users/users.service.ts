@@ -1,8 +1,9 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/user.dto';
 import { RegisterDeviceDto } from './dto/device.dto';
 import { GeoService } from '../shared/geo.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
@@ -15,17 +16,20 @@ export class UsersService {
     }
 
     async update(id: string, updateUserDto: UpdateUserDto) {
+        const updateData: any = {};
+        if (updateUserDto.name !== undefined) updateData.name = updateUserDto.name;
+        if (updateUserDto.email !== undefined) updateData.email = updateUserDto.email;
+        if (updateUserDto.gender !== undefined) updateData.gender = updateUserDto.gender;
+        if (updateUserDto.size !== undefined) updateData.size = updateUserDto.size;
+        if (updateUserDto.footwearSize !== undefined) updateData.footwearSize = updateUserDto.footwearSize;
+        if (updateUserDto.stylePrefs !== undefined) updateData.stylePrefs = updateUserDto.stylePrefs;
+        if (updateUserDto.colors !== undefined) updateData.colors = updateUserDto.colors;
+        // Also support phone/mobile field
+        if ((updateUserDto as any).phone !== undefined) updateData.mobile = (updateUserDto as any).phone;
+
         return this.prisma.user.update({
             where: { id },
-            data: {
-                name: updateUserDto.name,
-                email: updateUserDto.email,
-                gender: updateUserDto.gender,
-                size: updateUserDto.size,
-                footwearSize: updateUserDto.footwearSize,
-                stylePrefs: updateUserDto.stylePrefs,
-                colors: updateUserDto.colors
-            },
+            data: updateData,
         });
     }
 
@@ -359,6 +363,37 @@ export class UsersService {
         return this.prisma.user.update({
             where: { id: userId },
             data: { status: status as any }
+        });
+    }
+
+    async updatePassword(userId: string, currentPassword: string, newPassword: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, password: true },
+        });
+
+        if (!user) {
+            throw new BadRequestException('User not found');
+        }
+
+        // If user has no password (OTP-only account), allow setting password
+        if (user.password) {
+            const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+            if (!isPasswordValid) {
+                throw new UnauthorizedException('Current password is incorrect');
+            }
+        }
+
+        if (newPassword.length < 8) {
+            throw new BadRequestException('New password must be at least 8 characters long');
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        return this.prisma.user.update({
+            where: { id: userId },
+            data: { password: hashedPassword },
+            select: { id: true, email: true, name: true },
         });
     }
 }

@@ -342,6 +342,11 @@ export class PaymentsService {
                     }
                 });
                 this.logger.log(`PaymentIntent ${paymentIntent.id} updated to SUCCESS via webhook`);
+
+                // Activate the associated service based on purpose
+                await this.activateServiceOnPaymentSuccess(paymentIntent).catch(err => {
+                    this.logger.error(`Failed to activate service for PaymentIntent ${paymentIntent.id}: ${err.message}`, err.stack);
+                });
             }
         } else if (event === 'payment.failed') {
             if (payments && payments.length > 0) {
@@ -383,6 +388,38 @@ export class PaymentsService {
         } catch (error) {
             this.logger.error(`Razorpay order generation failed: ${error.message}`, error.stack);
             throw new InternalServerErrorException('Failed to generate payment order');
+        }
+    }
+
+    /**
+     * Activate the purchased service after PaymentIntent becomes SUCCESS.
+     * Must be idempotent: safe to call multiple times for same intent.
+     */
+    private async activateServiceOnPaymentSuccess(paymentIntent: any) {
+        const purpose: PaymentIntentPurpose = paymentIntent.purpose;
+        const referenceId: string = paymentIntent.referenceId;
+
+        // Defensive: only handle known purposes
+        switch (purpose) {
+            case PaymentIntentPurpose.BANNER_SLOT: {
+                // For banner purchases, we mark the associated BannerCampaign as PAID (if present)
+                await this.prisma.bannerCampaign.updateMany({
+                    where: { bannerId: referenceId },
+                    data: { paymentStatus: 'PAID' as any },
+                });
+                return;
+            }
+            case PaymentIntentPurpose.ROOM_PROMOTION: {
+                // For room promotion purchases, we mark VendorPromotion as ACTIVE/PAID via metadata linkage
+                await (this.prisma as any).vendorPromotion.updateMany({
+                    where: { id: referenceId },
+                    data: { status: 'ACTIVE' },
+                }).catch(() => null);
+                return;
+            }
+            default:
+                this.logger.warn(`No activation handler for PaymentIntent purpose=${purpose} referenceId=${referenceId}`);
+                return;
         }
     }
     async processRefund(paymentId: string, amount: number, adminId?: string, notes?: any) {

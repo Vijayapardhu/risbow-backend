@@ -118,9 +118,6 @@ export class ContentModerationService {
       orderBy: { createdAt: 'desc' },
       take: limit,
       skip: offset,
-      include: {
-        // Note: We can't include Story/Reel directly, but we can fetch them separately if needed
-      },
     });
   }
 

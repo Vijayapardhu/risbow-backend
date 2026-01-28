@@ -1,8 +1,10 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { SendOtpDto, VerifyOtpDto, RegisterDto, LoginDto } from './dto/auth.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -47,5 +49,24 @@ export class AuthController {
     @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 password reset requests per minute
     async forgotPassword(@Body('email') email: string) {
         return this.authService.forgotPassword(email);
+    }
+
+    @Post('refresh')
+    @ApiOperation({ summary: 'Refresh access token using refresh token' })
+    @ApiResponse({ status: 200, description: 'Returns new access token' })
+    @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
+    @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 refresh attempts per minute
+    async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
+        return this.authService.refreshToken(refreshTokenDto.refreshToken);
+    }
+
+    @Post('logout')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Logout and revoke refresh token' })
+    @ApiResponse({ status: 200, description: 'Logged out successfully' })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
+    async logout(@Request() req: any, @Body('refreshToken') refreshToken?: string) {
+        return this.authService.logout(req.user.id, refreshToken);
     }
 }

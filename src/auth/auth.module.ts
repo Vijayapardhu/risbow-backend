@@ -13,7 +13,9 @@ import { PassportModule } from '@nestjs/passport';
             imports: [ConfigModule],
             useFactory: async (configService: ConfigService) => ({
                 secret: configService.get<string>('JWT_SECRET'),
-                signOptions: { expiresIn: '60d' }, // SRS Requirement: Mobile app, long expiry
+                signOptions: { 
+                    expiresIn: process.env.JWT_EXPIRES_IN || '15m', // Short-lived access tokens
+                },
             }),
             inject: [ConfigService],
         }),

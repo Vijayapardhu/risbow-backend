@@ -1,10 +1,14 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { RoomStatus, RiskTag, ValueTag, UserRole, UserStatus } from '@prisma/client';
+import { RoomStatus, RiskTag, ValueTag, UserRole, UserStatus, OrderStatus } from '@prisma/client';
+import { OrderStateValidatorService } from '../orders/order-state-validator.service';
 
 @Injectable()
 export class AdminService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private orderStateValidator: OrderStateValidatorService,
+    ) { }
 
     async getDashboardKPIs(period: string = 'Last 7 Days') {
         const [
@@ -662,12 +666,263 @@ export class AdminService {
         return updatedUser;
     }
 
-    async exportUsers() {
-        // Simple JSON return, Controller can convert to CSV
+    async exportUsersCSV(): Promise<string> {
         const users = await this.prisma.user.findMany({
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                mobile: true,
+                role: true,
+                status: true,
+                coinsBalance: true,
+                riskTag: true,
+                valueTag: true,
+                createdAt: true,
+            },
         });
-        return users;
+
+        // CSV Header
+        const headers = ['ID', 'Name', 'Email', 'Mobile', 'Role', 'Status', 'Coins Balance', 'Risk Tag', 'Value Tag', 'Created At'];
+        const rows = users.map(user => [
+            user.id,
+            user.name || '',
+            user.email || '',
+            user.mobile,
+            user.role,
+            user.status,
+            user.coinsBalance.toString(),
+            user.riskTag,
+            user.valueTag,
+            user.createdAt.toISOString(),
+        ]);
+
+        // Escape CSV values
+        const escapeCSV = (value: string) => {
+            if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+                return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value;
+        };
+
+        const csvRows = [
+            headers.map(escapeCSV).join(','),
+            ...rows.map(row => row.map(cell => escapeCSV(String(cell))).join(',')),
+        ];
+
+        return csvRows.join('\n');
+    }
+
+    async exportOrdersCSV(filters?: { status?: string; startDate?: Date; endDate?: Date }): Promise<string> {
+        const where: any = {};
+        if (filters?.status) where.status = filters.status;
+        if (filters?.startDate || filters?.endDate) {
+            where.createdAt = {};
+            if (filters.startDate) where.createdAt.gte = filters.startDate;
+            if (filters.endDate) where.createdAt.lte = filters.endDate;
+        }
+
+        const orders = await this.prisma.order.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                user: { select: { name: true, email: true, mobile: true } },
+            },
+            take: 10000, // Limit for performance
+        });
+
+        const headers = ['Order ID', 'User Name', 'User Email', 'User Mobile', 'Total Amount', 'Status', 'Created At'];
+        const rows = orders.map(order => [
+            order.id,
+            order.user?.name || '',
+            order.user?.email || '',
+            order.user?.mobile || '',
+            (order.totalAmount / 100).toFixed(2), // Convert paise to rupees
+            order.status,
+            order.createdAt.toISOString(),
+        ]);
+
+        const escapeCSV = (value: string) => {
+            if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+                return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value;
+        };
+
+        const csvRows = [
+            headers.map(escapeCSV).join(','),
+            ...rows.map(row => row.map(cell => escapeCSV(String(cell))).join(',')),
+        ];
+
+        return csvRows.join('\n');
+    }
+
+    async exportProductsCSV(filters?: { vendorId?: string; isActive?: boolean }): Promise<string> {
+        const where: any = {};
+        if (filters?.vendorId) where.vendorId = filters.vendorId;
+        if (filters?.isActive !== undefined) where.isActive = filters.isActive;
+
+        const products = await this.prisma.product.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                vendor: { select: { name: true, storeName: true } },
+            },
+            take: 10000, // Limit for performance
+        });
+
+        const headers = ['Product ID', 'Title', 'Vendor', 'Price (₹)', 'Stock', 'Active', 'Created At'];
+        const rows = products.map(product => [
+            product.id,
+            product.title,
+            product.vendor?.storeName || product.vendor?.name || '',
+            (product.price / 100).toFixed(2), // Convert paise to rupees
+            product.stock.toString(),
+            product.isActive ? 'Yes' : 'No',
+            product.createdAt.toISOString(),
+        ]);
+
+        const escapeCSV = (value: string) => {
+            if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+                return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value;
+        };
+
+        const csvRows = [
+            headers.map(escapeCSV).join(','),
+            ...rows.map(row => row.map(cell => escapeCSV(String(cell))).join(',')),
+        ];
+
+        return csvRows.join('\n');
+    }
+
+    async exportVendorsCSV(filters?: { status?: string }): Promise<string> {
+        const where: any = {};
+        if (filters?.status && filters.status !== 'ALL') {
+            where.kycStatus = filters.status;
+        }
+
+        const vendors = await this.prisma.vendor.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            take: 10000, // Limit for performance
+        });
+
+        const headers = ['Vendor ID', 'Name', 'Store Name', 'Email', 'Mobile', 'KYC Status', 'Role', 'Coins Balance', 'Created At'];
+        const rows = vendors.map(vendor => [
+            vendor.id,
+            vendor.name,
+            vendor.storeName || '',
+            vendor.email || '',
+            vendor.mobile,
+            vendor.kycStatus,
+            vendor.role,
+            vendor.coinsBalance.toString(),
+            vendor.createdAt.toISOString(),
+        ]);
+
+        const escapeCSV = (value: string) => {
+            if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+                return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value;
+        };
+
+        const csvRows = [
+            headers.map(escapeCSV).join(','),
+            ...rows.map(row => row.map(cell => escapeCSV(String(cell))).join(',')),
+        ];
+
+        return csvRows.join('\n');
+    }
+
+    // Bulk Operations
+    async bulkUpdateUsers(adminId: string, userIds: string[], data: { status?: string; role?: string }) {
+        const updateData: any = {};
+        if (data.status) updateData.status = data.status;
+        if (data.role) updateData.role = data.role;
+
+        const result = await this.prisma.user.updateMany({
+            where: { id: { in: userIds } },
+            data: updateData,
+        });
+
+        // Audit log
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                entityId: 'BULK',
+                action: 'BULK_UPDATE',
+                details: { userIds, updateData, count: result.count },
+            },
+        });
+
+        return { updated: result.count, userIds };
+    }
+
+    async bulkDeleteUsers(adminId: string, userIds: string[]) {
+        // For now, hard delete. TODO: Implement soft delete
+        const result = await this.prisma.user.deleteMany({
+            where: { id: { in: userIds } },
+        });
+
+        // Audit log
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'USER',
+                entityId: 'BULK',
+                action: 'BULK_DELETE',
+                details: { userIds, count: result.count },
+            },
+        });
+
+        return { deleted: result.count, userIds };
+    }
+
+    async bulkUpdateProducts(adminId: string, productIds: string[], data: { isActive?: boolean }) {
+        const updateData: any = {};
+        if (data.isActive !== undefined) updateData.isActive = data.isActive;
+
+        const result = await this.prisma.product.updateMany({
+            where: { id: { in: productIds } },
+            data: updateData,
+        });
+
+        // Audit log
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'PRODUCT',
+                entityId: 'BULK',
+                action: 'BULK_UPDATE',
+                details: { productIds, updateData, count: result.count },
+            },
+        });
+
+        return { updated: result.count, productIds };
+    }
+
+    async bulkDeleteProducts(adminId: string, productIds: string[]) {
+        const result = await this.prisma.product.deleteMany({
+            where: { id: { in: productIds } },
+        });
+
+        // Audit log
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'PRODUCT',
+                entityId: 'BULK',
+                action: 'BULK_DELETE',
+                details: { productIds, count: result.count },
+            },
+        });
+
+        return { deleted: result.count, productIds };
     }
 
     // --- AUTOMATION: Risk & Value Analysis ---
@@ -943,7 +1198,7 @@ export class AdminService {
         if (!order) throw new NotFoundException("Order not found");
 
         // 🔐 ENFORCEMENT: Packing proof is mandatory before SHIPPED status (even for admins)
-        if (status === 'SHIPPED' || status === 'DISPATCHED') {
+        if (status === 'SHIPPED' || status === 'DISPATCHED' || status === OrderStatus.SHIPPED) {
             const proof = await this.prisma.orderPackingProof.findUnique({
                 where: { orderId },
             });
@@ -951,6 +1206,20 @@ export class AdminService {
                 throw new BadRequestException('Packing video proof is mandatory before order can be shipped. Please upload packing video first.');
             }
         }
+
+        // 🔐 P0 FIX: Validate state transition using OrderStateValidatorService
+        // Allow admin override for emergency cases, but log it
+        const isValidTransition = this.orderStateValidator.isValidTransition(order.status, status as OrderStatus);
+        const allowAdminOverride = !isValidTransition; // Allow override if transition is invalid
+
+        await this.orderStateValidator.validateTransition(
+            order.status,
+            status as OrderStatus,
+            orderId,
+            adminId,
+            'ADMIN',
+            allowAdminOverride,
+        );
 
         const updated = await this.prisma.order.update({
             where: { id: orderId },
@@ -968,7 +1237,13 @@ export class AdminService {
                 entity: 'ORDER',
                 entityId: orderId,
                 action: 'UPDATE_STATUS',
-                details: { oldStatus: order.status, newStatus: status, logistics }
+                details: { 
+                    oldStatus: order.status, 
+                    newStatus: status, 
+                    logistics,
+                    adminOverride: allowAdminOverride,
+                    isValidTransition,
+                }
             }
         });
 
@@ -977,15 +1252,52 @@ export class AdminService {
 
     // --- VENDORS MANAGEMENT ---
 
-    async getVendors(status: string = 'ALL') {
+    async getVendors(status: string = 'ALL', page: number = 1, limit: number = 20, search?: string) {
         const where: any = {};
         if (status && status !== 'ALL') {
             where.kycStatus = status;
         }
-        return this.prisma.vendor.findMany({
-            where,
-            orderBy: { createdAt: 'desc' }
-        });
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { storeName: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+                { mobile: { contains: search, mode: 'insensitive' } },
+            ];
+        }
+
+        const [vendors, total] = await Promise.all([
+            this.prisma.vendor.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * limit,
+                take: limit,
+                select: {
+                    id: true,
+                    name: true,
+                    mobile: true,
+                    email: true,
+                    storeName: true,
+                    kycStatus: true,
+                    role: true,
+                    coinsBalance: true,
+                    performanceScore: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            }),
+            this.prisma.vendor.count({ where }),
+        ]);
+
+        return {
+            data: vendors,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        };
     }
 
     async approveVendor(adminId: string, id: string, approved: boolean, reason?: string) {
@@ -1028,6 +1340,230 @@ export class AdminService {
             }
         });
         return vendor;
+    }
+
+    async getVendorDetails(id: string) {
+        const vendor = await this.prisma.vendor.findUnique({
+            where: { id },
+            include: {
+                products: {
+                    take: 10,
+                    orderBy: { createdAt: 'desc' },
+                    select: {
+                        id: true,
+                        title: true,
+                        price: true,
+                        stock: true,
+                        isActive: true,
+                    },
+                },
+                reviews: {
+                    take: 5,
+                    orderBy: { createdAt: 'desc' },
+                },
+                VendorMembership: true,
+                documents: {
+                    orderBy: { uploadedAt: 'desc' },
+                },
+            },
+        });
+
+        if (!vendor) throw new NotFoundException('Vendor not found');
+
+        // Get additional stats
+        const [totalOrders, totalRevenue, totalProducts] = await Promise.all([
+            this.prisma.orderSettlement.count({
+                where: { vendorId: id },
+            }),
+            this.prisma.orderSettlement.aggregate({
+                where: { vendorId: id },
+                _sum: { amount: true },
+            }),
+            this.prisma.product.count({
+                where: { vendorId: id },
+            }),
+        ]);
+
+        return {
+            ...vendor,
+            stats: {
+                totalOrders,
+                totalRevenue: totalRevenue._sum.amount || 0,
+                totalProducts,
+            },
+        };
+    }
+
+    async verifyVendorKyc(adminId: string, vendorId: string, status: string, notes?: string) {
+        const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+        if (!vendor) throw new NotFoundException('Vendor not found');
+
+        const updated = await this.prisma.vendor.update({
+            where: { id: vendorId },
+            data: { kycStatus: status }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'VENDOR',
+                entityId: vendorId,
+                action: 'VERIFY_KYC',
+                details: { status, notes, previousStatus: vendor.kycStatus }
+            }
+        });
+
+        return updated;
+    }
+
+    async suspendVendor(adminId: string, vendorId: string, reason?: string) {
+        const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+        if (!vendor) throw new NotFoundException('Vendor not found');
+
+        const updated = await this.prisma.vendor.update({
+            where: { id: vendorId },
+            data: { storeStatus: 'SUSPENDED' }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'VENDOR',
+                entityId: vendorId,
+                action: 'SUSPEND_VENDOR',
+                details: { reason, previousStatus: vendor.storeStatus }
+            }
+        });
+
+        return updated;
+    }
+
+    async activateVendor(adminId: string, vendorId: string) {
+        const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+        if (!vendor) throw new NotFoundException('Vendor not found');
+
+        const updated = await this.prisma.vendor.update({
+            where: { id: vendorId },
+            data: { storeStatus: 'ACTIVE' }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                adminId,
+                entity: 'VENDOR',
+                entityId: vendorId,
+                action: 'ACTIVATE_VENDOR',
+                details: { previousStatus: vendor.storeStatus }
+            }
+        });
+
+        return updated;
+    }
+
+    async getVendorAnalytics(vendorId: string) {
+        const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+        if (!vendor) throw new NotFoundException('Vendor not found');
+
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const [orders, revenue, products, reviews] = await Promise.all([
+            this.prisma.orderSettlement.findMany({
+                where: {
+                    vendorId,
+                    createdAt: { gte: thirtyDaysAgo },
+                },
+                select: {
+                    id: true,
+                    amount: true,
+                    status: true,
+                    createdAt: true,
+                },
+            }),
+            this.prisma.orderSettlement.aggregate({
+                where: {
+                    vendorId,
+                    createdAt: { gte: thirtyDaysAgo },
+                },
+                _sum: { amount: true },
+            }),
+            this.prisma.product.count({
+                where: { vendorId },
+            }),
+            this.prisma.review.aggregate({
+                where: { vendorId },
+                _avg: { rating: true },
+                _count: true,
+            }),
+        ]);
+
+        return {
+            vendor: {
+                id: vendor.id,
+                name: vendor.name,
+                storeName: vendor.storeName,
+                kycStatus: vendor.kycStatus,
+                performanceScore: vendor.performanceScore,
+            },
+            analytics: {
+                orders: {
+                    total: orders.length,
+                    revenue: revenue._sum.amount || 0,
+                    byStatus: orders.reduce((acc, o) => {
+                        acc[o.status] = (acc[o.status] || 0) + 1;
+                        return acc;
+                    }, {} as Record<string, number>),
+                },
+                products: {
+                    total: products,
+                },
+                reviews: {
+                    average: reviews._avg.rating || 0,
+                    count: reviews._count,
+                },
+            },
+        };
+    }
+
+    async getVendorDocuments(vendorId: string) {
+        const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+        if (!vendor) throw new NotFoundException('Vendor not found');
+
+        const documents = await this.prisma.vendorDocument.findMany({
+            where: { vendorId },
+            orderBy: { uploadedAt: 'desc' },
+        });
+
+        return {
+            vendorId,
+            kycDocuments: vendor.kycDocuments,
+            uploadedDocuments: documents,
+        };
+    }
+
+    async getVendorPayouts(vendorId: string, page: number = 1, limit: number = 20) {
+        const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+        if (!vendor) throw new NotFoundException('Vendor not found');
+
+        const [payouts, total] = await Promise.all([
+            this.prisma.vendorPayout.findMany({
+                where: { vendorId },
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+            this.prisma.vendorPayout.count({ where: { vendorId } }),
+        ]);
+
+        return {
+            data: payouts,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        };
     }
 
     async getAllRooms() {

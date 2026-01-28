@@ -117,10 +117,26 @@ export class AuthService {
 
             console.log(`[Database] Found existing user: ${user.id}, role: ${user.role}`);
 
-            // Generate JWT token
+            // Generate access token (short-lived for security)
             const payload = { sub: user.id, mobile: user.mobile, role: user.role };
+            const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+            
+            // Generate refresh token (long-lived, stored in Redis)
+            const refreshToken = this.jwtService.sign(
+                { sub: user.id, type: 'refresh' },
+                { expiresIn: '7d' }
+            );
+
+            // Store refresh token in Redis with user ID mapping
+            await this.redisService.set(
+                `refresh_token:${user.id}`,
+                refreshToken,
+                7 * 24 * 60 * 60 // 7 days in seconds
+            );
+
             const result = {
-                access_token: this.jwtService.sign(payload),
+                access_token: accessToken,
+                refresh_token: refreshToken,
                 user,
             };
 
@@ -235,14 +251,29 @@ export class AuthService {
             });
         }
 
-        // Generate JWT token
+        // Generate access token (short-lived for security)
         const payload = { sub: user.id, email: user.email };
+        const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+        
+        // Generate refresh token (long-lived, stored in Redis)
+        const refreshToken = this.jwtService.sign(
+            { sub: user.id, type: 'refresh' },
+            { expiresIn: '7d' }
+        );
+
+        // Store refresh token in Redis with user ID mapping
+        await this.redisService.set(
+            `refresh_token:${user.id}`,
+            refreshToken,
+            7 * 24 * 60 * 60 // 7 days in seconds
+        );
 
         // Remove password from response
         const { password, ...userWithoutPassword } = user;
 
         return {
-            access_token: this.jwtService.sign(payload),
+            access_token: accessToken,
+            refresh_token: refreshToken,
             user: userWithoutPassword,
         };
     }
@@ -270,10 +301,87 @@ export class AuthService {
         // Remove password from response
         const { password: _, ...userWithoutPassword } = user;
 
+        // Generate access token (short-lived for security)
+        const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+        
+        // Generate refresh token (long-lived, stored in Redis)
+        const refreshToken = this.jwtService.sign(
+            { sub: user.id, type: 'refresh' },
+            { expiresIn: '7d' }
+        );
+
+        // Store refresh token in Redis with user ID mapping
+        await this.redisService.set(
+            `refresh_token:${user.id}`,
+            refreshToken,
+            7 * 24 * 60 * 60 // 7 days in seconds
+        );
+
         return {
-            access_token: this.jwtService.sign(payload),
+            access_token: accessToken,
+            refresh_token: refreshToken,
             user: userWithoutPassword,
         };
+    }
+
+    async refreshToken(refreshToken: string) {
+        try {
+            // Verify refresh token
+            const payload = this.jwtService.verify(refreshToken);
+            
+            if (payload.type !== 'refresh') {
+                throw new UnauthorizedException('Invalid token type');
+            }
+
+            // Check if refresh token exists in Redis (not revoked)
+            const storedToken = await this.redisService.get(`refresh_token:${payload.sub}`);
+            if (!storedToken || storedToken !== refreshToken) {
+                throw new UnauthorizedException('Refresh token has been revoked or expired');
+            }
+
+            // Get user to ensure they still exist and are active
+            const user = await this.prisma.user.findUnique({
+                where: { id: payload.sub },
+            });
+
+            if (!user) {
+                throw new UnauthorizedException('User not found');
+            }
+
+            if (user.status !== 'ACTIVE') {
+                throw new UnauthorizedException('User account is not active');
+            }
+
+            // Generate new access token
+            const newPayload = { sub: user.id, email: user.email, role: user.role };
+            const accessToken = this.jwtService.sign(newPayload, { expiresIn: '15m' });
+
+            // Remove password from user object
+            const { password, ...userWithoutPassword } = user;
+
+            return {
+                access_token: accessToken,
+                user: userWithoutPassword,
+            };
+        } catch (error) {
+            if (error instanceof UnauthorizedException) {
+                throw error;
+            }
+            // JWT verification errors
+            throw new UnauthorizedException('Invalid or expired refresh token');
+        }
+    }
+
+    async logout(userId: string, refreshToken?: string) {
+        // Revoke refresh token by removing it from Redis
+        if (refreshToken) {
+            await this.redisService.del(`refresh_token:${userId}`);
+        } else {
+            // If no token provided, remove all refresh tokens for this user
+            await this.redisService.del(`refresh_token:${userId}`);
+        }
+
+        return { message: 'Logged out successfully' };
     }
 
     async forgotPassword(email: string) {

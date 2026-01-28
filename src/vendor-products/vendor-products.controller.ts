@@ -1,4 +1,4 @@
-import { Controller, Post, UseInterceptors, UploadedFile, UseGuards, Req, BadRequestException, Get, Res, Body, Put, Param, Patch, Delete } from '@nestjs/common';
+import { Controller, Post, UseInterceptors, UploadedFile, UseGuards, Req, BadRequestException, Get, Res, Body, Put, Param, Patch, Delete, Query } from '@nestjs/common';
 import { CreateProductDto, UpdateProductDto, ProductStatusDto } from './dto/product.dto';
 import { SaveProductSpecsDto } from './dto/product-specs.dto';
 import { VariationDto } from './dto/variation.dto';

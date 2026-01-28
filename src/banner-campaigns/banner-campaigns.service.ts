@@ -79,10 +79,6 @@ export class BannerCampaignsService {
             storeName: true,
           },
         },
-        impressions: {
-          take: 10,
-          orderBy: { viewedAt: 'desc' },
-        },
       },
     });
 

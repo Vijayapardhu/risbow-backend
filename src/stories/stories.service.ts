@@ -75,13 +75,14 @@ export class StoriesService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      this.logger.error(`Story upload failed: ${error.error}`);
-      throw new BadRequestException(error.error || 'Failed to upload story');
+      const errBody: any = await response.json().catch(() => ({}));
+      const msg = errBody?.error || errBody?.message || 'Failed to upload story';
+      this.logger.error(`Story upload failed: ${msg}`);
+      throw new BadRequestException(msg);
     }
 
-    const result = await response.json();
-    return result.story;
+    const result: any = await response.json().catch(() => ({}));
+    return result?.story;
   }
 
   async getActiveStories(vendorId?: string) {

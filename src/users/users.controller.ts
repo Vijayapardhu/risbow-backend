@@ -27,6 +27,16 @@ export class UsersController {
         return this.usersService.update(req.user.id, updateUserDto);
     }
 
+    @Patch('me')
+    async updateProfilePatch(@Request() req, @Body() updateUserDto: UpdateUserDto) {
+        return this.usersService.update(req.user.id, updateUserDto);
+    }
+
+    @Patch('me/password')
+    async updatePassword(@Request() req, @Body() body: { currentPassword: string; newPassword: string }) {
+        return this.usersService.updatePassword(req.user.id, body.currentPassword, body.newPassword);
+    }
+
     @Get('me/coins')
     async getCoins(@Request() req) {
         const balance = await this.coinsService.getBalance(req.user.id);

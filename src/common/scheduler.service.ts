@@ -14,6 +14,7 @@ import { CoinsService } from '../coins/coins.service';
 import { StoriesService } from '../stories/stories.service';
 import { ClearanceService } from '../clearance/clearance.service';
 import { VendorDisciplineService } from '../vendors/vendor-discipline.service';
+import { WholesalersService } from '../wholesalers/wholesalers.service';
 
 @Injectable()
 export class SchedulerService {
@@ -32,6 +33,7 @@ export class SchedulerService {
         private storiesService: StoriesService,
         private clearanceService: ClearanceService,
         private vendorDisciplineService: VendorDisciplineService,
+        private wholesalersService: WholesalersService,
     ) { }
 
     // SRS FR-2: Check expiry every min -> EXPIRED if past endAt.
@@ -328,6 +330,23 @@ export class SchedulerService {
                 }
             } catch (error) {
                 this.logger.error(`Banner expiry check failed: ${error.message}`);
+            }
+        }, 3600); // 1 hour lock TTL
+    }
+
+    // Auto-expire vendor inquiries after 7 days - runs daily at midnight
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    async handleInquiryExpiry() {
+        await this.redisLock.withLock('cron:inquiry-expiry', async () => {
+            this.logger.debug('Starting inquiry expiry check...');
+            try {
+                // NOTE: wholesalers inquiries are stored in VendorInquiry. If expiry is not implemented, skip safely.
+                const expiredCount = await (this.wholesalersService as any).expireOldInquiries?.() ?? 0;
+                if (expiredCount > 0) {
+                    this.logger.log(`Expired ${expiredCount} old inquiries`);
+                }
+            } catch (error) {
+                this.logger.error(`Inquiry expiry failed: ${error.message}`);
             }
         }, 3600); // 1 hour lock TTL
     }

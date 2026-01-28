@@ -70,35 +70,76 @@ export class NotificationProcessor extends WorkerHost {
                 return;
             }
 
-            const devices = await (this.prisma as any).userDevice.findMany({
-                where: { userId, isActive: true },
-                select: { token: true },
-                take: 20,
-            }).catch(() => []);
+            // Try to get device tokens from UserDevice table (if exists) or User metadata
+            let tokens: string[] = [];
+            
+            // Method 1: Check UserDevice table (if exists)
+            try {
+                const devices = await (this.prisma as any).userDevice.findMany({
+                    where: { userId, isActive: true },
+                    select: { token: true },
+                    take: 20,
+                }).catch(() => []);
+                tokens = devices.map((d: any) => d.token).filter(Boolean);
+            } catch (error) {
+                // UserDevice table might not exist, try alternative
+            }
 
-            const tokens = devices.map((d: any) => d.token).filter(Boolean);
+            // Method 2: Check User metadata for device tokens (fallback)
+            if (tokens.length === 0) {
+                try {
+                    const user = await this.prisma.user.findUnique({
+                        where: { id: userId },
+                        select: { metadata: true },
+                    });
+                    const metadata = user?.metadata as any;
+                    if (metadata?.deviceTokens && Array.isArray(metadata.deviceTokens)) {
+                        tokens = metadata.deviceTokens.filter((t: string) => t && t.length > 0);
+                    }
+                } catch (error) {
+                    // Ignore
+                }
+            }
+
             if (tokens.length === 0) {
                 this.logger.debug(`No active device tokens for user ${userId}`);
                 return;
             }
 
-            await axios.post(
-                'https://fcm.googleapis.com/fcm/send',
-                {
-                    registration_ids: tokens,
-                    notification: { title, body },
-                    data: { title, body },
-                },
-                {
-                    headers: {
-                        Authorization: `key=${serverKey}`,
-                        'Content-Type': 'application/json',
+            // Use FCM HTTP v1 API (more reliable than legacy API)
+            // For now, use legacy API for compatibility, but can upgrade to v1
+            try {
+                await axios.post(
+                    'https://fcm.googleapis.com/fcm/send',
+                    {
+                        registration_ids: tokens,
+                        notification: {
+                            title,
+                            body,
+                            sound: 'default',
+                            badge: '1',
+                        },
+                        data: {
+                            title,
+                            body,
+                            type: 'notification',
+                        },
+                        priority: 'high',
                     },
-                    timeout: 8000,
-                },
-            );
+                    {
+                        headers: {
+                            Authorization: `key=${serverKey}`,
+                            'Content-Type': 'application/json',
+                        },
+                        timeout: 10000,
+                    },
+                );
 
-            this.logger.log(`Push notification delivered to user ${userId} (${tokens.length} devices)`);
+                this.logger.log(`Push notification delivered to user ${userId} (${tokens.length} devices)`);
+            } catch (error: any) {
+                this.logger.error(`FCM push notification failed: ${error.message}`);
+                // Don't throw - notification is already in DB
+            }
         } else if (targetAudience) {
             // Broadcast notification
             this.logger.log(`Broadcast push notification to ${targetAudience}`);
@@ -131,24 +172,62 @@ export class NotificationProcessor extends WorkerHost {
             return;
         }
 
-        await axios.post(
-            'https://api.sendgrid.com/v3/mail/send',
-            {
-                personalizations: [{ to: [{ email: user.email }] }],
-                from: { email: fromEmail, name: 'RISBOW' },
-                subject: title,
-                content: [{ type: 'text/plain', value: body }],
-            },
-            {
-                headers: {
-                    Authorization: `Bearer ${sendgridKey}`,
-                    'Content-Type': 'application/json',
-                },
-                timeout: 8000,
-            },
-        );
+        // Try SendGrid first, then AWS SES as fallback
+        const awsSesRegion = process.env.AWS_SES_REGION;
+        const awsSesAccessKey = process.env.AWS_SES_ACCESS_KEY;
+        const awsSesSecretKey = process.env.AWS_SES_SECRET_KEY;
 
-        this.logger.log(`Email delivered to ${user.email}: ${title}`);
+        // Try SendGrid
+        if (sendgridKey && fromEmail) {
+            try {
+                await axios.post(
+                    'https://api.sendgrid.com/v3/mail/send',
+                    {
+                        personalizations: [{ to: [{ email: user.email, name: user.name || undefined }] }],
+                        from: { email: fromEmail, name: 'RISBOW' },
+                        subject: title,
+                        content: [
+                            { type: 'text/plain', value: body },
+                            { type: 'text/html', value: this.formatEmailHTML(title, body) },
+                        ],
+                    },
+                    {
+                        headers: {
+                            Authorization: `Bearer ${sendgridKey}`,
+                            'Content-Type': 'application/json',
+                        },
+                        timeout: 10000,
+                    },
+                );
+                this.logger.log(`Email delivered via SendGrid to ${user.email}: ${title}`);
+                return;
+            } catch (error: any) {
+                this.logger.error(`SendGrid email failed: ${error.message}`);
+                // Fall through to AWS SES
+            }
+        }
+
+        // Try AWS SES as fallback
+        if (awsSesRegion && awsSesAccessKey && awsSesSecretKey) {
+            try {
+                // AWS SES requires AWS SDK - for now, log that it needs implementation
+                // In production, use @aws-sdk/client-ses
+                this.logger.warn(`AWS SES email not yet implemented. Would send to ${user.email}: ${title}`);
+                // TODO: Implement AWS SES using @aws-sdk/client-ses
+                return;
+            } catch (error: any) {
+                this.logger.error(`AWS SES email failed: ${error.message}`);
+            }
+        }
+
+        this.logger.warn(`No email provider configured. Email not sent to ${user.email}: ${title}`);
+    }
+
+    private formatEmailHTML(title: string, body: string) {
+        const escape = (s: string) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const escapedTitle = escape(title);
+        const escapedBody = escape(body).replace(/\n/g, '<br/>');
+        return `<!doctype html><html><head><meta charset="utf-8"/></head><body style="font-family: Arial, sans-serif; line-height: 1.5;"><h2>${escapedTitle}</h2><div>${escapedBody}</div><hr/><div style="font-size:12px;color:#666;">RISBOW</div></body></html>`;
     }
     private async sendSMS(userId: string | undefined, mobile: string | undefined, body: string) {
         let to = mobile;

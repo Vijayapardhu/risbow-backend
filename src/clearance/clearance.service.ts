@@ -213,7 +213,7 @@ export class ClearanceService {
           },
           isActive: true,
           disableAutoClearance: false, // Only process products with auto-clearance enabled
-          clearanceProducts: {
+          ClearanceProduct: {
             none: {
               isActive: true,
             },
@@ -261,6 +261,7 @@ export class ClearanceService {
 
           // Create a discount room for this clearance product
           let roomCreated = false;
+          let vendorUser: { id: string } | null = null;
           try {
             if (this.roomsService) {
               // Calculate discount percentage for room
@@ -274,7 +275,7 @@ export class ClearanceService {
                 select: { mobile: true, email: true },
               });
 
-              const vendorUser = vendorDetails
+              vendorUser = vendorDetails
                 ? await this.prisma.user.findFirst({
                     where: {
                       OR: [
@@ -497,7 +498,7 @@ export class ClearanceService {
         },
         isActive: true,
         disableAutoClearance: false,
-        clearanceProducts: {
+        ClearanceProduct: {
           none: {
             isActive: true,
           },

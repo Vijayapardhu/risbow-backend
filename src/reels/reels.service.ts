@@ -95,13 +95,14 @@ export class ReelsService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      this.logger.error(`Reel upload failed: ${error.error}`);
-      throw new BadRequestException(error.error || 'Failed to upload reel');
+      const errBody: any = await response.json().catch(() => ({}));
+      const msg = errBody?.error || errBody?.message || 'Failed to upload reel';
+      this.logger.error(`Reel upload failed: ${msg}`);
+      throw new BadRequestException(msg);
     }
 
-    const result = await response.json();
-    return result.reel;
+    const result: any = await response.json().catch(() => ({}));
+    return result?.reel;
   }
 
   async getReels(vendorId?: string, creatorId?: string, productId?: string, limit = 20, offset = 0) {
@@ -226,6 +227,19 @@ export class ReelsService {
     return { viewed: true, message: 'View recorded successfully.' };
   }
 
+  async getReelStats(reelId: string) {
+    const [likes, views] = await Promise.all([
+      this.prisma.reelInteractionLedger.count({
+        where: { reelId, interactionType: 'LIKE' },
+      }),
+      this.prisma.reelInteractionLedger.count({
+        where: { reelId, interactionType: 'VIEW' },
+      }),
+    ]);
+
+    return { likes, views };
+  }
+
   async getProductReels(productId: string) {
     return this.prisma.reel.findMany({
       where: {
@@ -263,64 +277,6 @@ export class ReelsService {
       throw new NotFoundException('Creator profile not found');
     }
 
-    return this.prisma.reel.findMany({
-      where: {
-        creatorId,
-        flaggedForReview: false,
-      },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        product: {
-          select: {
-            id: true,
-            title: true,
-            images: true,
-          },
-        },
-      },
-    });
-  }
-
-  async getReelStats(reelId: string) {
-    const [likes, views] = await Promise.all([
-      this.prisma.reelInteractionLedger.count({
-        where: { reelId, interactionType: 'LIKE' },
-      }),
-      this.prisma.reelInteractionLedger.count({
-        where: { reelId, interactionType: 'VIEW' },
-      }),
-    ]);
-
-    return { likes, views };
-  }
-
-  async getProductReels(productId: string) {
-    return this.prisma.reel.findMany({
-      where: {
-        productId,
-        flaggedForReview: false,
-      },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        vendor: {
-          select: {
-            id: true,
-            name: true,
-            storeName: true,
-          },
-        },
-        creator: {
-          select: {
-            id: true,
-            displayName: true,
-            profileImageUrl: true,
-          },
-        },
-      },
-    });
-  }
-
-  async getCreatorReels(creatorId: string) {
     return this.prisma.reel.findMany({
       where: {
         creatorId,

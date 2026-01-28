@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, Logger } from '@nes
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole, VendorRole } from '@prisma/client';
 import { parse } from 'csv-parse/sync';
+import { NotificationsService } from '../shared/notifications.service';
 
 /**
  * Wholesalers Service
@@ -17,7 +18,10 @@ import { parse } from 'csv-parse/sync';
 export class WholesalersService {
     private readonly logger = new Logger(WholesalersService.name);
 
-    constructor(private prisma: PrismaService) {}
+    constructor(
+        private prisma: PrismaService,
+        private notificationsService: NotificationsService,
+    ) {}
 
     /**
      * Register a new wholesaler
@@ -324,7 +328,7 @@ export class WholesalersService {
     async createInquiry(requesterUserId: string, dto: { productId: string; quantity: number; message?: string }) {
         const product = await this.prisma.product.findUnique({
             where: { id: dto.productId },
-            select: { id: true, vendorId: true, isWholesale: true, moq: true, isActive: true },
+            select: { id: true, vendorId: true, isWholesale: true, moq: true, isActive: true, title: true },
         });
 
         if (!product || !product.isActive) {
@@ -337,7 +341,7 @@ export class WholesalersService {
             throw new BadRequestException(`Quantity must be >= MOQ (${product.moq || 1})`);
         }
 
-        return (this.prisma as any).vendorInquiry.create({
+        const inquiry = await (this.prisma as any).vendorInquiry.create({
             data: {
                 wholesalerVendorId: product.vendorId,
                 requesterUserId,
@@ -346,7 +350,38 @@ export class WholesalersService {
                 message: dto.message,
                 status: 'PENDING',
             },
+            include: {
+                product: { select: { title: true } },
+                requester: { select: { name: true, mobile: true } },
+            },
         });
+
+        // Send notification to wholesaler
+        try {
+            const wholesalerUser = await this.prisma.user.findFirst({
+                where: {
+                    OR: [
+                        { id: product.vendorId },
+                    ],
+                    role: { in: ['WHOLESALER', 'VENDOR'] },
+                },
+                select: { id: true },
+            });
+
+            if (wholesalerUser) {
+                await this.notificationsService.createNotification(
+                    wholesalerUser.id,
+                    'New Wholesale Inquiry',
+                    `${inquiry.requester.name || inquiry.requester.mobile} inquired about ${product.title} (Qty: ${dto.quantity})`,
+                    'INQUIRY',
+                    'INDIVIDUAL',
+                );
+            }
+        } catch (error) {
+            this.logger.warn(`Failed to send notification for inquiry ${inquiry.id}: ${error.message}`);
+        }
+
+        return inquiry;
     }
 
     async respondToInquiry(wholesalerVendorId: string, inquiryId: string, dto: { status: 'RESPONDED' | 'ACCEPTED' | 'REJECTED'; response?: string }) {
@@ -362,6 +397,29 @@ export class WholesalersService {
                 response: dto.response,
                 respondedAt: new Date(),
             },
+        });
+    }
+
+    // Vendor buyer accepts/rejects an inquiry response (simple status transition)
+    async acceptInquiry(requesterUserId: string, inquiryId: string) {
+        const inquiry = await (this.prisma as any).vendorInquiry.findFirst({
+            where: { id: inquiryId, requesterUserId },
+        });
+        if (!inquiry) throw new NotFoundException('Inquiry not found');
+        return (this.prisma as any).vendorInquiry.update({
+            where: { id: inquiryId },
+            data: { status: 'ACCEPTED' },
+        });
+    }
+
+    async rejectInquiry(requesterUserId: string, inquiryId: string) {
+        const inquiry = await (this.prisma as any).vendorInquiry.findFirst({
+            where: { id: inquiryId, requesterUserId },
+        });
+        if (!inquiry) throw new NotFoundException('Inquiry not found');
+        return (this.prisma as any).vendorInquiry.update({
+            where: { id: inquiryId },
+            data: { status: 'REJECTED' },
         });
     }
 

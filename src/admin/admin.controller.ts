@@ -1,10 +1,13 @@
-import { Controller, Get, Post, Patch, Put, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Put, Delete, Body, Param, Query, UseGuards, Request, Res } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Throttle } from '@nestjs/throttler';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { Response } from 'express';
 
+@ApiTags('Admin')
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'SUPER_ADMIN')
@@ -54,8 +57,107 @@ export class AdminController {
 
     @Get('users/export/csv')
     @Roles('ADMIN', 'SUPER_ADMIN')
-    exportUsers() {
-        return this.adminService.exportUsers();
+    @ApiOperation({ summary: 'Export users to CSV' })
+    async exportUsers(@Res() res: Response) {
+        const csv = await this.adminService.exportUsersCSV();
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=users-export.csv');
+        res.send(csv);
+    }
+
+    @Post('users/bulk-update')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Bulk update users' })
+    async bulkUpdateUsers(
+        @Request() req,
+        @Body() body: { userIds: string[]; data: { status?: string; role?: string } }
+    ) {
+        return this.adminService.bulkUpdateUsers(req.user.id, body.userIds, body.data);
+    }
+
+    @Post('users/bulk-delete')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Bulk delete users' })
+    async bulkDeleteUsers(
+        @Request() req,
+        @Body() body: { userIds: string[] }
+    ) {
+        return this.adminService.bulkDeleteUsers(req.user.id, body.userIds);
+    }
+
+    @Get('orders/export/csv')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Export orders to CSV' })
+    @ApiQuery({ name: 'status', required: false, type: String })
+    @ApiQuery({ name: 'startDate', required: false, type: String })
+    @ApiQuery({ name: 'endDate', required: false, type: String })
+    async exportOrders(
+        @Res() res: Response,
+        @Query('status') status?: string,
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string
+    ) {
+        const csv = await this.adminService.exportOrdersCSV({
+            status,
+            startDate: startDate ? new Date(startDate) : undefined,
+            endDate: endDate ? new Date(endDate) : undefined,
+        });
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=orders-export.csv');
+        res.send(csv);
+    }
+
+    @Get('products/export/csv')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Export products to CSV' })
+    @ApiQuery({ name: 'vendorId', required: false, type: String })
+    @ApiQuery({ name: 'isActive', required: false, type: Boolean })
+    async exportProducts(
+        @Res() res: Response,
+        @Query('vendorId') vendorId?: string,
+        @Query('isActive') isActive?: string
+    ) {
+        const csv = await this.adminService.exportProductsCSV({
+            vendorId,
+            isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+        });
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=products-export.csv');
+        res.send(csv);
+    }
+
+    @Get('vendors/export/csv')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Export vendors to CSV' })
+    @ApiQuery({ name: 'status', required: false, type: String })
+    async exportVendors(
+        @Res() res: Response,
+        @Query('status') status?: string
+    ) {
+        const csv = await this.adminService.exportVendorsCSV({ status });
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=vendors-export.csv');
+        res.send(csv);
+    }
+
+    @Post('products/bulk-update')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Bulk update products' })
+    async bulkUpdateProducts(
+        @Request() req,
+        @Body() body: { productIds: string[]; data: { isActive?: boolean } }
+    ) {
+        return this.adminService.bulkUpdateProducts(req.user.id, body.productIds, body.data);
+    }
+
+    @Post('products/bulk-delete')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Bulk delete products' })
+    async bulkDeleteProducts(
+        @Request() req,
+        @Body() body: { productIds: string[] }
+    ) {
+        return this.adminService.bulkDeleteProducts(req.user.id, body.productIds);
     }
 
     @Get('users/:id')
@@ -249,18 +351,85 @@ export class AdminController {
     }
 
     @Get('vendors')
-    getVendors(@Query('status') status: string) {
-        return this.adminService.getVendors(status);
+    @ApiOperation({ summary: 'List all vendors with filters' })
+    getVendors(
+        @Query('status') status: string,
+        @Query('page') page: string,
+        @Query('limit') limit: string,
+        @Query('search') search: string
+    ) {
+        return this.adminService.getVendors(status, Number(page) || 1, Number(limit) || 20, search);
+    }
+
+    @Get('vendors/:id')
+    @ApiOperation({ summary: 'Get vendor details by ID' })
+    getVendorDetails(@Param('id') id: string) {
+        return this.adminService.getVendorDetails(id);
     }
 
     @Post('vendors/:id/approve')
     @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Approve or reject vendor' })
     approveVendor(
         @Request() req,
         @Param('id') id: string,
         @Body() body: { approved: boolean, reason?: string }
     ) {
         return this.adminService.approveVendor(req.user.id, id, body.approved, body.reason);
+    }
+
+    @Post('vendors/:id/kyc-verify')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Verify vendor KYC documents' })
+    verifyVendorKyc(
+        @Request() req,
+        @Param('id') id: string,
+        @Body() body: { status: string, notes?: string }
+    ) {
+        return this.adminService.verifyVendorKyc(req.user.id, id, body.status, body.notes);
+    }
+
+    @Post('vendors/:id/suspend')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Suspend vendor account' })
+    suspendVendor(
+        @Request() req,
+        @Param('id') id: string,
+        @Body() body: { reason?: string }
+    ) {
+        return this.adminService.suspendVendor(req.user.id, id, body.reason);
+    }
+
+    @Post('vendors/:id/activate')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Activate suspended vendor' })
+    activateVendor(
+        @Request() req,
+        @Param('id') id: string
+    ) {
+        return this.adminService.activateVendor(req.user.id, id);
+    }
+
+    @Get('vendors/:id/analytics')
+    @ApiOperation({ summary: 'Get vendor analytics and performance metrics' })
+    getVendorAnalytics(@Param('id') id: string) {
+        return this.adminService.getVendorAnalytics(id);
+    }
+
+    @Get('vendors/:id/documents')
+    @ApiOperation({ summary: 'Get vendor KYC documents' })
+    getVendorDocuments(@Param('id') id: string) {
+        return this.adminService.getVendorDocuments(id);
+    }
+
+    @Get('vendors/:id/payouts')
+    @ApiOperation({ summary: 'Get vendor payout history' })
+    getVendorPayouts(
+        @Param('id') id: string,
+        @Query('page') page: string,
+        @Query('limit') limit: string
+    ) {
+        return this.adminService.getVendorPayouts(id, Number(page) || 1, Number(limit) || 20);
     }
 
     @Get('rooms')

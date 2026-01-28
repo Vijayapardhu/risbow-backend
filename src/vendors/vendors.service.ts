@@ -762,28 +762,20 @@ export class VendorsService {
         const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
         if (!vendor) throw new BadRequestException('Vendor not found');
 
-        const newStrikeCount = (vendor.strikes || 0) + 1;
-        let kycStatus = vendor.kycStatus;
-
-        if (newStrikeCount >= 3) {
-            kycStatus = 'SUSPENDED';
-        }
-
-        const updated = await this.prisma.vendor.update({
-            where: { id: vendorId },
+        // Replacement-only safe approach: record a discipline event (ledger-based), do not maintain counters on Vendor.
+        await (this.prisma as any).vendorDisciplineEvent.create({
             data: {
-                strikes: newStrikeCount,
-                kycStatus: kycStatus
+                vendorId,
+                type: 'STRIKE',
+                reason,
+                createdBy: adminId,
             }
-        });
+        }).catch(() => null);
 
-        await this.audit.logAdminAction(adminId, 'STRIKE_VENDOR', 'Vendor', vendorId, {
-            reason,
-            strikeCount: newStrikeCount,
-            autoSuspended: newStrikeCount >= 3
-        });
+        await this.audit.logAdminAction(adminId, 'STRIKE_VENDOR', 'Vendor', vendorId, { reason });
 
-        return updated;
+        // NOTE: Vendor suspension/blocking is derived by discipline state machine elsewhere.
+        return vendor;
     }
     async creditEarnings(vendorId: string, amount: number, tx?: any) { // using 'any' or Prisma.TransactionClient import
         const db = tx || this.prisma;

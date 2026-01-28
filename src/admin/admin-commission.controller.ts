@@ -1,16 +1,17 @@
-import { Controller, Get, Post, Body, Patch, Param, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateCategoryCommissionDto } from './dto/commission.dto';
 import { AdminService } from './admin.service';
 import { randomUUID } from 'crypto';
-// import { RolesGuard } from '../auth/guards/roles.guard'; // Assume these exist
-// import { Roles } from '../common/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 
 @ApiTags('Admin Commission')
 @Controller('admin/commissions')
-// @UseGuards(RolesGuard)
-// @Roles('ADMIN', 'SUPER_ADMIN')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN', 'SUPER_ADMIN')
 @ApiBearerAuth()
 export class AdminCommissionController {
     constructor(

@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { BannerCampaignsService } from './banner-campaigns.service';
 import { CreateBannerCampaignDto } from './dto/create-banner-campaign.dto';
@@ -6,7 +6,6 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @ApiTags('Banner Campaigns')
 @Controller('banner-campaigns')
@@ -22,9 +21,9 @@ export class BannerCampaignsController {
   async createCampaign(
     @Param('bannerId') bannerId: string,
     @Body() dto: CreateBannerCampaignDto,
-    @CurrentUser() user: any,
+    @Request() req: any,
   ) {
-    return this.bannerCampaignsService.createCampaign(user.id, bannerId, dto);
+    return this.bannerCampaignsService.createCampaign(req.user.id, bannerId, dto);
   }
 
   @Get('me')
@@ -32,8 +31,8 @@ export class BannerCampaignsController {
   @ApiResponse({ status: 200, description: 'List of vendor campaigns' })
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.VENDOR)
-  async getMyCampaigns(@CurrentUser() user: any) {
-    return this.bannerCampaignsService.getVendorCampaigns(user.id);
+  async getMyCampaigns(@Request() req: any) {
+    return this.bannerCampaignsService.getVendorCampaigns(req.user.id);
   }
 
   @Get(':id')

@@ -68,7 +68,7 @@ export class BowOptimizationService {
         const analytics: CartAnalytics = {
             totalItems,
             totalValue,
-            savings: await this.calculatePotentialSavings(totalValue),
+            savings: await this.calculatePotentialSavings(totalValue, undefined, userId),
             freeShippingThreshold: this.FREE_SHIPPING_THRESHOLD
         };
 
@@ -174,23 +174,108 @@ export class BowOptimizationService {
         return complementary;
     }
 
-    async calculatePotentialSavings(cartValue: number, couponCode?: string): Promise<number> {
-        if (!couponCode) {
+    /**
+     * Calculate total potential savings including:
+     * - Product-level discounts (offerPrice vs price)
+     * - Room discounts
+     * - Coupon discounts
+     * - Bulk discounts
+     * - Local promotions
+     */
+    async calculatePotentialSavings(cartValue: number, couponCode?: string, userId?: string): Promise<number> {
+        let totalSavings = 0;
+
+        // 1. Calculate product-level savings (offerPrice vs price)
+        if (userId) {
+            const cart = await this.prisma.cart.findUnique({
+                where: { userId },
+                include: {
+                    items: {
+                        include: {
+                            product: {
+                                select: {
+                                    id: true,
+                                    price: true,
+                                    offerPrice: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            });
+
+            if (cart && cart.items.length > 0) {
+                let productSavings = 0;
+                for (const item of cart.items) {
+                    const originalPrice = item.product.price;
+                    const discountedPrice = item.product.offerPrice || item.product.price;
+                    if (discountedPrice < originalPrice) {
+                        productSavings += (originalPrice - discountedPrice) * item.quantity;
+                    }
+                }
+                totalSavings += productSavings;
+            }
+        }
+
+        // 2. Calculate coupon savings
+        let couponSavings = 0;
+        if (couponCode) {
+            const validation = await this.couponsService.validateCoupon({ code: couponCode, cartTotal: cartValue });
+            couponSavings = validation.isValid ? (validation.discountAmount || 0) : 0;
+        } else {
             // Find best available public coupon
             const bestCoupon = await this.prisma.coupon.findFirst({
                 where: { isActive: true, minOrderAmount: { lte: cartValue } },
-                orderBy: { discountValue: 'desc' }
+                orderBy: { discountValue: 'desc' },
             });
 
             if (bestCoupon) {
-                return bestCoupon.discountType === 'PERCENTAGE'
+                couponSavings = bestCoupon.discountType === 'PERCENTAGE'
                     ? Math.floor((cartValue * bestCoupon.discountValue) / 100)
                     : bestCoupon.discountValue;
             }
-            return 0;
+        }
+        totalSavings += couponSavings;
+
+        // 3. Calculate bulk discount savings (if 3+ items from same category)
+        if (userId) {
+            const cart = await this.prisma.cart.findUnique({
+                where: { userId },
+                include: {
+                    items: {
+                        include: {
+                            product: { select: { categoryId: true, price: true, offerPrice: true } },
+                        },
+                    },
+                },
+            });
+
+            if (cart) {
+                const categoryCount = new Map<string, number>();
+                cart.items.forEach(item => {
+                    const catId = item.product.categoryId;
+                    categoryCount.set(catId, (categoryCount.get(catId) || 0) + item.quantity);
+                });
+
+                for (const [catId, count] of categoryCount.entries()) {
+                    if (count >= 3) {
+                        // Apply 10% bulk discount on items from this category
+                        const categoryItems = cart.items.filter(item => item.product.categoryId === catId);
+                        const categoryValue = categoryItems.reduce((sum, item) => {
+                            const price = (item.product.offerPrice ?? item.product.price) || 0;
+                            return sum + (price * item.quantity);
+                        }, 0);
+                        const bulkDiscount = Math.floor(categoryValue * 0.1); // 10% discount
+                        totalSavings += bulkDiscount;
+                    }
+                }
+            }
         }
 
-        const validation = await this.couponsService.validateCoupon({ code: couponCode, cartTotal: cartValue });
-        return validation.isValid ? (validation.discountAmount || 0) : 0;
+        // 4. Room discounts (if applicable)
+        // Note: Room discounts are typically applied at checkout, but we can estimate here
+        // This would require roomId to be passed, which is handled separately in checkout
+
+        return totalSavings;
     }
 }
