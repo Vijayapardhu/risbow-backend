@@ -165,16 +165,20 @@ SUPABASE_STORAGE_PUBLIC_URL="https://your-project.supabase.co/storage/v1/object/
 
 ### Redis Connection
 
-```bash
-# Redis URL (required for caching, queues, and locks)
-REDIS_URL="redis://localhost:6379"
+The app uses `REDIS_HOST` and `REDIS_PORT` (BullMQ, queues, locks, caching). It does **not** use `REDIS_URL`.
 
-# Alternative Redis configuration (supported)
+```bash
+# Redis connection (required for caching, queues, and locks)
 REDIS_HOST="localhost"
 REDIS_PORT="6379"
-REDIS_PASSWORD="your-redis-password"
-REDIS_DB="0"
+REDIS_PASSWORD=""
+REDIS_USERNAME=""
+REDIS_TLS=""
 ```
+
+- **Disable Redis**: Set `DISABLE_REDIS=true` (or `1`) to run without Redis. The app uses an in-memory store for cache/locks and a stub for queues (no Bull). Use this when Redis is unavailable (e.g. local dev or Render without a Redis add-on).
+- **Local development**: `redis-server` listens on **6379** by default. Use `REDIS_HOST=localhost` and `REDIS_PORT=6379` (or omit `REDIS_PORT` to use the default). If you use `REDIS_PORT=6380` (e.g. from Azure config), change it to `6379` for local Redis.
+- **Optional**: `REDIS_PASSWORD`, `REDIS_USERNAME`, `REDIS_TLS` for secured Redis (e.g. Azure).
 
 ---
 
@@ -210,8 +214,11 @@ NODE_ENV="production"
 # API Base URL (optional, for webhooks and callbacks)
 API_BASE_URL="https://api.risbow.com"
 
-# CORS Origins (optional, comma-separated)
+# CORS Origins (optional, comma-separated). In production, only these + FRONTEND_URL + localhost/127.0.0.1 (any port) are allowed.
 CORS_ORIGINS="https://risbow.com,https://www.risbow.com"
+
+# Frontend URL (optional). Added to allowed CORS origins.
+FRONTEND_URL="https://app.risbow.com"
 ```
 
 ### Feature Flags

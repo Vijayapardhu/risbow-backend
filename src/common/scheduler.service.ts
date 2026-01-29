@@ -1,5 +1,4 @@
-
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { RoomStatus } from '@prisma/client';
@@ -30,11 +29,11 @@ export class SchedulerService {
         private telecallerService: TelecallerService,
         private vendorMembershipsService: VendorMembershipsService,
         private coinsService: CoinsService,
-        private storiesService: StoriesService,
-        private clearanceService: ClearanceService,
-        private vendorDisciplineService: VendorDisciplineService,
-        private wholesalersService: WholesalersService,
-    ) { }
+        @Optional() @Inject(StoriesService) private storiesService: StoriesService | null,
+        @Optional() @Inject(ClearanceService) private clearanceService: ClearanceService | null,
+        @Optional() @Inject(VendorDisciplineService) private vendorDisciplineService: VendorDisciplineService | null,
+        @Optional() @Inject(WholesalersService) private wholesalersService: WholesalersService | null,
+    ) {}
 
     // SRS FR-2: Check expiry every min -> EXPIRED if past endAt.
     @Cron(CronExpression.EVERY_MINUTE)
@@ -248,9 +247,10 @@ export class SchedulerService {
         }, 3600); // 1 hour lock TTL
     }
 
-    // Stories Expiry - runs every hour
+    // Stories Expiry - runs every hour (skipped if StoriesService not provided, e.g. SharedModule context)
     @Cron(CronExpression.EVERY_HOUR)
     async handleStoriesExpiry() {
+        if (!this.storiesService) return;
         await this.redisLock.withLock('cron:stories-expiry', async () => {
             this.logger.debug('Checking for expired stories...');
             try {
@@ -258,15 +258,16 @@ export class SchedulerService {
                 if (result.deleted > 0) {
                     this.logger.log(`Deleted ${result.deleted} expired stories`);
                 }
-            } catch (error) {
-                this.logger.error(`Stories expiry check failed: ${error.message}`);
+            } catch (error: any) {
+                this.logger.error(`Stories expiry check failed: ${error?.message}`);
             }
         }, 3600); // 1 hour lock TTL
     }
 
-    // Clearance Expiry - runs daily at midnight
+    // Clearance Expiry - runs daily at midnight (skipped if ClearanceService not provided)
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async handleClearanceExpiry() {
+        if (!this.clearanceService) return;
         await this.redisLock.withLock('cron:clearance-expiry', async () => {
             this.logger.debug('Checking for expired clearance products...');
             try {
@@ -274,8 +275,8 @@ export class SchedulerService {
                 if (result.deactivated > 0) {
                     this.logger.log(`Deactivated ${result.deactivated} expired clearance products`);
                 }
-            } catch (error) {
-                this.logger.error(`Clearance expiry check failed: ${error.message}`);
+            } catch (error: any) {
+                this.logger.error(`Clearance expiry check failed: ${error?.message}`);
             }
         }, 3600); // 1 hour lock TTL
     }
@@ -283,13 +284,14 @@ export class SchedulerService {
     // Auto-add products to clearance when near expiry (runs every 6 hours)
     @Cron('0 */6 * * *')
     async autoAddToClearance() {
+        if (!this.clearanceService) return;
         await this.redisLock.withLock('cron:auto-clearance', async () => {
             this.logger.debug('Checking for products near expiry to auto-add to clearance...');
             try {
                 const result = await this.clearanceService.autoAddToClearance();
                 this.logger.log(`Auto-clearance check completed. Added ${result.added} products.`);
-            } catch (error) {
-                this.logger.error(`Auto-clearance check failed: ${error.message}`);
+            } catch (error: any) {
+                this.logger.error(`Auto-clearance check failed: ${error?.message}`);
             }
         }, 1800); // 30 minute lock TTL
     }
@@ -303,8 +305,8 @@ export class SchedulerService {
                 // This would typically process any pending discipline state recalculations
                 // For now, we'll just log - actual processing happens on-demand via Edge Functions
                 this.logger.debug('Discipline state processing check completed');
-            } catch (error) {
-                this.logger.error(`Discipline state processing failed: ${error.message}`);
+            } catch (error: any) {
+                this.logger.error(`Discipline state processing failed: ${error?.message}`);
             }
         }, 3600); // 1 hour lock TTL
     }
@@ -337,16 +339,16 @@ export class SchedulerService {
     // Auto-expire vendor inquiries after 7 days - runs daily at midnight
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async handleInquiryExpiry() {
+        if (!this.wholesalersService) return;
         await this.redisLock.withLock('cron:inquiry-expiry', async () => {
             this.logger.debug('Starting inquiry expiry check...');
             try {
-                // NOTE: wholesalers inquiries are stored in VendorInquiry. If expiry is not implemented, skip safely.
                 const expiredCount = await (this.wholesalersService as any).expireOldInquiries?.() ?? 0;
                 if (expiredCount > 0) {
                     this.logger.log(`Expired ${expiredCount} old inquiries`);
                 }
-            } catch (error) {
-                this.logger.error(`Inquiry expiry failed: ${error.message}`);
+            } catch (error: any) {
+                this.logger.error(`Inquiry expiry failed: ${error?.message}`);
             }
         }, 3600); // 1 hour lock TTL
     }

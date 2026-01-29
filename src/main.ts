@@ -29,10 +29,30 @@ async function bootstrap() {
         originalWarn.apply(console, args);
     };
 
+    // CORS: must be configured on FastifyAdapter *before* create so preflight OPTIONS is handled
+    const corsOrigins = process.env.CORS_ORIGINS?.split(',').map(o => o.trim()).filter(Boolean) || [];
+    if (process.env.FRONTEND_URL) corsOrigins.push(process.env.FRONTEND_URL.trim());
+    const localhostPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
+    const fastifyAdapter = new FastifyAdapter();
+    fastifyAdapter.enableCors({
+        origin: (origin, callback) => {
+            if (!origin) return callback(null, true);
+            if (process.env.NODE_ENV !== 'production') return callback(null, true);
+            if (localhostPattern.test(origin) || corsOrigins.indexOf(origin) !== -1) {
+                return callback(null, true);
+            }
+            callback(new Error('Not allowed by CORS'), false);
+        },
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'sentry-trace', 'baggage'],
+    });
+
     // Switch to Fastify Adapter for High Performance (25k+ Req/Sec capability)
     const app = await NestFactory.create(
         AppModule,
-        new FastifyAdapter() as any,
+        fastifyAdapter as any,
         { rawBody: true }
     ) as unknown as NestFastifyApplication;
     console.log("🚀 BOOTSTRAP V6 - FASTIFY EDITION");
@@ -57,25 +77,6 @@ async function bootstrap() {
 
     // Global Config
     app.setGlobalPrefix('api/v1');
-
-    // CORS configuration
-    const corsOrigins = process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) || [];
-    if (process.env.FRONTEND_URL) corsOrigins.push(process.env.FRONTEND_URL);
-
-    app.enableCors({
-        origin: (origin, callback) => {
-            if (!origin) return callback(null, true);
-            if (process.env.NODE_ENV !== 'production') return callback(null, true);
-            if (corsOrigins.indexOf(origin) !== -1) {
-                callback(null, true);
-            } else {
-                callback(new Error('Not allowed by CORS'), false);
-            }
-        },
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'sentry-trace', 'baggage'],
-    });
 
     app.useGlobalPipes(new ValidationPipe({
         whitelist: true,

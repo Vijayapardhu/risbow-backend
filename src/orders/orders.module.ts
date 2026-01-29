@@ -23,6 +23,6 @@ import { BowModule } from '../bow/bow.module';
     imports: [RoomsModule, CoinsModule, InventoryModule, VendorsModule, CommonModule, forwardRef(() => BowModule), AuditModule, CheckoutModule, forwardRef(() => RecommendationsModule), ReferralsModule, VendorOrdersModule],
     controllers: [OrdersController, OrdersAdminController, OrdersAdminAliasController],
     providers: [OrdersService, OrderStateMachine, OrderStateValidatorService],
-    exports: [OrdersService],
+    exports: [OrdersService, OrderStateValidatorService],
 })
 export class OrdersModule { }

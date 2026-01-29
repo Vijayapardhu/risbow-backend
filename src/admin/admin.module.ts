@@ -14,7 +14,6 @@ import { LocalPromotionsController } from './local-promotions.controller';
 import { ReferralRewardRulesController } from './referral-reward-rules.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { VendorsModule } from '../vendors/vendors.module';
-import { QueuesModule } from '../queues/queues.module';
 import { BowModule } from '../bow/bow.module';
 import { CategorySpecService } from '../catalog/category-spec.service';
 import { CoinsModule } from '../coins/coins.module';
@@ -24,7 +23,7 @@ import { TelecallerModule } from '../telecaller/telecaller.module';
 import { AdminRecoveryController } from './admin-recovery.controller';
 
 @Module({
-    imports: [PrismaModule, VendorsModule, QueuesModule, BowModule, CoinsModule, OrdersModule, TelecallerModule],
+    imports: [PrismaModule, VendorsModule, BowModule, CoinsModule, OrdersModule, TelecallerModule],
     controllers: [
         AdminController,
         AdminDashboardController,

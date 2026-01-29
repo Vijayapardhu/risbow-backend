@@ -1,6 +1,6 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { UpdateUserDto } from './dto/user.dto';
+import { UpdateUserDto, AdminCreateUserDto } from './dto/user.dto';
 import { RegisterDeviceDto } from './dto/device.dto';
 import { GeoService } from '../shared/geo.service';
 import * as bcrypt from 'bcrypt';
@@ -302,6 +302,43 @@ export class UsersService {
     }
 
     // --- ADMIN METHODS ---
+
+    async createUser(dto: AdminCreateUserDto) {
+        const email = dto.email.trim().toLowerCase();
+        const mobile = dto.mobile.trim();
+        const existingEmail = await this.prisma.user.findUnique({ where: { email } });
+        if (existingEmail) {
+            throw new ConflictException('Email already registered');
+        }
+        const existingMobile = await this.prisma.user.findUnique({ where: { mobile } });
+        if (existingMobile) {
+            throw new ConflictException('Mobile number already registered');
+        }
+        const hashedPassword = await bcrypt.hash(dto.password, 10);
+        const user = await this.prisma.user.create({
+            data: {
+                name: dto.name.trim(),
+                email,
+                mobile,
+                password: hashedPassword,
+                role: 'CUSTOMER',
+                status: 'ACTIVE',
+                referralCode: Math.random().toString(36).substring(2, 12).toUpperCase(),
+            } as any,
+        });
+        await this.prisma.cart.create({
+            data: { userId: user.id },
+        });
+        return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            mobile: user.mobile,
+            role: user.role,
+            status: user.status,
+            createdAt: user.createdAt,
+        };
+    }
 
     async findAllUsers(params: {
         page?: number;

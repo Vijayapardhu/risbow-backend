@@ -9,6 +9,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     private useMemory = false;
 
     async onModuleInit() {
+        if (process.env.DISABLE_REDIS === 'true' || process.env.DISABLE_REDIS === '1') {
+            this.useMemory = true;
+            this.logger.warn('DISABLE_REDIS=true; using in-memory store (no Redis connection)');
+            return;
+        }
         const host = process.env.REDIS_HOST;
         const port = parseInt(process.env.REDIS_PORT) || 6379;
         const username = process.env.REDIS_USERNAME;
@@ -17,7 +22,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
         if (!host) {
             this.useMemory = true;
-            this.logger.warn('REDIS_HOST not set; falling back to in-memory OTP store');
+            this.logger.warn('REDIS_HOST not set; falling back to in-memory store');
             return;
         }
 
@@ -233,21 +238,45 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
 
     async incr(key: string): Promise<number> {
-        if (!this.client) return 0; // Fallback?
+        if (this.useMemory) {
+            const entry = this.inMemoryStore.get(key);
+            const next = (entry ? parseInt(entry.value, 10) || 0 : 0) + 1;
+            this.inMemoryStore.set(key, { value: String(next), expiresAt: Infinity });
+            return next;
+        }
+        if (!this.client) return 0;
         return this.client.incr(key);
     }
 
     async incrBy(key: string, value: number): Promise<number> {
+        if (this.useMemory) {
+            const entry = this.inMemoryStore.get(key);
+            const next = (entry ? parseInt(entry.value, 10) || 0 : 0) + value;
+            this.inMemoryStore.set(key, { value: String(next), expiresAt: Infinity });
+            return next;
+        }
         if (!this.client) return 0;
         return this.client.incrby(key, value);
     }
 
     async decrBy(key: string, value: number): Promise<number> {
+        if (this.useMemory) {
+            const entry = this.inMemoryStore.get(key);
+            const next = (entry ? parseInt(entry.value, 10) || 0 : 0) - value;
+            this.inMemoryStore.set(key, { value: String(next), expiresAt: Infinity });
+            return next;
+        }
         if (!this.client) return 0;
         return this.client.decrby(key, value);
     }
 
     async expire(key: string, seconds: number): Promise<number> {
+        if (this.useMemory) {
+            const entry = this.inMemoryStore.get(key);
+            if (!entry) return 0;
+            entry.expiresAt = Date.now() + seconds * 1000;
+            return 1;
+        }
         if (!this.client) return 0;
         return this.client.expire(key, seconds);
     }

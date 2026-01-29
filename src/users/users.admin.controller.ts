@@ -1,6 +1,7 @@
-import { Controller, Get, Patch, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
+import { AdminCreateUserDto } from './dto/user.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -11,6 +12,11 @@ import { Roles } from '../common/decorators/roles.decorator';
 @Roles('ADMIN', 'SUPER_ADMIN')
 export class UsersAdminController {
     constructor(private readonly usersService: UsersService) { }
+
+    @Post()
+    async create(@Body() dto: AdminCreateUserDto) {
+        return this.usersService.createUser(dto);
+    }
 
     @Get()
     async findAll(

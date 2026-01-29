@@ -99,37 +99,7 @@ export class OrdersController {
         return this.ordersService.cancelOrder(req.user.id, orderId);
     }
 
-    // --- ADMIN ENDPOINTS ---
-
-    @Get('admin/all')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles('ADMIN', 'SUPER_ADMIN')
-    @ApiOperation({ summary: 'Admin: Get all orders' })
-    async getAllAdminOrders(
-        @Query('page') page: string,
-        @Query('limit') limit: string,
-        @Query('search') search: string,
-        @Query('status') status: any
-    ) {
-        return this.ordersService.findAllOrders({
-            page: Number(page) || 1,
-            limit: Number(limit) || 10,
-            search,
-            status: status === 'ALL' ? undefined : status
-        });
-    }
-
-    @Get('admin/:id')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles('ADMIN', 'SUPER_ADMIN')
-    @ApiOperation({ summary: 'Admin: Get order details' })
-    async getAdminOrderDetails(@Param('id') orderId: string) {
-        return this.ordersService.getOrderDetail(orderId);
-    }
-
-
-    // Admin POS order creation: not exposed yet (requires full money+audit workflow)
-
+    // Admin list/detail: use OrdersAdminController (/admin/orders) or OrdersAdminAliasController (/orders/admin)
 
     // --- LIFECYCLE ENDPOINTS ---
 

@@ -29,6 +29,7 @@ import { GiftsModule } from './gifts/gifts.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { BannersModule } from './banners/banners.module';
 import { QueuesModule } from './queues/queues.module';
+import { QueuesStubModule } from './queues/queues-stub.module';
 import { VendorMembershipsModule } from './vendor-memberships/vendor-memberships.module';
 import { VendorStoreModule } from './vendor-store/vendor-store.module';
 import { VendorProductsModule } from './vendor-products/vendor-products.module';
@@ -61,20 +62,21 @@ import { HealthController } from './common/health.controller';
             ttl: parseInt(process.env.THROTTLE_TTL) || 60000,
             limit: parseInt(process.env.THROTTLE_LIMIT) || 100,
         }]),
-        // Redis & Queues - Disabled in Test Environment or when Redis is not configured
-        ...(process.env.NODE_ENV === 'test' || !process.env.REDIS_HOST ? [] : [
-            BullModule.forRoot({
-                connection: {
-                    host: process.env.REDIS_HOST || 'localhost',
-                    port: parseInt(process.env.REDIS_PORT) || 6379,
-                    username: process.env.REDIS_USERNAME,
-                    password: process.env.REDIS_PASSWORD,
-                    tls: (process.env.REDIS_TLS === 'true' || process.env.REDIS_TLS === '1') ? {} : undefined, // Azure Redis requires TLS
-                },
-            }),
-            QueuesModule,
-            AdminModule, // Depends on QueuesModule
-        ]),
+        // Redis & Queues - Disabled when REDIS_HOST not set or DISABLE_REDIS=true
+        ...(process.env.NODE_ENV === 'test' || !process.env.REDIS_HOST || process.env.DISABLE_REDIS === 'true'
+            ? [QueuesStubModule]
+            : [
+                BullModule.forRoot({
+                    connection: {
+                        host: process.env.REDIS_HOST || 'localhost',
+                        port: parseInt(process.env.REDIS_PORT) || 6379,
+                        username: process.env.REDIS_USERNAME,
+                        password: process.env.REDIS_PASSWORD,
+                        tls: (process.env.REDIS_TLS === 'true' || process.env.REDIS_TLS === '1') ? {} : undefined,
+                    },
+                }),
+                QueuesModule,
+            ]),
         PrismaModule,
         IdempotencyModule,
         MetricsModule,
@@ -90,7 +92,7 @@ import { HealthController } from './common/health.controller';
         OrdersModule,
         VendorsModule,
         PaymentsModule,
-        // AdminModule handled above
+        AdminModule,
         CheckoutModule,
         BowModule,
         TelecallerModule,
@@ -119,7 +121,6 @@ import { HealthController } from './common/health.controller';
         VendorDocumentsModule,
         ContentModerationModule,
         BannerCampaignsModule,
-        // QueuesModule handled above in conditional import
     ],
     controllers: [HealthController], // RootHealthController registered manually in main.ts
 })

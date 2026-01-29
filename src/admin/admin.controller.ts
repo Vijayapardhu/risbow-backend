@@ -503,19 +503,7 @@ export class AdminController {
     // @Delete('banners/:id') removed - use /api/v1/admin/banners/:id DELETE from BannersController instead
 
     // --- SETTINGS ---
-
-    @Get('settings')
-    getSettings() {
-        return this.adminService.getPlatformConfig();
-    }
-
-    @Post('settings')
-    @Roles('ADMIN', 'SUPER_ADMIN')
-    updateSetting(@Body() body: { key: string, value: string }) {
-        return this.adminService.updatePlatformConfig(body.key, body.value);
-    }
-
-
+    // GET/PATCH /admin/settings are handled by AdminSettingsController to avoid duplicate route.
 
     // --- COINS ---
     @Get('coins/transactions')
