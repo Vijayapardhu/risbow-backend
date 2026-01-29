@@ -13,13 +13,13 @@ import { AnalyticsModule } from '../analytics/analytics.module';
 import { CatalogModule } from '../catalog/catalog.module';
 import { CommonModule } from '../common/common.module';
 import { TelecallerModule } from '../telecaller/telecaller.module';
-import { QueuesModule } from '../queues/queues.module';
+import { QueuesProviderModule } from '../queues/queues-provider.module';
 import { CoinsModule } from '../coins/coins.module';
 import { VendorMembershipsModule } from '../vendor-memberships/vendor-memberships.module';
 
 @Global()
 @Module({
-    imports: [AnalyticsModule, CatalogModule, CommonModule, TelecallerModule, QueuesModule, CoinsModule, VendorMembershipsModule],
+    imports: [AnalyticsModule, CatalogModule, CommonModule, TelecallerModule, QueuesProviderModule.forRoot(), CoinsModule, VendorMembershipsModule],
     providers: [SchedulerService, NotificationsService, RedisService, SupabaseService, CacheService, CommunicationService, LogisticsService, OpenRouterService, GeoService, SupabaseStorageService],
     exports: [SchedulerService, NotificationsService, RedisService, SupabaseService, CacheService, CommunicationService, LogisticsService, OpenRouterService, GeoService, SupabaseStorageService],
 })

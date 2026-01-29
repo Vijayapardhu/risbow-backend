@@ -21,9 +21,10 @@ import { CoinValuationController } from './coin-valuation.controller';
 import { OrdersModule } from '../orders/orders.module';
 import { TelecallerModule } from '../telecaller/telecaller.module';
 import { AdminRecoveryController } from './admin-recovery.controller';
+import { QueuesProviderModule } from '../queues/queues-provider.module';
 
 @Module({
-    imports: [PrismaModule, VendorsModule, BowModule, CoinsModule, OrdersModule, TelecallerModule],
+    imports: [PrismaModule, VendorsModule, BowModule, CoinsModule, OrdersModule, TelecallerModule, QueuesProviderModule.forRoot()],
     controllers: [
         AdminController,
         AdminDashboardController,

@@ -28,8 +28,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { GiftsModule } from './gifts/gifts.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { BannersModule } from './banners/banners.module';
-import { QueuesModule } from './queues/queues.module';
-import { QueuesStubModule } from './queues/queues-stub.module';
+import { QueuesProviderModule } from './queues/queues-provider.module';
 import { VendorMembershipsModule } from './vendor-memberships/vendor-memberships.module';
 import { VendorStoreModule } from './vendor-store/vendor-store.module';
 import { VendorProductsModule } from './vendor-products/vendor-products.module';
@@ -62,9 +61,9 @@ import { HealthController } from './common/health.controller';
             ttl: parseInt(process.env.THROTTLE_TTL) || 60000,
             limit: parseInt(process.env.THROTTLE_LIMIT) || 100,
         }]),
-        // Redis & Queues - Disabled when REDIS_HOST not set or DISABLE_REDIS=true
-        ...(process.env.NODE_ENV === 'test' || !process.env.REDIS_HOST || process.env.DISABLE_REDIS === 'true'
-            ? [QueuesStubModule]
+        // Redis & Queues - Bull when Redis enabled; QueuesProviderModule always (stub or real)
+        ...(process.env.NODE_ENV === 'test' || !process.env.REDIS_HOST || process.env.DISABLE_REDIS === 'true' || process.env.DISABLE_REDIS === '1'
+            ? []
             : [
                 BullModule.forRoot({
                     connection: {
@@ -75,8 +74,8 @@ import { HealthController } from './common/health.controller';
                         tls: (process.env.REDIS_TLS === 'true' || process.env.REDIS_TLS === '1') ? {} : undefined,
                     },
                 }),
-                QueuesModule,
             ]),
+        QueuesProviderModule.forRoot(),
         PrismaModule,
         IdempotencyModule,
         MetricsModule,
