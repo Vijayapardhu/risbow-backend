@@ -697,7 +697,17 @@ export class OrdersService {
                 total,
                 page,
                 limit,
-                totalPages: Math.ceil(total / limit)
+                totalPages: Math.ceil(total / limit),
+                stats: {
+                    pending: await this.prisma.order.count({ where: { status: 'PENDING' } }),
+                    confirmed: await this.prisma.order.count({ where: { status: 'CONFIRMED' } }),
+                    packed: await this.prisma.order.count({ where: { status: 'PACKED' } }),
+                    shipped: await this.prisma.order.count({ where: { status: 'SHIPPED' } }),
+                    delivered: await this.prisma.order.count({ where: { status: 'DELIVERED' } }),
+                    cancelled: await this.prisma.order.count({ where: { status: 'CANCELLED' } }),
+                }
+            }
+        };
             }
         };
     }

@@ -30,39 +30,19 @@ export class AdminProductController {
         return this.productService.getProductList({ search, period, page, limit, status, categoryId, vendorId });
     }
 
-    @Get(':id')
-    async getProductDetail(@Param('id') id: string) {
-        return this.productService.getProductDetail(id);
-    }
-
     @Post()
     async createProduct(@Body() productData: CreateProductDto) {
         return this.productService.createProduct(productData);
     }
 
-    @Patch(':id')
-    async updateProduct(@Param('id') id: string, @Body() productData: UpdateProductDto) {
-        return this.productService.updateProduct(id, productData);
-    }
-
-    @Delete(':id')
-    async deleteProduct(@Param('id') id: string) {
-        return this.productService.deleteProduct(id);
-    }
-
-    @Get(':id/vendor-offers')
-    async getVendorOffers(@Param('id') id: string) {
-        return this.productService.getVendorOffers(id);
-    }
-
-    @Get(':id/analytics')
-    async getProductAnalytics(@Param('id') id: string, @Query('period') period?: string) {
-        return this.productService.getProductAnalytics(id, period);
-    }
-
     @Post('bulk')
     async bulkCreateProduct(@Body() body: { products: any[] }) {
         return this.adminService.bulkCreateProducts(body.products);
+    }
+
+    @Patch(':id/status')
+    async updateProductStatus(@Param('id') id: string, @Body('isActive') isActive: boolean) {
+        return this.productService.updateProduct(id, { isActive });
     }
 
     @Post(':id/toggle')
@@ -78,5 +58,30 @@ export class AdminProductController {
     @Post(':id/block')
     async blockProduct(@Param('id') id: string) {
         return this.productService.blockProduct(id);
+    }
+
+    @Get(':id/vendor-offers')
+    async getVendorOffers(@Param('id') id: string) {
+        return this.productService.getVendorOffers(id);
+    }
+
+    @Get(':id/analytics')
+    async getProductAnalytics(@Param('id') id: string, @Query('period') period?: string) {
+        return this.productService.getProductAnalytics(id, period);
+    }
+
+    @Get(':id')
+    async getProductDetail(@Param('id') id: string) {
+        return this.productService.getProductDetail(id);
+    }
+
+    @Patch(':id')
+    async updateProduct(@Param('id') id: string, @Body() productData: UpdateProductDto) {
+        return this.productService.updateProduct(id, productData);
+    }
+
+    @Delete(':id')
+    async deleteProduct(@Param('id') id: string) {
+        return this.productService.deleteProduct(id);
     }
 }

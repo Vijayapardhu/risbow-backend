@@ -104,7 +104,7 @@ export class AdminProductService {
                     description: (product as any).description,
                     image: images[0] || null,
                     images,
-                    category: (product as any).category?.name || 'Uncategorized',
+                    category: (product as any).category || 'Uncategorized',
                     categoryId: (product as any).categoryId || null,
                     vendorCount: 1,
                     recommendedVendor: vendor ? {
