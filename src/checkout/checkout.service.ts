@@ -229,6 +229,8 @@ export class CheckoutService {
                         variantId: item.variantId,
                         vendorId: product.vendorId,
                         productTitle: product.title,
+                        productName: product.title,
+                        image: product.images?.[0] || null,
                         quantity: item.quantity,
                         price: pricePaise,
                         subtotal: subtotalPaise,

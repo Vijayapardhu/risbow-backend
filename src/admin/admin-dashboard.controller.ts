@@ -46,4 +46,9 @@ export class AdminDashboardController {
     async getSystemHealth() {
         return this.dashboardService.getSystemHealth();
     }
+
+    @Get('stats')
+    async getStats() {
+        return this.dashboardService.getStats();
+    }
 }

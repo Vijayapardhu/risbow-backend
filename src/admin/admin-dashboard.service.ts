@@ -310,6 +310,69 @@ export class AdminDashboardService {
         }));
     }
 
+    async getStats() {
+        const [
+            totalUsers,
+            totalVendors,
+            totalOrders,
+            totalRevenue,
+            pendingOrders,
+            confirmedOrders,
+            processingOrders,
+            shippedOrders,
+            deliveredOrders,
+            cancelledOrders,
+            activeProducts,
+            totalWithdrawn,
+            pendingWithdraw,
+            totalCommission,
+            rejectedWithdraw
+        ] = await Promise.all([
+            this.prisma.user.count(),
+            this.prisma.vendor.count(),
+            this.prisma.order.count(),
+            this.prisma.order.aggregate({
+                where: { status: { not: 'CANCELLED' } },
+                _sum: { totalAmount: true }
+            }),
+            this.prisma.order.count({ where: { status: { in: ['PENDING', 'CREATED', 'PENDING_PAYMENT'] } } }),
+            this.prisma.order.count({ where: { status: 'CONFIRMED' } }),
+            this.prisma.order.count({ where: { status: 'PACKED' } }),
+            this.prisma.order.count({ where: { status: 'SHIPPED' } }),
+            this.prisma.order.count({ where: { status: 'DELIVERED' } }),
+            this.prisma.order.count({ where: { status: 'CANCELLED' } }),
+            this.prisma.product.count({ where: { isActive: true } }),
+            // Mock values for withdraw stats - implement with actual payout table
+            Promise.resolve(0),
+            Promise.resolve(0),
+            this.prisma.order.aggregate({
+                where: { status: { not: 'CANCELLED' } },
+                _sum: { totalAmount: true }
+            }).then(r => Math.floor((r._sum.totalAmount || 0) * 0.1)),
+            Promise.resolve(0)
+        ]);
+
+        return {
+            totalUsers,
+            totalVendors,
+            totalOrders,
+            totalRevenue: totalRevenue._sum.totalAmount || 0,
+            pendingOrders,
+            confirmedOrders,
+            processingOrders,
+            shippedOrders,
+            deliveredOrders,
+            cancelledOrders,
+            activeProducts,
+            userGrowth: 0,
+            revenueGrowth: 0,
+            totalWithdrawn,
+            pendingWithdraw,
+            totalCommission,
+            rejectedWithdraw
+        };
+    }
+
     private getDateRange(period: string): { start: Date; end: Date } {
         const end = new Date();
         let start = new Date();

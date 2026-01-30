@@ -544,24 +544,87 @@ export class OrdersService {
 
         console.log(`Found ${orders.length} orders. Total: ${total}`);
 
+        // Collect all unique productIds and vendorIds from order items
+        const allProductIds = new Set<string>();
+        const allVendorIds = new Set<string>();
+        
+        orders.forEach(order => {
+            const items = Array.isArray(order.items) ? order.items : [];
+            items.forEach((item: any) => {
+                if (item.productId) allProductIds.add(item.productId);
+                if (item.vendorId) allVendorIds.add(item.vendorId);
+            });
+        });
+
+        // Fetch all products with their vendors in parallel
+        const [products, vendors] = await Promise.all([
+            this.prisma.product.findMany({
+                where: { id: { in: Array.from(allProductIds) } },
+                select: { id: true, vendorId: true, title: true }
+            }),
+            this.prisma.vendor.findMany({
+                where: { id: { in: Array.from(allVendorIds) } },
+                select: { id: true, name: true, storeName: true }
+            })
+        ]);
+
+        // Create lookup maps
+        const productMap = new Map(products.map(p => [p.id, p]));
+        const vendorMap = new Map(vendors.map(v => [v.id, v]));
+
         // Transform orders to match frontend expectations
         const transformedOrders = orders.map(order => {
             // Parse items from JSON to calculate subtotal
             const items = Array.isArray(order.items) ? order.items : [];
 
+            // Get vendor info from the first item's product
+            let shopId = '';
+            let shopName = 'Risbow Store';
+            
+            if (items.length > 0) {
+                const firstItem = items[0] as any;
+                // Try to get vendor directly from item first
+                if (firstItem.vendorId) {
+                    const vendor = vendorMap.get(firstItem.vendorId);
+                    if (vendor) {
+                        shopId = vendor.id;
+                        shopName = vendor.storeName || vendor.name || 'Risbow Store';
+                    }
+                }
+                // Fallback to product lookup
+                if (!shopId && firstItem.productId) {
+                    const product = productMap.get(firstItem.productId);
+                    if (product?.vendorId) {
+                        const vendor = vendorMap.get(product.vendorId);
+                        if (vendor) {
+                            shopId = vendor.id;
+                            shopName = vendor.storeName || vendor.name || 'Risbow Store';
+                        }
+                    }
+                }
+            }
+
             // Transform items to match frontend OrderItem interface
-            const transformedItems = items.map((item: any, index: number) => ({
-                id: `${order.id}-item-${index}`,
-                productId: item.productId || '',
-                productName: item.productName || item.title || item.name || item.product?.title || item.product?.name || 'Product',
-                productImage: item.image || item.product?.image || '',
-                sku: item.sku || item.productId || '',
-                variantId: item.variantId,
-                variantName: item.variantName || item.variant?.name,
-                quantity: item.quantity || 1,
-                unitPrice: item.price || item.unitPrice || 0,
-                total: (item.price || item.unitPrice || 0) * (item.quantity || 1)
-            }));
+            const transformedItems = items.map((item: any, index: number) => {
+                const product = productMap.get(item.productId);
+                const vendor = item.vendorId ? vendorMap.get(item.vendorId) : 
+                               (product?.vendorId ? vendorMap.get(product.vendorId) : null);
+                
+                return {
+                    id: `${order.id}-item-${index}`,
+                    productId: item.productId || '',
+                    productName: item.productName || item.productTitle || item.title || item.name || product?.title || 'Product',
+                    productImage: item.image || item.productImage || item.product?.image || item.product?.images?.[0] || '',
+                    sku: item.sku || item.variantSnapshot?.sku || item.productId || '',
+                    variantId: item.variantId,
+                    variantName: item.variantName || item.variantSnapshot?.name || item.variant?.name,
+                    quantity: item.quantity || 1,
+                    unitPrice: item.price || item.unitPrice || 0,
+                    total: (item.price || item.unitPrice || 0) * (item.quantity || 1),
+                    vendorId: item.vendorId || product?.vendorId,
+                    shopName: vendor?.storeName || vendor?.name || 'Risbow Store'
+                };
+            });
 
             const subtotal = transformedItems.reduce((sum, item) => sum + item.total, 0);
             const tax = Math.round(subtotal * 0.18);
@@ -577,8 +640,8 @@ export class OrdersService {
                 customerName: order.user?.name || 'Guest Customer',
                 customerEmail: order.user?.email || '',
                 customerMobile: order.user?.mobile || '',
-                shopId: '',
-                shopName: 'Risbow Store',
+                shopId: shopId,
+                shopName: shopName,
                 items: transformedItems, // Use transformed items
                 subtotal: subtotal,
                 shippingCost: shipping,
@@ -647,19 +710,75 @@ export class OrdersService {
         // Transform single order with same logic as list
         const items = Array.isArray(order.items) ? order.items : [];
 
+        // Collect productIds and vendorIds from items
+        const productIds = new Set<string>();
+        const vendorIds = new Set<string>();
+        items.forEach((item: any) => {
+            if (item.productId) productIds.add(item.productId);
+            if (item.vendorId) vendorIds.add(item.vendorId);
+        });
+
+        // Fetch products and vendors
+        const [products, vendors] = await Promise.all([
+            this.prisma.product.findMany({
+                where: { id: { in: Array.from(productIds) } },
+                select: { id: true, vendorId: true, title: true }
+            }),
+            this.prisma.vendor.findMany({
+                where: { id: { in: Array.from(vendorIds) } },
+                select: { id: true, name: true, storeName: true }
+            })
+        ]);
+
+        const productMap = new Map(products.map(p => [p.id, p]));
+        const vendorMap = new Map(vendors.map(v => [v.id, v]));
+
+        // Get vendor info from the first item
+        let shopId = '';
+        let shopName = 'Risbow Store';
+        
+        if (items.length > 0) {
+            const firstItem = items[0] as any;
+            if (firstItem.vendorId) {
+                const vendor = vendorMap.get(firstItem.vendorId);
+                if (vendor) {
+                    shopId = vendor.id;
+                    shopName = vendor.storeName || vendor.name || 'Risbow Store';
+                }
+            }
+            if (!shopId && firstItem.productId) {
+                const product = productMap.get(firstItem.productId);
+                if (product?.vendorId) {
+                    const vendor = vendorMap.get(product.vendorId);
+                    if (vendor) {
+                        shopId = vendor.id;
+                        shopName = vendor.storeName || vendor.name || 'Risbow Store';
+                    }
+                }
+            }
+        }
+
         // Transform items to match frontend OrderItem interface
-        const transformedItems = items.map((item: any, index: number) => ({
-            id: `${order.id}-item-${index}`,
-            productId: item.productId || '',
-            productName: item.productName || item.title || item.name || item.product?.title || item.product?.name || 'Product',
-            productImage: item.image || item.product?.image || '',
-            sku: item.sku || item.productId || '',
-            variantId: item.variantId,
-            variantName: item.variantName || item.variant?.name,
-            quantity: item.quantity || 1,
-            unitPrice: item.price || item.unitPrice || 0,
-            total: (item.price || item.unitPrice || 0) * (item.quantity || 1)
-        }));
+        const transformedItems = items.map((item: any, index: number) => {
+            const product = productMap.get(item.productId);
+            const vendor = item.vendorId ? vendorMap.get(item.vendorId) : 
+                           (product?.vendorId ? vendorMap.get(product.vendorId) : null);
+            
+            return {
+                id: `${order.id}-item-${index}`,
+                productId: item.productId || '',
+                productName: item.productName || item.productTitle || item.title || item.name || product?.title || 'Product',
+                productImage: item.image || item.productImage || item.product?.image || item.product?.images?.[0] || '',
+                sku: item.sku || item.variantSnapshot?.sku || item.productId || '',
+                variantId: item.variantId,
+                variantName: item.variantName || item.variantSnapshot?.name || item.variant?.name,
+                quantity: item.quantity || 1,
+                unitPrice: item.price || item.unitPrice || 0,
+                total: (item.price || item.unitPrice || 0) * (item.quantity || 1),
+                vendorId: item.vendorId || product?.vendorId,
+                shopName: vendor?.storeName || vendor?.name || 'Risbow Store'
+            };
+        });
 
         const subtotal = transformedItems.reduce((sum, item) => sum + item.total, 0);
         const tax = Math.round(subtotal * 0.18);
@@ -675,8 +794,8 @@ export class OrdersService {
             customerName: order.user?.name || 'Guest Customer',
             customerEmail: order.user?.email || '',
             customerMobile: order.user?.mobile || '',
-            shopId: '',
-            shopName: 'Risbow Store',
+            shopId: shopId,
+            shopName: shopName,
             items: transformedItems,
             subtotal: subtotal,
             shippingCost: shipping,
