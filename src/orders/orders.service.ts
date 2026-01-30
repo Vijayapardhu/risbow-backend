@@ -502,8 +502,9 @@ export class OrdersService {
         limit?: number;
         search?: string;
         status?: OrderStatus;
+        sort?: string;
     }) {
-        const { page = 1, limit = 10, search, status } = params;
+        const { page = 1, limit = 10, search, status, sort } = params;
         const skip = (page - 1) * limit;
 
         const where: any = {};
@@ -521,16 +522,26 @@ export class OrdersService {
             ];
         }
 
+        // Parse sort parameter (e.g., "createdAt:desc" or "totalAmount:asc")
+        let orderBy: any = { createdAt: 'desc' }; // default
+        if (sort) {
+            const [field, direction] = sort.split(':');
+            if (field && direction) {
+                orderBy = { [field]: direction.toLowerCase() };
+            }
+        }
+
         console.log('--- DEBUG: findAllOrders ---');
         console.log('Params:', params);
         console.log('Constructed Where:', JSON.stringify(where, null, 2));
+        console.log('OrderBy:', orderBy);
 
         const [orders, total] = await Promise.all([
             this.prisma.order.findMany({
                 where,
                 skip,
                 take: limit,
-                orderBy: { createdAt: 'desc' },
+                orderBy,
                 include: {
                     user: {
                         select: { id: true, name: true, email: true, mobile: true }

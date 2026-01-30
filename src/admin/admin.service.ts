@@ -1288,7 +1288,7 @@ export class AdminService {
 
     // --- VENDORS MANAGEMENT ---
 
-    async getVendors(status: string = 'ALL', page: number = 1, limit: number = 20, search?: string) {
+    async getVendors(status: string = 'ALL', page: number = 1, limit: number = 20, search?: string, sort?: string) {
         const where: any = {};
         if (status && status !== 'ALL' && status !== '') {
             // Map frontend status to DB: ACTIVE/VERIFIED -> APPROVED; PENDING/SUSPENDED as-is
@@ -1311,10 +1311,26 @@ export class AdminService {
             ];
         }
 
+        // Parse sort parameter (e.g., "orderCount:desc" or "createdAt:asc")
+        let orderBy: any = { createdAt: 'desc' }; // default
+        if (sort) {
+            const [field, direction] = sort.split(':');
+            if (field && direction) {
+                // Note: orderCount is not a direct field, would need aggregation
+                // For now, use available fields like createdAt, followCount, etc.
+                if (field === 'orderCount') {
+                    // Can't sort by orderCount without aggregation, use followCount as proxy
+                    orderBy = { followCount: direction.toLowerCase() };
+                } else {
+                    orderBy = { [field]: direction.toLowerCase() };
+                }
+            }
+        }
+
         const [vendors, total] = await Promise.all([
             this.prisma.vendor.findMany({
                 where,
-                orderBy: { createdAt: 'desc' },
+                orderBy,
                 skip: (page - 1) * limit,
                 take: limit,
                 select: {

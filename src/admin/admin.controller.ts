@@ -368,10 +368,11 @@ export class AdminController {
         @Query('status') status: string,
         @Query('page') page: string,
         @Query('limit') limit: string,
-        @Query('search') search: string
+        @Query('search') search: string,
+        @Query('sort') sort: string
     ) {
         const { page: normalizedPage, limit: normalizedLimit } = this.normalizePagination(page, limit, 20);
-        return this.adminService.getVendors(status, normalizedPage, normalizedLimit, search);
+        return this.adminService.getVendors(status, normalizedPage, normalizedLimit, search, sort);
     }
 
     @Get('vendors/:id')

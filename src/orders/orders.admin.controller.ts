@@ -16,13 +16,15 @@ export class OrdersAdminController {
         @Query('page') page: string,
         @Query('limit') limit: string,
         @Query('search') search: string,
-        @Query('status') status: OrderStatus
+        @Query('status') status: OrderStatus,
+        @Query('sort') sort: string
     ) {
         return this.ordersService.findAllOrders({
             page: Number(page) || 1,
             limit: Number(limit) || 10,
             search,
-            status
+            status,
+            sort
         });
     }
 

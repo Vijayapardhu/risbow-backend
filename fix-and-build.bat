@@ -1,5 +1,5 @@
 @echo off
-echo === RISBOW Backend Build Fix Script ===
+echo === RISBOW Backend Build and Deploy ===
 echo.
 
 echo Step 1: Regenerating Prisma Client (CRITICAL)...
@@ -32,7 +32,7 @@ echo.
 
 echo Step 4: Committing changes...
 git add .
-git commit -m "Fix banner controller and add payment status endpoint"
+git commit -m "Fix admin endpoints: add sort parameter support and payment status endpoint"
 if errorlevel 1 (
     echo Note: No changes to commit or commit failed
 )
@@ -51,7 +51,8 @@ echo === ALL DONE! ===
 echo.
 echo The following changes were applied:
 echo - Fixed banner controller to remove non-existent vendor relation
-echo - Restored user relation in BannerImpressionLedger (after Prisma regeneration)
+echo - Added sort parameter support to admin/orders endpoint
+echo - Added sort parameter support to admin/vendors endpoint
 echo - Added payment status update endpoint for admin
 echo - Added updatePaymentStatus service method
 echo.
