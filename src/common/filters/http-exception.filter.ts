@@ -6,20 +6,24 @@ import {
     HttpStatus,
     Logger,
 } from '@nestjs/common';
-import { FastifyRequest, FastifyReply } from 'fastify';
 import { BusinessException } from '../exceptions/business.exception';
 
 @Catch()
 export class GlobalExceptionsFilter implements ExceptionFilter {
+    private readonly logger = new Logger(GlobalExceptionsFilter.name);
+
     catch(exception: unknown, host: ArgumentsHost) {
-        const logger = new Logger(GlobalExceptionsFilter.name);
         const ctx = host.switchToHttp();
-        const response = ctx.getResponse<FastifyReply>();
-        const request = ctx.getRequest<FastifyRequest>();
+        const response = ctx.getResponse();
+        const request = ctx.getRequest();
+        
+        // Get correlation ID from request (works for both Fastify and Express)
         const correlationId =
-            (request as any)?.id ||
-            (request.headers as any)?.['x-correlation-id'] ||
+            request?.id ||
+            request?.headers?.['x-correlation-id'] ||
+            request?.headers?.['X-Correlation-Id'] ||
             undefined;
+            
         const status =
             exception instanceof HttpException
                 ? exception.getStatus()
@@ -27,12 +31,15 @@ export class GlobalExceptionsFilter implements ExceptionFilter {
 
         // Prefer structured logs; include correlationId for tracing
         const logPrefix = correlationId ? `[cid=${correlationId}]` : '';
+        const url = request?.url || request?.originalUrl || 'unknown';
+        const method = request?.method || 'UNKNOWN';
+        
         if (status === HttpStatus.NOT_FOUND) {
-            logger.warn(`${logPrefix} 404 Not Found: ${request.method} ${request.url}`);
+            this.logger.warn(`${logPrefix} 404 Not Found: ${method} ${url}`);
         } else if (status >= 500) {
-            logger.error(`${logPrefix} Unhandled exception: ${request.method} ${request.url}`, (exception as any)?.stack);
+            this.logger.error(`${logPrefix} Unhandled exception: ${method} ${url}`, (exception as any)?.stack);
         } else {
-            logger.warn(`${logPrefix} Request failed: ${request.method} ${request.url}`);
+            this.logger.warn(`${logPrefix} Request failed: ${method} ${url} - ${(exception as any)?.message || 'Unknown error'}`);
         }
 
         let code: string | undefined;
@@ -56,14 +63,27 @@ export class GlobalExceptionsFilter implements ExceptionFilter {
             }
         }
 
-        response.status(status).send({
+        const errorResponse = {
             statusCode: status,
             timestamp: new Date().toISOString(),
-            path: request.url,
+            path: url,
             correlationId,
             code,
             message,
             details,
-        });
+        };
+
+        // Handle both Fastify and Express response objects
+        if (typeof response.status === 'function') {
+            // Fastify style
+            response.status(status).send(errorResponse);
+        } else if (typeof response.statusCode !== 'undefined') {
+            // Express style
+            response.statusCode = status;
+            response.json(errorResponse);
+        } else {
+            // Fallback
+            response.send(errorResponse);
+        }
     }
 }

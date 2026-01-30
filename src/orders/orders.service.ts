@@ -164,6 +164,36 @@ export class OrdersService {
     }
 
     async confirmOrder(dto: ConfirmOrderDto) {
+        // 🔐 IDEMPOTENCY: Check Redis for duplicate processing
+        const idempotencyKey = `confirm_order:${dto.razorpayOrderId}:${dto.razorpayPaymentId}`;
+        const existingProcessing = await this.redisService.get(idempotencyKey);
+        
+        if (existingProcessing === 'processing') {
+            throw new BadRequestException('Order confirmation is already in progress');
+        }
+        
+        if (existingProcessing === 'completed') {
+            this.logger.log(`Idempotency: Order ${dto.razorpayOrderId} already confirmed`);
+            const orders = await this.prisma.order.findMany({
+                where: { razorpayOrderId: dto.razorpayOrderId },
+                select: { id: true, status: true }
+            });
+            return { status: 'success', orderIds: orders.map((o) => o.id), message: 'Already processed' };
+        }
+
+        // Set processing flag with 30-second TTL (prevents stuck locks)
+        await this.redisService.set(idempotencyKey, 'processing', 30);
+
+        try {
+            return await this.processConfirmOrder(dto, idempotencyKey);
+        } catch (error) {
+            // Clear processing flag on error so it can be retried
+            await this.redisService.del(idempotencyKey);
+            throw error;
+        }
+    }
+
+    private async processConfirmOrder(dto: ConfirmOrderDto, idempotencyKey: string) {
         // 🔐 P0 FIX 1: ENABLE SIGNATURE VERIFICATION (CRITICAL)
         const crypto = require('crypto');
         const expectedSignature = crypto
@@ -185,6 +215,8 @@ export class OrdersService {
         // 🔐 P0 FIX 2: EXPANDED IDEMPOTENCY CHECK (multi-order)
         const finalStatuses = [OrderStatus.CONFIRMED, OrderStatus.DELIVERED, OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.PACKED];
         if (orders.every((o) => finalStatuses.includes(o.status as any))) {
+            // Mark as completed in Redis for future idempotency
+            await this.redisService.set(idempotencyKey, 'completed', 3600); // 1 hour TTL
             return { status: 'success', orderIds: orders.map((o) => o.id), message: `Already processed (${orders[0]?.status})` };
         }
 
@@ -324,6 +356,9 @@ export class OrdersService {
                 // ignore
             }
         }
+
+        // Mark as completed in Redis for idempotency (1 hour TTL)
+        await this.redisService.set(idempotencyKey, 'completed', 3600);
 
         return { status: 'success', orderIds: orders.map((o) => o.id), confirmedIds };
     }

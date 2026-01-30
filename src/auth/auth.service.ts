@@ -372,16 +372,47 @@ export class AuthService {
         }
     }
 
-    async logout(userId: string, refreshToken?: string) {
+    async logout(userId: string, refreshToken?: string, accessToken?: string) {
         // Revoke refresh token by removing it from Redis
-        if (refreshToken) {
-            await this.redisService.del(`refresh_token:${userId}`);
-        } else {
-            // If no token provided, remove all refresh tokens for this user
-            await this.redisService.del(`refresh_token:${userId}`);
+        await this.redisService.del(`refresh_token:${userId}`);
+        
+        // Blacklist the access token if provided (prevents reuse until expiry)
+        if (accessToken) {
+            try {
+                const payload = this.jwtService.decode(accessToken);
+                if (payload && payload.exp) {
+                    const ttl = payload.exp - Math.floor(Date.now() / 1000);
+                    if (ttl > 0) {
+                        await this.redisService.set(
+                            `token:blacklist:${userId}:${payload.iat}`,
+                            'revoked',
+                            ttl
+                        );
+                    }
+                }
+            } catch (e) {
+                // Ignore token decode errors
+            }
         }
 
         return { message: 'Logged out successfully' };
+    }
+
+    async forceLogoutAllSessions(userId: string) {
+        // Set force logout timestamp in Redis for immediate effect
+        const now = Math.floor(Date.now() / 1000);
+        await this.redisService.set(`force_logout:${userId}`, now.toString(), 7 * 24 * 60 * 60);
+        
+        // Remove all refresh tokens
+        await this.redisService.del(`refresh_token:${userId}`);
+        
+        // Update user's forceLogoutAt in database for persistent logout
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { forceLogoutAt: new Date() }
+        });
+
+        return { message: 'All sessions invalidated successfully' };
     }
 
     async forgotPassword(email: string) {

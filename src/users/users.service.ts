@@ -72,7 +72,20 @@ export class UsersService {
         });
     }
 
+    private readonly MAX_ADDRESSES_PER_USER = 10;
+
     async createAddress(userId: string, addressData: any) {
+        // Check if user has reached the maximum number of addresses
+        const addressCount = await this.prisma.address.count({
+            where: { userId }
+        });
+        
+        if (addressCount >= this.MAX_ADDRESSES_PER_USER) {
+            throw new BadRequestException(
+                `Maximum number of addresses (${this.MAX_ADDRESSES_PER_USER}) reached. Please delete an existing address first.`
+            );
+        }
+
         // If this is set as default, unset all other defaults
         if (addressData.isDefault || addressData.is_default) {
             await this.prisma.address.updateMany({

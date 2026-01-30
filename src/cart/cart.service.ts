@@ -16,18 +16,25 @@ export class CartService {
         private events: EcommerceEventsService,
     ) { }
 
-    // 🔐 P0 FIX: PROPER REDIS CART LOCKING
-    private async lockCart(userId: string): Promise<boolean> {
+    // 🔐 P0 FIX: PROPER REDIS CART LOCKING WITH RETRY
+    private async lockCart(userId: string, maxRetries: number = 3, retryDelayMs: number = 100): Promise<boolean> {
         if (!this.redis) throw new Error('RedisService not injected');
         const key = `cart:lock:${userId}`;
 
-        // Use SETNX (SET if Not eXists) for atomic lock acquisition
-        const locked = await this.redis.setnx(key, '1');
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            // Use SETNX (SET if Not eXists) for atomic lock acquisition
+            const locked = await this.redis.setnx(key, '1');
 
-        if (locked) {
-            // Set expiry to prevent deadlocks (10 seconds)
-            await this.redis.expire(key, 10);
-            return true;
+            if (locked) {
+                // Set expiry to prevent deadlocks (10 seconds)
+                await this.redis.expire(key, 10);
+                return true;
+            }
+
+            // If not locked and we have more retries, wait before retrying
+            if (attempt < maxRetries - 1) {
+                await new Promise(resolve => setTimeout(resolve, retryDelayMs * (attempt + 1)));
+            }
         }
 
         return false;

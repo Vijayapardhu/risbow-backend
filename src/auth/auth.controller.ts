@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, Headers } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
@@ -66,7 +66,13 @@ export class AuthController {
     @ApiOperation({ summary: 'Logout and revoke refresh token' })
     @ApiResponse({ status: 200, description: 'Logged out successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
-    async logout(@Request() req: any, @Body('refreshToken') refreshToken?: string) {
-        return this.authService.logout(req.user.id, refreshToken);
+    async logout(
+        @Request() req: any,
+        @Body('refreshToken') refreshToken?: string,
+        @Headers('authorization') authHeader?: string
+    ) {
+        // Extract access token from Authorization header
+        const accessToken = authHeader?.replace('Bearer ', '');
+        return this.authService.logout(req.user.id, refreshToken, accessToken);
     }
 }

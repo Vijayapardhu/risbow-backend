@@ -1,4 +1,4 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '@prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
@@ -12,14 +12,28 @@ export class RolesGuard implements CanActivate {
             context.getHandler(),
             context.getClass(),
         ]);
-        if (!requiredRoles) {
+        if (!requiredRoles || requiredRoles.length === 0) {
             return true;
         }
-        const { user } = context.switchToHttp().getRequest();
+        const request = context.switchToHttp().getRequest();
+        const { user } = request;
 
         // User is attached by JwtAuthGuard
-        if (!user || !user.role) return false;
+        if (!user) {
+            throw new ForbiddenException('Authentication required');
+        }
+        
+        if (!user.role) {
+            throw new ForbiddenException('User role not found');
+        }
 
-        return requiredRoles.includes(user.role);
+        const hasRequiredRole = requiredRoles.includes(user.role);
+        if (!hasRequiredRole) {
+            throw new ForbiddenException(
+                `Access denied. Required roles: ${requiredRoles.join(', ')}. Your role: ${user.role}`
+            );
+        }
+
+        return true;
     }
 }

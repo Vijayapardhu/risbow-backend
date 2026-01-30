@@ -2,12 +2,14 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { PrismaService } from '../prisma/prisma.service';
 import { RoomStatus, RiskTag, ValueTag, UserRole, UserStatus, OrderStatus } from '@prisma/client';
 import { OrderStateValidatorService } from '../orders/order-state-validator.service';
+import { RedisService } from '../shared/redis.service';
 
 @Injectable()
 export class AdminService {
     constructor(
         private prisma: PrismaService,
         private orderStateValidator: OrderStateValidatorService,
+        private redisService: RedisService,
     ) { }
 
     async getDashboardKPIs(period: string = 'Last 7 Days') {
@@ -193,8 +195,8 @@ export class AdminService {
 
     // --- USERS MANAGEMENT ---
 
-    async getUsers(page: number = 1, search?: string, filters?: { role?: UserRole, status?: UserStatus, riskTag?: RiskTag, valueTag?: ValueTag }) {
-        const take = 50; // Increased page size for admin
+    async getUsers(page: number = 1, search?: string, filters?: { role?: UserRole, status?: UserStatus, riskTag?: RiskTag, valueTag?: ValueTag }, limit: number = 50) {
+        const take = Math.min(100, Math.max(1, limit)); // Cap between 1 and 100
         const skip = (page - 1) * take;
         const where: any = {};
 
@@ -624,20 +626,33 @@ export class AdminService {
     // --- New Enterprise Methods (Cleanup) ---
 
     async forceLogout(adminId: string, userId: string) {
-        // Set forceLogoutAt to now.
-        // Middleware should check: if (token.iat < user.forceLogoutAt) throw Unauthorized.
-        // Since we rely on Supabase, we might not control token validation fully unless we wrap it.
-        // Assuming we implement a check or just use this record for audit/frontend logic.
+        // Set forceLogoutAt to now and invalidate all sessions via Redis
         const updatedUser = await this.prisma.user.update({
             where: { id: userId },
             data: { forceLogoutAt: new Date() }
         });
 
+        // Set force logout timestamp in Redis for immediate effect
+        const now = Math.floor(Date.now() / 1000);
+        await this.redisService.set(`force_logout:${userId}`, now.toString(), 7 * 24 * 60 * 60);
+        
+        // Remove all refresh tokens
+        await this.redisService.del(`refresh_token:${userId}`);
+
         await this.prisma.auditLog.create({
-            data: { adminId, entity: 'USER', entityId: userId, action: 'FORCE_LOGOUT' }
+            data: { 
+                adminId, 
+                entity: 'USER', 
+                entityId: userId, 
+                action: 'FORCE_LOGOUT',
+                details: { 
+                    previousForceLogoutAt: updatedUser.forceLogoutAt,
+                    newForceLogoutAt: new Date().toISOString()
+                }
+            }
         });
 
-        return { success: true, message: 'User sessions invalidated (timestamps updated)' };
+        return { success: true, message: 'User sessions invalidated successfully' };
     }
 
     async updateKycStatus(adminId: string, userId: string, status: string, notes?: string) {
@@ -963,16 +978,32 @@ export class AdminService {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
 
-        // Soft delete by marking as banned and clearing sensitive data, or hard delete
-        // For now, doing a soft delete approach
+        // Prevent deletion of admin/super_admin users
+        if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+            throw new BadRequestException('Cannot delete admin users. Demote to CUSTOMER first.');
+        }
+
+        // Soft delete by marking as banned and clearing sensitive data
+        // Use a unique placeholder email to avoid unique constraint violations
+        const deletedEmail = user.email ? `deleted_${userId.substring(0, 8)}_${Date.now()}@deleted.risbow` : null;
+        const deletedMobile = user.mobile ? `DEL${userId.substring(0, 6)}${Date.now()}` : null;
+        
         await this.prisma.user.update({
             where: { id: userId },
             data: {
                 status: 'BANNED',
-                email: null,
-                name: `Deleted User ${userId.substring(0, 6)}`
+                email: deletedEmail,
+                mobile: deletedMobile,
+                name: `Deleted User`,
+                password: null, // Clear password
+                forceLogoutAt: new Date(), // Invalidate all sessions
             }
         });
+
+        // Force logout all sessions
+        const now = Math.floor(Date.now() / 1000);
+        await this.redisService.set(`force_logout:${userId}`, now.toString(), 7 * 24 * 60 * 60);
+        await this.redisService.del(`refresh_token:${userId}`);
 
         await this.prisma.auditLog.create({
             data: {
@@ -980,7 +1011,12 @@ export class AdminService {
                 entity: 'USER',
                 entityId: userId,
                 action: 'DELETE_USER',
-                details: { deletedEmail: user.email, deletedName: user.name }
+                details: { 
+                    deletedEmail: user.email, 
+                    deletedName: user.name,
+                    deletedMobile: user.mobile,
+                    deletedAt: new Date().toISOString()
+                }
             }
         });
 
@@ -1254,8 +1290,17 @@ export class AdminService {
 
     async getVendors(status: string = 'ALL', page: number = 1, limit: number = 20, search?: string) {
         const where: any = {};
-        if (status && status !== 'ALL') {
-            where.kycStatus = status;
+        if (status && status !== 'ALL' && status !== '') {
+            // Map frontend status to DB: ACTIVE/VERIFIED -> APPROVED; PENDING/SUSPENDED as-is
+            const kycMap: Record<string, string> = {
+                ACTIVE: 'APPROVED',
+                VERIFIED: 'APPROVED',
+                PENDING: 'PENDING',
+                SUSPENDED: 'SUSPENDED',
+                REJECTED: 'REJECTED',
+                APPROVED: 'APPROVED',
+            };
+            where.kycStatus = kycMap[status] ?? status;
         }
         if (search) {
             where.OR = [
@@ -1278,19 +1323,38 @@ export class AdminService {
                     mobile: true,
                     email: true,
                     storeName: true,
+                    storeLogo: true,
+                    storeBanner: true,
                     kycStatus: true,
+                    tier: true,
+                    storeStatus: true,
                     role: true,
+                    commissionRate: true,
                     coinsBalance: true,
                     performanceScore: true,
                     createdAt: true,
                     updatedAt: true,
+                    _count: { select: { products: true } },
                 },
             }),
             this.prisma.vendor.count({ where }),
         ]);
 
+        const data = vendors.map((v: any) => {
+            const { _count, ...rest } = v;
+            return {
+                ...rest,
+                phone: v.mobile,
+                status: v.storeStatus ?? 'ACTIVE',
+                totalSales: 0,
+                totalOrders: 0,
+                rating: Number(v.performanceScore) || 0,
+                totalProducts: _count?.products ?? 0,
+            };
+        });
+
         return {
-            data: vendors,
+            data,
             meta: {
                 total,
                 page,
@@ -1325,6 +1389,20 @@ export class AdminService {
     }
 
     async updateVendorCommission(adminId: string, id: string, rate: number) {
+        // Validate commission rate
+        if (typeof rate !== 'number' || isNaN(rate)) {
+            throw new BadRequestException('Commission rate must be a valid number');
+        }
+        if (rate < 0 || rate > 100) {
+            throw new BadRequestException('Commission rate must be between 0 and 100');
+        }
+        
+        // Check if vendor exists
+        const existingVendor = await this.prisma.vendor.findUnique({ where: { id } });
+        if (!existingVendor) {
+            throw new NotFoundException('Vendor not found');
+        }
+
         const vendor = await this.prisma.vendor.update({
             where: { id },
             data: { commissionRate: rate }
@@ -1336,7 +1414,7 @@ export class AdminService {
                 entity: 'VENDOR',
                 entityId: id,
                 action: 'UPDATE_COMMISSION',
-                details: { newRate: rate }
+                details: { previousRate: existingVendor.commissionRate, newRate: rate }
             }
         });
         return vendor;

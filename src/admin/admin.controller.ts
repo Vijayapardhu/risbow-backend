@@ -14,6 +14,13 @@ import { Response } from 'express';
 export class AdminController {
     constructor(private readonly adminService: AdminService) { }
 
+    // Helper method to normalize pagination parameters
+    private normalizePagination(page: string | number | undefined, limit: string | number | undefined, defaultLimit: number = 20) {
+        const normalizedPage = Math.max(1, Number(page) || 1);
+        const normalizedLimit = Math.min(100, Math.max(1, Number(limit) || defaultLimit)); // Cap at 100
+        return { page: normalizedPage, limit: normalizedLimit };
+    }
+
     // --- APP CONFIG ---
 
     @Get('config')
@@ -51,8 +58,13 @@ export class AdminController {
     }
 
     @Get('users')
-    getUsers(@Query('page') page: number, @Query('search') search: string) {
-        return this.adminService.getUsers(Number(page) || 1, search);
+    getUsers(
+        @Query('page') page: string,
+        @Query('limit') limit: string,
+        @Query('search') search: string
+    ) {
+        const { page: normalizedPage, limit: normalizedLimit } = this.normalizePagination(page, limit, 50);
+        return this.adminService.getUsers(normalizedPage, search, undefined, normalizedLimit);
     }
 
     @Get('users/export/csv')
@@ -358,7 +370,8 @@ export class AdminController {
         @Query('limit') limit: string,
         @Query('search') search: string
     ) {
-        return this.adminService.getVendors(status, Number(page) || 1, Number(limit) || 20, search);
+        const { page: normalizedPage, limit: normalizedLimit } = this.normalizePagination(page, limit, 20);
+        return this.adminService.getVendors(status, normalizedPage, normalizedLimit, search);
     }
 
     @Get('vendors/:id')
@@ -429,7 +442,8 @@ export class AdminController {
         @Query('page') page: string,
         @Query('limit') limit: string
     ) {
-        return this.adminService.getVendorPayouts(id, Number(page) || 1, Number(limit) || 20);
+        const { page: normalizedPage, limit: normalizedLimit } = this.normalizePagination(page, limit, 20);
+        return this.adminService.getVendorPayouts(id, normalizedPage, normalizedLimit);
     }
 
     @Get('rooms')
