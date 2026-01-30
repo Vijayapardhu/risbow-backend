@@ -23,8 +23,11 @@ export class AdminProductController {
         @Query('period') period?: string,
         @Query('page') page: number = 1,
         @Query('limit') limit: number = 50,
+        @Query('status') status?: string,
+        @Query('categoryId') categoryId?: string,
+        @Query('vendorId') vendorId?: string,
     ) {
-        return this.productService.getProductList({ search, period, page, limit });
+        return this.productService.getProductList({ search, period, page, limit, status, categoryId, vendorId });
     }
 
     @Get(':id')

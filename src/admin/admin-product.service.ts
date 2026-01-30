@@ -15,8 +15,11 @@ export class AdminProductService {
         period?: string;
         page?: number;
         limit?: number;
+        status?: string;
+        categoryId?: string;
+        vendorId?: string;
     }) {
-        const { search, period, page = 1, limit = 50 } = params;
+        const { search, period, page = 1, limit = 50, status, categoryId, vendorId } = params;
         const pageNum = Number(page) || 1;
         const limitNum = Number(limit) || 50;
         const skip = (pageNum - 1) * limitNum;
@@ -28,6 +31,25 @@ export class AdminProductService {
                 { title: { contains: search, mode: 'insensitive' } },
                 { id: { contains: search } },
             ];
+        }
+        
+        // Add status filter
+        if (status) {
+            if (status === 'ACTIVE') {
+                where.isActive = true;
+            } else if (status === 'INACTIVE') {
+                where.isActive = false;
+            }
+        }
+        
+        // Add category filter
+        if (categoryId) {
+            where.categoryId = categoryId;
+        }
+        
+        // Add vendor filter
+        if (vendorId) {
+            where.vendorId = vendorId;
         }
 
         try {
@@ -93,11 +115,13 @@ export class AdminProductService {
                     } : null,
                     lowestPrice: offerPriceWithGST || basePriceWithGST,
                     highestPrice: basePriceWithGST,
+                    price: basePrice, // Add original price field
                     basePrice: basePrice,
                     gstAmount: basePrice * 0.18,
                     gstPercentage: 18,
                     priceVariance: 0,
                     priceAnomaly: false,
+                    stock: (product as any).stock ?? 0, // Add original stock field
                     totalStock: (product as any).stock ?? 0,
                     stockRisk: ((product as any).stock ?? 0) < 10,
                     views: 0,
@@ -108,6 +132,7 @@ export class AdminProductService {
                     returnRate: 0,
                     revenue: 0,
                     commission: 0,
+                    isActive: (product as any).isActive ?? false, // Add isActive field
                     status: (product as any).isActive ? 'active' : 'inactive',
                     sku: (product as any).sku,
                     vendorId: (product as any).vendorId,
