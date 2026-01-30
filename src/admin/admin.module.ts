@@ -12,6 +12,8 @@ import { AdminCommissionController } from './admin-commission.controller';
 import { AdminSettingsController } from './admin-settings.controller';
 import { LocalPromotionsController } from './local-promotions.controller';
 import { ReferralRewardRulesController } from './referral-reward-rules.controller';
+import { AdminRoomsController } from './admin-rooms.controller';
+import { AdminSubscriptionsController } from './admin-subscriptions.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { VendorsModule } from '../vendors/vendors.module';
 import { BowModule } from '../bow/bow.module';
@@ -37,6 +39,8 @@ import { QueuesProviderModule } from '../queues/queues-provider.module';
         CoinValuationController,
         LocalPromotionsController,
         ReferralRewardRulesController,
+        AdminRoomsController,
+        AdminSubscriptionsController,
     ],
     providers: [AdminService, AdminDashboardService, AdminProductService, CategorySpecService, BowAdminService],
 })

@@ -48,6 +48,15 @@ import { VendorDocumentsModule } from './vendor-documents/vendor-documents.modul
 import { ContentModerationModule } from './moderation/content-moderation.module';
 import { BannerCampaignsModule } from './banner-campaigns/banner-campaigns.module';
 
+// New Modules
+import { RefundsModule } from './refunds/refunds.module';
+import { SupportModule } from './support/support.module';
+import { EmployeesModule } from './employees/employees.module';
+import { DriversModule } from './drivers/drivers.module';
+import { CmsModule } from './cms/cms.module';
+import { BlogModule } from './blog/blog.module';
+import { NotificationsAdminModule } from './notifications-admin/notifications-admin.module';
+
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { SharedModule } from './shared/shared.module';
 import { CommonModule } from './common/common.module';
@@ -120,6 +129,15 @@ import { HealthController } from './common/health.controller';
         VendorDocumentsModule,
         ContentModerationModule,
         BannerCampaignsModule,
+        // New Modules - Week 1-2
+        RefundsModule,
+        SupportModule,
+        // New Modules - Week 3-4
+        EmployeesModule,
+        DriversModule,
+        CmsModule,
+        BlogModule,
+        NotificationsAdminModule,
     ],
     controllers: [HealthController], // RootHealthController registered manually in main.ts
 })

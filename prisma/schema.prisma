@@ -218,6 +218,8 @@ model User {
   bannerImpressions                                  BannerImpressionLedger[]
   reelInteractions                                   ReelInteractionLedger[]
   creatorProfile                                     CreatorProfile?
+  refunds                                            Refund[]               @relation("UserRefunds")
+  tickets                                            SupportTicket[]        @relation("UserTickets")
 
   @@index([role])
   @@index([status])
@@ -667,6 +669,9 @@ model Order {
   deliverySlotSnapshot OrderDeliverySlotSnapshot?
   packingProof         OrderPackingProof?
   shipment             Shipment?
+  tickets              SupportTicket[] @relation("OrderTickets")
+  deliveries           Delivery[]      @relation("OrderDeliveries")
+  refunds              Refund[]
 
   @@index([userId])
   @@index([status])
@@ -746,6 +751,7 @@ model Product {
   localPromotions      LocalPromotion[]
   Reel                 Reel[]
   ClearanceProduct     ClearanceProduct[]
+  inventory            Inventory[]
 
   @@index([vendorId])
   @@index([categoryId])
@@ -763,11 +769,21 @@ model Product {
 }
 
 model Admin {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  role      String
-  createdAt DateTime @default(now())
+  id              String          @id @default(cuid())
+  email           String          @unique
+  password        String
+  role            String
+  name            String?
+  avatar          String?
+  isActive        Boolean         @default(true)
+  lastLoginAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  assignedTickets SupportTicket[] @relation("AssignedTickets")
+  authoredPosts   BlogPost[]      @relation("AuthorPosts")
+
+  @@index([role])
+  @@index([isActive])
 }
 
 model Report {
@@ -912,6 +928,7 @@ model ReturnRequest {
   vendor                Vendor?           @relation(fields: [vendorId], references: [id])
   settlement            ReturnSettlement?
   timeline              ReturnTimeline[]
+  refunds               Refund[]
 
   @@index([orderId])
   @@index([status])
@@ -1721,6 +1738,363 @@ model ContentModeration {
   @@index([status])
 }
 
+// ============================================
+// REFUNDS MODULE
+// ============================================
+
+model Refund {
+  id              String       @id @default(cuid())
+  refundNumber    String       @unique
+  orderId         String
+  order           Order        @relation(fields: [orderId], references: [id])
+  returnId        String?
+  return          ReturnRequest? @relation(fields: [returnId], references: [id])
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], name: "UserRefunds")
+  amount          Int          // in paise
+  reason          String
+  status          RefundStatus @default(PENDING)
+  method          RefundMethod @default(ORIGINAL_PAYMENT)
+  transactionId   String?
+  processedBy     String?
+  processedAt     DateTime?
+  rejectionReason String?
+  notes           String?
+  metadata        Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([status])
+  @@index([returnId])
+  @@index([refundNumber])
+  @@index([createdAt])
+}
+
+// ============================================
+// SUPPORT/TICKETS MODULE
+// ============================================
+
+model SupportTicket {
+  id              String          @id @default(cuid())
+  ticketNumber    String          @unique
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], name: "UserTickets")
+  category        TicketCategory
+  subject         String
+  description     String          @db.Text
+  priority        TicketPriority  @default(MEDIUM)
+  status          TicketStatus    @default(OPEN)
+  assignedTo      String?
+  assignedAdmin   Admin?          @relation(fields: [assignedTo], references: [id], name: "AssignedTickets")
+  orderId         String?
+  order           Order?          @relation(fields: [orderId], references: [id], name: "OrderTickets")
+  productId       String?
+  vendorId        String?
+  attachments     String[]
+  tags            String[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  closedAt        DateTime?
+  firstResponseAt DateTime?
+  resolvedAt      DateTime?
+  messages        TicketMessage[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([category])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([orderId])
+}
+
+model TicketMessage {
+  id          String        @id @default(cuid())
+  ticketId    String
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderId    String
+  senderType  MessageSender
+  senderName  String
+  message     String        @db.Text
+  attachments String[]
+  isInternal  Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+
+  @@index([ticketId])
+  @@index([createdAt])
+}
+
+model TicketTemplate {
+  id        String          @id @default(cuid())
+  name      String
+  category  TicketCategory?
+  subject   String?
+  content   String          @db.Text
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+}
+
+// ============================================
+// EMPLOYEE MANAGEMENT MODULE
+// ============================================
+
+model Employee {
+  id          String       @id @default(cuid())
+  employeeId  String       @unique
+  name        String
+  email       String       @unique
+  mobile      String       @unique
+  password    String
+  avatar      String?
+  role        EmployeeRole
+  department  String?
+  permissions String[]
+  isActive    Boolean      @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([role])
+  @@index([department])
+  @@index([isActive])
+}
+
+// ============================================
+// DRIVER MANAGEMENT MODULE
+// ============================================
+
+model Driver {
+  id              String           @id @default(cuid())
+  driverId        String           @unique
+  name            String
+  mobile          String           @unique
+  email           String?
+  avatar          String?
+  vehicleType     VehicleType
+  vehicleNumber   String
+  licenseNumber   String
+  licenseExpiry   DateTime
+  status          DriverStatus     @default(PENDING)
+  isAvailable     Boolean          @default(false)
+  isOnline        Boolean          @default(false)
+  currentLocation Json?
+  rating          Float            @default(5.0)
+  totalDeliveries Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  documents       DriverDocument[]
+  deliveries      Delivery[]
+
+  @@index([status])
+  @@index([isAvailable])
+  @@index([isOnline])
+}
+
+model DriverDocument {
+  id          String         @id @default(cuid())
+  driverId    String
+  driver      Driver         @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  type        DocumentType
+  documentUrl String
+  status      DocumentStatus @default(PENDING)
+  verifiedBy  String?
+  verifiedAt  DateTime?
+  expiryDate  DateTime?
+  notes       String?
+  createdAt   DateTime       @default(now())
+
+  @@index([driverId])
+  @@index([status])
+}
+
+model Delivery {
+  id              String         @id @default(cuid())
+  deliveryNumber  String         @unique
+  orderId         String
+  order           Order          @relation(fields: [orderId], references: [id], name: "OrderDeliveries")
+  driverId        String?
+  driver          Driver?        @relation(fields: [driverId], references: [id])
+  pickupAddress   Json
+  deliveryAddress Json
+  status          DeliveryStatus @default(PENDING)
+  distance        Float?
+  estimatedTime   Int?           // minutes
+  actualTime      Int?
+  pickupOtp       String?
+  deliveryOtp     String?
+  pickedAt        DateTime?
+  deliveredAt     DateTime?
+  proofImage      String?
+  notes           String?
+  rating          Int?
+  feedback        String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([orderId])
+  @@index([driverId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ============================================
+// NOTIFICATION TEMPLATES & CAMPAIGNS
+// ============================================
+
+model NotificationTemplate {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  title     String
+  body      String
+  imageUrl  String?
+  action    String?
+  data      Json?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model NotificationCampaign {
+  id             String    @id @default(cuid())
+  name           String
+  templateId     String?
+  title          String
+  body           String
+  imageUrl       String?
+  targetAudience Json      // { role: [], status: [], location: [] }
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  totalSent      Int       @default(0)
+  totalOpened    Int       @default(0)
+  totalClicked   Int       @default(0)
+  status         String    @default("draft") // draft, scheduled, sending, sent, cancelled
+  createdBy      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([createdAt])
+}
+
+// ============================================
+// CMS MODULE
+// ============================================
+
+model CMSPage {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  title         String
+  content       String   @db.Text
+  excerpt       String?
+  metaTitle     String?
+  metaDesc      String?
+  featuredImage String?
+  template      String   @default("default")
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([slug])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+model CMSMenu {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  location  MenuLocation
+  items     CMSMenuItem[]
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([location])
+  @@index([isActive])
+}
+
+model CMSMenuItem {
+  id        String       @id @default(cuid())
+  menuId    String
+  menu      CMSMenu      @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  label     String
+  url       String
+  icon      String?
+  target    String       @default("_self")
+  parentId  String?
+  parent    CMSMenuItem? @relation("MenuItemChildren", fields: [parentId], references: [id])
+  children  CMSMenuItem[] @relation("MenuItemChildren")
+  sortOrder Int          @default(0)
+  isActive  Boolean      @default(true)
+
+  @@index([menuId])
+  @@index([parentId])
+  @@index([sortOrder])
+}
+
+// ============================================
+// BLOG MODULE
+// ============================================
+
+model BlogPost {
+  id            String        @id @default(cuid())
+  slug          String        @unique
+  title         String
+  excerpt       String?
+  content       String        @db.Text
+  coverImage    String?
+  categoryId    String?
+  category      BlogCategory? @relation(fields: [categoryId], references: [id])
+  authorId      String
+  author        Admin         @relation(fields: [authorId], references: [id], name: "AuthorPosts")
+  tags          String[]
+  status        PostStatus    @default(DRAFT)
+  isFeatured    Boolean       @default(false)
+  publishedAt   DateTime?
+  viewCount     Int           @default(0)
+  readTime      Int?          // minutes
+  seoTitle      String?
+  seoDesc       String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([status])
+  @@index([isFeatured])
+  @@index([publishedAt])
+  @@index([slug])
+}
+
+model BlogCategory {
+  id          String         @id @default(cuid())
+  slug        String         @unique
+  name        String
+  description String?
+  image       String?
+  parentId    String?
+  parent      BlogCategory?  @relation("CategoryChildren", fields: [parentId], references: [id])
+  children    BlogCategory[] @relation("CategoryChildren")
+  posts       BlogPost[]
+  sortOrder   Int            @default(0)
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+
+  @@index([parentId])
+  @@index([isActive])
+  @@index([slug])
+}
+
 model ReturnQCChecklist {
   id                    String   @id @default(cuid())
   orderId               String   @unique
@@ -1736,6 +2110,56 @@ model ReturnQCChecklist {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   order                 Order    @relation(fields: [orderId], references: [id])
+}
+
+model Warehouse {
+  id        String      @id @default(cuid())
+  name      String
+  location  String
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  inventory Inventory[]
+}
+
+model Inventory {
+  id               String          @id @default(cuid())
+  productId        String
+  warehouseId      String?
+  stock            Int             @default(0)
+  reservedStock    Int             @default(0)
+  reorderPoint     Int             @default(10)
+  reorderQuantity  Int             @default(50)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  product          Product         @relation(fields: [productId], references: [id])
+  warehouse        Warehouse?      @relation(fields: [warehouseId], references: [id])
+  movements        StockMovement[]
+
+  @@index([productId])
+  @@index([warehouseId])
+}
+
+model StockMovement {
+  id          String              @id @default(cuid())
+  inventoryId String
+  type        StockMovementType
+  quantity    Int
+  reason      String?
+  reference   String?
+  createdBy   String
+  createdAt   DateTime            @default(now())
+  inventory   Inventory           @relation(fields: [inventoryId], references: [id])
+
+  @@index([inventoryId])
+  @@index([createdAt])
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  TRANSFER
 }
 
 enum SettlementStatus {
@@ -1969,8 +2393,113 @@ enum RefundStatus {
 
 enum RefundMethod {
   ORIGINAL_PAYMENT
-  COINS
+  WALLET
   BANK_TRANSFER
+  UPI
+}
+
+enum TicketCategory {
+  ORDER_ISSUE
+  PAYMENT_ISSUE
+  RETURN_REFUND
+  PRODUCT_INQUIRY
+  DELIVERY_ISSUE
+  VENDOR_COMPLAINT
+  TECHNICAL_ISSUE
+  ACCOUNT_ISSUE
+  OTHER
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  WAITING_VENDOR
+  ESCALATED
+  RESOLVED
+  CLOSED
+}
+
+enum MessageSender {
+  CUSTOMER
+  VENDOR
+  ADMIN
+  SYSTEM
+}
+
+enum VehicleType {
+  BIKE
+  SCOOTER
+  CAR
+  VAN
+  TRUCK
+}
+
+enum DriverStatus {
+  PENDING
+  DOCUMENTS_SUBMITTED
+  VERIFIED
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+}
+
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  ACCEPTED
+  PICKING_UP
+  PICKED_UP
+  IN_TRANSIT
+  ARRIVED
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum MenuLocation {
+  HEADER
+  FOOTER
+  MOBILE_NAV
+  SIDEBAR
+}
+
+enum PostStatus {
+  DRAFT
+  REVIEW
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum EmployeeRole {
+  TELECALLER
+  SUPPORT_AGENT
+  CONTENT_MODERATOR
+  WAREHOUSE_STAFF
+  FINANCE_STAFF
+  OPERATIONS_MANAGER
+}
+
+enum DocumentType {
+  AADHAAR
+  PAN
+  LICENSE
+  RC_BOOK
+  INSURANCE
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum AttributeScope {
