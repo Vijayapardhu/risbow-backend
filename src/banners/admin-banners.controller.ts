@@ -85,9 +85,6 @@ export class AdminBannersController {
         where,
         skip,
         take: Number(limit),
-        include: {
-          vendor: { select: { id: true, name: true, email: true } },
-        },
         orderBy: { createdAt: 'desc' },
       }),
     ]);
@@ -149,7 +146,6 @@ export class AdminBannersController {
       where: { isActive: true },
       take: 5,
       include: {
-        vendor: { select: { id: true, name: true } },
         _count: { select: { impressions: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -204,7 +200,7 @@ export class AdminBannersController {
             id: true,
             startDate: true,
             endDate: true,
-            vendor: { select: { name: true } },
+            vendorId: true,
           },
         });
 
@@ -226,9 +222,6 @@ export class AdminBannersController {
   async findOne(@Param('id') id: string) {
     const banner = await this.prisma.banner.findUnique({
       where: { id },
-      include: {
-        vendor: { select: { id: true, name: true, email: true, mobile: true } },
-      },
     });
 
     if (!banner) {
@@ -276,13 +269,10 @@ export class AdminBannersController {
         imageUrl: dto.imageUrl,
         redirectUrl: dto.redirectUrl,
         slotType: dto.slotType,
-        slotKey: dto.slotKey || 'CAROUSEL',
-        slotIndex: dto.slotIndex || 0,
-        priority: dto.priority || 100,
         startDate: new Date(dto.startDate),
         endDate: new Date(dto.endDate),
         isActive: dto.isActive !== undefined ? dto.isActive : true,
-        vendorId: null, // System banner
+        metadata: dto.metadata || null,
       },
     });
 
@@ -297,11 +287,10 @@ export class AdminBannersController {
     if (dto.imageUrl) updateData.imageUrl = dto.imageUrl;
     if (dto.redirectUrl !== undefined) updateData.redirectUrl = dto.redirectUrl;
     if (dto.slotType) updateData.slotType = dto.slotType;
-    if (dto.slotKey) updateData.slotKey = dto.slotKey;
-    if (dto.slotIndex !== undefined) updateData.slotIndex = dto.slotIndex;
-    if (dto.priority !== undefined) updateData.priority = dto.priority;
+    if (dto.startDate) updateData.startDate = new Date(dto.startDate);
     if (dto.endDate) updateData.endDate = new Date(dto.endDate);
     if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
+    if (dto.metadata !== undefined) updateData.metadata = dto.metadata;
 
     const banner = await this.prisma.banner.update({
       where: { id },
