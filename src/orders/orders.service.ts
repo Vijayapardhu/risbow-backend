@@ -708,8 +708,6 @@ export class OrdersService {
                 }
             }
         };
-            }
-        };
     }
 
     async getOrderDetail(orderId: string) {

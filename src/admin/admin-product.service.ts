@@ -151,11 +151,11 @@ export class AdminProductService {
 
             return {
                 insights: {
-                    totalActive,
-                    multiVendor: 0,
-                    priceConflicts: 0,
-                    lowStock: await this.prisma.product.count({ where: { stock: { lt: 10 } } }),
-                    suppressed: await this.prisma.product.count({ where: { isActive: false } }),
+                    total: await this.prisma.product.count(),
+                    active: await this.prisma.product.count({ where: { isActive: true, stock: { gt: 0 } } }),
+                    inactive: await this.prisma.product.count({ where: { isActive: false } }),
+                    outOfStock: await this.prisma.product.count({ where: { stock: { lte: 0 } } }),
+                    lowStock: await this.prisma.product.count({ where: { stock: { gt: 0, lte: 10 } } }),
                 },
                 products: transformedProducts,
                 pagination: {
@@ -168,7 +168,7 @@ export class AdminProductService {
             console.error('Error in getProductList:', error);
             // Return minimal safe response instead of 500
             return {
-                insights: { totalActive: 0, multiVendor: 0, priceConflicts: 0, lowStock: 0, suppressed: 0 },
+                insights: { total: 0, active: 0, inactive: 0, outOfStock: 0, lowStock: 0 },
                 products: [],
                 pagination: { page: pageNum, limit: limitNum, total: 0 },
             };
