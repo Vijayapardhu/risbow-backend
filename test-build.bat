@@ -1,0 +1,3 @@
+@echo off
+echo Running build...
+call npm run build 2>&1

@@ -40,4 +40,13 @@ export class OrdersAdminController {
     ) {
         return this.ordersService.updateOrderStatus(id, status, req.user?.id, req.user?.role, notes);
     }
+
+    @Patch(':id/payment-status')
+    async updatePaymentStatus(
+        @Param('id') id: string,
+        @Body('paymentStatus') paymentStatus: string,
+        @Body('notes') notes?: string,
+    ) {
+        return this.ordersService.updatePaymentStatus(id, paymentStatus, notes);
+    }
 }

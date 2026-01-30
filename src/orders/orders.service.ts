@@ -930,4 +930,44 @@ export class OrdersService {
 
         return updatedOrder;
     }
+
+    async updatePaymentStatus(orderId: string, paymentStatus: string, notes?: string) {
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            include: { payment: true }
+        });
+
+        if (!order) {
+            throw new NotFoundException('Order not found');
+        }
+
+        if (!order.payment) {
+            throw new BadRequestException('No payment record found for this order');
+        }
+
+        // Update payment status
+        const updatedPayment = await this.prisma.payment.update({
+            where: { id: order.payment.id },
+            data: { 
+                status: paymentStatus as any,
+                updatedAt: new Date()
+            }
+        });
+
+        // If payment is now successful and order is pending, update order status
+        if (paymentStatus === 'SUCCESS' && order.status === OrderStatus.PENDING) {
+            await this.prisma.order.update({
+                where: { id: orderId },
+                data: { status: OrderStatus.CONFIRMED }
+            });
+        }
+
+        this.logger.log(`Payment status updated for order ${orderId}: ${paymentStatus}`);
+
+        return {
+            success: true,
+            payment: updatedPayment,
+            notes
+        };
+    }
 }
