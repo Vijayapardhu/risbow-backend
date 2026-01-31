@@ -137,38 +137,27 @@ export class InvoicesService {
         try {
             console.log('[Invoice] Launching Puppeteer...');
             
-            // Launch options for Render.com and other cloud providers
-            const launchOptions: any = {
+            // Use Puppeteer's bundled Chromium - don't specify executablePath
+            // This works on Render.com with the build command: npx puppeteer browsers install chrome
+            browser = await puppeteer.launch({
                 headless: true,
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
+                    '--disable-gpu',
                     '--no-first-run',
                     '--no-zygote',
-                    '--disable-gpu',
-                    '--disable-web-security',
-                    '--disable-features=IsolateOrigins,site-per-process'
+                    '--single-process'
                 ]
-            };
-
-            // Find Chrome executable
-            const chromePath = await this.findChromeExecutable();
-            if (chromePath) {
-                console.log('[Invoice] Using Chrome at:', chromePath);
-                launchOptions.executablePath = chromePath;
-            } else {
-                console.log('[Invoice] Using Puppeteer bundled Chrome');
-            }
-
-            browser = await puppeteer.launch(launchOptions);
+            });
+            
             console.log('[Invoice] Puppeteer launched successfully');
 
             const page = await browser.newPage();
             
             // Set viewport
-            await page.setViewport({ width: 794, height: 1123 }); // A4 at 96 DPI
+            await page.setViewport({ width: 794, height: 1123 });
             
             // Set content
             console.log('[Invoice] Setting page content...');
@@ -180,14 +169,14 @@ export class InvoicesService {
             const pdf = await page.pdf({
                 format: 'A4',
                 printBackground: true,
-                margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
-                preferCSSPageSize: true
+                margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' }
             });
             console.log('[Invoice] PDF generated, size:', pdf.length, 'bytes');
 
             return Buffer.from(pdf);
         } catch (error) {
             console.error('[Invoice] PDF generation failed:', error.message);
+            console.error('[Invoice] Error stack:', error.stack);
             throw new Error(`PDF generation failed: ${error.message}`);
         } finally {
             if (browser) {

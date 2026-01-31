@@ -6,7 +6,7 @@ services:
     region: oregon
     branch: master
     autoDeploy: true
-    buildCommand: npm ci --include=dev && npm run build && npx puppeteer browsers install chrome
+    buildCommand: npm ci --include=dev && npx puppeteer browsers install chrome && npm run build
     startCommand: npm run start:prod
     healthCheckPath: /api/v1/health
     envVars:
