@@ -45,39 +45,78 @@ export class InvoicesService {
             }
         }
 
-        // Generate barcode for order ID
-        const barcodeBuffer = await bwipjs.toBuffer({
-            bcid: 'code128',
-            text: order.id,
-            scale: 3,
-            height: 10,
-            includetext: true,
-            textxalign: 'center',
-        });
-        const barcodeDataUrl = `data:image/png;base64,${barcodeBuffer.toString('base64')}`;
+        // Generate barcode for order ID (try-catch to handle errors gracefully)
+        let barcodeDataUrl = '';
+        try {
+            const barcodeBuffer = await bwipjs.toBuffer({
+                bcid: 'code128',
+                text: order.id,
+                scale: 3,
+                height: 10,
+                includetext: true,
+                textxalign: 'center',
+            });
+            barcodeDataUrl = `data:image/png;base64,${barcodeBuffer.toString('base64')}`;
+        } catch (barcodeError) {
+            console.warn('Barcode generation failed:', barcodeError.message);
+            // Continue without barcode
+        }
 
         // Generate HTML for invoice
         const html = this.generateInvoiceHTML(order, items, vendorName, vendorAddress, vendorGST, barcodeDataUrl);
 
         // Generate PDF using Puppeteer
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
-
+        let browser;
         try {
+            // Launch options for Render.com and other cloud providers
+            const launchOptions: any = {
+                headless: true,
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--disable-gpu',
+                    '--disable-web-security',
+                    '--disable-features=IsolateOrigins,site-per-process'
+                ]
+            };
+
+            // Use PUPPETEER_EXECUTABLE_PATH if set (for Render.com)
+            if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+                launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+            }
+
+            browser = await puppeteer.launch(launchOptions);
+
             const page = await browser.newPage();
-            await page.setContent(html, { waitUntil: 'networkidle0' });
+            
+            // Set viewport
+            await page.setViewport({ width: 794, height: 1123 }); // A4 at 96 DPI
+            
+            // Set content with shorter timeout
+            await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 10000 });
+            
+            // Wait a bit for fonts/styles to apply
+            await page.evaluate(() => document.readyState === 'complete');
             
             const pdf = await page.pdf({
                 format: 'A4',
                 printBackground: true,
-                margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' }
+                margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
+                preferCSSPageSize: true
             });
 
             return Buffer.from(pdf);
+        } catch (error) {
+            console.error('PDF generation error:', error);
+            throw new Error(`Failed to generate PDF: ${error.message}`);
         } finally {
-            await browser.close();
+            if (browser) {
+                await browser.close().catch(err => console.error('Browser close error:', err));
+            }
         }
     }
 
@@ -538,10 +577,16 @@ export class InvoicesService {
                 <div class="info-sub"><strong>Order #:</strong> ${orderNumber}</div>
                 <div class="info-sub"><strong>Date:</strong> ${orderDate}</div>
                 <div class="info-sub"><strong>Payment:</strong> ${order.payment?.provider || 'COD'}</div>
+                ${barcodeDataUrl ? `
                 <div class="barcode-container">
                     <img src="${barcodeDataUrl}" alt="Order Barcode" />
                     <div class="barcode-text">${order.id}</div>
                 </div>
+                ` : `
+                <div style="margin-top: 10px; padding: 10px; background: #f5f5f5; border: 1px dashed #ddd; border-radius: 4px; text-align: center;">
+                    <div style="font-size: 10px; color: #666; font-family: monospace;">Order ID: ${order.id}</div>
+                </div>
+                `}
             </div>
             <div class="info-box">
                 <div class="info-label">Bill To:</div>

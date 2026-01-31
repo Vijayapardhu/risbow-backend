@@ -6,7 +6,7 @@ services:
     region: oregon
     branch: master
     autoDeploy: true
-    buildCommand: npm ci --include=dev && npm run build
+    buildCommand: npm ci --include=dev && npm run build && npx puppeteer browsers install chrome
     startCommand: npm run start:prod
     healthCheckPath: /api/v1/health
     envVars:
@@ -57,4 +57,10 @@ services:
       # Logging
       - key: LOG_LEVEL
         value: "info"
+      
+      # Puppeteer (for PDF generation)
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: "false"
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: "/opt/render/.cache/puppeteer/chrome/linux-*/chrome-linux/chrome"
 
