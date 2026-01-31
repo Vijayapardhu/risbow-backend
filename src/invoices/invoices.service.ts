@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import puppeteer from 'puppeteer';
+import bwipjs from 'bwip-js';
 
 @Injectable()
 export class InvoicesService {
@@ -44,8 +45,19 @@ export class InvoicesService {
             }
         }
 
+        // Generate barcode for order ID
+        const barcodeBuffer = await bwipjs.toBuffer({
+            bcid: 'code128',
+            text: order.id,
+            scale: 3,
+            height: 10,
+            includetext: true,
+            textxalign: 'center',
+        });
+        const barcodeDataUrl = `data:image/png;base64,${barcodeBuffer.toString('base64')}`;
+
         // Generate HTML for invoice
-        const html = this.generateInvoiceHTML(order, items, vendorName, vendorAddress, vendorGST);
+        const html = this.generateInvoiceHTML(order, items, vendorName, vendorAddress, vendorGST, barcodeDataUrl);
 
         // Generate PDF using Puppeteer
         const browser = await puppeteer.launch({
@@ -69,7 +81,7 @@ export class InvoicesService {
         }
     }
 
-    private generateInvoiceHTML(order: any, items: any[], vendorName: string, vendorAddress: string, vendorGST: string): string {
+    private generateInvoiceHTML(order: any, items: any[], vendorName: string, vendorAddress: string, vendorGST: string, barcodeDataUrl: string): string {
         const invoiceNumber = `INV-${order.id.substring(0, 8).toUpperCase()}`;
         const orderNumber = order.orderNumber || `ORD-${order.id.substring(0, 8).toUpperCase()}`;
         const orderDate = new Date(order.createdAt).toLocaleDateString('en-IN');
@@ -128,7 +140,8 @@ export class InvoicesService {
                 vendorAddress,
                 vendorGST,
                 totals: { totalTaxable, totalCGST, totalSGST, shipping, discount, grandTotal },
-                showTotals: isLastPage
+                showTotals: isLastPage,
+                barcodeDataUrl
             });
         }
 
@@ -156,6 +169,40 @@ export class InvoicesService {
         }
         .page:last-child {
             page-break-after: avoid;
+        }
+        
+        /* Security Watermark */
+        .security-watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 60px;
+            color: rgba(200, 200, 200, 0.15);
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 0;
+            letter-spacing: 10px;
+        }
+        
+        /* Barcode styling */
+        .barcode-container {
+            margin-top: 10px;
+            text-align: center;
+            padding: 5px;
+            background: #f9f9f9;
+            border: 1px dashed #ddd;
+            border-radius: 4px;
+        }
+        .barcode-container img {
+            max-width: 100%;
+            height: 50px;
+        }
+        .barcode-text {
+            font-size: 9px;
+            color: #666;
+            margin-top: 2px;
+            font-family: monospace;
         }
         
         /* Header */
@@ -368,7 +415,8 @@ export class InvoicesService {
         vendorAddress,
         vendorGST,
         totals,
-        showTotals
+        showTotals,
+        barcodeDataUrl
     }: any): string {
         const customerName = order.user?.name || order.customerName || 'Customer';
         const customerMobile = order.user?.mobile || order.customerMobile || '-';
@@ -462,6 +510,7 @@ export class InvoicesService {
 
         return `
     <div class="page">
+        <div class="security-watermark">SECURE</div>
         <div class="header">
             <div class="header-left">
                 <h1>TAX INVOICE</h1>
@@ -489,6 +538,10 @@ export class InvoicesService {
                 <div class="info-sub"><strong>Order #:</strong> ${orderNumber}</div>
                 <div class="info-sub"><strong>Date:</strong> ${orderDate}</div>
                 <div class="info-sub"><strong>Payment:</strong> ${order.payment?.provider || 'COD'}</div>
+                <div class="barcode-container">
+                    <img src="${barcodeDataUrl}" alt="Order Barcode" />
+                    <div class="barcode-text">${order.id}</div>
+                </div>
             </div>
             <div class="info-box">
                 <div class="info-label">Bill To:</div>
