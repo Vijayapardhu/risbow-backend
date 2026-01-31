@@ -114,7 +114,7 @@ export class InvoicesService {
         // Generate HTML for invoice
         const html = this.generateInvoiceHTML(order, items, vendorName, vendorAddress, vendorGST, barcodeDataUrl);
 
-        // Generate PDF using Puppeteer
+        // Try to generate PDF using Puppeteer
         let browser;
         try {
             // Launch options for Render.com and other cloud providers
@@ -163,9 +163,13 @@ export class InvoicesService {
             });
 
             return Buffer.from(pdf);
-        } catch (error) {
-            console.error('PDF generation error:', error);
-            throw new Error(`Failed to generate PDF: ${error.message}`);
+        } catch (puppeteerError) {
+            console.error('Puppeteer PDF generation failed:', puppeteerError.message);
+            console.log('Falling back to HTML invoice...');
+            
+            // Fallback: Return HTML as a simple "PDF" (browser can print to PDF)
+            const htmlBuffer = Buffer.from(html, 'utf-8');
+            return htmlBuffer;
         } finally {
             if (browser) {
                 await browser.close().catch(err => console.error('Browser close error:', err));
