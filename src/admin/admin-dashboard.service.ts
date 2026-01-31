@@ -6,7 +6,8 @@ export class AdminDashboardService {
     constructor(private prisma: PrismaService) { }
 
     async getDashboardData(period: string) {
-        const [kpis, orderFunnel, revenue, products, actions, customers, system, recentOrders, trendingShops] = await Promise.all([
+        // Use Promise.allSettled to handle individual failures gracefully
+        const results = await Promise.allSettled([
             this.getKPIs(period),
             this.getOrderFunnel(),
             this.getRevenueIntelligence(period),
@@ -18,16 +19,81 @@ export class AdminDashboardService {
             this.getTrendingShops()
         ]);
 
+        const [
+            kpisResult,
+            orderFunnelResult,
+            revenueResult,
+            productsResult,
+            actionsResult,
+            customersResult,
+            systemResult,
+            recentOrdersResult,
+            trendingShopsResult
+        ] = results;
+
         return {
-            kpis,
-            orderFunnel,
-            revenue,
-            products,
-            actions,
-            customers,
-            system,
-            recentOrders,
-            trendingShops
+            kpis: kpisResult.status === 'fulfilled' ? kpisResult.value : this.getDefaultKPIs(),
+            orderFunnel: orderFunnelResult.status === 'fulfilled' ? orderFunnelResult.value : this.getDefaultOrderFunnel(),
+            revenue: revenueResult.status === 'fulfilled' ? revenueResult.value : this.getDefaultRevenueIntelligence(),
+            products: productsResult.status === 'fulfilled' ? productsResult.value : { topSelling: [] },
+            actions: actionsResult.status === 'fulfilled' ? actionsResult.value : [],
+            customers: customersResult.status === 'fulfilled' ? customersResult.value : this.getDefaultCustomerSignals(),
+            system: systemResult.status === 'fulfilled' ? systemResult.value : this.getDefaultSystemHealth(),
+            recentOrders: recentOrdersResult.status === 'fulfilled' ? recentOrdersResult.value : [],
+            trendingShops: trendingShopsResult.status === 'fulfilled' ? trendingShopsResult.value : []
+        };
+    }
+
+    private getDefaultKPIs() {
+        return {
+            gmv: 0,
+            gmvTrend: '+0%',
+            commission: 0,
+            commissionTrend: '+0%',
+            netRevenue: 0,
+            revenueTrend: '+0%',
+            ordersToday: 0,
+            codOrders: 0,
+            onlineOrders: 0,
+            activeVendors: 0,
+            conversionRate: 0
+        };
+    }
+
+    private getDefaultOrderFunnel() {
+        return {
+            pending: 0,
+            pendingAlert: false,
+            confirmed: 0,
+            packed: 0,
+            shipped: 0,
+            delivered: 0,
+            cancelled: 0,
+            cancelledSpike: false
+        };
+    }
+
+    private getDefaultRevenueIntelligence() {
+        return {
+            onlineSuccessRate: 0,
+            codFailureRate: 0,
+            refundAmount: 0,
+            pendingPayouts: 0
+        };
+    }
+
+    private getDefaultCustomerSignals() {
+        return {
+            highReturn: 0,
+            abandonedHighValue: 0,
+            repeatBuyers: 0
+        };
+    }
+
+    private getDefaultSystemHealth() {
+        return {
+            failedPayments: 0,
+            apiErrors: 0
         };
     }
 
@@ -262,30 +328,38 @@ export class AdminDashboardService {
     }
 
     async getRecentOrders() {
-        const orders = await this.prisma.order.findMany({
-            take: 5,
-            orderBy: { createdAt: 'desc' },
-            include: {
-                user: {
-                    select: {
-                        name: true,
-                        email: true,
-                        mobile: true
-                    }
-                }
-            }
-        });
+        try {
+            // Use raw SQL for better performance - single query with join
+            const orders = await this.prisma.$queryRaw`
+                SELECT 
+                    o.id,
+                    o."totalAmount" as amount,
+                    o.status,
+                    o."createdAt" as date,
+                    COALESCE(o.items, '[]') as items,
+                    COALESCE(u.name, u.mobile, 'Unknown') as customer,
+                    u.email
+                FROM "Order" o
+                LEFT JOIN "User" u ON o."userId" = u.id
+                ORDER BY o."createdAt" DESC
+                LIMIT 5
+            `;
 
-        return orders.map(order => ({
-            id: order.id,
-            customer: order.user.name || order.user.mobile,
-            avatar: null,
-            email: order.user.email,
-            amount: order.totalAmount,
-            status: order.status,
-            date: order.createdAt,
-            items: (order.items as any[]).length // Simplified for dashboard
-        }));
+            return (orders as any[]).map(order => ({
+                id: order.id,
+                customer: order.customer || 'Unknown',
+                avatar: null,
+                email: order.email,
+                amount: Number(order.amount) || 0,
+                status: order.status,
+                date: order.date,
+                items: Array.isArray(order.items) ? order.items.length : 
+                       typeof order.items === 'string' ? JSON.parse(order.items).length : 0
+            }));
+        } catch (error) {
+            console.error('Error fetching recent orders:', error);
+            return [];
+        }
     }
 
     async getTrendingShops() {
@@ -311,66 +385,68 @@ export class AdminDashboardService {
     }
 
     async getStats() {
-        const [
-            totalUsers,
-            totalVendors,
-            totalOrders,
-            totalRevenue,
-            pendingOrders,
-            confirmedOrders,
-            processingOrders,
-            shippedOrders,
-            deliveredOrders,
-            cancelledOrders,
-            activeProducts,
-            totalWithdrawn,
-            pendingWithdraw,
-            totalCommission,
-            rejectedWithdraw
-        ] = await Promise.all([
-            this.prisma.user.count(),
-            this.prisma.vendor.count(),
-            this.prisma.order.count(),
-            this.prisma.order.aggregate({
-                where: { status: { not: 'CANCELLED' } },
-                _sum: { totalAmount: true }
-            }),
-            this.prisma.order.count({ where: { status: { in: ['PENDING', 'CREATED', 'PENDING_PAYMENT'] } } }),
-            this.prisma.order.count({ where: { status: 'CONFIRMED' } }),
-            this.prisma.order.count({ where: { status: 'PACKED' } }),
-            this.prisma.order.count({ where: { status: 'SHIPPED' } }),
-            this.prisma.order.count({ where: { status: 'DELIVERED' } }),
-            this.prisma.order.count({ where: { status: 'CANCELLED' } }),
-            this.prisma.product.count({ where: { isActive: true } }),
-            // Mock values for withdraw stats - implement with actual payout table
-            Promise.resolve(0),
-            Promise.resolve(0),
-            this.prisma.order.aggregate({
-                where: { status: { not: 'CANCELLED' } },
-                _sum: { totalAmount: true }
-            }).then(r => Math.floor((r._sum.totalAmount || 0) * 0.1)),
-            Promise.resolve(0)
-        ]);
+        try {
+            // Use a single raw SQL query for all aggregations - much faster than multiple count queries
+            const statsResult = await this.prisma.$queryRaw`
+                SELECT 
+                    (SELECT COUNT(*) FROM "User") as total_users,
+                    (SELECT COUNT(*) FROM "Vendor") as total_vendors,
+                    (SELECT COUNT(*) FROM "Order") as total_orders,
+                    (SELECT COALESCE(SUM("totalAmount"), 0) FROM "Order" WHERE status != 'CANCELLED') as total_revenue,
+                    (SELECT COUNT(*) FROM "Order" WHERE status IN ('PENDING', 'CREATED', 'PENDING_PAYMENT')) as pending_orders,
+                    (SELECT COUNT(*) FROM "Order" WHERE status = 'CONFIRMED') as confirmed_orders,
+                    (SELECT COUNT(*) FROM "Order" WHERE status = 'PACKED') as processing_orders,
+                    (SELECT COUNT(*) FROM "Order" WHERE status = 'SHIPPED') as shipped_orders,
+                    (SELECT COUNT(*) FROM "Order" WHERE status = 'DELIVERED') as delivered_orders,
+                    (SELECT COUNT(*) FROM "Order" WHERE status = 'CANCELLED') as cancelled_orders,
+                    (SELECT COUNT(*) FROM "Product" WHERE "isActive" = true) as active_products,
+                    (SELECT COALESCE(SUM("totalAmount"), 0) * 0.1 FROM "Order" WHERE status != 'CANCELLED') as total_commission
+            `;
 
-        return {
-            totalUsers,
-            totalVendors,
-            totalOrders,
-            totalRevenue: totalRevenue._sum.totalAmount || 0,
-            pendingOrders,
-            confirmedOrders,
-            processingOrders,
-            shippedOrders,
-            deliveredOrders,
-            cancelledOrders,
-            activeProducts,
-            userGrowth: 0,
-            revenueGrowth: 0,
-            totalWithdrawn,
-            pendingWithdraw,
-            totalCommission,
-            rejectedWithdraw
-        };
+            const stats = (statsResult as any[])[0];
+
+            return {
+                totalUsers: Number(stats.total_users) || 0,
+                totalVendors: Number(stats.total_vendors) || 0,
+                totalOrders: Number(stats.total_orders) || 0,
+                totalRevenue: Number(stats.total_revenue) || 0,
+                pendingOrders: Number(stats.pending_orders) || 0,
+                confirmedOrders: Number(stats.confirmed_orders) || 0,
+                processingOrders: Number(stats.processing_orders) || 0,
+                shippedOrders: Number(stats.shipped_orders) || 0,
+                deliveredOrders: Number(stats.delivered_orders) || 0,
+                cancelledOrders: Number(stats.cancelled_orders) || 0,
+                activeProducts: Number(stats.active_products) || 0,
+                userGrowth: 0,
+                revenueGrowth: 0,
+                totalWithdrawn: 0, // TODO: Implement with actual payout table
+                pendingWithdraw: 0,
+                totalCommission: Math.floor(Number(stats.total_commission) || 0),
+                rejectedWithdraw: 0
+            };
+        } catch (error) {
+            console.error('Error fetching dashboard stats:', error);
+            // Return default stats on error to prevent frontend crash
+            return {
+                totalUsers: 0,
+                totalVendors: 0,
+                totalOrders: 0,
+                totalRevenue: 0,
+                pendingOrders: 0,
+                confirmedOrders: 0,
+                processingOrders: 0,
+                shippedOrders: 0,
+                deliveredOrders: 0,
+                cancelledOrders: 0,
+                activeProducts: 0,
+                userGrowth: 0,
+                revenueGrowth: 0,
+                totalWithdrawn: 0,
+                pendingWithdraw: 0,
+                totalCommission: 0,
+                rejectedWithdraw: 0
+            };
+        }
     }
 
     private getDateRange(period: string): { start: Date; end: Date } {

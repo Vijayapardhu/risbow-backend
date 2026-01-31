@@ -1289,43 +1289,44 @@ export class AdminService {
     // --- VENDORS MANAGEMENT ---
 
     async getVendors(status: string = 'ALL', page: number = 1, limit: number = 20, search?: string, sort?: string) {
-        const where: any = {};
-        if (status && status !== 'ALL' && status !== '') {
-            // Map frontend status to DB: ACTIVE/VERIFIED -> APPROVED; PENDING/SUSPENDED as-is
-            const kycMap: Record<string, string> = {
-                ACTIVE: 'APPROVED',
-                VERIFIED: 'APPROVED',
-                PENDING: 'PENDING',
-                SUSPENDED: 'SUSPENDED',
-                REJECTED: 'REJECTED',
-                APPROVED: 'APPROVED',
-            };
-            where.kycStatus = kycMap[status] ?? status;
-        }
-        if (search) {
-            where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
-                { storeName: { contains: search, mode: 'insensitive' } },
-                { email: { contains: search, mode: 'insensitive' } },
-                { mobile: { contains: search, mode: 'insensitive' } },
-            ];
-        }
+        try {
+            const where: any = {};
+            if (status && status !== 'ALL' && status !== '') {
+                // Map frontend status to DB: ACTIVE/VERIFIED -> APPROVED; PENDING/SUSPENDED as-is
+                const kycMap: Record<string, string> = {
+                    ACTIVE: 'APPROVED',
+                    VERIFIED: 'APPROVED',
+                    PENDING: 'PENDING',
+                    SUSPENDED: 'SUSPENDED',
+                    REJECTED: 'REJECTED',
+                    APPROVED: 'APPROVED',
+                };
+                where.kycStatus = kycMap[status] ?? status;
+            }
+            if (search) {
+                where.OR = [
+                    { name: { contains: search, mode: 'insensitive' } },
+                    { storeName: { contains: search, mode: 'insensitive' } },
+                    { email: { contains: search, mode: 'insensitive' } },
+                    { mobile: { contains: search, mode: 'insensitive' } },
+                ];
+            }
 
-        // Parse sort parameter (e.g., "orderCount:desc" or "createdAt:asc")
-        let orderBy: any = { createdAt: 'desc' }; // default
-        if (sort) {
-            const [field, direction] = sort.split(':');
-            if (field && direction) {
-                // Note: orderCount is not a direct field, would need aggregation
-                // For now, use available fields like createdAt, followCount, etc.
-                if (field === 'orderCount') {
-                    // Can't sort by orderCount without aggregation, use followCount as proxy
-                    orderBy = { followCount: direction.toLowerCase() };
-                } else {
-                    orderBy = { [field]: direction.toLowerCase() };
+            // Parse sort parameter (e.g., "orderCount:desc" or "createdAt:asc")
+            let orderBy: any = { createdAt: 'desc' }; // default
+            if (sort) {
+                const [field, direction] = sort.split(':');
+                if (field && direction) {
+                    // Note: orderCount is not a direct field, would need aggregation
+                    // For now, use available fields like createdAt, followCount, etc.
+                    if (field === 'orderCount') {
+                        // Can't sort by orderCount without aggregation, use followCount as proxy
+                        orderBy = { followCount: direction.toLowerCase() };
+                    } else {
+                        orderBy = { [field]: direction.toLowerCase() };
+                    }
                 }
             }
-        }
 
         const [vendors, total] = await Promise.all([
             this.prisma.vendor.findMany({
@@ -1378,6 +1379,19 @@ export class AdminService {
                 totalPages: Math.ceil(total / limit),
             },
         };
+        } catch (error) {
+            console.error('Error in getVendors:', error);
+            // Return empty result instead of throwing
+            return {
+                data: [],
+                meta: {
+                    total: 0,
+                    page: 1,
+                    limit: 20,
+                    totalPages: 0,
+                },
+            };
+        }
     }
 
     async approveVendor(adminId: string, id: string, approved: boolean, reason?: string) {

@@ -698,16 +698,29 @@ export class OrdersService {
                 page,
                 limit,
                 totalPages: Math.ceil(total / limit),
-                stats: {
-                    pending: await this.prisma.order.count({ where: { status: 'PENDING' } }),
-                    confirmed: await this.prisma.order.count({ where: { status: 'CONFIRMED' } }),
-                    packed: await this.prisma.order.count({ where: { status: 'PACKED' } }),
-                    shipped: await this.prisma.order.count({ where: { status: 'SHIPPED' } }),
-                    delivered: await this.prisma.order.count({ where: { status: 'DELIVERED' } }),
-                    cancelled: await this.prisma.order.count({ where: { status: 'CANCELLED' } }),
-                }
+                stats: await this.getOrderStats().catch(() => ({
+                    pending: 0,
+                    confirmed: 0,
+                    packed: 0,
+                    shipped: 0,
+                    delivered: 0,
+                    cancelled: 0,
+                }))
             }
         };
+    }
+
+    private async getOrderStats() {
+        const [pending, confirmed, packed, shipped, delivered, cancelled] = await Promise.all([
+            this.prisma.order.count({ where: { status: 'PENDING' } }),
+            this.prisma.order.count({ where: { status: 'CONFIRMED' } }),
+            this.prisma.order.count({ where: { status: 'PACKED' } }),
+            this.prisma.order.count({ where: { status: 'SHIPPED' } }),
+            this.prisma.order.count({ where: { status: 'DELIVERED' } }),
+            this.prisma.order.count({ where: { status: 'CANCELLED' } }),
+        ]);
+        
+        return { pending, confirmed, packed, shipped, delivered, cancelled };
     }
 
     async getOrderDetail(orderId: string) {
