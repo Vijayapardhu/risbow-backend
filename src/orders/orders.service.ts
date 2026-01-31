@@ -647,6 +647,13 @@ export class OrdersService {
                 id: order.id,
                 orderNumber: `ORD-${order.id.substring(0, 8).toUpperCase()}`, // Use first 8 chars of ID as order number
                 orderDate: order.createdAt.toISOString(),
+                userId: order.userId,
+                user: order.user ? {
+                    id: order.user.id,
+                    name: order.user.name,
+                    email: order.user.email,
+                    mobile: order.user.mobile
+                } : undefined,
                 customerId: order.userId,
                 customerName: order.user?.name || 'Guest Customer',
                 customerEmail: order.user?.email || '',
@@ -691,8 +698,14 @@ export class OrdersService {
             };
         });
 
-        return {
+        // Build response with both 'orders' and 'data' for backward compatibility
+        const response = {
+            orders: transformedOrders,
             data: transformedOrders,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
             meta: {
                 total,
                 page,
@@ -708,6 +721,8 @@ export class OrdersService {
                 }))
             }
         };
+        
+        return response;
     }
 
     private async getOrderStats() {
