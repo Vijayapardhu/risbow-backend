@@ -47,6 +47,7 @@ import { ClearanceModule } from './clearance/clearance.module';
 import { VendorDocumentsModule } from './vendor-documents/vendor-documents.module';
 import { ContentModerationModule } from './moderation/content-moderation.module';
 import { BannerCampaignsModule } from './banner-campaigns/banner-campaigns.module';
+import { InvoicesModule } from './invoices/invoices.module';
 
 // New Modules
 import { RefundsModule } from './refunds/refunds.module';
@@ -138,6 +139,7 @@ import { HealthController } from './common/health.controller';
         CmsModule,
         BlogModule,
         NotificationsAdminModule,
+        InvoicesModule,
     ],
     controllers: [HealthController], // RootHealthController registered manually in main.ts
 })
