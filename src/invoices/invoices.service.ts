@@ -213,16 +213,16 @@ export class InvoicesService {
                     
                     // Calculate row height based on product name length
                     const productNameText = productName.length > 35 ? productName.substring(0, 35) + '...' : productName;
-                    const textHeight = doc.heightOfString(productNameText, { width: 200, fontSize: 8 });
+                    const textHeight = doc.heightOfString(productNameText, { width: 200 });
                     const rowHeight = Math.max(18, textHeight + 4);
                     
                     doc.text((index + 1).toString(), 50, y, { width: 30, align: 'center' });
                     doc.text(productNameText, 85, y, { width: 200, height: rowHeight });
                     doc.text(quantity.toString(), 290, y, { width: 40, align: 'center' });
-                    doc.text(`₹${unitPrice.toLocaleString('en-IN')}`, 335, y, { width: 70, align: 'right' });
-                    doc.text(`₹${taxableValue.toLocaleString('en-IN')}`, 410, y, { width: 70, align: 'right' });
-                    doc.text(`₹${cgst}`, 485, y, { width: 35, align: 'right' });
-                    doc.text(`₹${sgst}`, 525, y, { width: 35, align: 'right' });
+                    doc.text(this.formatCurrency(unitPrice), 335, y, { width: 70, align: 'right' });
+                    doc.text(this.formatCurrency(taxableValue), 410, y, { width: 70, align: 'right' });
+                    doc.text(this.formatCurrency(cgst), 485, y, { width: 35, align: 'right' });
+                    doc.text(this.formatCurrency(sgst), 525, y, { width: 35, align: 'right' });
                     
                     y += rowHeight;
                     
@@ -258,26 +258,26 @@ export class InvoicesService {
                 
                 doc.fontSize(10).font('Helvetica').fillColor('#333');
                 doc.text('Subtotal:', totalsX, y, { width: 120, align: 'right' });
-                doc.text(`₹${totalTaxable.toLocaleString('en-IN')}`, valueX, y, { width: 70, align: 'right' });
+                doc.text(this.formatCurrency(totalTaxable), valueX, y, { width: 70, align: 'right' });
                 y += 18;
                 
                 doc.text('CGST (9%):', totalsX, y, { width: 120, align: 'right' });
-                doc.text(`₹${totalCGST.toLocaleString('en-IN')}`, valueX, y, { width: 70, align: 'right' });
+                doc.text(this.formatCurrency(totalCGST), valueX, y, { width: 70, align: 'right' });
                 y += 18;
                 
                 doc.text('SGST (9%):', totalsX, y, { width: 120, align: 'right' });
-                doc.text(`₹${totalSGST.toLocaleString('en-IN')}`, valueX, y, { width: 70, align: 'right' });
+                doc.text(this.formatCurrency(totalSGST), valueX, y, { width: 70, align: 'right' });
                 y += 18;
                 
                 if (shipping > 0) {
                     doc.text('Shipping:', totalsX, y, { width: 120, align: 'right' });
-                    doc.text(`₹${shipping.toLocaleString('en-IN')}`, valueX, y, { width: 70, align: 'right' });
+                    doc.text(this.formatCurrency(shipping), valueX, y, { width: 70, align: 'right' });
                     y += 18;
                 }
                 
                 if (discount > 0) {
                     doc.text('Discount:', totalsX, y, { width: 120, align: 'right' });
-                    doc.fillColor('#059669').text(`-₹${discount.toLocaleString('en-IN')}`, valueX, y, { width: 70, align: 'right' });
+                    doc.fillColor('#059669').text(`-${this.formatCurrency(discount)}`, valueX, y, { width: 70, align: 'right' });
                     doc.fillColor('#333');
                     y += 18;
                 }
@@ -287,7 +287,7 @@ export class InvoicesService {
                 doc.rect(totalsX - 10, y - 5, 210, 25).fill('#f5f5f5').stroke('#1a1a2e');
                 doc.fontSize(12).font('Helvetica-Bold').fillColor('#1a1a2e');
                 doc.text('Grand Total:', totalsX, y, { width: 120, align: 'right' });
-                doc.text(`₹${grandTotal.toLocaleString('en-IN')}`, valueX, y, { width: 70, align: 'right' });
+                doc.text(this.formatCurrency(grandTotal), valueX, y, { width: 70, align: 'right' });
                 y += 35;
                 
                 // Amount in words
@@ -311,6 +311,12 @@ export class InvoicesService {
                 reject(error);
             }
         });
+    }
+
+    private formatCurrency(amount: number): string {
+        // Format with Indian numbering system (lakhs, crores)
+        const formatted = amount.toLocaleString('en-IN');
+        return `₹${formatted}/-`;
     }
 
     private numberToWords(num: number): string {
