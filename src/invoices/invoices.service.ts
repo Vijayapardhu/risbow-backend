@@ -1,60 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import puppeteer from 'puppeteer';
-import bwipjs from 'bwip-js';
-import * as fs from 'fs';
-import * as path from 'path';
+import PDFDocument from 'pdfkit';
 
 @Injectable()
 export class InvoicesService {
     constructor(private prisma: PrismaService) {}
-
-    private async findChromeExecutable(): Promise<string | undefined> {
-        // Check environment variable first
-        if (process.env.PUPPETEER_EXECUTABLE_PATH && fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
-            return process.env.PUPPETEER_EXECUTABLE_PATH;
-        }
-
-        // Common Chrome/Chromium paths
-        const possiblePaths = [
-            // Render.com specific
-            '/opt/render/.cache/puppeteer/chrome/linux-*/chrome-linux/chrome',
-            '/opt/render/.cache/puppeteer/chrome/*/chrome-linux/chrome',
-            // Linux
-            '/usr/bin/google-chrome',
-            '/usr/bin/chromium',
-            '/usr/bin/chromium-browser',
-            // macOS
-            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-            // Windows
-            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-        ];
-
-        for (const chromePath of possiblePaths) {
-            try {
-                // Handle glob patterns for Render.com
-                if (chromePath.includes('*')) {
-                    const basePath = chromePath.split('*')[0];
-                    if (fs.existsSync(basePath)) {
-                        const dirs = fs.readdirSync(basePath);
-                        for (const dir of dirs) {
-                            const fullPath = path.join(basePath, dir, 'chrome-linux', 'chrome');
-                            if (fs.existsSync(fullPath)) {
-                                return fullPath;
-                            }
-                        }
-                    }
-                } else if (fs.existsSync(chromePath)) {
-                    return chromePath;
-                }
-            } catch (e) {
-                // Continue to next path
-            }
-        }
-
-        return undefined;
-    }
 
     async generateInvoice(orderId: string): Promise<Buffer> {
         console.log(`[Invoice] Starting generation for order: ${orderId}`);
@@ -64,29 +14,19 @@ export class InvoicesService {
         }
 
         // Fetch order with all details
-        let order;
-        try {
-            order = await this.prisma.order.findUnique({
-                where: { id: orderId },
-                include: {
-                    user: {
-                        select: { id: true, name: true, email: true, mobile: true }
-                    },
-                    address: true,
-                    payment: true,
-                }
-            });
-        } catch (dbError) {
-            console.error('[Invoice] Database error:', dbError.message);
-            throw new Error(`Database error: ${dbError.message}`);
-        }
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+                user: {
+                    select: { id: true, name: true, email: true, mobile: true }
+                },
+                address: true,
+                payment: true,
+            }
+        });
 
         if (!order) {
             throw new NotFoundException(`Order not found: ${orderId}`);
-        }
-
-        if (!order.id) {
-            throw new Error('Order has no ID');
         }
 
         console.log(`[Invoice] Found order: ${order.id}`);
@@ -112,579 +52,191 @@ export class InvoicesService {
             }
         }
 
-        // Generate barcode for order ID (try-catch to handle errors gracefully)
-        let barcodeDataUrl = '';
-        try {
-            const barcodeBuffer = await bwipjs.toBuffer({
-                bcid: 'code128',
-                text: order.id,
-                scale: 3,
-                height: 10,
-                includetext: true,
-                textxalign: 'center',
-            });
-            barcodeDataUrl = `data:image/png;base64,${barcodeBuffer.toString('base64')}`;
-        } catch (barcodeError) {
-            console.warn('Barcode generation failed:', barcodeError.message);
-            // Continue without barcode
-        }
+        // Generate PDF using PDFKit
+        return this.generatePDF(order, items, vendorName, vendorAddress, vendorGST);
+    }
 
-        // Generate HTML for invoice
-        const html = this.generateInvoiceHTML(order, items, vendorName, vendorAddress, vendorGST, barcodeDataUrl);
+    private generatePDF(order: any, items: any[], vendorName: string, vendorAddress: string, vendorGST: string): Promise<Buffer> {
+        return new Promise((resolve, reject) => {
+            try {
+                console.log('[Invoice] Creating PDF with PDFKit...');
+                
+                const doc = new PDFDocument({ margin: 50 });
+                const chunks: Buffer[] = [];
+                
+                doc.on('data', chunk => chunks.push(chunk));
+                doc.on('end', () => {
+                    const pdfBuffer = Buffer.concat(chunks);
+                    console.log('[Invoice] PDF generated, size:', pdfBuffer.length, 'bytes');
+                    resolve(pdfBuffer);
+                });
+                doc.on('error', reject);
 
-        // Generate PDF using Puppeteer
-        let browser;
-        try {
-            console.log('[Invoice] Launching Puppeteer...');
-            
-            // Use Puppeteer's bundled Chromium - don't specify executablePath
-            // This works on Render.com with the build command: npx puppeteer browsers install chrome
-            browser = await puppeteer.launch({
-                headless: true,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--no-first-run',
-                    '--no-zygote',
-                    '--single-process'
-                ]
-            });
-            
-            console.log('[Invoice] Puppeteer launched successfully');
+                const invoiceNumber = `INV-${order.id.substring(0, 8).toUpperCase()}`;
+                const orderNumber = order.orderNumber || `ORD-${order.id.substring(0, 8).toUpperCase()}`;
+                const orderDate = new Date(order.createdAt).toLocaleDateString('en-IN');
+                const customerName = order.user?.name || 'Customer';
+                const customerMobile = order.user?.mobile || '-';
+                const customerEmail = order.user?.email || '-';
+                
+                const address = order.address || {};
+                const shippingAddress = [
+                    address.addressLine1 || address.street || '',
+                    address.addressLine2 || '',
+                    address.city || '',
+                    address.state || '',
+                    address.country || 'India',
+                    address.pincode || address.postalCode || ''
+                ].filter(Boolean).join(', ');
 
-            const page = await browser.newPage();
-            
-            // Set viewport
-            await page.setViewport({ width: 794, height: 1123 });
-            
-            // Set content
-            console.log('[Invoice] Setting page content...');
-            await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
-            console.log('[Invoice] Page content set');
-            
-            // Generate PDF
-            console.log('[Invoice] Generating PDF...');
-            const pdf = await page.pdf({
-                format: 'A4',
-                printBackground: true,
-                margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' }
-            });
-            console.log('[Invoice] PDF generated, size:', pdf.length, 'bytes');
-
-            return Buffer.from(pdf);
-        } catch (error) {
-            console.error('[Invoice] PDF generation failed:', error.message);
-            console.error('[Invoice] Error stack:', error.stack);
-            throw new Error(`PDF generation failed: ${error.message}`);
-        } finally {
-            if (browser) {
-                await browser.close().catch(err => console.error('[Invoice] Browser close error:', err));
+                // Header
+                doc.fontSize(24).font('Helvetica-Bold').text('TAX INVOICE', 50, 50);
+                doc.fontSize(12).font('Helvetica').text('Original for Recipient', 50, 80);
+                
+                // Risbow Logo/Brand
+                doc.fontSize(20).font('Helvetica-Bold').text('RISBOW', 400, 50, { align: 'right' });
+                doc.fontSize(10).font('Helvetica').text('HyperLocal Multivendor', 400, 75, { align: 'right' });
+                
+                // Separator line
+                doc.moveTo(50, 100).lineTo(550, 100).stroke();
+                
+                // Seller Info
+                doc.fontSize(10).font('Helvetica-Bold').text('SOLD BY:', 50, 120);
+                doc.fontSize(12).font('Helvetica-Bold').text(vendorName, 50, 135);
+                doc.fontSize(10).font('Helvetica').text(vendorAddress, 50, 150);
+                doc.fontSize(10).font('Helvetica').text(`GSTIN: ${vendorGST}`, 50, 165);
+                
+                // Invoice Details
+                doc.fontSize(10).font('Helvetica-Bold').text('INVOICE DETAILS:', 300, 120);
+                doc.fontSize(10).font('Helvetica').text(`Invoice #: ${invoiceNumber}`, 300, 135);
+                doc.fontSize(10).font('Helvetica').text(`Order #: ${orderNumber}`, 300, 150);
+                doc.fontSize(10).font('Helvetica').text(`Date: ${orderDate}`, 300, 165);
+                doc.fontSize(10).font('Helvetica').text(`Payment: ${order.payment?.provider || 'COD'}`, 300, 180);
+                doc.fontSize(8).font('Helvetica').text(`Order ID: ${order.id}`, 300, 195);
+                
+                // Bill To
+                doc.fontSize(10).font('Helvetica-Bold').text('BILL TO:', 50, 220);
+                doc.fontSize(12).font('Helvetica-Bold').text(customerName, 50, 235);
+                doc.fontSize(10).font('Helvetica').text(shippingAddress || 'Address not available', 50, 250, { width: 250 });
+                doc.fontSize(10).font('Helvetica').text(`Phone: ${customerMobile}`, 50, 280);
+                doc.fontSize(10).font('Helvetica').text(`Email: ${customerEmail}`, 50, 295);
+                
+                // Separator line
+                doc.moveTo(50, 320).lineTo(550, 320).stroke();
+                
+                // Table Header
+                let y = 340;
+                doc.fontSize(9).font('Helvetica-Bold');
+                doc.text('#', 50, y, { width: 30, align: 'center' });
+                doc.text('Item', 80, y, { width: 200 });
+                doc.text('Qty', 280, y, { width: 40, align: 'center' });
+                doc.text('Price', 320, y, { width: 70, align: 'right' });
+                doc.text('Amount', 390, y, { width: 70, align: 'right' });
+                doc.text('CGST', 460, y, { width: 40, align: 'right' });
+                doc.text('SGST', 500, y, { width: 40, align: 'right' });
+                
+                y += 20;
+                doc.moveTo(50, y).lineTo(550, y).stroke();
+                y += 10;
+                
+                // Table Items
+                let totalTaxable = 0;
+                let totalCGST = 0;
+                let totalSGST = 0;
+                
+                doc.fontSize(8).font('Helvetica');
+                items.forEach((item: any, index: number) => {
+                    const unitPrice = item.price || item.unitPrice || 0;
+                    const quantity = item.quantity || 1;
+                    const taxableValue = unitPrice * quantity;
+                    const cgst = Math.round((taxableValue * 9) / 100);
+                    const sgst = Math.round((taxableValue * 9) / 100);
+                    
+                    totalTaxable += taxableValue;
+                    totalCGST += cgst;
+                    totalSGST += sgst;
+                    
+                    const productName = item.productName || item.name || 'Product';
+                    
+                    doc.text((index + 1).toString(), 50, y, { width: 30, align: 'center' });
+                    doc.text(productName.substring(0, 35), 80, y, { width: 200 });
+                    doc.text(quantity.toString(), 280, y, { width: 40, align: 'center' });
+                    doc.text(`₹${unitPrice.toLocaleString('en-IN')}`, 320, y, { width: 70, align: 'right' });
+                    doc.text(`₹${taxableValue.toLocaleString('en-IN')}`, 390, y, { width: 70, align: 'right' });
+                    doc.text(`₹${cgst}`, 460, y, { width: 40, align: 'right' });
+                    doc.text(`₹${sgst}`, 500, y, { width: 40, align: 'right' });
+                    
+                    y += 20;
+                    
+                    // Add new page if needed
+                    if (y > 700) {
+                        doc.addPage();
+                        y = 50;
+                    }
+                });
+                
+                // Separator line
+                doc.moveTo(50, y).lineTo(550, y).stroke();
+                y += 15;
+                
+                // Totals
+                const shipping = order.shippingCharges || 0;
+                const discount = order.coinsUsed || 0;
+                const grandTotal = totalTaxable + totalCGST + totalSGST + shipping - discount;
+                
+                doc.fontSize(10).font('Helvetica');
+                doc.text('Subtotal:', 350, y, { width: 100, align: 'right' });
+                doc.text(`₹${totalTaxable.toLocaleString('en-IN')}`, 450, y, { width: 100, align: 'right' });
+                y += 20;
+                
+                doc.text('CGST (9%):', 350, y, { width: 100, align: 'right' });
+                doc.text(`₹${totalCGST.toLocaleString('en-IN')}`, 450, y, { width: 100, align: 'right' });
+                y += 20;
+                
+                doc.text('SGST (9%):', 350, y, { width: 100, align: 'right' });
+                doc.text(`₹${totalSGST.toLocaleString('en-IN')}`, 450, y, { width: 100, align: 'right' });
+                y += 20;
+                
+                if (shipping > 0) {
+                    doc.text('Shipping:', 350, y, { width: 100, align: 'right' });
+                    doc.text(`₹${shipping.toLocaleString('en-IN')}`, 450, y, { width: 100, align: 'right' });
+                    y += 20;
+                }
+                
+                if (discount > 0) {
+                    doc.text('Discount:', 350, y, { width: 100, align: 'right' });
+                    doc.text(`-₹${discount.toLocaleString('en-IN')}`, 450, y, { width: 100, align: 'right' });
+                    y += 20;
+                }
+                
+                // Grand Total
+                doc.fontSize(12).font('Helvetica-Bold');
+                doc.text('Grand Total:', 350, y, { width: 100, align: 'right' });
+                doc.text(`₹${grandTotal.toLocaleString('en-IN')}`, 450, y, { width: 100, align: 'right' });
+                y += 30;
+                
+                // Amount in words
+                doc.fontSize(9).font('Helvetica-Oblique');
+                doc.text(`Amount in words: ${this.numberToWords(grandTotal)} Rupees Only`, 50, y, { width: 500 });
+                y += 40;
+                
+                // Footer
+                doc.fontSize(9).font('Helvetica');
+                doc.text('Declaration: We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.', 50, y, { width: 400 });
+                y += 30;
+                
+                doc.text('This is a computer generated invoice and does not require signature.', 50, y, { width: 400 });
+                y += 30;
+                
+                doc.fontSize(10).font('Helvetica-Bold');
+                doc.text('Thank you for shopping with Risbow!', 50, y, { width: 500, align: 'center' });
+                
+                doc.end();
+            } catch (error) {
+                console.error('[Invoice] PDF generation error:', error);
+                reject(error);
             }
-        }
-    }
-
-    private generateInvoiceHTML(order: any, items: any[], vendorName: string, vendorAddress: string, vendorGST: string, barcodeDataUrl: string): string {
-        const invoiceNumber = `INV-${order.id.substring(0, 8).toUpperCase()}`;
-        const orderNumber = order.orderNumber || `ORD-${order.id.substring(0, 8).toUpperCase()}`;
-        const orderDate = new Date(order.createdAt).toLocaleDateString('en-IN');
-        
-        // Calculate totals
-        const invoiceItems = items.map((item: any, index: number) => {
-            const unitPrice = item.price || item.unitPrice || 0;
-            const quantity = item.quantity || 1;
-            const taxableValue = unitPrice * quantity;
-            const cgstRate = 9;
-            const sgstRate = 9;
-            const cgst = Math.round((taxableValue * cgstRate) / 100);
-            const sgst = Math.round((taxableValue * sgstRate) / 100);
-            
-            return {
-                sno: index + 1,
-                name: item.productName || item.name || item.product?.title || 'Product',
-                quantity,
-                unitPrice,
-                taxableValue,
-                cgstRate,
-                sgstRate,
-                cgst,
-                sgst,
-                total: taxableValue + cgst + sgst
-            };
         });
-
-        const totalTaxable = invoiceItems.reduce((sum, item) => sum + item.taxableValue, 0);
-        const totalCGST = invoiceItems.reduce((sum, item) => sum + item.cgst, 0);
-        const totalSGST = invoiceItems.reduce((sum, item) => sum + item.sgst, 0);
-        const shipping = order.shippingCharges || 0;
-        const discount = order.coinsUsed || 0;
-        const grandTotal = totalTaxable + totalCGST + totalSGST + shipping - discount;
-
-        // Handle pagination - split items into pages (10 items per page)
-        const itemsPerPage = 10;
-        const totalPages = Math.ceil(invoiceItems.length / itemsPerPage);
-        
-        // Generate pages
-        let pagesHTML = '';
-        for (let page = 0; page < totalPages; page++) {
-            const pageItems = invoiceItems.slice(page * itemsPerPage, (page + 1) * itemsPerPage);
-            const isLastPage = page === totalPages - 1;
-            
-            pagesHTML += this.generatePageHTML({
-                page,
-                totalPages,
-                isLastPage,
-                items: pageItems,
-                order,
-                invoiceNumber,
-                orderNumber,
-                orderDate,
-                vendorName,
-                vendorAddress,
-                vendorGST,
-                totals: { totalTaxable, totalCGST, totalSGST, shipping, discount, grandTotal },
-                showTotals: isLastPage,
-                barcodeDataUrl
-            });
-        }
-
-        return `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        @page { size: A4; margin: 0; }
-        * { box-sizing: border-box; }
-        body { 
-            font-family: 'Segoe UI', Arial, sans-serif; 
-            margin: 0; 
-            padding: 0; 
-            color: #333;
-            font-size: 12px;
-        }
-        .page {
-            width: 210mm;
-            min-height: 297mm;
-            padding: 15mm;
-            page-break-after: always;
-            position: relative;
-        }
-        .page:last-child {
-            page-break-after: avoid;
-        }
-        
-        /* Security Watermark */
-        .security-watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 60px;
-            color: rgba(200, 200, 200, 0.15);
-            font-weight: bold;
-            pointer-events: none;
-            z-index: 0;
-            letter-spacing: 10px;
-        }
-        
-        /* Barcode styling */
-        .barcode-container {
-            margin-top: 10px;
-            text-align: center;
-            padding: 5px;
-            background: #f9f9f9;
-            border: 1px dashed #ddd;
-            border-radius: 4px;
-        }
-        .barcode-container img {
-            max-width: 100%;
-            height: 50px;
-        }
-        .barcode-text {
-            font-size: 9px;
-            color: #666;
-            margin-top: 2px;
-            font-family: monospace;
-        }
-        
-        /* Header */
-        .header {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 8px 8px 0 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .header-left h1 {
-            margin: 0;
-            font-size: 28px;
-            font-weight: 700;
-            letter-spacing: 2px;
-        }
-        .header-left p {
-            margin: 5px 0 0 0;
-            opacity: 0.8;
-            font-size: 11px;
-        }
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .logo-icon {
-            width: 50px;
-            height: 50px;
-            background: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 24px;
-            color: #1a1a2e;
-        }
-        .logo-text {
-            font-size: 24px;
-            font-weight: 700;
-        }
-        .logo-sub {
-            font-size: 10px;
-            opacity: 0.7;
-        }
-        
-        /* Info Grid */
-        .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            border: 2px solid #1a1a2e;
-            border-top: none;
-        }
-        .info-box {
-            padding: 15px;
-            border-right: 1px solid #ddd;
-        }
-        .info-box:last-child {
-            border-right: none;
-        }
-        .info-label {
-            font-size: 10px;
-            font-weight: 600;
-            color: #666;
-            text-transform: uppercase;
-            margin-bottom: 8px;
-        }
-        .info-value {
-            font-size: 13px;
-            font-weight: 600;
-            color: #1a1a2e;
-        }
-        .info-sub {
-            font-size: 11px;
-            color: #666;
-            margin-top: 3px;
-        }
-        
-        /* Table */
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            border: 2px solid #1a1a2e;
-        }
-        .items-table th {
-            background: #f5f5f5;
-            padding: 10px 8px;
-            text-align: left;
-            font-size: 10px;
-            font-weight: 600;
-            color: #333;
-            border-bottom: 2px solid #1a1a2e;
-            border-right: 1px solid #ddd;
-        }
-        .items-table th:last-child {
-            border-right: none;
-        }
-        .items-table td {
-            padding: 8px;
-            border-bottom: 1px solid #ddd;
-            border-right: 1px solid #eee;
-            font-size: 11px;
-        }
-        .items-table td:last-child {
-            border-right: none;
-        }
-        .items-table tr:last-child td {
-            border-bottom: 2px solid #1a1a2e;
-        }
-        .text-right { text-align: right; }
-        .text-center { text-align: center; }
-        
-        /* Totals */
-        .totals-section {
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 20px;
-        }
-        .totals-box {
-            width: 280px;
-            border: 2px solid #1a1a2e;
-        }
-        .total-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 15px;
-            border-bottom: 1px solid #ddd;
-        }
-        .total-row:last-child {
-            border-bottom: none;
-            background: #f5f5f5;
-            font-weight: 700;
-            font-size: 14px;
-        }
-        
-        /* Footer */
-        .footer {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px solid #1a1a2e;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-        }
-        .declaration {
-            font-size: 10px;
-            color: #666;
-            max-width: 60%;
-        }
-        .declaration-title {
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 5px;
-        }
-        .signature {
-            text-align: center;
-        }
-        .signature-line {
-            width: 150px;
-            border-top: 2px solid #333;
-            margin-bottom: 5px;
-        }
-        .thank-you {
-            text-align: center;
-            margin-top: 20px;
-            font-weight: 600;
-            color: #1a1a2e;
-        }
-        
-        /* Page number */
-        .page-number {
-            position: absolute;
-            bottom: 10mm;
-            right: 15mm;
-            font-size: 10px;
-            color: #999;
-        }
-        
-        /* Amount in words */
-        .amount-words {
-            margin-top: 15px;
-            padding: 10px;
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            font-size: 11px;
-            font-style: italic;
-        }
-    </style>
-</head>
-<body>
-    ${pagesHTML}
-</body>
-</html>`;
-    }
-
-    private generatePageHTML({
-        page,
-        totalPages,
-        isLastPage,
-        items,
-        order,
-        invoiceNumber,
-        orderNumber,
-        orderDate,
-        vendorName,
-        vendorAddress,
-        vendorGST,
-        totals,
-        showTotals,
-        barcodeDataUrl
-    }: any): string {
-        const customerName = order.user?.name || order.customerName || 'Customer';
-        const customerMobile = order.user?.mobile || order.customerMobile || '-';
-        const customerEmail = order.user?.email || order.customerEmail || '-';
-        
-        const address = order.address || {};
-        const shippingAddress = [
-            address.addressLine1 || address.street || '',
-            address.addressLine2 || '',
-            address.city || '',
-            address.state || '',
-            address.country || 'India',
-            address.pincode || address.postalCode || ''
-        ].filter(Boolean).join(', ');
-
-        const formatCurrency = (amount: number) => {
-            return '₹' + amount.toLocaleString('en-IN');
-        };
-
-        const itemsHTML = items.map((item: any) => `
-            <tr>
-                <td class="text-center">${item.sno}</td>
-                <td>${item.name}</td>
-                <td class="text-center">${item.quantity}</td>
-                <td class="text-right">${formatCurrency(item.unitPrice)}</td>
-                <td class="text-right">${formatCurrency(item.taxableValue)}</td>
-                <td class="text-right">${item.cgstRate}%<br><small>${formatCurrency(item.cgst)}</small></td>
-                <td class="text-right">${item.sgstRate}%<br><small>${formatCurrency(item.sgst)}</small></td>
-                <td class="text-right"><strong>${formatCurrency(item.total)}</strong></td>
-            </tr>
-        `).join('');
-
-        const totalsHTML = showTotals ? `
-            <div class="totals-section">
-                <div class="totals-box">
-                    <div class="total-row">
-                        <span>Subtotal:</span>
-                        <span>${formatCurrency(totals.totalTaxable)}</span>
-                    </div>
-                    <div class="total-row">
-                        <span>CGST (9%):</span>
-                        <span>${formatCurrency(totals.totalCGST)}</span>
-                    </div>
-                    <div class="total-row">
-                        <span>SGST (9%):</span>
-                        <span>${formatCurrency(totals.totalSGST)}</span>
-                    </div>
-                    ${totals.shipping > 0 ? `
-                    <div class="total-row">
-                        <span>Shipping:</span>
-                        <span>${formatCurrency(totals.shipping)}</span>
-                    </div>
-                    ` : ''}
-                    ${totals.discount > 0 ? `
-                    <div class="total-row">
-                        <span style="color: #059669;">Discount:</span>
-                        <span style="color: #059669;">-${formatCurrency(totals.discount)}</span>
-                    </div>
-                    ` : ''}
-                    <div class="total-row">
-                        <span>Grand Total:</span>
-                        <span>${formatCurrency(totals.grandTotal)}</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="amount-words">
-                Amount in words: ${this.numberToWords(totals.grandTotal)} Rupees Only
-            </div>
-            
-            <div class="footer">
-                <div class="declaration">
-                    <div class="declaration-title">Declaration:</div>
-                    <p>We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</p>
-                    <p style="margin-top: 10px;">This is a computer generated invoice and does not require signature.</p>
-                </div>
-                <div class="signature">
-                    <div class="signature-line"></div>
-                    <p>Authorized Signatory</p>
-                </div>
-            </div>
-            
-            <div class="thank-you">
-                Thank you for shopping with Risbow!
-            </div>
-        ` : `
-            <div style="text-align: center; margin-top: 30px; color: #999; font-size: 11px;">
-                Continued on next page...
-            </div>
-        `;
-
-        return `
-    <div class="page">
-        <div class="security-watermark">SECURE</div>
-        <div class="header">
-            <div class="header-left">
-                <h1>TAX INVOICE</h1>
-                <p>Original for Recipient</p>
-            </div>
-            <div class="logo">
-                <div class="logo-icon">R</div>
-                <div>
-                    <div class="logo-text">RISBOW</div>
-                    <div class="logo-sub">HyperLocal Multivendor</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="info-grid">
-            <div class="info-box">
-                <div class="info-label">Sold By:</div>
-                <div class="info-value">${vendorName}</div>
-                <div class="info-sub">${vendorAddress}</div>
-                <div class="info-sub" style="margin-top: 8px;"><strong>GSTIN:</strong> ${vendorGST}</div>
-            </div>
-            <div class="info-box">
-                <div class="info-label">Invoice Details:</div>
-                <div class="info-sub"><strong>Invoice #:</strong> ${invoiceNumber}</div>
-                <div class="info-sub"><strong>Order #:</strong> ${orderNumber}</div>
-                <div class="info-sub"><strong>Date:</strong> ${orderDate}</div>
-                <div class="info-sub"><strong>Payment:</strong> ${order.payment?.provider || 'COD'}</div>
-                ${barcodeDataUrl ? `
-                <div class="barcode-container">
-                    <img src="${barcodeDataUrl}" alt="Order Barcode" />
-                    <div class="barcode-text">${order.id}</div>
-                </div>
-                ` : `
-                <div style="margin-top: 10px; padding: 10px; background: #f5f5f5; border: 1px dashed #ddd; border-radius: 4px; text-align: center;">
-                    <div style="font-size: 10px; color: #666; font-family: monospace;">Order ID: ${order.id}</div>
-                </div>
-                `}
-            </div>
-            <div class="info-box">
-                <div class="info-label">Bill To:</div>
-                <div class="info-value">${customerName}</div>
-                <div class="info-sub">${shippingAddress || 'Address not available'}</div>
-                <div class="info-sub" style="margin-top: 8px;"><strong>Phone:</strong> ${customerMobile}</div>
-                <div class="info-sub"><strong>Email:</strong> ${customerEmail}</div>
-            </div>
-        </div>
-        
-        <table class="items-table">
-            <thead>
-                <tr>
-                    <th style="width: 40px;">#</th>
-                    <th>Item Description</th>
-                    <th style="width: 50px;" class="text-center">Qty</th>
-                    <th style="width: 80px;" class="text-right">Unit Price</th>
-                    <th style="width: 80px;" class="text-right">Amount</th>
-                    <th style="width: 80px;" class="text-right">CGST</th>
-                    <th style="width: 80px;" class="text-right">SGST</th>
-                    <th style="width: 90px;" class="text-right">Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${itemsHTML}
-            </tbody>
-        </table>
-        
-        ${totalsHTML}
-        
-        ${totalPages > 1 ? `<div class="page-number">Page ${page + 1} of ${totalPages}</div>` : ''}
-    </div>
-        `;
     }
 
     private numberToWords(num: number): string {
