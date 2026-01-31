@@ -208,17 +208,23 @@ export class InvoicesService {
                     totalCGST += cgst;
                     totalSGST += sgst;
                     
-                    const productName = item.productName || item.name || 'Product';
+                    // Try multiple possible field names for product name
+                    const productName = item.productName || item.productTitle || item.title || item.name || item.product?.title || 'Product';
+                    
+                    // Calculate row height based on product name length
+                    const productNameText = productName.length > 35 ? productName.substring(0, 35) + '...' : productName;
+                    const textHeight = doc.heightOfString(productNameText, { width: 200, fontSize: 8 });
+                    const rowHeight = Math.max(18, textHeight + 4);
                     
                     doc.text((index + 1).toString(), 50, y, { width: 30, align: 'center' });
-                    doc.text(productName.substring(0, 40), 85, y, { width: 200 });
+                    doc.text(productNameText, 85, y, { width: 200, height: rowHeight });
                     doc.text(quantity.toString(), 290, y, { width: 40, align: 'center' });
                     doc.text(`₹${unitPrice.toLocaleString('en-IN')}`, 335, y, { width: 70, align: 'right' });
                     doc.text(`₹${taxableValue.toLocaleString('en-IN')}`, 410, y, { width: 70, align: 'right' });
                     doc.text(`₹${cgst}`, 485, y, { width: 35, align: 'right' });
                     doc.text(`₹${sgst}`, 525, y, { width: 35, align: 'right' });
                     
-                    y += 18;
+                    y += rowHeight;
                     
                     // Add new page if needed
                     if (y > 680) {
