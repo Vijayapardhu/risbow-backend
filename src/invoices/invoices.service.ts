@@ -57,21 +57,39 @@ export class InvoicesService {
     }
 
     async generateInvoice(orderId: string): Promise<Buffer> {
+        console.log(`[Invoice] Starting generation for order: ${orderId}`);
+
+        if (!orderId || orderId.trim() === '') {
+            throw new Error('Order ID is required');
+        }
+
         // Fetch order with all details
-        const order = await this.prisma.order.findUnique({
-            where: { id: orderId },
-            include: {
-                user: {
-                    select: { id: true, name: true, email: true, mobile: true }
-                },
-                address: true,
-                payment: true,
-            }
-        });
+        let order;
+        try {
+            order = await this.prisma.order.findUnique({
+                where: { id: orderId },
+                include: {
+                    user: {
+                        select: { id: true, name: true, email: true, mobile: true }
+                    },
+                    address: true,
+                    payment: true,
+                }
+            });
+        } catch (dbError) {
+            console.error('[Invoice] Database error:', dbError.message);
+            throw new Error(`Database error: ${dbError.message}`);
+        }
 
         if (!order) {
-            throw new NotFoundException('Order not found');
+            throw new NotFoundException(`Order not found: ${orderId}`);
         }
+
+        if (!order.id) {
+            throw new Error('Order has no ID');
+        }
+
+        console.log(`[Invoice] Found order: ${order.id}`);
 
         // Get vendor info from order items
         const items = Array.isArray(order.items) ? order.items : [];
