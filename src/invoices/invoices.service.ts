@@ -2,10 +2,59 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import puppeteer from 'puppeteer';
 import bwipjs from 'bwip-js';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class InvoicesService {
     constructor(private prisma: PrismaService) {}
+
+    private async findChromeExecutable(): Promise<string | undefined> {
+        // Check environment variable first
+        if (process.env.PUPPETEER_EXECUTABLE_PATH && fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
+            return process.env.PUPPETEER_EXECUTABLE_PATH;
+        }
+
+        // Common Chrome/Chromium paths
+        const possiblePaths = [
+            // Render.com specific
+            '/opt/render/.cache/puppeteer/chrome/linux-*/chrome-linux/chrome',
+            '/opt/render/.cache/puppeteer/chrome/*/chrome-linux/chrome',
+            // Linux
+            '/usr/bin/google-chrome',
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser',
+            // macOS
+            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            // Windows
+            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        ];
+
+        for (const chromePath of possiblePaths) {
+            try {
+                // Handle glob patterns for Render.com
+                if (chromePath.includes('*')) {
+                    const basePath = chromePath.split('*')[0];
+                    if (fs.existsSync(basePath)) {
+                        const dirs = fs.readdirSync(basePath);
+                        for (const dir of dirs) {
+                            const fullPath = path.join(basePath, dir, 'chrome-linux', 'chrome');
+                            if (fs.existsSync(fullPath)) {
+                                return fullPath;
+                            }
+                        }
+                    }
+                } else if (fs.existsSync(chromePath)) {
+                    return chromePath;
+                }
+            } catch (e) {
+                // Continue to next path
+            }
+        }
+
+        return undefined;
+    }
 
     async generateInvoice(orderId: string): Promise<Buffer> {
         // Fetch order with all details
@@ -84,9 +133,13 @@ export class InvoicesService {
                 ]
             };
 
-            // Use PUPPETEER_EXECUTABLE_PATH if set (for Render.com)
-            if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-                launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+            // Find Chrome executable
+            const chromePath = await this.findChromeExecutable();
+            if (chromePath) {
+                console.log('Using Chrome at:', chromePath);
+                launchOptions.executablePath = chromePath;
+            } else {
+                console.log('Using Puppeteer bundled Chrome');
             }
 
             browser = await puppeteer.launch(launchOptions);
