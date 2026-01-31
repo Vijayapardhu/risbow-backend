@@ -277,7 +277,7 @@ export class InvoicesService {
                 
                 if (discount > 0) {
                     doc.text('Discount:', totalsX, y, { width: 120, align: 'right' });
-                    doc.fillColor('#059669').text(`-${this.formatCurrency(discount)}`, valueX, y, { width: 70, align: 'right' });
+                    doc.fillColor('#059669').text(`- Rs. ${Math.round(discount)}/-`, valueX, y, { width: 70, align: 'right' });
                     doc.fillColor('#333');
                     y += 18;
                 }
@@ -314,9 +314,24 @@ export class InvoicesService {
     }
 
     private formatCurrency(amount: number): string {
-        // Format with Indian numbering system (lakhs, crores)
-        const formatted = amount.toLocaleString('en-IN');
-        return `₹${formatted}/-`;
+        // Manually format with Indian numbering system to avoid PDF rendering issues
+        const roundedAmount = Math.round(amount);
+        const amountStr = roundedAmount.toString();
+        const len = amountStr.length;
+        
+        // Format according to Indian numbering (lakhs system)
+        let formatted = '';
+        let count = 0;
+        
+        for (let i = len - 1; i >= 0; i--) {
+            if (count === 3 || (count > 3 && (count - 3) % 2 === 0)) {
+                formatted = ',' + formatted;
+            }
+            formatted = amountStr[i] + formatted;
+            count++;
+        }
+        
+        return `Rs. ${formatted}/-`;
     }
 
     private numberToWords(num: number): string {
