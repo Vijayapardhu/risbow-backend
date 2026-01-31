@@ -510,7 +510,12 @@ export class OrdersService {
         const where: any = {};
 
         if (status) {
-            where.status = status;
+            // Handle PENDING as a group of statuses (CREATED, PENDING_PAYMENT, PENDING)
+            if (status === 'PENDING') {
+                where.status = { in: ['PENDING', 'CREATED', 'PENDING_PAYMENT'] };
+            } else {
+                where.status = status;
+            }
         }
 
         if (search) {
@@ -726,7 +731,10 @@ export class OrdersService {
     }
 
     private async getOrderStats() {
-        const [pending, confirmed, packed, shipped, delivered, cancelled] = await Promise.all([
+        // Match the logic from dashboard getStats() - include multiple statuses for pending
+        const [pendingCreated, pendingPayment, pendingOrders, confirmed, packed, shipped, delivered, cancelled] = await Promise.all([
+            this.prisma.order.count({ where: { status: 'CREATED' } }),
+            this.prisma.order.count({ where: { status: 'PENDING_PAYMENT' } }),
             this.prisma.order.count({ where: { status: 'PENDING' } }),
             this.prisma.order.count({ where: { status: 'CONFIRMED' } }),
             this.prisma.order.count({ where: { status: 'PACKED' } }),
@@ -734,6 +742,9 @@ export class OrdersService {
             this.prisma.order.count({ where: { status: 'DELIVERED' } }),
             this.prisma.order.count({ where: { status: 'CANCELLED' } }),
         ]);
+        
+        // Sum all pending-related statuses
+        const pending = pendingCreated + pendingPayment + pendingOrders;
         
         return { pending, confirmed, packed, shipped, delivered, cancelled };
     }
