@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import PDFDocument from 'pdfkit';
 import bwipjs from 'bwip-js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { generateShortInvoiceNumber } from '../common/invoice-number.utils';
+import { OrderStatus } from '@prisma/client';
 
 @Injectable()
 export class InvoicesService {
@@ -31,6 +32,12 @@ export class InvoicesService {
 
         if (!order) {
             throw new NotFoundException(`Order not found: ${orderId}`);
+        }
+
+        // Only allow invoice generation for confirmed or later status
+        const allowedStatuses = [OrderStatus.CONFIRMED, OrderStatus.PACKED, OrderStatus.SHIPPED, OrderStatus.DELIVERED, OrderStatus.PAID];
+        if (!allowedStatuses.includes(order.status as OrderStatus)) {
+            throw new BadRequestException(`Invoice can only be generated for confirmed orders. Current status: ${order.status}`);
         }
 
         console.log(`[Invoice] Found order: ${order.id}`);
@@ -160,7 +167,9 @@ export class InvoicesService {
 
                 const invoiceNumber = order.invoiceNumber || `INV-${order.orderNumber || order.id.substring(0, 8).toUpperCase()}`;
                 const orderNumber = order.orderNumber || `ORD-${order.id.substring(0, 8).toUpperCase()}`;
-                const orderDate = new Date(order.createdAt).toLocaleDateString('en-IN');
+                // Use confirmedAt date for invoice, fallback to updatedAt or createdAt
+                const invoiceDate = order.confirmedAt || order.updatedAt || order.createdAt;
+                const orderDate = new Date(invoiceDate).toLocaleDateString('en-IN');
                 const customerName = order.user?.name || 'Customer';
                 const customerMobile = order.user?.mobile || '-';
                 const customerEmail = order.user?.email || '-';

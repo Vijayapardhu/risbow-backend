@@ -238,7 +238,7 @@ export class OrdersService {
 
                 const upd = await tx.order.updateMany({
                     where: { id: order.id, status: { notIn: finalStatuses as any } as any },
-                    data: { status: OrderStatus.CONFIRMED },
+                    data: { status: OrderStatus.CONFIRMED, confirmedAt: new Date() },
                 });
                 if (upd.count !== 1) continue; // already final / already processed
 
@@ -1005,24 +1005,35 @@ export class OrdersService {
             throw new NotFoundException('Order not found');
         }
 
-        if (!order.payment) {
-            throw new BadRequestException('No payment record found for this order');
-        }
+        let updatedPayment = null;
 
-        // Update payment status
-        const updatedPayment = await this.prisma.payment.update({
-            where: { id: order.payment.id },
-            data: { 
-                status: paymentStatus as any,
-                updatedAt: new Date()
-            }
-        });
+        // Update payment status if payment record exists
+        if (order.payment) {
+            updatedPayment = await this.prisma.payment.update({
+                where: { id: order.payment.id },
+                data: { 
+                    status: paymentStatus as any,
+                    updatedAt: new Date()
+                }
+            });
+        } else {
+            // Create a payment record if it doesn't exist
+            updatedPayment = await this.prisma.payment.create({
+                data: {
+                    orderId,
+                    amount: order.totalAmount,
+                    currency: 'INR',
+                    provider: 'MANUAL',
+                    status: paymentStatus as any,
+                }
+            });
+        }
 
         // If payment is now successful and order is pending, update order status
         if (paymentStatus === 'SUCCESS' && order.status === OrderStatus.PENDING) {
             await this.prisma.order.update({
                 where: { id: orderId },
-                data: { status: OrderStatus.CONFIRMED }
+                data: { status: OrderStatus.CONFIRMED, confirmedAt: new Date() }
             });
         }
 

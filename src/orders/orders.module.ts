@@ -13,6 +13,8 @@ import { CheckoutModule } from '../checkout/checkout.module';
 import { RecommendationsModule } from '../recommendations/recommendations.module';
 import { ReferralsModule } from '../referrals/referrals.module';
 import { VendorOrdersModule } from '../vendor-orders/vendor-orders.module';
+import { DriversModule } from '../drivers/drivers.module';
+import { PrismaModule } from '../prisma/prisma.module';
 
 import { OrderStateMachine } from './order-state-machine';
 import { OrderStateValidatorService } from './order-state-validator.service';
@@ -20,7 +22,7 @@ import { OrderStateValidatorService } from './order-state-validator.service';
 import { BowModule } from '../bow/bow.module';
 
 @Module({
-    imports: [RoomsModule, CoinsModule, InventoryModule, VendorsModule, CommonModule, forwardRef(() => BowModule), AuditModule, CheckoutModule, forwardRef(() => RecommendationsModule), ReferralsModule, VendorOrdersModule],
+    imports: [RoomsModule, CoinsModule, InventoryModule, VendorsModule, CommonModule, forwardRef(() => BowModule), AuditModule, CheckoutModule, forwardRef(() => RecommendationsModule), ReferralsModule, VendorOrdersModule, DriversModule, PrismaModule],
     controllers: [OrdersController, OrdersAdminController, OrdersAdminAliasController],
     providers: [OrdersService, OrderStateMachine, OrderStateValidatorService],
     exports: [OrdersService, OrderStateValidatorService],
