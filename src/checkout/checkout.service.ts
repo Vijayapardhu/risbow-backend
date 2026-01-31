@@ -11,6 +11,7 @@ import { DeliveryOptionsService } from '../delivery/delivery-options.service';
 import { GeoService } from '../shared/geo.service';
 import { VendorAvailabilityService } from '../vendors/vendor-availability.service';
 import { OrderStatus } from '@prisma/client';
+import { generateOrderNumber } from '../common/order-number.utils';
 
 @Injectable()
 export class CheckoutService {
@@ -379,10 +380,14 @@ export class CheckoutService {
                     const allocDiscount = Number(discountByVendor.get(vendorId) || 0);
                     const totalAmountPaise = Math.max(0, subtotal - allocDiscount);
 
+                    // Generate unique order number for this order
+                    const orderNumber = await generateOrderNumber(this.prisma);
+
                     const created = await tx.order.create({
                         data: {
                             userId,
                             addressId: shippingAddressId,
+                            orderNumber,
                             totalAmount: totalAmountPaise,
                             status: orderStatus,
                             items: items as any,

@@ -628,6 +628,7 @@ model Notification {
 
 model Order {
   id                   String                     @id @default(cuid())
+  orderNumber          String?                    @unique
   userId               String
   roomId               String?
   addressId            String?
@@ -677,6 +678,7 @@ model Order {
   @@index([status])
   @@index([createdAt])
   @@index([razorpayOrderId])
+  @@index([orderNumber])
   @@index([awbNumber])
   @@index([userId, status])
   @@index([status, createdAt])

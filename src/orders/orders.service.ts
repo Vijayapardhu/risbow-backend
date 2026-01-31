@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CheckoutDto, ConfirmOrderDto } from './dto/order.dto';
+import { generateOrderNumber } from '../common/order-number.utils';
 import { ConfigService } from '@nestjs/config';
 import Razorpay from 'razorpay';
 import { OrderStatus, MemberStatus, UserRole } from '@prisma/client';
@@ -114,11 +115,15 @@ export class OrdersService {
             receipt: `order_${Date.now()}`,
         });
 
+        // Generate unique order number
+        const orderNumber = await generateOrderNumber(this.prisma);
+
         // 5) Persist Order with linked Snapshot
         const order = await this.prisma.order.create({
             data: {
                 userId,
                 roomId: dto.roomId,
+                orderNumber,
                 items: dto.items as any,
                 totalAmount: Math.round(payableInPaise / 100),
                 coinsUsed: usableCoins,
@@ -154,6 +159,7 @@ export class OrdersService {
 
         return {
             orderId: order.id,
+            orderNumber: order.orderNumber,
             razorpayOrderId: rzpOrder.id,
             amount: Math.round(payableInPaise / 100),
             currency: 'INR',
@@ -650,7 +656,7 @@ export class OrdersService {
 
             return {
                 id: order.id,
-                orderNumber: `ORD-${order.id.substring(0, 8).toUpperCase()}`, // Use first 8 chars of ID as order number
+                orderNumber: order.orderNumber || `ORD-${order.id.substring(0, 8).toUpperCase()}`,
                 orderDate: order.createdAt.toISOString(),
                 userId: order.userId,
                 user: order.user ? {
@@ -846,7 +852,7 @@ export class OrdersService {
 
         return {
             id: order.id,
-            orderNumber: `ORD-${order.id.substring(0, 8).toUpperCase()}`,
+            orderNumber: order.orderNumber || `ORD-${order.id.substring(0, 8).toUpperCase()}`,
             orderDate: order.createdAt.toISOString(),
             customerId: order.userId,
             customerName: order.user?.name || 'Guest Customer',

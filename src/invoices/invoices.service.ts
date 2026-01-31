@@ -55,12 +55,13 @@ export class InvoicesService {
             }
         }
 
-        // Generate barcode
+        // Generate barcode using order number (not internal ID)
         let barcodeBuffer: Buffer | null = null;
+        const barcodeText = order.orderNumber || order.id;
         try {
             barcodeBuffer = await bwipjs.toBuffer({
                 bcid: 'code128',
-                text: order.id,
+                text: barcodeText,
                 scale: 3,
                 height: 10,
                 includetext: true,
@@ -91,7 +92,7 @@ export class InvoicesService {
                 });
                 doc.on('error', reject);
 
-                const invoiceNumber = `INV-${order.id.substring(0, 8).toUpperCase()}`;
+                const invoiceNumber = `INV-${order.orderNumber || order.id}`;
                 const orderNumber = order.orderNumber || `ORD-${order.id.substring(0, 8).toUpperCase()}`;
                 const orderDate = new Date(order.createdAt).toLocaleDateString('en-IN');
                 const customerName = order.user?.name || 'Customer';
@@ -156,7 +157,7 @@ export class InvoicesService {
                 // Add barcode if generated
                 if (barcodeBuffer) {
                     doc.image(barcodeBuffer, 220, midColY, { width: 120, height: 40 });
-                    doc.fontSize(7).font('Helvetica').fillColor('#666').text(order.id, 220, midColY + 42, { width: 120, align: 'center' });
+                    doc.fontSize(7).font('Helvetica').fillColor('#666').text(orderNumber, 220, midColY + 42, { width: 120, align: 'center' });
                 }
                 
                 // Right Column - Bill To
