@@ -51,4 +51,9 @@ export class AdminDashboardController {
     async getStats() {
         return this.dashboardService.getStats();
     }
+
+    @Get('top-products')
+    async getTopProducts(@Query('limit') limit: string = '5') {
+        return this.dashboardService.getTopProducts(parseInt(limit, 10));
+    }
 }

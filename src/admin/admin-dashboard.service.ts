@@ -97,6 +97,39 @@ export class AdminDashboardService {
         };
     }
 
+    async getTopProducts(limit: number = 5) {
+        try {
+            // Use raw SQL for faster query - avoid heavy ORM operations
+            const products = await this.prisma.$queryRaw`
+                SELECT 
+                    p.id,
+                    p.title as name,
+                    p.images,
+                    COALESCE(p."salesCount", 0) as sales,
+                    COALESCE(p."viewCount", 0) as views,
+                    p.price,
+                    p."offerPrice"
+                FROM "Product" p
+                WHERE p."isActive" = true
+                ORDER BY p."salesCount" DESC NULLS LAST, p."createdAt" DESC
+                LIMIT ${limit}
+            `;
+
+            return (products as any[]).map(p => ({
+                id: p.id,
+                name: p.name,
+                image: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : 
+                       typeof p.images === 'string' ? JSON.parse(p.images)[0] : null,
+                sales: Number(p.sales) || 0,
+                revenue: Number(p.price) * (Number(p.sales) || 0),
+                favorites: 0 // TODO: Implement with favorites table
+            }));
+        } catch (error) {
+            console.error('Error fetching top products:', error);
+            return [];
+        }
+    }
+
     async getKPIs(period: string) {
         const dateRange = this.getDateRange(period);
 
