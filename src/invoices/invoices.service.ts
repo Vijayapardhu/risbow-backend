@@ -34,11 +34,11 @@ export class InvoicesService {
             if (firstItem.vendorId) {
                 const vendor = await this.prisma.vendor.findUnique({
                     where: { id: firstItem.vendorId },
-                    select: { name: true, storeName: true, address: true, gstNumber: true }
+                    select: { name: true, storeName: true, pincode: true, gstNumber: true }
                 });
                 if (vendor) {
                     vendorName = vendor.storeName || vendor.name || 'Risbow Store';
-                    vendorAddress = vendor.address || vendorAddress;
+                    vendorAddress = vendor.pincode ? `Pincode: ${vendor.pincode}` : vendorAddress;
                     vendorGST = vendor.gstNumber || vendorGST;
                 }
             }
