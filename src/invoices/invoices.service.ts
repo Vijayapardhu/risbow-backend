@@ -4,6 +4,7 @@ import PDFDocument from 'pdfkit';
 import bwipjs from 'bwip-js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { generateShortInvoiceNumber } from '../common/invoice-number.utils';
 
 @Injectable()
 export class InvoicesService {
@@ -17,7 +18,7 @@ export class InvoicesService {
         }
 
         // Fetch order with all details
-        const order = await this.prisma.order.findUnique({
+        let order = await this.prisma.order.findUnique({
             where: { id: orderId },
             include: {
                 user: {
@@ -33,6 +34,20 @@ export class InvoicesService {
         }
 
         console.log(`[Invoice] Found order: ${order.id}`);
+
+        // Generate and store invoice number if not exists
+        let invoiceNumber = order.invoiceNumber;
+        if (!invoiceNumber) {
+            invoiceNumber = await this.generateUniqueInvoiceNumber();
+            await this.prisma.order.update({
+                where: { id: orderId },
+                data: { invoiceNumber }
+            });
+            console.log(`[Invoice] Generated invoice number: ${invoiceNumber}`);
+        }
+
+        // Fetch updated order with invoice number
+        order = { ...order, invoiceNumber };
 
         // Get vendor info from order items
         const items = Array.isArray(order.items) ? order.items : [];
@@ -76,6 +91,57 @@ export class InvoicesService {
         return this.generatePDF(order, items, vendorName, vendorAddress, vendorGST, barcodeBuffer);
     }
 
+    /**
+     * Generates a unique short invoice number
+     * Format: INV-YYMMDD-XXXX (e.g., INV-260131-0001)
+     */
+    private async generateUniqueInvoiceNumber(): Promise<string> {
+        const now = new Date();
+        const year = String(now.getFullYear()).slice(-2);
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const datePrefix = `INV-${year}${month}${day}`;
+        
+        // Get start and end of today
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        
+        // Find the highest invoice number for today
+        const lastOrder = await this.prisma.order.findFirst({
+            where: {
+                invoiceNumber: {
+                    startsWith: datePrefix,
+                },
+                createdAt: {
+                    gte: startOfDay,
+                    lte: endOfDay,
+                },
+            },
+            orderBy: {
+                invoiceNumber: 'desc',
+            },
+        });
+        
+        let serialNumber = 1;
+        
+        if (lastOrder && lastOrder.invoiceNumber) {
+            // Extract the serial number from the last invoice
+            // Format is INV-YYMMDD-XXXX
+            const parts = lastOrder.invoiceNumber.split('-');
+            if (parts.length === 3) {
+                const lastSerial = parseInt(parts[2], 10);
+                if (!isNaN(lastSerial)) {
+                    serialNumber = lastSerial + 1;
+                }
+            }
+        }
+        
+        // Format serial with leading zeros (4 digits)
+        const serial = String(serialNumber).padStart(4, '0');
+        
+        return `${datePrefix}-${serial}`;
+    }
+
     private generatePDF(order: any, items: any[], vendorName: string, vendorAddress: string, vendorGST: string, barcodeBuffer: Buffer | null): Promise<Buffer> {
         return new Promise((resolve, reject) => {
             try {
@@ -92,7 +158,7 @@ export class InvoicesService {
                 });
                 doc.on('error', reject);
 
-                const invoiceNumber = `INV-${order.orderNumber || order.id}`;
+                const invoiceNumber = order.invoiceNumber || `INV-${order.orderNumber || order.id.substring(0, 8).toUpperCase()}`;
                 const orderNumber = order.orderNumber || `ORD-${order.id.substring(0, 8).toUpperCase()}`;
                 const orderDate = new Date(order.createdAt).toLocaleDateString('en-IN');
                 const customerName = order.user?.name || 'Customer';
