@@ -300,22 +300,6 @@ export class InvoicesService {
             letter-spacing: 10px;
         }
         
-        /* Print controls - hidden when printing */
-        .print-controls {
-            display: block;
-        }
-        @media print {
-            .print-controls {
-                display: none !important;
-            }
-            .page {
-                page-break-after: always;
-            }
-            .page:last-child {
-                page-break-after: avoid;
-            }
-        }
-        
         /* Barcode styling */
         .barcode-container {
             margin-top: 10px;
@@ -639,18 +623,8 @@ export class InvoicesService {
             </div>
         `;
 
-        const isFirstPage = page === 0;
-        
         return `
     <div class="page">
-        ${isFirstPage ? `
-        <div class="print-controls" style="position: fixed; top: 10px; right: 10px; z-index: 1000; background: white; padding: 10px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <button onclick="window.print()" style="background: #1a1a2e; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px;">
-                🖨️ Print / Save as PDF
-            </button>
-            <p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">Press Ctrl+P to print</p>
-        </div>
-        ` : ''}
         <div class="security-watermark">SECURE</div>
         <div class="header">
             <div class="header-left">

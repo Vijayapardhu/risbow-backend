@@ -57,10 +57,4 @@ services:
       # Logging
       - key: LOG_LEVEL
         value: "info"
-      
-      # Puppeteer (for PDF generation)
-      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
-        value: "false"
-      - key: PUPPETEER_EXECUTABLE_PATH
-        value: "/opt/render/.cache/puppeteer/chrome/linux-*/chrome-linux/chrome"
 
