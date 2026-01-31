@@ -13,33 +13,42 @@ export class InvoicesService {
     async generateInvoice(orderId: string): Promise<Buffer> {
         console.log(`[Invoice] Starting generation for order: ${orderId}`);
 
-        if (!orderId || orderId.trim() === '') {
-            throw new Error('Order ID is required');
-        }
-
-        // Fetch order with all details
-        let order = await this.prisma.order.findUnique({
-            where: { id: orderId },
-            include: {
-                user: {
-                    select: { id: true, name: true, email: true, mobile: true }
-                },
-                address: true,
-                payment: true,
+        try {
+            if (!orderId || orderId.trim() === '') {
+                throw new Error('Order ID is required');
             }
-        });
 
-        if (!order) {
-            throw new NotFoundException(`Order not found: ${orderId}`);
-        }
+            // Fetch order with all details
+            let order = await this.prisma.order.findUnique({
+                where: { id: orderId },
+                include: {
+                    user: {
+                        select: { id: true, name: true, email: true, mobile: true }
+                    },
+                    address: true,
+                    payment: true,
+                }
+            });
 
-        // Only allow invoice generation for confirmed or later status
-        const allowedStatuses = ['CONFIRMED', 'PACKED', 'SHIPPED', 'DELIVERED', 'PAID'];
-        if (!allowedStatuses.includes(order.status)) {
-            throw new BadRequestException(`Invoice can only be generated for confirmed orders. Current status: ${order.status}`);
-        }
+            if (!order) {
+                throw new NotFoundException(`Order not found: ${orderId}`);
+            }
 
-        console.log(`[Invoice] Found order: ${order.id}`);
+            console.log(`[Invoice] Found order: ${order.id}, status: ${order.status}, orderNumber: ${order.orderNumber}`);
+
+            // Only allow invoice generation for confirmed or later status
+            const allowedStatuses = ['CONFIRMED', 'PACKED', 'SHIPPED', 'DELIVERED', 'PAID'];
+            const currentStatus = order.status?.toString().toUpperCase() || '';
+            if (!allowedStatuses.includes(currentStatus)) {
+                throw new BadRequestException(`Invoice can only be generated for confirmed orders. Current status: ${order.status}`);
+            }
+
+            // Generate order number if not exists (for old orders)
+            if (!order.orderNumber) {
+                const tempOrderNumber = `RIS${new Date().getFullYear()}${['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][new Date().getMonth()]}${order.id.substring(0, 4).toUpperCase()}`;
+                order = { ...order, orderNumber: tempOrderNumber };
+                console.log(`[Invoice] Using fallback order number: ${tempOrderNumber}`);
+            }
 
         // Generate and store invoice number if not exists
         let invoiceNumber = order.invoiceNumber;
@@ -95,6 +104,10 @@ export class InvoicesService {
 
         // Generate PDF using PDFKit
         return this.generatePDF(order, items, vendorName, vendorAddress, vendorGST, barcodeBuffer);
+        } catch (error) {
+            console.error(`[Invoice] Error generating invoice for order ${orderId}:`, error);
+            throw error;
+        }
     }
 
     /**
