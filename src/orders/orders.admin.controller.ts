@@ -64,7 +64,10 @@ export class OrdersAdminController {
         // Check order exists
         const order = await this.prisma.order.findUnique({
             where: { id },
-            include: { delivery: true }
+            include: { 
+                deliveries: { take: 1, orderBy: { createdAt: 'desc' } },
+                address: true 
+            }
         });
 
         if (!order) {
@@ -91,7 +94,7 @@ export class OrdersAdminController {
 
         return {
             orderId: id,
-            currentDriver: order.delivery?.driverId || null,
+            currentDriver: order.deliveries[0]?.driverId || null,
             drivers,
         };
     }
@@ -104,7 +107,7 @@ export class OrdersAdminController {
         const order = await this.prisma.order.findUnique({
             where: { id },
             include: { 
-                delivery: true,
+                deliveries: { take: 1, orderBy: { createdAt: 'desc' } },
                 address: true,
             }
         });
@@ -133,9 +136,9 @@ export class OrdersAdminController {
         });
 
         // Create or update delivery record
-        if (order.delivery) {
+        if (order.deliveries && order.deliveries.length > 0) {
             await this.prisma.delivery.update({
-                where: { id: order.delivery.id },
+                where: { id: order.deliveries[0].id },
                 data: {
                     driverId,
                     status: 'ASSIGNED',
@@ -205,7 +208,9 @@ export class OrdersAdminController {
         const order = await this.prisma.order.findUnique({
             where: { id },
             include: {
-                delivery: {
+                deliveries: {
+                    take: 1,
+                    orderBy: { createdAt: 'desc' },
                     include: {
                         driver: {
                             select: {
@@ -225,14 +230,16 @@ export class OrdersAdminController {
             return { error: 'Order not found' };
         }
 
+        const latestDelivery = order.deliveries && order.deliveries.length > 0 ? order.deliveries[0] : null;
+
         return {
             orderId: id,
             isThirdPartyDelivery: order.isThirdPartyDelivery,
             courierPartner: order.courierPartner,
             trackingId: order.trackingId,
             awbNumber: order.awbNumber,
-            driver: order.delivery?.driver || null,
-            deliveryStatus: order.delivery?.status || null,
+            driver: latestDelivery?.driver || null,
+            deliveryStatus: latestDelivery?.status || null,
         };
     }
 }

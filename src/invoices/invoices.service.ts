@@ -5,7 +5,6 @@ import bwipjs from 'bwip-js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { generateShortInvoiceNumber } from '../common/invoice-number.utils';
-import { OrderStatus } from '@prisma/client';
 
 @Injectable()
 export class InvoicesService {
@@ -35,8 +34,8 @@ export class InvoicesService {
         }
 
         // Only allow invoice generation for confirmed or later status
-        const allowedStatuses = [OrderStatus.CONFIRMED, OrderStatus.PACKED, OrderStatus.SHIPPED, OrderStatus.DELIVERED, OrderStatus.PAID];
-        if (!allowedStatuses.includes(order.status as OrderStatus)) {
+        const allowedStatuses = ['CONFIRMED', 'PACKED', 'SHIPPED', 'DELIVERED', 'PAID'];
+        if (!allowedStatuses.includes(order.status)) {
             throw new BadRequestException(`Invoice can only be generated for confirmed orders. Current status: ${order.status}`);
         }
 
