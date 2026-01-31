@@ -152,8 +152,8 @@ export class InvoicesService {
             // Set content with shorter timeout
             await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 10000 });
             
-            // Wait a bit for fonts/styles to apply
-            await page.evaluate(() => document.readyState === 'complete');
+            // Small delay to ensure styles are applied
+            await new Promise(resolve => setTimeout(resolve, 500));
             
             const pdf = await page.pdf({
                 format: 'A4',
