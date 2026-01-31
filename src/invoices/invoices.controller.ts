@@ -36,28 +36,15 @@ export class InvoicesController {
     ) {
         try {
             this.logger.log(`Generating invoice for order: ${orderId}`);
-            const buffer = await this.invoicesService.generateInvoice(orderId);
+            const pdfBuffer = await this.invoicesService.generateInvoice(orderId);
             
-            // Check if it's HTML fallback (starts with <!DOCTYPE or <html)
-            const isHtml = buffer.toString('utf-8', 0, 100).trim().toLowerCase().startsWith('<!doctype') || 
-                          buffer.toString('utf-8', 0, 100).trim().toLowerCase().startsWith('<html');
+            res.set({
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': `attachment; filename="invoice-${orderId.substring(0, 8)}.pdf"`,
+                'Content-Length': pdfBuffer.length
+            });
             
-            if (isHtml) {
-                this.logger.log(`Serving HTML fallback invoice for order: ${orderId}`);
-                res.set({
-                    'Content-Type': 'text/html',
-                    'Content-Disposition': `attachment; filename="invoice-${orderId.substring(0, 8)}.html"`,
-                    'Content-Length': buffer.length
-                });
-            } else {
-                res.set({
-                    'Content-Type': 'application/pdf',
-                    'Content-Disposition': `attachment; filename="invoice-${orderId.substring(0, 8)}.pdf"`,
-                    'Content-Length': buffer.length
-                });
-            }
-            
-            res.send(buffer);
+            res.send(pdfBuffer);
             this.logger.log(`Invoice generated successfully for order: ${orderId}`);
         } catch (error) {
             this.logger.error(`Failed to generate invoice for order ${orderId}:`, error.message);

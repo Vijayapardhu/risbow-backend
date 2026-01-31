@@ -132,9 +132,11 @@ export class InvoicesService {
         // Generate HTML for invoice
         const html = this.generateInvoiceHTML(order, items, vendorName, vendorAddress, vendorGST, barcodeDataUrl);
 
-        // Try to generate PDF using Puppeteer
+        // Generate PDF using Puppeteer
         let browser;
         try {
+            console.log('[Invoice] Launching Puppeteer...');
+            
             // Launch options for Render.com and other cloud providers
             const launchOptions: any = {
                 headless: true,
@@ -154,43 +156,42 @@ export class InvoicesService {
             // Find Chrome executable
             const chromePath = await this.findChromeExecutable();
             if (chromePath) {
-                console.log('Using Chrome at:', chromePath);
+                console.log('[Invoice] Using Chrome at:', chromePath);
                 launchOptions.executablePath = chromePath;
             } else {
-                console.log('Using Puppeteer bundled Chrome');
+                console.log('[Invoice] Using Puppeteer bundled Chrome');
             }
 
             browser = await puppeteer.launch(launchOptions);
+            console.log('[Invoice] Puppeteer launched successfully');
 
             const page = await browser.newPage();
             
             // Set viewport
             await page.setViewport({ width: 794, height: 1123 }); // A4 at 96 DPI
             
-            // Set content with shorter timeout
-            await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 10000 });
+            // Set content
+            console.log('[Invoice] Setting page content...');
+            await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+            console.log('[Invoice] Page content set');
             
-            // Small delay to ensure styles are applied
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
+            // Generate PDF
+            console.log('[Invoice] Generating PDF...');
             const pdf = await page.pdf({
                 format: 'A4',
                 printBackground: true,
                 margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
                 preferCSSPageSize: true
             });
+            console.log('[Invoice] PDF generated, size:', pdf.length, 'bytes');
 
             return Buffer.from(pdf);
-        } catch (puppeteerError) {
-            console.error('Puppeteer PDF generation failed:', puppeteerError.message);
-            console.log('Falling back to HTML invoice...');
-            
-            // Fallback: Return HTML as a simple "PDF" (browser can print to PDF)
-            const htmlBuffer = Buffer.from(html, 'utf-8');
-            return htmlBuffer;
+        } catch (error) {
+            console.error('[Invoice] PDF generation failed:', error.message);
+            throw new Error(`PDF generation failed: ${error.message}`);
         } finally {
             if (browser) {
-                await browser.close().catch(err => console.error('Browser close error:', err));
+                await browser.close().catch(err => console.error('[Invoice] Browser close error:', err));
             }
         }
     }
