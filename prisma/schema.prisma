@@ -433,6 +433,9 @@ model Vendor {
   clearanceProducts               ClearanceProduct[]
   documents                       VendorDocument[]
   bannerCampaigns                 BannerCampaign[]
+  strikes                         VendorStrike[]
+  discipline                      VendorDiscipline?
+  invoices                        Invoice[]
 
   @@index([kycStatus])
   @@index([tier])
@@ -677,6 +680,7 @@ model Order {
   tickets              SupportTicket[] @relation("OrderTickets")
   deliveries           Delivery[]      @relation("OrderDeliveries")
   refunds              Refund[]
+  vendorStrikes        VendorStrike[]
 
   @@index([userId])
   @@index([status])
@@ -2623,4 +2627,416 @@ enum GeoSource {
   PINCODE_DB
   NOMINATIM
   MANUAL
+}
+
+// ============== ADMIN PANEL MODELS ==============
+
+model AdminUser {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  name          String
+  role          AdminRole      @default(OPERATIONS_ADMIN)
+  isActive      Boolean        @default(true)
+  mfaEnabled    Boolean        @default(false)
+  mfaSecret     String?
+  backupCodes   String[]       @default([])
+  lastLoginAt   DateTime?
+  lastLoginIp   String?
+  failedAttempts Int           @default(0)
+  lockedUntil   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  sessions      AdminSession[]
+  actions       AdminAction[]
+  createdAdmins AdminUser[]    @relation("AdminCreator")
+  createdBy     AdminUser?     @relation("AdminCreator", fields: [createdById], references: [id])
+  createdById   String?
+
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+}
+
+model AdminSession {
+  id          String    @id @default(cuid())
+  adminId     String
+  token       String    @unique
+  refreshToken String   @unique
+  ipAddress   String
+  userAgent   String
+  expiresAt   DateTime
+  lastActiveAt DateTime @default(now())
+  isRevoked   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  admin       AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([token])
+  @@index([refreshToken])
+  @@index([expiresAt])
+}
+
+model AdminAction {
+  id            String    @id @default(cuid())
+  adminId       String
+  action        String
+  resourceType  String
+  resourceId    String?
+  beforeState   Json?
+  afterState    Json?
+  metadata      Json?
+  ipAddress     String
+  userAgent     String
+  duration      Int?
+  createdAt     DateTime  @default(now())
+
+  admin         AdminUser @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([action])
+  @@index([resourceType])
+  @@index([resourceId])
+  @@index([createdAt])
+}
+
+// ============== BOW COIN ADMIN MODELS ==============
+
+model BowCoinConfig {
+  id                    String    @id @default(cuid())
+  coinValueInr          Decimal   @default(0.10) @db.Decimal(10, 4)
+  coinsPerFiveStar      Int       @default(10)
+  coinsPerFourStar      Int       @default(5)
+  coinsPerThreeStar     Int       @default(0)
+  coinsPerReferral      Int       @default(50)
+  coinsFirstOrder       Int       @default(20)
+  coinsWeeklyStreak     Int       @default(25)
+  strikePenaltyCoins    Int       @default(100)
+  minRedemption         Int       @default(100)
+  maxDailyEarn          Int       @default(500)
+  expiryDays            Int       @default(365)
+  isActive              Boolean   @default(true)
+  updatedById           String
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
+// ============== BANNER CAMPAIGN MODELS ==============
+
+model BannerCampaign {
+  id              String            @id @default(cuid())
+  vendorId        String
+  bannerType      BannerType
+  title           String
+  description     String?
+  imageUrl        String
+  targetUrl       String?
+  targetAudience  Json?
+  pricing         Decimal           @db.Decimal(10, 2)
+  discountApplied Decimal?          @db.Decimal(10, 2)
+  paymentId       String?
+  paymentStatus   PaymentStatus     @default(PENDING)
+  status          BannerCampaignStatus @default(DRAFT)
+  impressions     Int               @default(0)
+  clicks          Int               @default(0)
+  conversions     Int               @default(0)
+  startDate       DateTime?
+  endDate         DateTime?
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  vendor          Vendor            @relation(fields: [vendorId], references: [id])
+  metrics         BannerMetric[]
+
+  @@index([vendorId])
+  @@index([status])
+  @@index([bannerType])
+  @@index([startDate, endDate])
+}
+
+model BannerPricing {
+  id             String      @id @default(cuid())
+  bannerType     BannerType  @unique
+  name           String
+  basePrice      Decimal     @db.Decimal(10, 2)
+  durationDays   Int
+  maxImpressions Int?
+  description    String?
+  isActive       Boolean     @default(true)
+  updatedById    String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model BannerMetric {
+  id          String          @id @default(cuid())
+  campaignId  String
+  date        DateTime        @db.Date
+  impressions Int             @default(0)
+  clicks      Int             @default(0)
+  conversions Int             @default(0)
+  revenue     Decimal?        @db.Decimal(10, 2)
+  createdAt   DateTime        @default(now())
+
+  campaign    BannerCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date])
+  @@index([campaignId])
+  @@index([date])
+}
+
+// ============== CONTENT MODERATION MODELS ==============
+
+model ContentFlag {
+  id            String            @id @default(cuid())
+  contentType   ContentFlagType
+  contentId     String
+  flagReason    FlagReason
+  customReason  String?
+  reportedById  String?
+  reportCount   Int               @default(1)
+  priority      FlagPriority      @default(MEDIUM)
+  status        FlagStatus        @default(PENDING)
+  moderatedById String?
+  moderatedAt   DateTime?
+  actionTaken   ModerationAction?
+  actionReason  String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([contentType])
+  @@index([contentId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+// ============== VENDOR STRIKE & DISCIPLINE MODELS ==============
+
+model VendorStrike {
+  id              String        @id @default(cuid())
+  vendorId        String
+  strikeType      StrikeType
+  severity        Decimal       @default(1.0) @db.Decimal(3, 1)
+  orderId         String?
+  reason          String
+  evidence        Json?
+  autoGenerated   Boolean       @default(true)
+  coinsPenalty    Int           @default(0)
+  resolvedById    String?
+  resolvedAt      DateTime?
+  resolutionNote  String?
+  resolutionType  StrikeResolution?
+  createdAt       DateTime      @default(now())
+
+  vendor          Vendor        @relation(fields: [vendorId], references: [id])
+  order           Order?        @relation(fields: [orderId], references: [id])
+
+  @@index([vendorId])
+  @@index([orderId])
+  @@index([strikeType])
+  @@index([createdAt])
+  @@index([resolvedAt])
+}
+
+model VendorDiscipline {
+  id                    String            @id @default(cuid())
+  vendorId              String            @unique
+  totalStrikes          Decimal           @default(0) @db.Decimal(5, 1)
+  activeStrikes         Decimal           @default(0) @db.Decimal(5, 1)
+  successStreak         Int               @default(0)
+  disciplineStatus      DisciplineStatus  @default(GOOD_STANDING)
+  suspendedUntil        DateTime?
+  suspensionCount       Int               @default(0)
+  permanentlyBlocked    Boolean           @default(false)
+  blockedAt             DateTime?
+  blockedById           String?
+  blockReason           String?
+  lastStrikeAt          DateTime?
+  lastDecayAt           DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  vendor                Vendor            @relation(fields: [vendorId], references: [id])
+
+  @@index([vendorId])
+  @@index([disciplineStatus])
+  @@index([permanentlyBlocked])
+}
+
+// ============== PLATFORM CONFIGURATION ==============
+
+model PlatformConfig {
+  id          String    @id @default(cuid())
+  category    String
+  key         String
+  value       Json
+  description String?
+  updatedById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([category, key])
+  @@index([category])
+}
+
+// ============== INVOICE GENERATION ==============
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  type            InvoiceType
+  vendorId        String?
+  orderId         String?
+  campaignId      String?
+  subtotal        Decimal       @db.Decimal(10, 2)
+  tax             Decimal       @db.Decimal(10, 2)
+  totalAmount     Decimal       @db.Decimal(10, 2)
+  status          InvoiceStatus @default(DRAFT)
+  items           Json
+  billingDetails  Json
+  pdfUrl          String?
+  generatedAt     DateTime?
+  sentAt          DateTime?
+  paidAt          DateTime?
+  dueDate         DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  vendor          Vendor?       @relation(fields: [vendorId], references: [id])
+
+  @@index([vendorId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@index([invoiceNumber])
+}
+
+// ============== ADMIN PANEL ENUMS ==============
+
+enum AdminRole {
+  SUPER_ADMIN
+  OPERATIONS_ADMIN
+  FINANCE_ADMIN
+  CONTENT_MODERATOR
+  ANALYTICS_VIEWER
+}
+
+enum BannerType {
+  HOMEPAGE_HERO
+  CATEGORY_SPOTLIGHT
+  SEARCH_RESULT
+  STORY_PROMOTION
+  WEEKLY_STANDARD
+  MONTHLY_PREMIUM
+}
+
+enum BannerCampaignStatus {
+  DRAFT
+  PENDING_PAYMENT
+  PAYMENT_RECEIVED
+  PENDING_APPROVAL
+  APPROVED
+  ACTIVE
+  PAUSED
+  EXPIRED
+  REJECTED
+  DEACTIVATED
+}
+
+enum ContentFlagType {
+  STORY
+  REEL
+  PRODUCT_IMAGE
+  REVIEW
+  VENDOR_PROFILE
+}
+
+enum FlagReason {
+  NUDITY
+  VIOLENCE
+  HATE_SPEECH
+  COUNTERFEIT
+  PROHIBITED_ITEM
+  MISLEADING
+  SPAM
+  COPYRIGHT
+  TRADEMARK
+  HARASSMENT
+  MISINFORMATION
+  OTHER
+}
+
+enum FlagPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FlagStatus {
+  PENDING
+  IN_REVIEW
+  RESOLVED
+  ESCALATED
+}
+
+enum ModerationAction {
+  APPROVED
+  REMOVED
+  REMOVED_WITH_WARNING
+  REMOVED_WITH_STRIKE
+  ESCALATED
+}
+
+enum StrikeType {
+  FAILED_DELIVERY
+  SHOP_CLOSED
+  LATE_PREPARATION
+  CUSTOMER_COMPLAINT
+  QUALITY_ISSUE
+  REPEATED_CANCELLATION
+  POLICY_VIOLATION
+  CONTENT_VIOLATION
+}
+
+enum StrikeResolution {
+  REMOVED
+  UPHELD
+  REDUCED
+  APPEALED
+  DECAYED
+}
+
+enum DisciplineStatus {
+  GOOD_STANDING
+  WARNING
+  PROBATION
+  SUSPENDED
+  FINAL_WARNING
+  BLOCKED
+}
+
+enum InvoiceType {
+  BANNER_CAMPAIGN
+  SUBSCRIPTION
+  COMMISSION
+  REFUND
+  ORDER
+}
+
+enum InvoiceStatus {
+  DRAFT
+  GENERATED
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
 }
