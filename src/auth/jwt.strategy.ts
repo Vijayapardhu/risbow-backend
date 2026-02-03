@@ -1,7 +1,7 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-        import { ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../shared/redis.service';
 
@@ -12,11 +12,24 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         private prisma: PrismaService,
         private redisService: RedisService,
     ) {
-        super({
-            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-            ignoreExpiration: false,
-            secretOrKey: configService.get<string>('JWT_SECRET'),
-        });
+        const publicKey = configService.get<string>('JWT_PUBLIC_KEY');
+        const secret = configService.get<string>('JWT_SECRET');
+
+        // Use RS256 (asymmetric) if public key is configured, otherwise HS256
+        const jwtOptions = publicKey
+            ? {
+                jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+                ignoreExpiration: false,
+                secretOrKey: publicKey.replace(/\\n/g, '\n'),
+                algorithms: ['RS256'] as const,
+            }
+            : {
+                jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+                ignoreExpiration: false,
+                secretOrKey: secret,
+            };
+
+        super(jwtOptions);
     }
 
     async validate(payload: any) {

@@ -18,7 +18,7 @@ export class AuthService {
         private fraudService: FraudService,
         private geoService: GeoService,
         private supabaseService: SupabaseService,
-    ) {}
+    ) { }
 
     async sendOtp(mobile: string) {
         try {
@@ -120,7 +120,7 @@ export class AuthService {
             // Generate access token (short-lived for security)
             const payload = { sub: user.id, mobile: user.mobile, role: user.role };
             const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-            
+
             // Generate refresh token (long-lived, stored in Redis)
             const refreshToken = this.jwtService.sign(
                 { sub: user.id, type: 'refresh' },
@@ -254,7 +254,7 @@ export class AuthService {
         // Generate access token (short-lived for security)
         const payload = { sub: user.id, email: user.email };
         const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-        
+
         // Generate refresh token (long-lived, stored in Redis)
         const refreshToken = this.jwtService.sign(
             { sub: user.id, type: 'refresh' },
@@ -303,7 +303,7 @@ export class AuthService {
 
         // Generate access token (short-lived for security)
         const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-        
+
         // Generate refresh token (long-lived, stored in Redis)
         const refreshToken = this.jwtService.sign(
             { sub: user.id, type: 'refresh' },
@@ -328,7 +328,7 @@ export class AuthService {
         try {
             // Verify refresh token
             const payload = this.jwtService.verify(refreshToken);
-            
+
             if (payload.type !== 'refresh') {
                 throw new UnauthorizedException('Invalid token type');
             }
@@ -375,7 +375,7 @@ export class AuthService {
     async logout(userId: string, refreshToken?: string, accessToken?: string) {
         // Revoke refresh token by removing it from Redis
         await this.redisService.del(`refresh_token:${userId}`);
-        
+
         // Blacklist the access token if provided (prevents reuse until expiry)
         if (accessToken) {
             try {
@@ -402,10 +402,10 @@ export class AuthService {
         // Set force logout timestamp in Redis for immediate effect
         const now = Math.floor(Date.now() / 1000);
         await this.redisService.set(`force_logout:${userId}`, now.toString(), 7 * 24 * 60 * 60);
-        
+
         // Remove all refresh tokens
         await this.redisService.del(`refresh_token:${userId}`);
-        
+
         // Update user's forceLogoutAt in database for persistent logout
         await this.prisma.user.update({
             where: { id: userId },
@@ -439,5 +439,104 @@ export class AuthService {
             console.error('Error sending password reset email:', error);
             throw new ConflictException('Failed to send password reset email');
         }
+    }
+    async registerVendor(registerDto: any) {
+        // 1. Check if user already exists (by email or mobile)
+        const existingUser = await this.prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email: registerDto.email },
+                    { mobile: registerDto.mobile }
+                ]
+            }
+        });
+
+        if (existingUser) {
+            throw new ConflictException('User with this email or mobile already exists');
+        }
+
+        // 2. Hash password
+        const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+
+        // 3. Create User and Vendor in a transaction
+        const result = await this.prisma.$transaction(async (prisma) => {
+            // Create User
+            const user = await prisma.user.create({
+                data: {
+                    name: registerDto.name,
+                    email: registerDto.email,
+                    mobile: registerDto.mobile,
+                    password: hashedPassword,
+                    role: 'VENDOR',
+                    status: 'ACTIVE',
+                    referralCode: Math.random().toString(36).substring(7).toUpperCase(),
+                    wallet: {
+                        create: {
+                            balance: 0
+                        }
+                    },
+                    cart: {
+                        create: {}
+                    }
+                }
+            });
+
+            // Create Vendor
+            const vendor = await prisma.vendor.create({
+                data: {
+                    name: registerDto.name,
+                    mobile: registerDto.mobile,
+                    email: registerDto.email,
+                    storeName: registerDto.storeName,
+                    storeStatus: 'ACTIVE',
+                    gstNumber: registerDto.gstNumber,
+                    panNumber: registerDto.panNumber,
+                    isGstVerified: false, // Pending verification
+                    kycStatus: 'PENDING',
+                    pickupAddress: registerDto.pickupAddress,
+                    bankDetails: registerDto.bankDetails,
+                    role: 'RETAILER', // Default role
+                    // Initialize empty discipline state
+                    discipline: {
+                        create: {
+                            state: 'ACTIVE',
+                            activeStrikes: 0,
+                            consecutiveSuccesses: 0
+                        }
+                    }
+                }
+            });
+
+            // Add compliance fee if Non-GST (optional logic, can be handled via ledger later)
+            if (!registerDto.isGstRegistered) {
+                // TODO: Record compliance fee deduction or pending charge
+            }
+
+            return { user, vendor };
+        });
+
+        // 4. Generate Tokens
+        const payload = { sub: result.user.id, email: result.user.email, role: result.user.role };
+        const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+        const refreshToken = this.jwtService.sign(
+            { sub: result.user.id, type: 'refresh' },
+            { expiresIn: '7d' }
+        );
+
+        // Store refresh token
+        await this.redisService.set(
+            `refresh_token:${result.user.id}`,
+            refreshToken,
+            7 * 24 * 60 * 60
+        );
+
+        const { password, ...userWithoutPassword } = result.user;
+
+        return {
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            user: userWithoutPassword,
+            vendor: result.vendor
+        };
     }
 }

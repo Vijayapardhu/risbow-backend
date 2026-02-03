@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { SendOtpDto, VerifyOtpDto, RegisterDto, LoginDto } from './dto/auth.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { RegisterVendorDto } from './dto/register-vendor.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -74,5 +75,13 @@ export class AuthController {
         // Extract access token from Authorization header
         const accessToken = authHeader?.replace('Bearer ', '');
         return this.authService.logout(req.user.id, refreshToken, accessToken);
+    }
+
+    @Post('register-vendor')
+    @ApiOperation({ summary: 'Register a new vendor' })
+    @ApiResponse({ status: 201, description: 'Vendor registered successfully' })
+    @ApiResponse({ status: 409, description: 'Vendor already exists' })
+    async registerVendor(@Body() registerVendorDto: RegisterVendorDto) {
+        return this.authService.registerVendor(registerVendorDto);
     }
 }

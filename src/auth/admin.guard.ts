@@ -9,6 +9,7 @@ export class AdminGuard implements CanActivate {
         // User is attached by JwtAuthGuard
         if (!user || !user.role) return false;
 
-        return user.role === UserRole.ADMIN;
+        // SECURITY FIX: Allow both ADMIN and SUPER_ADMIN roles
+        return user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN;
     }
 }

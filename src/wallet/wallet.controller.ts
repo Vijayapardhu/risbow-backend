@@ -1,9 +1,14 @@
-import { Controller, Post, Body, Get, Param, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, UsePipes, ValidationPipe, UseGuards } from '@nestjs/common';
 import { WalletService } from './wallet.service';
 import { CreditWalletDto, DebitWalletDto } from './wallet.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 
 @Controller('wallet')
 @UsePipes(new ValidationPipe())
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN', 'SUPER_ADMIN')  // Wallet operations restricted to admin only
 export class WalletController {
   constructor(private readonly walletService: WalletService) {}
 

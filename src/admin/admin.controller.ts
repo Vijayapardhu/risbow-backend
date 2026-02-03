@@ -79,6 +79,7 @@ export class AdminController {
 
     @Post('users/bulk-update')
     @Roles('ADMIN', 'SUPER_ADMIN')
+    @Throttle({ default: { limit: 5, ttl: 60000 } })  // SECURITY: Rate limit bulk operations
     @ApiOperation({ summary: 'Bulk update users' })
     async bulkUpdateUsers(
         @Request() req,
@@ -88,7 +89,8 @@ export class AdminController {
     }
 
     @Post('users/bulk-delete')
-    @Roles('ADMIN', 'SUPER_ADMIN')
+    @Roles('SUPER_ADMIN')  // SECURITY: Only SUPER_ADMIN can bulk delete
+    @Throttle({ default: { limit: 3, ttl: 60000 } })  // SECURITY: Stricter rate limit for deletes
     @ApiOperation({ summary: 'Bulk delete users' })
     async bulkDeleteUsers(
         @Request() req,

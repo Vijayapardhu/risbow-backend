@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateCategoryCommissionDto } from './dto/commission.dto';
 import { AdminService } from './admin.service';
@@ -11,7 +12,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 @ApiTags('Admin Commission')
 @Controller('admin/commissions')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'SUPER_ADMIN')
+@Roles('SUPER_ADMIN')  // SECURITY: Financial rules require SUPER_ADMIN only
 @ApiBearerAuth()
 export class AdminCommissionController {
     constructor(
@@ -28,6 +29,7 @@ export class AdminCommissionController {
     }
 
     @Post('category')
+    @Throttle({ default: { limit: 5, ttl: 60000 } })  // SECURITY: Rate limit financial changes
     @ApiOperation({ summary: 'Set commission for a category' })
     async setCategoryCommission(@Body() dto: UpdateCategoryCommissionDto) {
         return this.prisma.categoryCommission.upsert({

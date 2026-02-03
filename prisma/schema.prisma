@@ -218,8 +218,8 @@ model User {
   bannerImpressions                                  BannerImpressionLedger[]
   reelInteractions                                   ReelInteractionLedger[]
   creatorProfile                                     CreatorProfile?
-  refunds                                            Refund[]               @relation("UserRefunds")
-  tickets                                            SupportTicket[]        @relation("UserTickets")
+  refunds                                            Refund[]                 @relation("UserRefunds")
+  tickets                                            SupportTicket[]          @relation("UserTickets")
 
   @@index([role])
   @@index([status])
@@ -406,6 +406,8 @@ model Vendor {
   latitude                        Float?
   longitude                       Float?
   pincode                         String?
+  panNumber                       String?
+  pickupAddress                   Json?
   // Auto-clearance settings
   autoClearanceThresholdDays      Int?                        @default(7) // Days before expiry to auto-add to clearance
   defaultClearanceDiscountPercent Int?                        @default(20) // Default discount % for auto-clearance (0-100)
@@ -595,18 +597,19 @@ model PaymentIntent {
 }
 
 model Banner {
-  id          String                   @id @default(cuid())
-  vendorId    String?
-  imageUrl    String
-  redirectUrl String?
-  slotType    String
-  startDate   DateTime
-  endDate     DateTime
-  isActive    Boolean                  @default(true)
-  createdAt   DateTime                 @default(now())
-  metadata    Json?
-  impressions BannerImpressionLedger[]
-  campaign    BannerCampaign?
+  id               String                   @id @default(cuid())
+  vendorId         String?
+  imageUrl         String
+  redirectUrl      String?
+  slotType         String
+  startDate        DateTime
+  endDate          DateTime
+  isActive         Boolean                  @default(true)
+  createdAt        DateTime                 @default(now())
+  metadata         Json?
+  impressions      BannerImpressionLedger[]
+  campaign         BannerCampaign?          @relation(fields: [bannerCampaignId], references: [id])
+  bannerCampaignId String?
 
   @@index([vendorId])
   @@index([slotType, isActive])
@@ -677,8 +680,8 @@ model Order {
   deliverySlotSnapshot OrderDeliverySlotSnapshot?
   packingProof         OrderPackingProof?
   shipment             Shipment?
-  tickets              SupportTicket[] @relation("OrderTickets")
-  deliveries           Delivery[]      @relation("OrderDeliveries")
+  tickets              SupportTicket[]            @relation("OrderTickets")
+  deliveries           Delivery[]                 @relation("OrderDeliveries")
   refunds              Refund[]
   vendorStrikes        VendorStrike[]
 
@@ -742,7 +745,7 @@ model Product {
   totalAllowedQuantity Int                @default(10)
   freeListingExpiresAt DateTime?
   expiryDate           DateTime? // Product expiry date (for auto-clearance)
-  disableAutoClearance Boolean   @default(false) // Vendor can disable auto-clearance for specific products
+  disableAutoClearance Boolean            @default(false) // Vendor can disable auto-clearance for specific products
   visibility           ProductVisibility  @default(DRAFT)
   popularityScore      Float              @default(0)
   embedding            Json?
@@ -812,14 +815,6 @@ model Report {
   @@index([status])
   @@index([targetType])
   @@index([reporterId])
-}
-
-model PlatformConfig {
-  id          String   @id @default(cuid())
-  key         String   @unique
-  value       String
-  description String?
-  updatedAt   DateTime @updatedAt
 }
 
 model CoinValuation {
@@ -1716,24 +1711,6 @@ model VendorDocument {
   @@index([status])
 }
 
-model BannerCampaign {
-  id             String   @id @default(cuid())
-  bannerId       String   @unique
-  vendorId       String
-  campaignType   String // WEEKLY, MONTHLY
-  targetAudience String // CUSTOMERS, RETAILERS
-  startDate      DateTime
-  endDate        DateTime
-  amountPaid     Int // In paise
-  paymentStatus  String   @default("PENDING") // PENDING, PAID, REFUNDED
-  createdAt      DateTime @default(now())
-  banner         Banner   @relation(fields: [bannerId], references: [id], onDelete: Cascade)
-  vendor         Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-
-  @@index([vendorId])
-  @@index([startDate, endDate])
-}
-
 model ContentModeration {
   id          String    @id @default(cuid())
   contentType String // STORY, REEL
@@ -1754,26 +1731,26 @@ model ContentModeration {
 // ============================================
 
 model Refund {
-  id              String       @id @default(cuid())
-  refundNumber    String       @unique
+  id              String         @id @default(cuid())
+  refundNumber    String         @unique
   orderId         String
-  order           Order        @relation(fields: [orderId], references: [id])
+  order           Order          @relation(fields: [orderId], references: [id])
   returnId        String?
   return          ReturnRequest? @relation(fields: [returnId], references: [id])
   userId          String
-  user            User         @relation(fields: [userId], references: [id], name: "UserRefunds")
-  amount          Int          // in paise
+  user            User           @relation(fields: [userId], references: [id], name: "UserRefunds")
+  amount          Int // in paise
   reason          String
-  status          RefundStatus @default(PENDING)
-  method          RefundMethod @default(ORIGINAL_PAYMENT)
+  status          RefundStatus   @default(PENDING)
+  method          RefundMethod   @default(ORIGINAL_PAYMENT)
   transactionId   String?
   processedBy     String?
   processedAt     DateTime?
   rejectionReason String?
   notes           String?
   metadata        Json?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   @@index([orderId])
   @@index([userId])
@@ -1935,7 +1912,7 @@ model Delivery {
   deliveryAddress Json
   status          DeliveryStatus @default(PENDING)
   distance        Float?
-  estimatedTime   Int?           // minutes
+  estimatedTime   Int? // minutes
   actualTime      Int?
   pickupOtp       String?
   deliveryOtp     String?
@@ -1980,7 +1957,7 @@ model NotificationCampaign {
   title          String
   body           String
   imageUrl       String?
-  targetAudience Json      // { role: [], status: [], location: [] }
+  targetAudience Json // { role: [], status: [], location: [] }
   scheduledAt    DateTime?
   sentAt         DateTime?
   totalSent      Int       @default(0)
@@ -2035,18 +2012,18 @@ model CMSMenu {
 }
 
 model CMSMenuItem {
-  id        String       @id @default(cuid())
+  id        String        @id @default(cuid())
   menuId    String
-  menu      CMSMenu      @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  menu      CMSMenu       @relation(fields: [menuId], references: [id], onDelete: Cascade)
   label     String
   url       String
   icon      String?
-  target    String       @default("_self")
+  target    String        @default("_self")
   parentId  String?
-  parent    CMSMenuItem? @relation("MenuItemChildren", fields: [parentId], references: [id])
+  parent    CMSMenuItem?  @relation("MenuItemChildren", fields: [parentId], references: [id])
   children  CMSMenuItem[] @relation("MenuItemChildren")
-  sortOrder Int          @default(0)
-  isActive  Boolean      @default(true)
+  sortOrder Int           @default(0)
+  isActive  Boolean       @default(true)
 
   @@index([menuId])
   @@index([parentId])
@@ -2058,26 +2035,26 @@ model CMSMenuItem {
 // ============================================
 
 model BlogPost {
-  id            String        @id @default(cuid())
-  slug          String        @unique
-  title         String
-  excerpt       String?
-  content       String        @db.Text
-  coverImage    String?
-  categoryId    String?
-  category      BlogCategory? @relation(fields: [categoryId], references: [id])
-  authorId      String
-  author        Admin         @relation(fields: [authorId], references: [id], name: "AuthorPosts")
-  tags          String[]
-  status        PostStatus    @default(DRAFT)
-  isFeatured    Boolean       @default(false)
-  publishedAt   DateTime?
-  viewCount     Int           @default(0)
-  readTime      Int?          // minutes
-  seoTitle      String?
-  seoDesc       String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  excerpt     String?
+  content     String        @db.Text
+  coverImage  String?
+  categoryId  String?
+  category    BlogCategory? @relation(fields: [categoryId], references: [id])
+  authorId    String
+  author      Admin         @relation(fields: [authorId], references: [id], name: "AuthorPosts")
+  tags        String[]
+  status      PostStatus    @default(DRAFT)
+  isFeatured  Boolean       @default(false)
+  publishedAt DateTime?
+  viewCount   Int           @default(0)
+  readTime    Int? // minutes
+  seoTitle    String?
+  seoDesc     String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   @@index([categoryId])
   @@index([authorId])
@@ -2134,33 +2111,33 @@ model Warehouse {
 }
 
 model Inventory {
-  id               String          @id @default(cuid())
-  productId        String
-  warehouseId      String?
-  stock            Int             @default(0)
-  reservedStock    Int             @default(0)
-  reorderPoint     Int             @default(10)
-  reorderQuantity  Int             @default(50)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  product          Product         @relation(fields: [productId], references: [id])
-  warehouse        Warehouse?      @relation(fields: [warehouseId], references: [id])
-  movements        StockMovement[]
+  id              String          @id @default(cuid())
+  productId       String
+  warehouseId     String?
+  stock           Int             @default(0)
+  reservedStock   Int             @default(0)
+  reorderPoint    Int             @default(10)
+  reorderQuantity Int             @default(50)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  product         Product         @relation(fields: [productId], references: [id])
+  warehouse       Warehouse?      @relation(fields: [warehouseId], references: [id])
+  movements       StockMovement[]
 
   @@index([productId])
   @@index([warehouseId])
 }
 
 model StockMovement {
-  id          String              @id @default(cuid())
+  id          String            @id @default(cuid())
   inventoryId String
   type        StockMovementType
   quantity    Int
   reason      String?
   reference   String?
   createdBy   String
-  createdAt   DateTime            @default(now())
-  inventory   Inventory           @relation(fields: [inventoryId], references: [id])
+  createdAt   DateTime          @default(now())
+  inventory   Inventory         @relation(fields: [inventoryId], references: [id])
 
   @@index([inventoryId])
   @@index([createdAt])
@@ -2632,21 +2609,21 @@ enum GeoSource {
 // ============== ADMIN PANEL MODELS ==============
 
 model AdminUser {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  passwordHash  String
-  name          String
-  role          AdminRole      @default(OPERATIONS_ADMIN)
-  isActive      Boolean        @default(true)
-  mfaEnabled    Boolean        @default(false)
-  mfaSecret     String?
-  backupCodes   String[]       @default([])
-  lastLoginAt   DateTime?
-  lastLoginIp   String?
-  failedAttempts Int           @default(0)
-  lockedUntil   DateTime?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id             String    @id @default(cuid())
+  email          String    @unique
+  passwordHash   String
+  name           String
+  role           AdminRole @default(OPERATIONS_ADMIN)
+  isActive       Boolean   @default(true)
+  mfaEnabled     Boolean   @default(false)
+  mfaSecret      String?
+  backupCodes    String[]  @default([])
+  lastLoginAt    DateTime?
+  lastLoginIp    String?
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   sessions      AdminSession[]
   actions       AdminAction[]
@@ -2660,18 +2637,18 @@ model AdminUser {
 }
 
 model AdminSession {
-  id          String    @id @default(cuid())
-  adminId     String
-  token       String    @unique
+  id           String   @id @default(cuid())
+  adminId      String
+  token        String   @unique
   refreshToken String   @unique
-  ipAddress   String
-  userAgent   String
-  expiresAt   DateTime
+  ipAddress    String
+  userAgent    String
+  expiresAt    DateTime
   lastActiveAt DateTime @default(now())
-  isRevoked   Boolean   @default(false)
-  createdAt   DateTime  @default(now())
+  isRevoked    Boolean  @default(false)
+  createdAt    DateTime @default(now())
 
-  admin       AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
   @@index([adminId])
   @@index([token])
@@ -2680,20 +2657,20 @@ model AdminSession {
 }
 
 model AdminAction {
-  id            String    @id @default(cuid())
-  adminId       String
-  action        String
-  resourceType  String
-  resourceId    String?
-  beforeState   Json?
-  afterState    Json?
-  metadata      Json?
-  ipAddress     String
-  userAgent     String
-  duration      Int?
-  createdAt     DateTime  @default(now())
+  id           String   @id @default(cuid())
+  adminId      String
+  action       String
+  resourceType String
+  resourceId   String?
+  beforeState  Json?
+  afterState   Json?
+  metadata     Json?
+  ipAddress    String
+  userAgent    String
+  duration     Int?
+  createdAt    DateTime @default(now())
 
-  admin         AdminUser @relation(fields: [adminId], references: [id])
+  admin AdminUser @relation(fields: [adminId], references: [id])
 
   @@index([adminId])
   @@index([action])
@@ -2705,22 +2682,22 @@ model AdminAction {
 // ============== BOW COIN ADMIN MODELS ==============
 
 model BowCoinConfig {
-  id                    String    @id @default(cuid())
-  coinValueInr          Decimal   @default(0.10) @db.Decimal(10, 4)
-  coinsPerFiveStar      Int       @default(10)
-  coinsPerFourStar      Int       @default(5)
-  coinsPerThreeStar     Int       @default(0)
-  coinsPerReferral      Int       @default(50)
-  coinsFirstOrder       Int       @default(20)
-  coinsWeeklyStreak     Int       @default(25)
-  strikePenaltyCoins    Int       @default(100)
-  minRedemption         Int       @default(100)
-  maxDailyEarn          Int       @default(500)
-  expiryDays            Int       @default(365)
-  isActive              Boolean   @default(true)
-  updatedById           String
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id                 String   @id @default(cuid())
+  coinValueInr       Decimal  @default(0.10) @db.Decimal(10, 4)
+  coinsPerFiveStar   Int      @default(10)
+  coinsPerFourStar   Int      @default(5)
+  coinsPerThreeStar  Int      @default(0)
+  coinsPerReferral   Int      @default(50)
+  coinsFirstOrder    Int      @default(20)
+  coinsWeeklyStreak  Int      @default(25)
+  strikePenaltyCoins Int      @default(100)
+  minRedemption      Int      @default(100)
+  maxDailyEarn       Int      @default(500)
+  expiryDays         Int      @default(365)
+  isActive           Boolean  @default(true)
+  updatedById        String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@index([isActive])
 }
@@ -2728,7 +2705,7 @@ model BowCoinConfig {
 // ============== BANNER CAMPAIGN MODELS ==============
 
 model BannerCampaign {
-  id              String            @id @default(cuid())
+  id              String               @id @default(cuid())
   vendorId        String
   bannerType      BannerType
   title           String
@@ -2736,24 +2713,25 @@ model BannerCampaign {
   imageUrl        String
   targetUrl       String?
   targetAudience  Json?
-  pricing         Decimal           @db.Decimal(10, 2)
-  discountApplied Decimal?          @db.Decimal(10, 2)
+  pricing         Decimal              @db.Decimal(10, 2)
+  discountApplied Decimal?             @db.Decimal(10, 2)
   paymentId       String?
-  paymentStatus   PaymentStatus     @default(PENDING)
+  paymentStatus   PaymentStatus        @default(PENDING)
   status          BannerCampaignStatus @default(DRAFT)
-  impressions     Int               @default(0)
-  clicks          Int               @default(0)
-  conversions     Int               @default(0)
+  impressions     Int                  @default(0)
+  clicks          Int                  @default(0)
+  conversions     Int                  @default(0)
   startDate       DateTime?
   endDate         DateTime?
   approvedById    String?
   approvedAt      DateTime?
   rejectionReason String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
-  vendor          Vendor            @relation(fields: [vendorId], references: [id])
-  metrics         BannerMetric[]
+  vendor  Vendor         @relation(fields: [vendorId], references: [id])
+  metrics BannerMetric[]
+  Banner  Banner[]
 
   @@index([vendorId])
   @@index([status])
@@ -2762,30 +2740,30 @@ model BannerCampaign {
 }
 
 model BannerPricing {
-  id             String      @id @default(cuid())
-  bannerType     BannerType  @unique
+  id             String     @id @default(cuid())
+  bannerType     BannerType @unique
   name           String
-  basePrice      Decimal     @db.Decimal(10, 2)
+  basePrice      Decimal    @db.Decimal(10, 2)
   durationDays   Int
   maxImpressions Int?
   description    String?
-  isActive       Boolean     @default(true)
+  isActive       Boolean    @default(true)
   updatedById    String
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 }
 
 model BannerMetric {
-  id          String          @id @default(cuid())
+  id          String   @id @default(cuid())
   campaignId  String
-  date        DateTime        @db.Date
-  impressions Int             @default(0)
-  clicks      Int             @default(0)
-  conversions Int             @default(0)
-  revenue     Decimal?        @db.Decimal(10, 2)
-  createdAt   DateTime        @default(now())
+  date        DateTime @db.Date
+  impressions Int      @default(0)
+  clicks      Int      @default(0)
+  conversions Int      @default(0)
+  revenue     Decimal? @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
 
-  campaign    BannerCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign BannerCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@unique([campaignId, date])
   @@index([campaignId])
@@ -2821,23 +2799,23 @@ model ContentFlag {
 // ============== VENDOR STRIKE & DISCIPLINE MODELS ==============
 
 model VendorStrike {
-  id              String        @id @default(cuid())
-  vendorId        String
-  strikeType      StrikeType
-  severity        Decimal       @default(1.0) @db.Decimal(3, 1)
-  orderId         String?
-  reason          String
-  evidence        Json?
-  autoGenerated   Boolean       @default(true)
-  coinsPenalty    Int           @default(0)
-  resolvedById    String?
-  resolvedAt      DateTime?
-  resolutionNote  String?
-  resolutionType  StrikeResolution?
-  createdAt       DateTime      @default(now())
+  id             String            @id @default(cuid())
+  vendorId       String
+  strikeType     StrikeType
+  severity       Decimal           @default(1.0) @db.Decimal(3, 1)
+  orderId        String?
+  reason         String
+  evidence       Json?
+  autoGenerated  Boolean           @default(true)
+  coinsPenalty   Int               @default(0)
+  resolvedById   String?
+  resolvedAt     DateTime?
+  resolutionNote String?
+  resolutionType StrikeResolution?
+  createdAt      DateTime          @default(now())
 
-  vendor          Vendor        @relation(fields: [vendorId], references: [id])
-  order           Order?        @relation(fields: [orderId], references: [id])
+  vendor Vendor @relation(fields: [vendorId], references: [id])
+  order  Order? @relation(fields: [orderId], references: [id])
 
   @@index([vendorId])
   @@index([orderId])
@@ -2847,24 +2825,24 @@ model VendorStrike {
 }
 
 model VendorDiscipline {
-  id                    String            @id @default(cuid())
-  vendorId              String            @unique
-  totalStrikes          Decimal           @default(0) @db.Decimal(5, 1)
-  activeStrikes         Decimal           @default(0) @db.Decimal(5, 1)
-  successStreak         Int               @default(0)
-  disciplineStatus      DisciplineStatus  @default(GOOD_STANDING)
-  suspendedUntil        DateTime?
-  suspensionCount       Int               @default(0)
-  permanentlyBlocked    Boolean           @default(false)
-  blockedAt             DateTime?
-  blockedById           String?
-  blockReason           String?
-  lastStrikeAt          DateTime?
-  lastDecayAt           DateTime?
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  id                 String           @id @default(cuid())
+  vendorId           String           @unique
+  totalStrikes       Decimal          @default(0) @db.Decimal(5, 1)
+  activeStrikes      Decimal          @default(0) @db.Decimal(5, 1)
+  successStreak      Int              @default(0)
+  disciplineStatus   DisciplineStatus @default(GOOD_STANDING)
+  suspendedUntil     DateTime?
+  suspensionCount    Int              @default(0)
+  permanentlyBlocked Boolean          @default(false)
+  blockedAt          DateTime?
+  blockedById        String?
+  blockReason        String?
+  lastStrikeAt       DateTime?
+  lastDecayAt        DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
-  vendor                Vendor            @relation(fields: [vendorId], references: [id])
+  vendor Vendor @relation(fields: [vendorId], references: [id])
 
   @@index([vendorId])
   @@index([disciplineStatus])
@@ -2874,14 +2852,14 @@ model VendorDiscipline {
 // ============== PLATFORM CONFIGURATION ==============
 
 model PlatformConfig {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   category    String
   key         String
   value       Json
   description String?
   updatedById String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@unique([category, key])
   @@index([category])
@@ -2890,27 +2868,27 @@ model PlatformConfig {
 // ============== INVOICE GENERATION ==============
 
 model Invoice {
-  id              String        @id @default(cuid())
-  invoiceNumber   String        @unique
-  type            InvoiceType
-  vendorId        String?
-  orderId         String?
-  campaignId      String?
-  subtotal        Decimal       @db.Decimal(10, 2)
-  tax             Decimal       @db.Decimal(10, 2)
-  totalAmount     Decimal       @db.Decimal(10, 2)
-  status          InvoiceStatus @default(DRAFT)
-  items           Json
-  billingDetails  Json
-  pdfUrl          String?
-  generatedAt     DateTime?
-  sentAt          DateTime?
-  paidAt          DateTime?
-  dueDate         DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  invoiceNumber  String        @unique
+  type           InvoiceType
+  vendorId       String?
+  orderId        String?
+  campaignId     String?
+  subtotal       Decimal       @db.Decimal(10, 2)
+  tax            Decimal       @db.Decimal(10, 2)
+  totalAmount    Decimal       @db.Decimal(10, 2)
+  status         InvoiceStatus @default(DRAFT)
+  items          Json
+  billingDetails Json
+  pdfUrl         String?
+  generatedAt    DateTime?
+  sentAt         DateTime?
+  paidAt         DateTime?
+  dueDate        DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  vendor          Vendor?       @relation(fields: [vendorId], references: [id])
+  vendor Vendor? @relation(fields: [vendorId], references: [id])
 
   @@index([vendorId])
   @@index([type])

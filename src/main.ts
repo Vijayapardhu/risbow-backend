@@ -6,6 +6,7 @@ import { GlobalExceptionsFilter } from './common/filters/http-exception.filter';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import helmet from 'helmet';
+import { ThrottlerGuard } from '@nestjs/throttler';
 
 // Trigger deployment update
 async function bootstrap() {
@@ -23,7 +24,8 @@ async function bootstrap() {
     // Global Config
     app.setGlobalPrefix('api/v1');
 
-    // CORS configuration - allow localhost for Flutter web development
+    // CORS configuration - allow localhost for Flutter web development (dev only)
+    const isDevelopment = process.env.NODE_ENV === 'development';
     app.enableCors({
         origin: (origin, callback) => {
             const allowedOrigins = [
@@ -34,8 +36,10 @@ async function bootstrap() {
             ].filter(Boolean);
 
             // Allow requests with no origin (mobile apps, Postman, etc.)
-            // Also allow localhost for development
-            if (!origin || origin.startsWith('http://localhost') || allowedOrigins.includes(origin)) {
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else if (isDevelopment && origin.startsWith('http://localhost')) {
+                // Only allow localhost in development mode
                 callback(null, true);
             } else {
                 callback(null, false);
@@ -52,6 +56,11 @@ async function bootstrap() {
         transform: true, // Auto-transform payloads to DTO instances
     }));
     app.useGlobalFilters(new GlobalExceptionsFilter());
+
+    // Global rate limiting - applies to ALL endpoints
+    // Individual endpoints can override with @Throttle() decorator
+    const throttlerGuard = app.get(ThrottlerGuard);
+    app.useGlobalGuards(throttlerGuard);
 
     // Swagger Setup
     const config = new DocumentBuilder()

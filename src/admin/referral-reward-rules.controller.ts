@@ -11,7 +11,7 @@ import { CreateReferralRewardRuleDto, UpdateReferralRewardRuleDto } from './dto/
 @ApiBearerAuth()
 @Controller('admin/referrals/reward-rules')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'SUPER_ADMIN')
+@Roles('SUPER_ADMIN')  // SECURITY: Financial rules require SUPER_ADMIN only
 export class ReferralRewardRulesController {
   constructor(private prisma: PrismaService, private audit: AuditLogService) {}
 

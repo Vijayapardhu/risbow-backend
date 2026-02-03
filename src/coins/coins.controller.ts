@@ -1,5 +1,6 @@
 import { Controller, UseGuards, Request, Post, Body, ParseIntPipe, BadRequestException } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { CoinsService } from './coins.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -8,20 +9,24 @@ import { CreditCoinDto, DebitCoinDto, CoinSource } from './dto/coin.dto';
 import { Idempotent } from '../idempotency/idempotency.decorator';
 
 @ApiTags('Coins')
+@ApiBearerAuth()
 @Controller('coins')
 @UseGuards(JwtAuthGuard)
 export class CoinsController {
-        @Post('expire-cron')
-        @UseGuards(RolesGuard)
-        @Roles('ADMIN', 'SUPER_ADMIN')
-        async expireCoinsCron() {
-            return this.coinsService.expireCoinsCron();
-        }
     constructor(private readonly coinsService: CoinsService) { }
+
+    @Post('expire-cron')
+    @UseGuards(RolesGuard)
+    @Roles('SUPER_ADMIN')  // SECURITY: Cron operations require SUPER_ADMIN
+    @Throttle({ default: { limit: 1, ttl: 60000 } })  // SECURITY: Limit cron triggers
+    async expireCoinsCron() {
+        return this.coinsService.expireCoinsCron();
+    }
 
     @Post('credit')
     @UseGuards(RolesGuard)
-    @Roles('ADMIN', 'SUPER_ADMIN')
+    @Roles('SUPER_ADMIN')  // SECURITY: Financial operations require SUPER_ADMIN
+    @Throttle({ default: { limit: 10, ttl: 60000 } })  // SECURITY: Rate limit coin grants
     async credit(@Body() dto: CreditCoinDto) {
         // Admin-only: credit coins to any user
         return this.coinsService.credit(dto.userId, dto.amount, dto.source);
@@ -29,7 +34,8 @@ export class CoinsController {
 
     @Post('debit')
     @UseGuards(RolesGuard)
-    @Roles('ADMIN', 'SUPER_ADMIN')
+    @Roles('SUPER_ADMIN')  // SECURITY: Financial operations require SUPER_ADMIN
+    @Throttle({ default: { limit: 10, ttl: 60000 } })  // SECURITY: Rate limit coin debits
     async debit(@Body() dto: DebitCoinDto) {
         // Admin-only: debit coins from any user
         return this.coinsService.debit(dto.userId, dto.amount, dto.source);

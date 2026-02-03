@@ -1,11 +1,12 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdminGuard } from '../auth/admin.guard';
 import { BowAdminService } from './bow-admin.service';
 
 @ApiTags('Admin - Bow AI')
 @Controller('admin/bow')
-@UseGuards(AdminGuard)
+@UseGuards(JwtAuthGuard, AdminGuard)  // JwtAuthGuard must run before AdminGuard
 export class BowAdminController {
     constructor(private readonly bowAdminService: BowAdminService) {}
 
