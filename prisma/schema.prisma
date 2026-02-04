@@ -8,452 +8,37 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model ProductSearchMiss {
-  id                 String    @id @default(cuid())
-  query              String
-  userId             String?
-  count              Int       @default(1)
-  lastSearchedAt     DateTime  @updatedAt
-  firstSearchedAt    DateTime  @default(now())
-  inferredCategoryId String?
-  keywords           String[]
-  metadata           Json?
-  normalizedQuery    String
-  resolved           Boolean   @default(false)
-  resolvedProductId  String?
-  region             String?
-  category           Category? @relation(fields: [inferredCategoryId], references: [id])
-  user               User?     @relation(fields: [userId], references: [id])
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AbandonedCheckout {
+  id                                   String                 @id
+  userId                               String?
+  guestInfo                            Json?
+  cartSnapshot                         Json
+  financeSnapshot                      Json
+  metadata                             Json?
+  status                               CheckoutRecoveryStatus @default(NEW)
+  agentId                              String?
+  lockedUntil                          DateTime?
+  createdAt                            DateTime               @default(now())
+  abandonedAt                          DateTime               @default(now())
+  updatedAt                            DateTime
+  abandonReason                        String?
+  lastErrorCode                        String?
+  paymentMethod                        String?
+  User_AbandonedCheckout_agentIdToUser User?                  @relation("AbandonedCheckout_agentIdToUser", fields: [agentId], references: [id])
+  User_AbandonedCheckout_userIdToUser  User?                  @relation("AbandonedCheckout_userIdToUser", fields: [userId], references: [id])
+  CheckoutFollowup                     CheckoutFollowup[]
+  Order                                Order[]
 
-  @@index([normalizedQuery])
-  @@index([count])
-  @@index([resolved])
-  @@index([lastSearchedAt])
-  @@index([region])
-}
-
-model SearchTrending {
-  id       String   @id @default(cuid())
-  query    String
-  region   String?  @default("global")
-  count    Int      @default(1)
-  lastSeen DateTime @default(now())
-
-  @@unique([query, region])
-  @@index([region, count])
-  @@index([lastSeen])
-}
-
-model CartInsight {
-  id              String          @id @default(cuid())
-  userId          String
-  cartValue       Int
-  itemCount       Int
-  categories      String[]
-  cartPattern     String
-  hesitationScore Float
-  abandonRisk     Float
-  resolvedAt      DateTime?
-  severity        InsightSeverity
-  triggeredAt     DateTime        @default(now())
-  type            CartInsightType
-  user            User            @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([cartPattern])
-  @@index([triggeredAt])
-  @@index([type])
-  @@index([severity])
-}
-
-model RecommendationEvent {
-  id              String   @id @default(cuid())
-  userId          String
-  source          String
-  strategy        String
-  productIds      String[]
-  accepted        Boolean?
-  cartValueBefore Int
-  cartValueAfter  Int?
-  createdAt       DateTime @default(now())
-  user            User     @relation(fields: [userId], references: [id])
-
-  @@index([strategy])
-  @@index([accepted])
-}
-
-model UserProductEvent {
-  id        String               @id @default(cuid())
-  userId    String?
-  sessionId String?
-  type      UserProductEventType
-  source    String?
-  productId String
-  variantId String?
-  quantity  Int?
-  price     Int?
-  metadata  Json?
-  createdAt DateTime             @default(now())
-  product   Product              @relation(fields: [productId], references: [id])
-  user      User?                @relation(fields: [userId], references: [id])
-
-  @@index([userId, createdAt])
-  @@index([productId, createdAt])
-  @@index([type, createdAt])
-  @@index([source, createdAt])
-}
-
-model BowActionLog {
-  id                String        @id @default(cuid())
-  userId            String
-  actionType        BowActionType
-  productId         String?
-  variantId         String?
-  quantity          Int?
-  price             Int?
-  reason            String
-  guardrailCheck    Json?
-  autoReversed      Boolean       @default(false)
-  reverseReason     String?
-  attributedRevenue Int?
-  createdAt         DateTime      @default(now())
-  reversedAt        DateTime?
-  product           Product?      @relation(fields: [productId], references: [id])
-  user              User          @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([actionType])
-  @@index([productId])
-  @@index([createdAt])
-  @@index([autoReversed])
-}
-
-model UserPreferenceProfile {
-  id                  String   @id @default(cuid())
-  userId              String   @unique
-  preferredCategories String[]
-  preferredBrands     String[]
-  sizePreferences     String[]
-  priceSensitivity    String   @default("MEDIUM")
-  colorAffinity       String[]
-  styleTags           String[]
-  lastUpdated         DateTime @updatedAt
-  confidenceScore     Float    @default(0.1)
-  user                User     @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([priceSensitivity])
-}
-
-model User {
-  id                                                 String                   @id @default(cuid())
-  mobile                                             String                   @unique
-  name                                               String?
-  email                                              String?                  @unique
-  password                                           String?
-  role                                               UserRole                 @default(CUSTOMER)
-  status                                             UserStatus               @default(ACTIVE)
-  coinsBalance                                       Int                      @default(0)
-  referralCode                                       String                   @unique @default(cuid())
-  referredBy                                         String?
-  dateOfBirth                                        DateTime?
-  gender                                             String?
-  size                                               String?
-  footwearSize                                       Int?
-  stylePrefs                                         String?
-  colors                                             String?
-  riskTag                                            RiskTag                  @default(LOW)
-  valueTag                                           ValueTag                 @default(NORMAL)
-  isCodDisabled                                      Boolean                  @default(false)
-  isRefundsDisabled                                  Boolean                  @default(false)
-  createdAt                                          DateTime                 @default(now())
-  forceLogoutAt                                      DateTime?
-  kycDocuments                                       Json?
-  kycStatus                                          String                   @default("NOT_SUBMITTED")
-  miscDocuments                                      Json?
-  updatedAt                                          DateTime                 @updatedAt
-  metadata                                           Json?                    @default("{}")
-  assignedLeads                                      AbandonedCheckout[]      @relation("AgentCheckouts")
-  abandonedCheckouts                                 AbandonedCheckout[]
-  addresses                                          Address[]
-  authoredNotes                                      AdminNote[]              @relation("AdminAuthor")
-  receivedNotes                                      AdminNote[]              @relation("UserNotes")
-  auditLogs                                          AuditLog[]
-  bets                                               Bet[]
-  bowActionLogs                                      BowActionLog[]
-  BowInteraction                                     BowInteraction[]
-  buyLater                                           BuyLater[]
-  cart                                               Cart?
-  cartInsights                                       CartInsight[]
-  leadFollowups                                      CheckoutFollowup[]
-  coinLedger                                         CoinLedger[]
-  coinValuationsSet                                  CoinValuation[]          @relation("CoinValuationSetBy")
-  ledger                                             LedgerEntry[]
-  notifications                                      Notification[]
-  orders                                             Order[]
-  paymentIntentsCreated                              PaymentIntent[]          @relation("PaymentIntentCreatedBy")
-  productSearchMisses                                ProductSearchMiss[]
-  recommendationEvents                               RecommendationEvent[]
-  ReferralTracking_ReferralTracking_refereeIdToUser  ReferralTracking[]       @relation("ReferralTracking_refereeIdToUser")
-  ReferralTracking_ReferralTracking_referrerIdToUser ReferralTracking[]       @relation("ReferralTracking_referrerIdToUser")
-  ReferralRewardGrantsAsInviter                      ReferralRewardGrant[]    @relation("ReferralInviter")
-  ReferralRewardGrantsAsInvitee                      ReferralRewardGrant[]    @relation("ReferralInvitee")
-  checkoutGroups                                     CheckoutGroup[]
-  localPromotionsSet                                 LocalPromotion[]
-  referralRewardRulesSet                             ReferralRewardRule[]
-  packingProofsUploaded                              OrderPackingProof[]
-  reports                                            Report[]
-  returns                                            ReturnRequest[]
-  reviews                                            Review[]
-  createdRooms                                       Room[]
-  rooms                                              RoomMember[]
-  telecallerPerformance                              TelecallerPerformance[]
-  devices                                            UserDevice[]
-  userPreferenceProfile                              UserPreferenceProfile?
-  productEvents                                      UserProductEvent[]
-  VendorFollower                                     VendorFollower[]
-  vendorInquiriesRequested                           VendorInquiry[]          @relation("VendorInquiryRequester")
-  wallet                                             Wallet?
-  wishlist                                           Wishlist[]
-  bannerImpressions                                  BannerImpressionLedger[]
-  reelInteractions                                   ReelInteractionLedger[]
-  creatorProfile                                     CreatorProfile?
-  refunds                                            Refund[]                 @relation("UserRefunds")
-  tickets                                            SupportTicket[]          @relation("UserTickets")
-
-  @@index([role])
+  @@index([abandonedAt])
+  @@index([agentId])
+  @@index([status, agentId])
   @@index([status])
-  @@index([referredBy])
 }
 
-model UserDevice {
-  id         String   @id @default(cuid())
-  userId     String
-  platform   String
-  token      String   @unique
-  isActive   Boolean  @default(true)
-  lastSeenAt DateTime @default(now())
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, isActive])
-  @@index([lastSeenAt])
-}
-
-model Room {
-  id              String        @id @default(cuid())
-  name            String
-  size            Int
-  status          RoomStatus    @default(LOCKED)
-  offerId         String        @default("")
-  startAt         DateTime
-  endAt           DateTime
-  unlockMinOrders Int
-  unlockMinValue  Int
-  createdById     String?
-  isSystemRoom    Boolean       @default(false)
-  createdAt       DateTime      @default(now())
-  memberCount     Int           @default(1)
-  maxDiscount     Float?
-  maxMembers      Int?
-  productId       String?
-  type            RoomType      @default(GOAL_BASED)
-  createdBy       User?         @relation(fields: [createdById], references: [id])
-  product         Product?      @relation(fields: [productId], references: [id])
-  boosts          RoomBoost[]
-  insights        RoomInsight[]
-  members         RoomMember[]
-
-  @@index([status, endAt])
-  @@index([createdById])
-  @@index([productId])
-}
-
-model RoomBoost {
-  id        String        @id @default(cuid())
-  roomId    String
-  vendorId  String?
-  type      RoomBoostType
-  coinsCost Int
-  startAt   DateTime
-  endAt     DateTime
-  isActive  Boolean       @default(true)
-  createdAt DateTime      @default(now())
-  room      Room          @relation(fields: [roomId], references: [id])
-
-  @@index([roomId])
-  @@index([type, isActive])
-  @@index([startAt, endAt])
-}
-
-model RoomInsight {
-  id        String   @id @default(cuid())
-  roomId    String
-  metric    String
-  value     Float
-  createdAt DateTime @default(now())
-  room      Room     @relation(fields: [roomId], references: [id])
-
-  @@index([roomId])
-  @@index([metric])
-}
-
-model WeeklyOffer {
-  id        String   @id @default(cuid())
-  name      String
-  startAt   DateTime
-  endAt     DateTime
-  isActive  Boolean  @default(true)
-  rules     Json?
-  createdAt DateTime @default(now())
-}
-
-model RoomMember {
-  roomId String
-  userId String
-  status MemberStatus @default(PENDING)
-  room   Room         @relation(fields: [roomId], references: [id])
-  user   User         @relation(fields: [userId], references: [id])
-
-  @@id([roomId, userId])
-  @@index([userId])
-}
-
-model Category {
-  id                  String              @id @default(cuid())
-  name                String
-  image               String?
-  nameTE              String?
-  parentId            String?
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  attributeSchema     Json?
-  isActive            Boolean             @default(true)
-  parent              Category?           @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children            Category[]          @relation("CategoryHierarchy")
-  commissions         CategoryCommission?
-  specs               CategorySpec[]
-  products            Product[]
-  productSearchMisses ProductSearchMiss[]
-  localPromotions     LocalPromotion[]
-
-  @@index([parentId])
-  @@index([isActive])
-}
-
-model GiftSKU {
-  id                 String   @id @default(cuid())
-  title              String
-  stock              Int      @default(0)
-  cost               Int      @default(0)
-  eligibleCategories Json?
-  createdAt          DateTime @default(now())
-  orders             Order[]
-}
-
-model CoinLedger {
-  id                String    @id @default(cuid())
-  userId            String
-  amount            Int
-  source            String
-  referenceId       String?
-  expiresAt         DateTime?
-  createdAt         DateTime  @default(now())
-  isExpired         Boolean   @default(false)
-  paisePerCoinAtTxn Int       @default(100)
-  roleAtTxn         UserRole  @default(CUSTOMER)
-  user              User      @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([createdAt])
-  @@index([isExpired])
-  @@index([expiresAt])
-  @@index([roleAtTxn, createdAt])
-}
-
-model Vendor {
-  id                              String                      @id @default(cuid())
-  name                            String
-  mobile                          String                      @unique
-  email                           String?
-  kycStatus                       String                      @default("PENDING")
-  tier                            String                      @default("BASIC")
-  gstNumber                       String?
-  isGstVerified                   Boolean                     @default(false)
-  kycDocuments                    Json?
-  skuLimit                        Int                         @default(100)
-  role                            VendorRole                  @default(RETAILER)
-  coinsBalance                    Int                         @default(0)
-  followCount                     Int                         @default(0)
-  vendorCode                      String?                     @unique
-  commissionRate                  Float                       @default(0.0)
-  createdAt                       DateTime                    @default(now())
-  updatedAt                       DateTime                    @updatedAt
-  storeStatus                     String?                     @default("ACTIVE") // ACTIVE, SUSPENDED (for shop availability)
-  storeClosedUntil                DateTime? // Temporary closure
-  bankDetails                     Json?
-  lastPayoutDate                  DateTime?
-  pendingEarnings                 Int                         @default(0)
-  performanceScore                Float                       @default(0.0)
-  pickupEnabled                   Boolean                     @default(false)
-  pickupTimings                   Json?
-  storeBanner                     String?
-  storeLogo                       String?
-  storeName                       String?
-  storeTimings                    Json?
-  commissionOverride              Decimal?                    @db.Decimal(5, 4)
-  latitude                        Float?
-  longitude                       Float?
-  pincode                         String?
-  panNumber                       String?
-  pickupAddress                   Json?
-  // Auto-clearance settings
-  autoClearanceThresholdDays      Int?                        @default(7) // Days before expiry to auto-add to clearance
-  defaultClearanceDiscountPercent Int?                        @default(20) // Default discount % for auto-clearance (0-100)
-  coupons                         Coupon[]
-  orderSettlements                OrderSettlement[]
-  products                        Product[]
-  returns                         ReturnRequest[]
-  reviews                         Review[]
-  VendorFollower                  VendorFollower[]
-  inquiriesReceived               VendorInquiry[]             @relation("VendorInquiryWholesaler")
-  VendorMembership                VendorMembership?
-  VendorPayout                    VendorPayout[]
-  VendorPromotion                 VendorPromotion[]
-  localPromotions                 LocalPromotion[]
-  serviceAreas                    VendorServiceArea[]
-  deliveryWindows                 VendorDeliveryWindow[]
-  packingProofs                   OrderPackingProof[]
-  pickupPoints                    PickupPoint[]
-  deliverySlotSnapshots           OrderDeliverySlotSnapshot[]
-  bowCoinLedger                   VendorBowCoinLedger[]
-  disciplineEvents                VendorDisciplineEvent[]
-  disciplineState                 VendorDisciplineState?
-  stories                         Story[]
-  reels                           Reel[]
-  clearanceProducts               ClearanceProduct[]
-  documents                       VendorDocument[]
-  bannerCampaigns                 BannerCampaign[]
-  strikes                         VendorStrike[]
-  discipline                      VendorDiscipline?
-  invoices                        Invoice[]
-
-  @@index([kycStatus])
-  @@index([tier])
-  @@index([pincode])
-}
-
-model RoomPackage {
-  id               String   @id @default(cuid())
-  vendorId         String
-  packageType      String
-  remainingCredits Int
-  createdAt        DateTime @default(now())
-}
-
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Address {
-  id           String     @id @default(cuid())
+  id           String     @id
   userId       String
   title        String?
   name         String
@@ -468,99 +53,941 @@ model Address {
   createdAt    DateTime   @default(now())
   label        String     @default("Home")
   phone        String
-  updatedAt    DateTime   @updatedAt
+  updatedAt    DateTime
   latitude     Float?
   longitude    Float?
   geoSource    GeoSource?
   geoUpdatedAt DateTime?
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders       Order[]
+  User         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Order        Order[]
 
   @@index([userId])
 }
 
+model Admin {
+  id            String          @id
+  email         String          @unique
+  password      String
+  role          String
+  createdAt     DateTime        @default(now())
+  avatar        String?
+  isActive      Boolean         @default(true)
+  lastLoginAt   DateTime?
+  name          String?
+  updatedAt     DateTime
+  BlogPost      BlogPost[]
+  SupportTicket SupportTicket[]
+
+  @@index([isActive])
+  @@index([role])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AdminNote {
+  id                           String   @id
+  userId                       String
+  adminId                      String
+  note                         String
+  createdAt                    DateTime @default(now())
+  User_AdminNote_adminIdToUser User     @relation("AdminNote_adminIdToUser", fields: [adminId], references: [id])
+  User_AdminNote_userIdToUser  User     @relation("AdminNote_userIdToUser", fields: [userId], references: [id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AuditLog {
+  id        String   @id
+  adminId   String
+  entity    String
+  action    String
+  details   Json?
+  createdAt DateTime @default(now())
+  entityId  String
+  ipAddress String?
+  userAgent String?
+  User      User     @relation(fields: [adminId], references: [id])
+
+  @@index([action])
+  @@index([adminId])
+  @@index([createdAt])
+  @@index([entity])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Banner {
+  id                     String                   @id
+  vendorId               String?
+  imageUrl               String
+  redirectUrl            String?
+  slotType               String
+  startDate              DateTime
+  endDate                DateTime
+  isActive               Boolean                  @default(true)
+  createdAt              DateTime                 @default(now())
+  metadata               Json?
+  bannerCampaignId       String?
+  BannerImpressionLedger BannerImpressionLedger[]
+
+  @@index([slotType, isActive])
+  @@index([slotType, startDate, endDate, isActive])
+  @@index([startDate, endDate])
+  @@index([vendorId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model BannerCampaign {
+  id             String   @id
+  bannerId       String
+  vendorId       String
+  campaignType   String
+  targetAudience String
+  startDate      DateTime
+  endDate        DateTime
+  amountPaid     Int
+  paymentStatus  String   @default("PENDING")
+  createdAt      DateTime @default(now())
+
+  @@index([startDate, endDate])
+  @@index([vendorId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model BannerImpressionLedger {
+  id        String    @id
+  bannerId  String
+  userId    String?
+  viewedAt  DateTime  @default(now())
+  clickedAt DateTime?
+  Banner    Banner    @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+  User      User?     @relation(fields: [userId], references: [id])
+
+  @@index([bannerId, viewedAt])
+  @@index([userId, viewedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Bet {
+  id             String        @id
+  userId         String
+  idempotencyKey String        @unique
+  type           BetType       @default(SINGLE)
+  selections     Json
+  stake          Int
+  odds           Float
+  potentialWin   Int
+  status         BetStatus     @default(PENDING)
+  placedAt       DateTime      @default(now())
+  settledAt      DateTime?
+  result         String?
+  payout         Int?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime
+  User           User          @relation(fields: [userId], references: [id])
+  LedgerEntry    LedgerEntry[]
+
+  @@index([idempotencyKey])
+  @@index([status])
+  @@index([userId])
+}
+
+model BlogCategory {
+  id                 String         @id
+  slug               String         @unique
+  name               String
+  description        String?
+  image              String?
+  parentId           String?
+  sortOrder          Int            @default(0)
+  isActive           Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  BlogCategory       BlogCategory?  @relation("BlogCategoryToBlogCategory", fields: [parentId], references: [id])
+  other_BlogCategory BlogCategory[] @relation("BlogCategoryToBlogCategory")
+  BlogPost           BlogPost[]
+
+  @@index([isActive])
+  @@index([parentId])
+  @@index([slug])
+}
+
+model BlogPost {
+  id           String        @id
+  slug         String        @unique
+  title        String
+  excerpt      String?
+  content      String
+  coverImage   String?
+  categoryId   String?
+  authorId     String
+  tags         String[]
+  status       PostStatus    @default(DRAFT)
+  isFeatured   Boolean       @default(false)
+  publishedAt  DateTime?
+  viewCount    Int           @default(0)
+  readTime     Int?
+  seoTitle     String?
+  seoDesc      String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime
+  Admin        Admin         @relation(fields: [authorId], references: [id])
+  BlogCategory BlogCategory? @relation(fields: [categoryId], references: [id])
+
+  @@index([authorId])
+  @@index([categoryId])
+  @@index([isFeatured])
+  @@index([publishedAt])
+  @@index([slug])
+  @@index([status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model BowActionLog {
+  id                String        @id
+  userId            String
+  actionType        BowActionType
+  productId         String?
+  variantId         String?
+  quantity          Int?
+  price             Int?
+  reason            String
+  guardrailCheck    Json?
+  autoReversed      Boolean       @default(false)
+  reverseReason     String?
+  attributedRevenue Int?
+  createdAt         DateTime      @default(now())
+  reversedAt        DateTime?
+  Product           Product?      @relation(fields: [productId], references: [id])
+  User              User          @relation(fields: [userId], references: [id])
+
+  @@index([actionType])
+  @@index([autoReversed])
+  @@index([createdAt])
+  @@index([productId])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model BowInteraction {
+  id              String          @id
+  userId          String
+  sessionId       String
+  type            InteractionType
+  query           String?
+  response        String?
+  intent          String?
+  confidence      Float?
+  actionType      BowActionType?
+  actionPayload   Json?
+  metadata        Json?
+  context         Json?
+  sentiment       String?
+  escalated       Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  conversionEvent String?
+  conversionValue Int?
+  User            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([escalated])
+  @@index([sessionId, createdAt])
+  @@index([sessionId])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model BuyLater {
+  id               String   @id
+  userId           String
+  productId        String
+  variantId        String?
+  targetPrice      Int
+  currentPrice     Int
+  quantity         Int      @default(1)
+  isActive         Boolean  @default(true)
+  isNotified       Boolean  @default(false)
+  isAddedToCart    Boolean  @default(false)
+  priceDropPercent Float?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+  Product          Product  @relation(fields: [productId], references: [id])
+  User             User     @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([isActive])
+  @@index([isNotified])
+  @@index([productId])
+  @@index([userId])
+}
+
+model CMSMenu {
+  id          String        @id
+  name        String        @unique
+  location    MenuLocation
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime
+  CMSMenuItem CMSMenuItem[]
+
+  @@index([isActive])
+  @@index([location])
+}
+
+model CMSMenuItem {
+  id                String        @id
+  menuId            String
+  label             String
+  url               String
+  icon              String?
+  target            String        @default("_self")
+  parentId          String?
+  sortOrder         Int           @default(0)
+  isActive          Boolean       @default(true)
+  CMSMenu           CMSMenu       @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  CMSMenuItem       CMSMenuItem?  @relation("CMSMenuItemToCMSMenuItem", fields: [parentId], references: [id])
+  other_CMSMenuItem CMSMenuItem[] @relation("CMSMenuItemToCMSMenuItem")
+
+  @@index([menuId])
+  @@index([parentId])
+  @@index([sortOrder])
+}
+
+model CMSPage {
+  id            String   @id
+  slug          String   @unique
+  title         String
+  content       String
+  excerpt       String?
+  metaTitle     String?
+  metaDesc      String?
+  featuredImage String?
+  template      String   @default("default")
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+
+  @@index([isActive])
+  @@index([slug])
+  @@index([sortOrder])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Cart {
-  id        String     @id @default(cuid())
+  id        String     @id
   userId    String     @unique
-  updatedAt DateTime   @updatedAt
-  user      User       @relation(fields: [userId], references: [id])
-  items     CartItem[]
+  updatedAt DateTime
+  User      User       @relation(fields: [userId], references: [id])
+  CartItem  CartItem[]
 
   @@index([userId])
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CartInsight {
+  id              String          @id
+  userId          String
+  cartValue       Int
+  itemCount       Int
+  categories      String[]
+  cartPattern     String
+  hesitationScore Float
+  abandonRisk     Float
+  resolvedAt      DateTime?
+  severity        InsightSeverity
+  triggeredAt     DateTime        @default(now())
+  type            CartInsightType
+  User            User            @relation(fields: [userId], references: [id])
+
+  @@index([cartPattern])
+  @@index([severity])
+  @@index([triggeredAt])
+  @@index([type])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model CartItem {
-  id        String  @id @default(cuid())
+  id        String  @id
   cartId    String
   productId String
   variantId String?
   quantity  Int
-  cart      Cart    @relation(fields: [cartId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
+  Cart      Cart    @relation(fields: [cartId], references: [id])
+  Product   Product @relation(fields: [productId], references: [id])
 
-  @@index([productId])
   @@index([cartId])
-}
-
-model Wishlist {
-  id        String   @id @default(cuid())
-  userId    String
-  productId String
-  createdAt DateTime @default(now())
-  product   Product  @relation(fields: [productId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
-
-  @@unique([userId, productId])
-}
-
-model VendorInquiry {
-  id                 String        @id @default(cuid())
-  wholesalerVendorId String
-  requesterUserId    String
-  productId          String
-  quantity           Int
-  message            String?
-  status             InquiryStatus @default(PENDING)
-  response           String?
-  respondedAt        DateTime?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  product            Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
-  requester          User          @relation("VendorInquiryRequester", fields: [requesterUserId], references: [id], onDelete: Cascade)
-  wholesaler         Vendor        @relation("VendorInquiryWholesaler", fields: [wholesalerVendorId], references: [id], onDelete: Cascade)
-
-  @@index([wholesalerVendorId, status])
-  @@index([requesterUserId, status])
   @@index([productId])
-  @@index([createdAt])
 }
 
-model Review {
-  id           String   @id @default(cuid())
-  userId       String
-  productId    String?
-  vendorId     String?
-  rating       Int
-  comment      String?
-  images       String[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  helpfulCount Int      @default(0)
-  isVerified   Boolean  @default(false)
-  status       String   @default("ACTIVE")
-  product      Product? @relation(fields: [productId], references: [id])
-  user         User     @relation(fields: [userId], references: [id])
-  vendor       Vendor?  @relation(fields: [vendorId], references: [id])
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Category {
+  id                 String              @id
+  name               String
+  image              String?
+  nameTE             String?
+  parentId           String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime
+  attributeSchema    Json?
+  isActive           Boolean             @default(true)
+  Category           Category?           @relation("CategoryToCategory", fields: [parentId], references: [id])
+  other_Category     Category[]          @relation("CategoryToCategory")
+  CategoryCommission CategoryCommission?
+  CategorySpec       CategorySpec[]
+  LocalPromotion     LocalPromotion[]
+  Product            Product[]
+  ProductSearchMiss  ProductSearchMiss[]
 
+  @@index([isActive])
+  @@index([parentId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CategoryCommission {
+  id             String   @id
+  categoryId     String   @unique
+  commissionRate Float
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  Category       Category @relation(fields: [categoryId], references: [id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CategorySpec {
+  id               String             @id
+  categoryId       String
+  key              String
+  label            String
+  labelTE          String?
+  type             SpecType
+  unit             String?
+  required         Boolean            @default(false)
+  options          Json?
+  sortOrder        Int                @default(0)
+  isActive         Boolean            @default(true)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  Category         Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  ProductSpecValue ProductSpecValue[]
+
+  @@unique([categoryId, key])
+  @@index([categoryId, isActive])
+  @@index([categoryId, sortOrder])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CheckoutFollowup {
+  id                String            @id
+  checkoutId        String
+  agentId           String
+  note              String
+  outcome           CallOutcome?
+  createdAt         DateTime          @default(now())
+  User              User              @relation(fields: [agentId], references: [id])
+  AbandonedCheckout AbandonedCheckout @relation(fields: [checkoutId], references: [id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CheckoutGroup {
+  id               String              @id
+  userId           String
+  provider         String              @default("RAZORPAY")
+  providerOrderId  String?
+  totalAmountPaise Int
+  currency         String              @default("INR")
+  status           CheckoutGroupStatus @default(PENDING_PAYMENT)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime
+  User             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Order            Order[]
+
+  @@index([providerOrderId])
+  @@index([userId, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ClearanceProduct {
+  id             String   @id
+  productId      String
+  vendorId       String
+  clearancePrice Int
+  originalPrice  Int
+  expiryDate     DateTime
+  quantity       Int
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  Product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  Vendor         Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([expiryDate, isActive])
+  @@index([vendorId, isActive])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CoinLedger {
+  id                String    @id
+  userId            String
+  amount            Int
+  source            String
+  referenceId       String?
+  expiresAt         DateTime?
+  createdAt         DateTime  @default(now())
+  isExpired         Boolean   @default(false)
+  paisePerCoinAtTxn Int       @default(100)
+  roleAtTxn         UserRole  @default(CUSTOMER)
+  User              User      @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([expiresAt])
+  @@index([isExpired])
+  @@index([roleAtTxn, createdAt])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CoinValuation {
+  id            String    @id
+  role          UserRole
+  paisePerCoin  Int
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  setByUserId   String?
+  createdAt     DateTime  @default(now())
+  User          User?     @relation(fields: [setByUserId], references: [id])
+
+  @@index([role, effectiveFrom])
+  @@index([role, effectiveTo])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ContentModeration {
+  id          String    @id
+  contentType String
+  contentId   String
+  flaggedBy   String?
+  reason      String
+  status      String    @default("PENDING")
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([contentType, contentId])
+  @@index([status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Coupon {
+  id             String    @id
+  code           String    @unique
+  description    String?
+  discountType   String
+  discountValue  Int
+  minOrderAmount Int?      @default(0)
+  maxDiscount    Int?
+  validFrom      DateTime  @default(now())
+  validUntil     DateTime?
+  usageLimit     Int?
+  usedCount      Int       @default(0)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime
+  categoryIds    String[]
+  minQuantity    Int?
+  productIds     String[]
+  vendorId       String?
+  Vendor         Vendor?   @relation(fields: [vendorId], references: [id])
+
+  @@index([isActive])
+  @@index([vendorId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CreatorProfile {
+  id              String   @id
+  userId          String   @unique
+  displayName     String
+  bio             String?
+  profileImageUrl String?
+  isVerified      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime
+  User            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Reel            Reel[]
+
+  @@index([userId])
+}
+
+model Delivery {
+  id              String         @id
+  deliveryNumber  String         @unique
+  orderId         String
+  driverId        String?
+  pickupAddress   Json
+  deliveryAddress Json
+  status          DeliveryStatus @default(PENDING)
+  distance        Float?
+  estimatedTime   Int?
+  actualTime      Int?
+  pickupOtp       String?
+  deliveryOtp     String?
+  pickedAt        DateTime?
+  deliveredAt     DateTime?
+  proofImage      String?
+  notes           String?
+  rating          Int?
+  feedback        String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime
+  Driver          Driver?        @relation(fields: [driverId], references: [id])
+  Order           Order          @relation(fields: [orderId], references: [id])
+
+  @@index([createdAt])
+  @@index([driverId])
+  @@index([orderId])
+  @@index([status])
+}
+
+model Driver {
+  id              String           @id
+  driverId        String           @unique
+  name            String
+  mobile          String           @unique
+  email           String?
+  avatar          String?
+  vehicleType     VehicleType
+  vehicleNumber   String
+  licenseNumber   String
+  licenseExpiry   DateTime
+  status          DriverStatus     @default(PENDING)
+  isAvailable     Boolean          @default(false)
+  isOnline        Boolean          @default(false)
+  currentLocation Json?
+  rating          Float            @default(5.0)
+  totalDeliveries Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime
+  Delivery        Delivery[]
+  DriverDocument  DriverDocument[]
+
+  @@index([isAvailable])
+  @@index([isOnline])
+  @@index([status])
+}
+
+model DriverDocument {
+  id          String         @id
+  driverId    String
+  type        DocumentType
+  documentUrl String
+  status      DocumentStatus @default(PENDING)
+  verifiedBy  String?
+  verifiedAt  DateTime?
+  expiryDate  DateTime?
+  notes       String?
+  createdAt   DateTime       @default(now())
+  Driver      Driver         @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@index([driverId])
+  @@index([status])
+}
+
+model Employee {
+  id          String       @id
+  employeeId  String       @unique
+  name        String
+  email       String       @unique
+  mobile      String       @unique
+  password    String
+  avatar      String?
+  role        EmployeeRole
+  department  String?
+  permissions String[]
+  isActive    Boolean      @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime
+
+  @@index([department])
+  @@index([isActive])
+  @@index([role])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model GiftSKU {
+  id                 String   @id
+  title              String
+  stock              Int      @default(0)
+  cost               Int      @default(0)
+  eligibleCategories Json?
+  createdAt          DateTime @default(now())
+  Order              Order[]
+}
+
+model Inventory {
+  id              String          @id
+  productId       String
+  warehouseId     String?
+  stock           Int             @default(0)
+  reservedStock   Int             @default(0)
+  reorderPoint    Int             @default(10)
+  reorderQuantity Int             @default(50)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime
+  Product         Product         @relation(fields: [productId], references: [id])
+  Warehouse       Warehouse?      @relation(fields: [warehouseId], references: [id])
+  StockMovement   StockMovement[]
+
+  @@index([productId])
+  @@index([warehouseId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model LedgerEntry {
+  id           String   @id
+  userId       String
+  walletId     String
+  betId        String?
+  amount       Int
+  type         String
+  description  String
+  balanceAfter Int
+  createdAt    DateTime @default(now())
+  Bet          Bet?     @relation(fields: [betId], references: [id])
+  User         User     @relation(fields: [userId], references: [id])
+  Wallet       Wallet   @relation(fields: [walletId], references: [id])
+
+  @@index([betId])
+  @@index([createdAt])
+  @@index([userId])
+  @@index([walletId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model LocalPromotion {
+  id            String    @id
+  name          String?
+  isActive      Boolean   @default(true)
+  targetType    String
+  centerLat     Float?
+  centerLng     Float?
+  radiusKm      Float?
+  pincodes      Json?
+  vendorId      String?
+  categoryId    String?
+  productId     String?
+  percentOff    Int?
+  flatOffAmount Int?
+  freeShipping  Boolean   @default(false)
+  boostOnly     Boolean   @default(false)
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  setByUserId   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime
+  Category      Category? @relation(fields: [categoryId], references: [id])
+  Product       Product?  @relation(fields: [productId], references: [id])
+  User          User?     @relation(fields: [setByUserId], references: [id])
+  Vendor        Vendor?   @relation(fields: [vendorId], references: [id])
+
+  @@index([categoryId])
+  @@index([isActive, effectiveFrom, effectiveTo])
   @@index([productId])
   @@index([vendorId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Notification {
+  id             String   @id
+  userId         String?
+  title          String
+  body           String
+  type           String
+  targetAudience String?
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  User           User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([userId, isRead])
+}
+
+model NotificationCampaign {
+  id             String    @id
+  name           String
+  templateId     String?
+  title          String
+  body           String
+  imageUrl       String?
+  targetAudience Json
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  totalSent      Int       @default(0)
+  totalOpened    Int       @default(0)
+  totalClicked   Int       @default(0)
+  status         String    @default("draft")
+  createdBy      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime
+
+  @@index([createdAt])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+model NotificationTemplate {
+  id        String   @id
+  name      String   @unique
+  title     String
+  body      String
+  imageUrl  String?
+  action    String?
+  data      Json?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+
+  @@index([isActive])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Order {
+  id                                                       String                     @id
+  userId                                                   String
+  roomId                                                   String?
+  addressId                                                String?
+  items                                                    Json
+  totalAmount                                              Int
+  coinsUsed                                                Int                        @default(0)
+  coinsUsedDebited                                         Boolean                    @default(false)
+  status                                                   OrderStatus                @default(PENDING)
+  razorpayOrderId                                          String?
+  awbNumber                                                String?
+  courierPartner                                           String?
+  createdAt                                                DateTime                   @default(now())
+  updatedAt                                                DateTime
+  abandonedCheckoutId                                      String?
+  agentId                                                  String?
+  shippingCharges                                          Int                        @default(0)
+  couponCode                                               String?
+  discountAmount                                           Int                        @default(0)
+  giftId                                                   String?
+  deliveredAt                                              DateTime?
+  isReturnable                                             Boolean                    @default(true)
+  returnWindow                                             Int                        @default(7)
+  obdOtp                                                   String?
+  obdVerifiedAt                                            DateTime?
+  checkoutGroupId                                          String?
+  orderNumber                                              String?                    @unique
+  invoiceNumber                                            String?                    @unique
+  confirmedAt                                              DateTime?
+  isThirdPartyDelivery                                     Boolean                    @default(false)
+  trackingId                                               String?
+  Delivery                                                 Delivery[]
+  AbandonedCheckout                                        AbandonedCheckout?         @relation(fields: [abandonedCheckoutId], references: [id])
+  Address                                                  Address?                   @relation(fields: [addressId], references: [id])
+  CheckoutGroup                                            CheckoutGroup?             @relation(fields: [checkoutGroupId], references: [id])
+  GiftSKU                                                  GiftSKU?                   @relation(fields: [giftId], references: [id])
+  User                                                     User                       @relation(fields: [userId], references: [id])
+  OrderDeliverySlotSnapshot                                OrderDeliverySlotSnapshot?
+  OrderFinancialSnapshot                                   OrderFinancialSnapshot?
+  OrderPackingProof                                        OrderPackingProof?
+  OrderSettlement                                          OrderSettlement?
+  Payment                                                  Payment?
+  ReferralRewardGrant                                      ReferralRewardGrant?
+  Refund                                                   Refund[]
+  ReplacementOrder_ReplacementOrder_newOrderIdToOrder      ReplacementOrder?          @relation("ReplacementOrder_newOrderIdToOrder")
+  ReplacementOrder_ReplacementOrder_originalOrderIdToOrder ReplacementOrder[]         @relation("ReplacementOrder_originalOrderIdToOrder")
+  ReturnQCChecklist                                        ReturnQCChecklist?
+  ReturnRequest                                            ReturnRequest[]
+  Shipment                                                 Shipment?
+  SupportTicket                                            SupportTicket[]
+
+  @@index([awbNumber])
+  @@index([checkoutGroupId])
+  @@index([createdAt])
+  @@index([invoiceNumber])
+  @@index([orderNumber])
+  @@index([razorpayOrderId])
+  @@index([roomId, userId])
+  @@index([status, createdAt])
+  @@index([status])
   @@index([userId])
-  @@index([productId, status])
+  @@index([userId, status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model OrderDeliverySlotSnapshot {
+  id          String             @id
+  orderId     String             @unique
+  vendorId    String
+  slotStartAt DateTime
+  slotEndAt   DateTime
+  timezone    String             @default("Asia/Kolkata")
+  source      DeliverySlotSource @default(AUTO)
+  createdAt   DateTime           @default(now())
+  Order       Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  Vendor      Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, slotStartAt])
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model OrderFinancialSnapshot {
+  id               String   @id
+  orderId          String   @unique
+  subtotal         Int
+  taxAmount        Int
+  shippingAmount   Int
+  discountAmount   Int
+  giftCost         Int
+  commissionRate   Float
+  commissionAmount Int
+  vendorEarnings   Int
+  platformEarnings Int
+  currency         String   @default("INR")
+  calculatedAt     DateTime @default(now())
+  Order            Order    @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model OrderPackingProof {
+  id               String   @id
+  orderId          String   @unique
+  vendorId         String
+  uploadedByUserId String
+  videoPath        String
+  videoMime        String?
+  videoSizeBytes   Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+  Order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  User             User     @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  Vendor           Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([vendorId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model OrderSettlement {
+  id         String           @id
+  orderId    String           @unique
+  vendorId   String
+  amount     Int
+  status     SettlementStatus @default(PENDING)
+  eligibleAt DateTime?
+  settledAt  DateTime?
+  createdAt  DateTime         @default(now())
+  Order      Order            @relation(fields: [orderId], references: [id])
+  Vendor     Vendor           @relation(fields: [vendorId], references: [id])
+
   @@index([vendorId, status])
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Payment {
-  id              String        @id @default(cuid())
+  id              String        @id
   orderId         String        @unique
   amount          Int
   currency        String        @default("INR")
@@ -569,12 +996,13 @@ model Payment {
   paymentId       String?
   status          PaymentStatus @default(PENDING)
   createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  order           Order         @relation(fields: [orderId], references: [id])
+  updatedAt       DateTime
+  Order           Order         @relation(fields: [orderId], references: [id])
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model PaymentIntent {
-  id              String               @id @default(cuid())
+  id              String               @id
   purpose         PaymentIntentPurpose
   referenceId     String
   amount          Int
@@ -586,120 +1014,67 @@ model PaymentIntent {
   metadata        Json?
   createdByUserId String?
   createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  createdByUser   User?                @relation("PaymentIntentCreatedBy", fields: [createdByUserId], references: [id])
+  updatedAt       DateTime
+  User            User?                @relation(fields: [createdByUserId], references: [id])
 
   @@unique([purpose, referenceId])
-  @@index([status, createdAt])
-  @@index([purpose, createdAt])
   @@index([createdByUserId, createdAt])
   @@index([providerOrderId])
-}
-
-model Banner {
-  id               String                   @id @default(cuid())
-  vendorId         String?
-  imageUrl         String
-  redirectUrl      String?
-  slotType         String
-  startDate        DateTime
-  endDate          DateTime
-  isActive         Boolean                  @default(true)
-  createdAt        DateTime                 @default(now())
-  metadata         Json?
-  impressions      BannerImpressionLedger[]
-  campaign         BannerCampaign?          @relation(fields: [bannerCampaignId], references: [id])
-  bannerCampaignId String?
-
-  @@index([vendorId])
-  @@index([slotType, isActive])
-  @@index([startDate, endDate])
-  @@index([slotType, startDate, endDate, isActive])
-}
-
-model Notification {
-  id             String   @id @default(cuid())
-  userId         String?
-  title          String
-  body           String
-  type           String
-  targetAudience String?
-  isRead         Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  user           User?    @relation(fields: [userId], references: [id])
-
-  @@index([userId, isRead])
-  @@index([userId, createdAt])
-}
-
-model Order {
-  id                   String                     @id @default(cuid())
-  orderNumber          String?                    @unique
-  invoiceNumber        String?                    @unique
-  userId               String
-  roomId               String?
-  addressId            String?
-  items                Json
-  totalAmount          Int
-  coinsUsed            Int                        @default(0)
-  coinsUsedDebited     Boolean                    @default(false)
-  status               OrderStatus                @default(PENDING)
-  razorpayOrderId      String?
-  awbNumber            String?
-  courierPartner       String?
-  trackingId           String?
-  isThirdPartyDelivery Boolean                    @default(false)
-  createdAt            DateTime                   @default(now())
-  updatedAt            DateTime                   @updatedAt
-  abandonedCheckoutId  String?
-  agentId              String?
-  shippingCharges      Int                        @default(0)
-  couponCode           String?
-  discountAmount       Int                        @default(0)
-  giftId               String?
-  confirmedAt          DateTime?
-  deliveredAt          DateTime?
-  isReturnable         Boolean                    @default(true)
-  returnWindow         Int                        @default(7)
-  obdOtp               String?
-  obdVerifiedAt        DateTime?
-  checkout             AbandonedCheckout?         @relation(fields: [abandonedCheckoutId], references: [id])
-  address              Address?                   @relation(fields: [addressId], references: [id])
-  gift                 GiftSKU?                   @relation(fields: [giftId], references: [id])
-  user                 User                       @relation(fields: [userId], references: [id])
-  financialSnapshot    OrderFinancialSnapshot?
-  settlement           OrderSettlement?
-  payment              Payment?
-  replacementChild     ReplacementOrder?          @relation("ReplacementOrder")
-  replacementParent    ReplacementOrder[]         @relation("OriginalOrder")
-  qcChecklist          ReturnQCChecklist?
-  returns              ReturnRequest[]
-  checkoutGroupId      String?
-  checkoutGroup        CheckoutGroup?             @relation(fields: [checkoutGroupId], references: [id], onDelete: SetNull)
-  referralRewardGrant  ReferralRewardGrant?
-  deliverySlotSnapshot OrderDeliverySlotSnapshot?
-  packingProof         OrderPackingProof?
-  shipment             Shipment?
-  tickets              SupportTicket[]            @relation("OrderTickets")
-  deliveries           Delivery[]                 @relation("OrderDeliveries")
-  refunds              Refund[]
-  vendorStrikes        VendorStrike[]
-
-  @@index([userId])
-  @@index([status])
-  @@index([createdAt])
-  @@index([razorpayOrderId])
-  @@index([orderNumber])
-  @@index([invoiceNumber])
-  @@index([awbNumber])
-  @@index([userId, status])
+  @@index([purpose, createdAt])
   @@index([status, createdAt])
-  @@index([roomId, userId])
-  @@index([checkoutGroupId])
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PickupPoint {
+  id           String     @id
+  vendorId     String
+  name         String
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String
+  pincode      String
+  latitude     Float?
+  longitude    Float?
+  timings      Json?
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime
+  Vendor       Vendor     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  Shipment     Shipment[]
+
+  @@index([pincode])
+  @@index([vendorId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PincodeGeo {
+  pincode   String    @id
+  latitude  Float
+  longitude Float
+  source    GeoSource @default(PINCODE_DB)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PlatformConfig {
+  id          String   @id @default(cuid())
+  category    String
+  key         String
+  value       Json
+  description String?
+  updatedById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([category, key])
+  @@index([category])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Product {
-  id                   String             @id @default(cuid())
+  id                   String             @id
   vendorId             String
   title                String
   description          String?
@@ -713,7 +1088,7 @@ model Product {
   moq                  Int                @default(1)
   isActive             Boolean            @default(false)
   createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  updatedAt            DateTime
   brandName            String?
   dimensionUnit        String?            @default("cm")
   height               Float?
@@ -744,64 +1119,264 @@ model Product {
   storageInstructions  String?
   totalAllowedQuantity Int                @default(10)
   freeListingExpiresAt DateTime?
-  expiryDate           DateTime? // Product expiry date (for auto-clearance)
-  disableAutoClearance Boolean            @default(false) // Vendor can disable auto-clearance for specific products
   visibility           ProductVisibility  @default(DRAFT)
   popularityScore      Float              @default(0)
   embedding            Json?
-  bowActionLogs        BowActionLog[]
-  buyLater             BuyLater[]
-  cartItems            CartItem[]
-  category             Category           @relation(fields: [categoryId], references: [id])
-  vendor               Vendor             @relation(fields: [vendorId], references: [id])
-  specValues           ProductSpecValue[]
-  variants             ProductVariant[]
-  returnItems          ReturnItem[]
-  reviews              Review[]
-  rooms                Room[]
-  productEvents        UserProductEvent[]
-  vendorInquiries      VendorInquiry[]
-  wishlists            Wishlist[]
-  localPromotions      LocalPromotion[]
-  Reel                 Reel[]
+  disableAutoClearance Boolean            @default(false)
+  expiryDate           DateTime?
+  BowActionLog         BowActionLog[]
+  BuyLater             BuyLater[]
+  CartItem             CartItem[]
   ClearanceProduct     ClearanceProduct[]
-  inventory            Inventory[]
+  Inventory            Inventory[]
+  LocalPromotion       LocalPromotion[]
+  Category             Category           @relation(fields: [categoryId], references: [id])
+  Vendor               Vendor             @relation(fields: [vendorId], references: [id])
+  ProductSpecValue     ProductSpecValue[]
+  ProductVariant       ProductVariant[]
+  Reel                 Reel[]
+  ReturnItem           ReturnItem[]
+  Review               Review[]
+  Room                 Room[]
+  UserProductEvent     UserProductEvent[]
+  VendorInquiry        VendorInquiry[]
+  Wishlist             Wishlist[]
 
-  @@index([vendorId])
   @@index([categoryId])
-  @@index([isActive])
-  @@index([sku])
-  @@index([categoryId, isActive])
-  @@index([vendorId, isActive])
-  @@index([price])
-  @@index([createdAt])
-  @@index([categoryId, isActive, price])
   @@index([categoryId, isActive, createdAt])
-  @@index([isActive, price])
+  @@index([categoryId, isActive])
+  @@index([categoryId, isActive, price])
+  @@index([createdAt])
   @@index([isActive, createdAt])
+  @@index([isActive])
+  @@index([isActive, price])
+  @@index([price])
+  @@index([sku])
+  @@index([vendorId])
+  @@index([vendorId, isActive])
   @@index([vendorId, stock])
 }
 
-model Admin {
-  id              String          @id @default(cuid())
-  email           String          @unique
-  password        String
-  role            String
-  name            String?
-  avatar          String?
-  isActive        Boolean         @default(true)
-  lastLoginAt     DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  assignedTickets SupportTicket[] @relation("AssignedTickets")
-  authoredPosts   BlogPost[]      @relation("AuthorPosts")
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProductSearchMiss {
+  id                 String    @id
+  query              String
+  userId             String?
+  count              Int       @default(1)
+  lastSearchedAt     DateTime
+  firstSearchedAt    DateTime  @default(now())
+  inferredCategoryId String?
+  keywords           String[]
+  metadata           Json?
+  normalizedQuery    String
+  resolved           Boolean   @default(false)
+  resolvedProductId  String?
+  region             String?
+  Category           Category? @relation(fields: [inferredCategoryId], references: [id])
+  User               User?     @relation(fields: [userId], references: [id])
 
-  @@index([role])
-  @@index([isActive])
+  @@index([count])
+  @@index([lastSearchedAt])
+  @@index([normalizedQuery])
+  @@index([region])
+  @@index([resolved])
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProductSpecValue {
+  id           String       @id
+  productId    String
+  specId       String
+  value        String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime
+  Product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  CategorySpec CategorySpec @relation(fields: [specId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, specId])
+  @@index([productId])
+  @@index([specId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProductVariant {
+  id         String          @id
+  productId  String
+  sku        String?         @unique
+  attributes Json
+  price      Int?
+  stock      Int             @default(0)
+  status     VariationStatus @default(ACTIVE)
+  Product    Product         @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@index([stock])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model RecommendationEvent {
+  id              String   @id
+  userId          String
+  source          String
+  strategy        String
+  productIds      String[]
+  accepted        Boolean?
+  cartValueBefore Int
+  cartValueAfter  Int?
+  createdAt       DateTime @default(now())
+  User            User     @relation(fields: [userId], references: [id])
+
+  @@index([accepted])
+  @@index([strategy])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Reel {
+  id                    String                  @id
+  vendorId              String?
+  creatorId             String?
+  mediaUrl              String
+  thumbnailUrl          String?
+  productId             String?
+  description           String?
+  flaggedForReview      Boolean                 @default(false)
+  createdAt             DateTime                @default(now())
+  CreatorProfile        CreatorProfile?         @relation(fields: [creatorId], references: [id])
+  Product               Product?                @relation(fields: [productId], references: [id])
+  Vendor                Vendor?                 @relation(fields: [vendorId], references: [id])
+  ReelInteractionLedger ReelInteractionLedger[]
+
+  @@index([createdAt])
+  @@index([creatorId])
+  @@index([productId])
+  @@index([vendorId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ReelInteractionLedger {
+  id              String   @id
+  reelId          String
+  userId          String
+  interactionType String
+  createdAt       DateTime @default(now())
+  Reel            Reel     @relation(fields: [reelId], references: [id], onDelete: Cascade)
+  User            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reelId, userId, interactionType])
+  @@index([reelId, interactionType])
+  @@index([userId, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ReferralRewardGrant {
+  id                                           String             @id
+  orderId                                      String             @unique
+  inviterUserId                                String
+  inviteeUserId                                String
+  ruleId                                       String
+  orderValuePaiseAtAward                       Int
+  coinsInviterAtAward                          Int
+  coinsInviteeAtAward                          Int
+  createdAt                                    DateTime           @default(now())
+  User_ReferralRewardGrant_inviteeUserIdToUser User               @relation("ReferralRewardGrant_inviteeUserIdToUser", fields: [inviteeUserId], references: [id], onDelete: Cascade)
+  User_ReferralRewardGrant_inviterUserIdToUser User               @relation("ReferralRewardGrant_inviterUserIdToUser", fields: [inviterUserId], references: [id], onDelete: Cascade)
+  Order                                        Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  ReferralRewardRule                           ReferralRewardRule @relation(fields: [ruleId], references: [id])
+
+  @@index([inviteeUserId, createdAt])
+  @@index([inviterUserId, createdAt])
+  @@index([ruleId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ReferralRewardRule {
+  id                  String                @id
+  minOrderPaise       Int
+  maxOrderPaise       Int?
+  coinsInviter        Int
+  coinsInvitee        Int
+  isActive            Boolean               @default(true)
+  effectiveFrom       DateTime              @default(now())
+  effectiveTo         DateTime?
+  setByAdminId        String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime
+  ReferralRewardGrant ReferralRewardGrant[]
+  User                User?                 @relation(fields: [setByAdminId], references: [id])
+
+  @@index([isActive, effectiveFrom, effectiveTo])
+  @@index([maxOrderPaise])
+  @@index([minOrderPaise])
+  @@index([setByAdminId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ReferralTracking {
+  id                                     String         @id
+  referrerId                             String
+  refereeId                              String
+  referralCode                           String
+  status                                 ReferralStatus @default(PENDING)
+  coinsAwarded                           Int            @default(0)
+  firstOrderId                           String?
+  deviceFingerprint                      String?
+  ipAddress                              String?
+  createdAt                              DateTime       @default(now())
+  completedAt                            DateTime?
+  User_ReferralTracking_refereeIdToUser  User           @relation("ReferralTracking_refereeIdToUser", fields: [refereeId], references: [id], onDelete: Cascade)
+  User_ReferralTracking_referrerIdToUser User           @relation("ReferralTracking_referrerIdToUser", fields: [referrerId], references: [id], onDelete: Cascade)
+
+  @@index([refereeId])
+  @@index([referralCode])
+  @@index([referrerId])
+  @@index([status])
+}
+
+model Refund {
+  id              String         @id
+  refundNumber    String         @unique
+  orderId         String
+  returnId        String?
+  userId          String
+  amount          Int
+  reason          String
+  status          RefundStatus   @default(PENDING)
+  method          RefundMethod   @default(ORIGINAL_PAYMENT)
+  transactionId   String?
+  processedBy     String?
+  processedAt     DateTime?
+  rejectionReason String?
+  notes           String?
+  metadata        Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime
+  Order           Order          @relation(fields: [orderId], references: [id])
+  ReturnRequest   ReturnRequest? @relation(fields: [returnId], references: [id])
+  User            User           @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([orderId])
+  @@index([refundNumber])
+  @@index([returnId])
+  @@index([status])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ReplacementOrder {
+  id                                            String        @id
+  originalOrderId                               String
+  returnId                                      String        @unique
+  newOrderId                                    String        @unique
+  createdAt                                     DateTime      @default(now())
+  Order_ReplacementOrder_newOrderIdToOrder      Order         @relation("ReplacementOrder_newOrderIdToOrder", fields: [newOrderId], references: [id])
+  Order_ReplacementOrder_originalOrderIdToOrder Order         @relation("ReplacementOrder_originalOrderIdToOrder", fields: [originalOrderId], references: [id])
+  ReturnRequest                                 ReturnRequest @relation(fields: [returnId], references: [id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Report {
-  id          String   @id @default(cuid())
+  id          String   @id
   reporterId  String
   targetType  String
   targetId    String
@@ -809,103 +1384,54 @@ model Report {
   description String?
   status      String   @default("PENDING")
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  reporter    User     @relation(fields: [reporterId], references: [id])
+  updatedAt   DateTime
+  User        User     @relation(fields: [reporterId], references: [id])
 
+  @@index([reporterId])
   @@index([status])
   @@index([targetType])
-  @@index([reporterId])
 }
 
-model CoinValuation {
-  id            String    @id @default(cuid())
-  role          UserRole
-  paisePerCoin  Int
-  effectiveFrom DateTime  @default(now())
-  effectiveTo   DateTime?
-  setByUserId   String?
-  createdAt     DateTime  @default(now())
-  setByUser     User?     @relation("CoinValuationSetBy", fields: [setByUserId], references: [id])
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ReturnItem {
+  id            String         @id
+  returnId      String
+  productId     String
+  quantity      Int
+  reason        ReturnReason?
+  condition     String?
+  description   String?
+  qcNotes       String?
+  qcStatus      ItemCondition?
+  variantId     String?
+  Product       Product        @relation(fields: [productId], references: [id])
+  ReturnRequest ReturnRequest  @relation(fields: [returnId], references: [id])
 
-  @@index([role, effectiveTo])
-  @@index([role, effectiveFrom])
+  @@index([productId])
+  @@index([returnId])
 }
 
-model Coupon {
-  id             String    @id @default(cuid())
-  code           String    @unique
-  description    String?
-  discountType   String
-  discountValue  Int
-  minOrderAmount Int?      @default(0)
-  maxDiscount    Int?
-  validFrom      DateTime  @default(now())
-  validUntil     DateTime?
-  usageLimit     Int?
-  usedCount      Int       @default(0)
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  categoryIds    String[]
-  minQuantity    Int?
-  productIds     String[]
-  vendorId       String?
-  vendor         Vendor?   @relation(fields: [vendorId], references: [id])
-
-  @@index([vendorId])
-  @@index([isActive])
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ReturnQCChecklist {
+  id                    String   @id
+  orderId               String   @unique
+  inspectorId           String
+  status                Boolean  @default(false)
+  isOriginalPackaging   Boolean  @default(false)
+  isUnused              Boolean  @default(false)
+  allAccessoriesPresent Boolean  @default(false)
+  hasPhysicalDamage     Boolean  @default(false)
+  imeiMatch             Boolean  @default(true)
+  photos                String[]
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime
+  Order                 Order    @relation(fields: [orderId], references: [id])
 }
 
-model AdminNote {
-  id        String   @id @default(cuid())
-  userId    String
-  adminId   String
-  note      String
-  createdAt DateTime @default(now())
-  admin     User     @relation("AdminAuthor", fields: [adminId], references: [id])
-  user      User     @relation("UserNotes", fields: [userId], references: [id])
-}
-
-model AbandonedCheckout {
-  id              String                 @id @default(cuid())
-  userId          String?
-  guestInfo       Json?
-  cartSnapshot    Json
-  financeSnapshot Json
-  metadata        Json?
-  status          CheckoutRecoveryStatus @default(NEW)
-  agentId         String?
-  lockedUntil     DateTime?
-  createdAt       DateTime               @default(now())
-  abandonedAt     DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
-  abandonReason   String?
-  lastErrorCode   String?
-  paymentMethod   String?
-  agent           User?                  @relation("AgentCheckouts", fields: [agentId], references: [id])
-  user            User?                  @relation(fields: [userId], references: [id])
-  followups       CheckoutFollowup[]
-  orders          Order[]
-
-  @@index([status])
-  @@index([agentId])
-  @@index([abandonedAt])
-  @@index([status, agentId])
-}
-
-model CheckoutFollowup {
-  id         String            @id @default(cuid())
-  checkoutId String
-  agentId    String
-  note       String
-  outcome    CallOutcome?
-  createdAt  DateTime          @default(now())
-  agent      User              @relation(fields: [agentId], references: [id])
-  checkout   AbandonedCheckout @relation(fields: [checkoutId], references: [id])
-}
-
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model ReturnRequest {
-  id                    String            @id @default(cuid())
+  id                    String            @id
   returnNumber          String            @unique
   orderId               String
   userId                String
@@ -916,7 +1442,7 @@ model ReturnRequest {
   evidenceImages        String[]
   evidenceVideo         String?
   requestedAt           DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  updatedAt             DateTime
   pickupDate            DateTime?
   pickupAddress         Json?
   courierPartner        String?
@@ -927,55 +1453,39 @@ model ReturnRequest {
   approvedAt            DateTime?
   completedAt           DateTime?
   rejectedAt            DateTime?
-  replacement           ReplacementOrder?
-  items                 ReturnItem[]
-  order                 Order             @relation(fields: [orderId], references: [id])
-  user                  User              @relation(fields: [userId], references: [id])
-  vendor                Vendor?           @relation(fields: [vendorId], references: [id])
-  settlement            ReturnSettlement?
-  timeline              ReturnTimeline[]
-  refunds               Refund[]
+  Refund                Refund[]
+  ReplacementOrder      ReplacementOrder?
+  ReturnItem            ReturnItem[]
+  Order                 Order             @relation(fields: [orderId], references: [id])
+  User                  User              @relation(fields: [userId], references: [id])
+  Vendor                Vendor?           @relation(fields: [vendorId], references: [id])
+  ReturnSettlement      ReturnSettlement?
+  ReturnTimeline        ReturnTimeline[]
 
   @@index([orderId])
+  @@index([returnNumber])
   @@index([status])
   @@index([userId])
   @@index([vendorId])
-  @@index([returnNumber])
 }
 
-model ReturnItem {
-  id            String         @id @default(cuid())
-  returnId      String
-  productId     String
-  quantity      Int
-  reason        ReturnReason?
-  condition     String?
-  description   String?
-  qcNotes       String?
-  qcStatus      ItemCondition?
-  variantId     String?
-  product       Product        @relation(fields: [productId], references: [id])
-  returnRequest ReturnRequest  @relation(fields: [returnId], references: [id])
-
-  @@index([returnId])
-  @@index([productId])
-}
-
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model ReturnSettlement {
-  id             String        @id @default(cuid())
+  id             String        @id
   returnId       String        @unique
   penaltyApplied Boolean       @default(false)
   penaltyAmount  Int           @default(0)
   adminNotes     String?
   createdAt      DateTime      @default(now())
   penaltyReason  String?
-  updatedAt      DateTime      @updatedAt
+  updatedAt      DateTime
   costBearer     CostBearer    @default(PLATFORM)
-  returnRequest  ReturnRequest @relation(fields: [returnId], references: [id])
+  ReturnRequest  ReturnRequest @relation(fields: [returnId], references: [id])
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model ReturnTimeline {
-  id            String        @id @default(cuid())
+  id            String        @id
   returnId      String
   status        ReturnStatus
   action        String
@@ -984,220 +1494,591 @@ model ReturnTimeline {
   notes         String?
   actorId       String?
   metadata      Json?
-  returnRequest ReturnRequest @relation(fields: [returnId], references: [id])
+  ReturnRequest ReturnRequest @relation(fields: [returnId], references: [id])
 
   @@index([returnId])
   @@index([timestamp])
 }
 
-model OrderFinancialSnapshot {
-  id               String   @id @default(cuid())
-  orderId          String   @unique
-  subtotal         Int
-  taxAmount        Int
-  shippingAmount   Int
-  discountAmount   Int
-  giftCost         Int
-  commissionRate   Float
-  commissionAmount Int
-  vendorEarnings   Int
-  platformEarnings Int
-  currency         String   @default("INR")
-  calculatedAt     DateTime @default(now())
-  order            Order    @relation(fields: [orderId], references: [id])
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Review {
+  id           String   @id
+  userId       String
+  productId    String?
+  vendorId     String?
+  rating       Int
+  comment      String?
+  images       String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+  helpfulCount Int      @default(0)
+  isVerified   Boolean  @default(false)
+  status       String   @default("ACTIVE")
+  Product      Product? @relation(fields: [productId], references: [id])
+  User         User     @relation(fields: [userId], references: [id])
+  Vendor       Vendor?  @relation(fields: [vendorId], references: [id])
 
-  @@index([orderId])
-}
-
-model OrderSettlement {
-  id         String           @id @default(cuid())
-  orderId    String           @unique
-  vendorId   String
-  amount     Int
-  status     SettlementStatus @default(PENDING)
-  eligibleAt DateTime?
-  settledAt  DateTime?
-  createdAt  DateTime         @default(now())
-  order      Order            @relation(fields: [orderId], references: [id])
-  vendor     Vendor           @relation(fields: [vendorId], references: [id])
-
+  @@index([productId])
+  @@index([productId, status])
+  @@index([userId])
+  @@index([vendorId])
   @@index([vendorId, status])
 }
 
-model CategoryCommission {
-  id             String   @id @default(cuid())
-  categoryId     String   @unique
-  commissionRate Float
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  category       Category @relation(fields: [categoryId], references: [id])
-}
-
-model ReplacementOrder {
-  id              String        @id @default(cuid())
-  originalOrderId String
-  returnId        String        @unique
-  newOrderId      String        @unique
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Room {
+  id              String        @id
+  name            String
+  size            Int
+  status          RoomStatus    @default(LOCKED)
+  offerId         String        @default("")
+  startAt         DateTime
+  endAt           DateTime
+  unlockMinOrders Int
+  unlockMinValue  Int
+  createdById     String?
+  isSystemRoom    Boolean       @default(false)
   createdAt       DateTime      @default(now())
-  newOrder        Order         @relation("ReplacementOrder", fields: [newOrderId], references: [id])
-  originalOrder   Order         @relation("OriginalOrder", fields: [originalOrderId], references: [id])
-  returnRequest   ReturnRequest @relation(fields: [returnId], references: [id])
+  memberCount     Int           @default(1)
+  maxDiscount     Float?
+  maxMembers      Int?
+  productId       String?
+  type            RoomType      @default(GOAL_BASED)
+  User            User?         @relation(fields: [createdById], references: [id])
+  Product         Product?      @relation(fields: [productId], references: [id])
+  RoomBoost       RoomBoost[]
+  RoomInsight     RoomInsight[]
+  RoomMember      RoomMember[]
+
+  @@index([createdById])
+  @@index([productId])
+  @@index([status, endAt])
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model RoomBoost {
+  id        String        @id
+  roomId    String
+  vendorId  String?
+  type      RoomBoostType
+  coinsCost Int
+  startAt   DateTime
+  endAt     DateTime
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  Room      Room          @relation(fields: [roomId], references: [id])
+
+  @@index([roomId])
+  @@index([startAt, endAt])
+  @@index([type, isActive])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model RoomInsight {
+  id        String   @id
+  roomId    String
+  metric    String
+  value     Float
+  createdAt DateTime @default(now())
+  Room      Room     @relation(fields: [roomId], references: [id])
+
+  @@index([metric])
+  @@index([roomId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model RoomMember {
+  roomId String
+  userId String
+  status MemberStatus @default(PENDING)
+  Room   Room         @relation(fields: [roomId], references: [id])
+  User   User         @relation(fields: [userId], references: [id])
+
+  @@id([roomId, userId])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model RoomPackage {
+  id               String   @id
+  vendorId         String
+  packageType      String
+  remainingCredits Int
+  createdAt        DateTime @default(now())
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model SearchClick {
-  id        String   @id @default(cuid())
+  id        String   @id
   query     String
   productId String
   userId    String?
   clickedAt DateTime @default(now())
 
-  @@index([query])
   @@index([productId])
+  @@index([query])
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model SearchTrending {
+  id       String   @id
+  query    String
+  region   String?  @default("global")
+  count    Int      @default(1)
+  lastSeen DateTime @default(now())
+
+  @@unique([query, region])
+  @@index([lastSeen])
+  @@index([region, count])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Shipment {
+  id              String       @id
+  orderId         String       @unique
+  mode            String
+  status          String
+  courierProvider String?
+  awb             String?
+  trackingUrl     String?
+  pickupPointId   String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime
+  Order           Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  PickupPoint     PickupPoint? @relation(fields: [pickupPointId], references: [id])
+
+  @@index([awb])
+  @@index([pickupPointId])
+}
+
+model StockMovement {
+  id          String            @id
+  inventoryId String
+  type        StockMovementType
+  quantity    Int
+  reason      String?
+  reference   String?
+  createdBy   String
+  createdAt   DateTime          @default(now())
+  Inventory   Inventory         @relation(fields: [inventoryId], references: [id])
+
+  @@index([createdAt])
+  @@index([inventoryId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Story {
+  id               String   @id
+  vendorId         String
+  mediaUrl         String
+  mediaType        String
+  expiresAt        DateTime
+  isActive         Boolean  @default(true)
+  flaggedForReview Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  Vendor           Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([isActive, expiresAt])
+  @@index([vendorId, expiresAt])
+}
+
+model SupportTicket {
+  id              String          @id
+  ticketNumber    String          @unique
+  userId          String
+  category        TicketCategory
+  subject         String
+  description     String
+  priority        TicketPriority  @default(MEDIUM)
+  status          TicketStatus    @default(OPEN)
+  assignedTo      String?
+  orderId         String?
+  productId       String?
+  vendorId        String?
+  attachments     String[]
+  tags            String[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime
+  closedAt        DateTime?
+  firstResponseAt DateTime?
+  resolvedAt      DateTime?
+  Admin           Admin?          @relation(fields: [assignedTo], references: [id])
+  Order           Order?          @relation(fields: [orderId], references: [id])
+  User            User            @relation(fields: [userId], references: [id])
+  TicketMessage   TicketMessage[]
+
+  @@index([assignedTo])
+  @@index([category])
+  @@index([createdAt])
+  @@index([orderId])
+  @@index([priority])
+  @@index([status])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model TelecallerPerformance {
-  id        String   @id @default(cuid())
+  id        String   @id
   agentId   String
   date      DateTime
   assigned  Int      @default(0)
   contacted Int      @default(0)
   converted Int      @default(0)
   dropped   Int      @default(0)
-  agent     User     @relation(fields: [agentId], references: [id])
+  User      User     @relation(fields: [agentId], references: [id])
 
   @@unique([agentId, date])
 }
 
-model ProductVariant {
-  id         String          @id @default(cuid())
-  productId  String
-  sku        String?         @unique
-  attributes Json
-  price      Int?
-  stock      Int             @default(0)
-  status     VariationStatus @default(ACTIVE)
-  product    Product         @relation(fields: [productId], references: [id])
+model TicketMessage {
+  id            String        @id
+  ticketId      String
+  senderId      String
+  senderType    MessageSender
+  senderName    String
+  message       String
+  attachments   String[]
+  isInternal    Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  SupportTicket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
-  @@index([productId])
-  @@index([stock])
-}
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  adminId   String
-  entity    String
-  action    String
-  details   Json?
-  createdAt DateTime @default(now())
-  entityId  String
-  ipAddress String?
-  userAgent String?
-  admin     User     @relation(fields: [adminId], references: [id])
-
-  @@index([adminId])
-  @@index([entity])
-  @@index([action])
   @@index([createdAt])
+  @@index([ticketId])
 }
 
-model CategorySpec {
-  id            String             @id @default(cuid())
-  categoryId    String
-  key           String
-  label         String
-  labelTE       String?
-  type          SpecType
-  unit          String?
-  required      Boolean            @default(false)
-  options       Json?
-  sortOrder     Int                @default(0)
-  isActive      Boolean            @default(true)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  category      Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  productValues ProductSpecValue[]
+model TicketTemplate {
+  id        String          @id
+  name      String
+  category  TicketCategory?
+  subject   String?
+  content   String
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime
 
-  @@unique([categoryId, key])
-  @@index([categoryId, isActive])
-  @@index([categoryId, sortOrder])
+  @@index([category])
+  @@index([isActive])
 }
 
-model ProductSpecValue {
-  id        String       @id @default(cuid())
-  productId String
-  specId    String
-  value     String
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
-  spec      CategorySpec @relation(fields: [specId], references: [id], onDelete: Cascade)
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model User {
+  id                                                          String                   @id
+  mobile                                                      String                   @unique
+  name                                                        String?
+  email                                                       String?                  @unique
+  password                                                    String?
+  role                                                        UserRole                 @default(CUSTOMER)
+  status                                                      UserStatus               @default(ACTIVE)
+  coinsBalance                                                Int                      @default(0)
+  referralCode                                                String                   @unique
+  referredBy                                                  String?
+  dateOfBirth                                                 DateTime?
+  gender                                                      String?
+  size                                                        String?
+  footwearSize                                                Int?
+  stylePrefs                                                  String?
+  colors                                                      String?
+  riskTag                                                     RiskTag                  @default(LOW)
+  valueTag                                                    ValueTag                 @default(NORMAL)
+  isCodDisabled                                               Boolean                  @default(false)
+  isRefundsDisabled                                           Boolean                  @default(false)
+  createdAt                                                   DateTime                 @default(now())
+  forceLogoutAt                                               DateTime?
+  kycDocuments                                                Json?
+  kycStatus                                                   String                   @default("NOT_SUBMITTED")
+  miscDocuments                                               Json?
+  updatedAt                                                   DateTime
+  metadata                                                    Json?                    @default("{}")
+  AbandonedCheckout_AbandonedCheckout_agentIdToUser           AbandonedCheckout[]      @relation("AbandonedCheckout_agentIdToUser")
+  AbandonedCheckout_AbandonedCheckout_userIdToUser            AbandonedCheckout[]      @relation("AbandonedCheckout_userIdToUser")
+  Address                                                     Address[]
+  AdminNote_AdminNote_adminIdToUser                           AdminNote[]              @relation("AdminNote_adminIdToUser")
+  AdminNote_AdminNote_userIdToUser                            AdminNote[]              @relation("AdminNote_userIdToUser")
+  AuditLog                                                    AuditLog[]
+  BannerImpressionLedger                                      BannerImpressionLedger[]
+  Bet                                                         Bet[]
+  BowActionLog                                                BowActionLog[]
+  BowInteraction                                              BowInteraction[]
+  BuyLater                                                    BuyLater[]
+  Cart                                                        Cart?
+  CartInsight                                                 CartInsight[]
+  CheckoutFollowup                                            CheckoutFollowup[]
+  CheckoutGroup                                               CheckoutGroup[]
+  CoinLedger                                                  CoinLedger[]
+  CoinValuation                                               CoinValuation[]
+  CreatorProfile                                              CreatorProfile?
+  LedgerEntry                                                 LedgerEntry[]
+  LocalPromotion                                              LocalPromotion[]
+  Notification                                                Notification[]
+  Order                                                       Order[]
+  OrderPackingProof                                           OrderPackingProof[]
+  PaymentIntent                                               PaymentIntent[]
+  ProductSearchMiss                                           ProductSearchMiss[]
+  RecommendationEvent                                         RecommendationEvent[]
+  ReelInteractionLedger                                       ReelInteractionLedger[]
+  ReferralRewardGrant_ReferralRewardGrant_inviteeUserIdToUser ReferralRewardGrant[]    @relation("ReferralRewardGrant_inviteeUserIdToUser")
+  ReferralRewardGrant_ReferralRewardGrant_inviterUserIdToUser ReferralRewardGrant[]    @relation("ReferralRewardGrant_inviterUserIdToUser")
+  ReferralRewardRule                                          ReferralRewardRule[]
+  ReferralTracking_ReferralTracking_refereeIdToUser           ReferralTracking[]       @relation("ReferralTracking_refereeIdToUser")
+  ReferralTracking_ReferralTracking_referrerIdToUser          ReferralTracking[]       @relation("ReferralTracking_referrerIdToUser")
+  Refund                                                      Refund[]
+  Report                                                      Report[]
+  ReturnRequest                                               ReturnRequest[]
+  Review                                                      Review[]
+  Room                                                        Room[]
+  RoomMember                                                  RoomMember[]
+  SupportTicket                                               SupportTicket[]
+  TelecallerPerformance                                       TelecallerPerformance[]
+  UserDevice                                                  UserDevice[]
+  UserPreferenceProfile                                       UserPreferenceProfile?
+  UserProductEvent                                            UserProductEvent[]
+  VendorFollower                                              VendorFollower[]
+  VendorInquiry                                               VendorInquiry[]
+  Wallet                                                      Wallet?
+  Wishlist                                                    Wishlist[]
 
-  @@unique([productId, specId])
-  @@index([productId])
-  @@index([specId])
-}
-
-model BowInteraction {
-  id              String          @id @default(cuid())
-  userId          String
-  sessionId       String
-  type            InteractionType
-  query           String?
-  response        String?
-  intent          String?
-  confidence      Float?
-  actionType      BowActionType?
-  actionPayload   Json?
-  metadata        Json?
-  context         Json?
-  sentiment       String?
-  escalated       Boolean         @default(false)
-  createdAt       DateTime        @default(now())
-  conversionEvent String?
-  conversionValue Int?
-  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([escalated])
-  @@index([sessionId])
-  @@index([userId])
-  @@index([sessionId, createdAt])
-}
-
-model ReferralTracking {
-  id                String         @id @default(cuid())
-  referrerId        String
-  refereeId         String
-  referralCode      String
-  status            ReferralStatus @default(PENDING)
-  coinsAwarded      Int            @default(0)
-  firstOrderId      String?
-  deviceFingerprint String?
-  ipAddress         String?
-  createdAt         DateTime       @default(now())
-  completedAt       DateTime?
-  referee           User           @relation("ReferralTracking_refereeIdToUser", fields: [refereeId], references: [id], onDelete: Cascade)
-  referrer          User           @relation("ReferralTracking_referrerIdToUser", fields: [referrerId], references: [id], onDelete: Cascade)
-
-  @@index([refereeId])
-  @@index([referralCode])
-  @@index([referrerId])
+  @@index([referredBy])
+  @@index([role])
   @@index([status])
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model UserDevice {
+  id         String   @id
+  userId     String
+  platform   String
+  token      String   @unique
+  isActive   Boolean  @default(true)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+  User       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([lastSeenAt])
+  @@index([userId, isActive])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model UserPreferenceProfile {
+  id                  String   @id
+  userId              String   @unique
+  preferredCategories String[]
+  preferredBrands     String[]
+  sizePreferences     String[]
+  priceSensitivity    String   @default("MEDIUM")
+  colorAffinity       String[]
+  styleTags           String[]
+  lastUpdated         DateTime
+  confidenceScore     Float    @default(0.1)
+  User                User     @relation(fields: [userId], references: [id])
+
+  @@index([priceSensitivity])
+  @@index([userId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model UserProductEvent {
+  id        String               @id
+  userId    String?
+  sessionId String?
+  type      UserProductEventType
+  source    String?
+  productId String
+  variantId String?
+  quantity  Int?
+  price     Int?
+  metadata  Json?
+  createdAt DateTime             @default(now())
+  Product   Product              @relation(fields: [productId], references: [id])
+  User      User?                @relation(fields: [userId], references: [id])
+
+  @@index([productId, createdAt])
+  @@index([source, createdAt])
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Vendor {
+  id                              String                      @id
+  name                            String
+  mobile                          String                      @unique
+  email                           String?
+  kycStatus                       String                      @default("PENDING")
+  tier                            String                      @default("BASIC")
+  gstNumber                       String?
+  isGstVerified                   Boolean                     @default(false)
+  kycDocuments                    Json?
+  skuLimit                        Int                         @default(100)
+  role                            VendorRole                  @default(RETAILER)
+  coinsBalance                    Int                         @default(0)
+  followCount                     Int                         @default(0)
+  vendorCode                      String?                     @unique
+  commissionRate                  Float                       @default(0.0)
+  createdAt                       DateTime                    @default(now())
+  updatedAt                       DateTime
+  bankDetails                     Json?
+  lastPayoutDate                  DateTime?
+  pendingEarnings                 Int                         @default(0)
+  performanceScore                Float                       @default(0.0)
+  pickupEnabled                   Boolean                     @default(false)
+  pickupTimings                   Json?
+  storeBanner                     String?
+  storeLogo                       String?
+  storeName                       String?
+  storeTimings                    Json?
+  commissionOverride              Decimal?                    @db.Decimal(5, 4)
+  latitude                        Float?
+  longitude                       Float?
+  pincode                         String?
+  storeClosedUntil                DateTime?
+  autoClearanceThresholdDays      Int?                        @default(7)
+  defaultClearanceDiscountPercent Int?                        @default(20)
+  storeStatus                     String?                     @default("ACTIVE")
+  ClearanceProduct                ClearanceProduct[]
+  Coupon                          Coupon[]
+  LocalPromotion                  LocalPromotion[]
+  OrderDeliverySlotSnapshot       OrderDeliverySlotSnapshot[]
+  OrderPackingProof               OrderPackingProof[]
+  OrderSettlement                 OrderSettlement[]
+  PickupPoint                     PickupPoint[]
+  Product                         Product[]
+  Reel                            Reel[]
+  ReturnRequest                   ReturnRequest[]
+  Review                          Review[]
+  Story                           Story[]
+  VendorBowCoinLedger             VendorBowCoinLedger[]
+  VendorDeliveryWindow            VendorDeliveryWindow[]
+  VendorDisciplineEvent           VendorDisciplineEvent[]
+  VendorDisciplineState           VendorDisciplineState?
+  VendorDocument                  VendorDocument[]
+  VendorFollower                  VendorFollower[]
+  VendorInquiry                   VendorInquiry[]
+  VendorMembership                VendorMembership?
+  VendorPayout                    VendorPayout[]
+  VendorPromotion                 VendorPromotion[]
+  VendorServiceArea               VendorServiceArea[]
+
+  @@index([kycStatus])
+  @@index([pincode])
+  @@index([tier])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model VendorBowCoinLedger {
+  id           String   @id
+  vendorId     String
+  sourceType   String
+  sourceId     String?
+  coinsDelta   Int
+  balanceAfter Int
+  createdAt    DateTime @default(now())
+  Vendor       Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([sourceType, sourceId])
+  @@index([vendorId, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model VendorDeliveryWindow {
+  id          String   @id
+  vendorId    String
+  weekday     Int
+  startMinute Int
+  endMinute   Int
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  Vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, isActive])
+  @@index([vendorId, weekday, isActive])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model VendorDisciplineEvent {
+  id          String   @id
+  vendorId    String
+  eventType   String
+  orderId     String?
+  reason      String?
+  performedBy String?
+  createdAt   DateTime @default(now())
+  Vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([eventType])
+  @@index([vendorId, createdAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model VendorDisciplineState {
+  vendorId             String   @id
+  state                String
+  activeStrikes        Int      @default(0)
+  consecutiveSuccesses Int      @default(0)
+  lastStateChange      DateTime @default(now())
+  updatedAt            DateTime
+  Vendor               Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([state])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model VendorDocument {
+  id              String    @id
+  vendorId        String
+  documentType    String
+  documentUrl     String
+  status          String    @default("PENDING")
+  uploadedAt      DateTime  @default(now())
+  reviewedAt      DateTime?
+  reviewedBy      String?
+  rejectionReason String?
+  Vendor          Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([vendorId, status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model VendorFollower {
   vendorId  String
   userId    String
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@id([vendorId, userId])
   @@index([userId])
   @@index([vendorId])
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model VendorInquiry {
+  id                 String        @id
+  wholesalerVendorId String
+  requesterUserId    String
+  productId          String
+  quantity           Int
+  message            String?
+  status             InquiryStatus @default(PENDING)
+  response           String?
+  respondedAt        DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime
+  Product            Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  User               User          @relation(fields: [requesterUserId], references: [id], onDelete: Cascade)
+  Vendor             Vendor        @relation(fields: [wholesalerVendorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([productId])
+  @@index([requesterUserId, status])
+  @@index([wholesalerVendorId, status])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model VendorMembership {
-  id             String         @id @default(cuid())
+  id             String         @id
   vendorId       String         @unique
   tier           MembershipTier @default(FREE)
   price          Int            @default(0)
@@ -1211,16 +2092,17 @@ model VendorMembership {
   isActive       Boolean        @default(true)
   autoRenew      Boolean        @default(false)
   createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  vendor         Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  updatedAt      DateTime
+  Vendor         Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([isActive])
   @@index([tier])
   @@index([vendorId])
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model VendorPayout {
-  id            String       @id @default(cuid())
+  id            String       @id
   vendorId      String
   amount        Int
   period        String
@@ -1229,16 +2111,17 @@ model VendorPayout {
   transactionId String?
   processedAt   DateTime?
   createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  vendor        Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  updatedAt     DateTime
+  Vendor        Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
   @@index([status])
   @@index([vendorId])
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model VendorPromotion {
-  id          String          @id @default(cuid())
+  id          String          @id
   vendorId    String
   type        PromotionType
   packageType String?
@@ -1253,9 +2136,9 @@ model VendorPromotion {
   orders      Int             @default(0)
   revenue     Int             @default(0)
   createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  updatedAt   DateTime
   metadata    Json?
-  vendor      Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  Vendor      Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([startDate, endDate])
   @@index([status])
@@ -1264,193 +2147,9 @@ model VendorPromotion {
   @@index([vendorId, status])
 }
 
-model Wallet {
-  id        String        @id @default(cuid())
-  userId    String        @unique
-  balance   Int           @default(0)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  ledger    LedgerEntry[]
-  user      User          @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-}
-
-model BuyLater {
-  id               String   @id @default(cuid())
-  userId           String
-  productId        String
-  variantId        String?
-  targetPrice      Int
-  currentPrice     Int
-  quantity         Int      @default(1)
-  isActive         Boolean  @default(true)
-  isNotified       Boolean  @default(false)
-  isAddedToCart    Boolean  @default(false)
-  priceDropPercent Float?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  product          Product  @relation(fields: [productId], references: [id])
-  user             User     @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([productId])
-  @@index([isActive])
-  @@index([isNotified])
-  @@index([createdAt])
-}
-
-model Bet {
-  id             String        @id @default(cuid())
-  userId         String
-  idempotencyKey String        @unique
-  type           BetType       @default(SINGLE)
-  selections     Json
-  stake          Int
-  odds           Float
-  potentialWin   Int
-  status         BetStatus     @default(PENDING)
-  placedAt       DateTime      @default(now())
-  settledAt      DateTime?
-  result         String?
-  payout         Int?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  user           User          @relation(fields: [userId], references: [id])
-  ledgerEntries  LedgerEntry[]
-
-  @@index([userId])
-  @@index([status])
-  @@index([idempotencyKey])
-}
-
-model LedgerEntry {
-  id           String   @id @default(cuid())
-  userId       String
-  walletId     String
-  betId        String?
-  amount       Int
-  type         String
-  description  String
-  balanceAfter Int
-  createdAt    DateTime @default(now())
-  bet          Bet?     @relation(fields: [betId], references: [id])
-  user         User     @relation(fields: [userId], references: [id])
-  wallet       Wallet   @relation(fields: [walletId], references: [id])
-
-  @@index([userId])
-  @@index([walletId])
-  @@index([betId])
-  @@index([createdAt])
-}
-
-model LocalPromotion {
-  id            String    @id @default(cuid())
-  name          String?
-  isActive      Boolean   @default(true)
-  targetType    String
-  centerLat     Float?
-  centerLng     Float?
-  radiusKm      Float?
-  pincodes      Json?
-  vendorId      String?
-  categoryId    String?
-  productId     String?
-  percentOff    Int?
-  flatOffAmount Int?
-  freeShipping  Boolean   @default(false)
-  boostOnly     Boolean   @default(false)
-  effectiveFrom DateTime  @default(now())
-  effectiveTo   DateTime?
-  setByUserId   String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  vendor        Vendor?   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  category      Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  product       Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
-  setByUser     User?     @relation(fields: [setByUserId], references: [id], onDelete: SetNull)
-
-  @@index([isActive, effectiveFrom, effectiveTo])
-  @@index([vendorId])
-  @@index([categoryId])
-  @@index([productId])
-}
-
-model ReferralRewardRule {
-  id            String                @id @default(cuid())
-  minOrderPaise Int
-  maxOrderPaise Int?
-  coinsInviter  Int
-  coinsInvitee  Int
-  isActive      Boolean               @default(true)
-  effectiveFrom DateTime              @default(now())
-  effectiveTo   DateTime?
-  setByAdminId  String?
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-  setByAdmin    User?                 @relation(fields: [setByAdminId], references: [id], onDelete: SetNull)
-  grants        ReferralRewardGrant[]
-
-  @@index([isActive, effectiveFrom, effectiveTo])
-  @@index([minOrderPaise])
-  @@index([maxOrderPaise])
-  @@index([setByAdminId])
-}
-
-model ReferralRewardGrant {
-  id                     String             @id @default(cuid())
-  orderId                String             @unique
-  inviterUserId          String
-  inviteeUserId          String
-  ruleId                 String
-  orderValuePaiseAtAward Int
-  coinsInviterAtAward    Int
-  coinsInviteeAtAward    Int
-  createdAt              DateTime           @default(now())
-  order                  Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  inviterUser            User               @relation("ReferralInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
-  inviteeUser            User               @relation("ReferralInvitee", fields: [inviteeUserId], references: [id], onDelete: Cascade)
-  rule                   ReferralRewardRule @relation(fields: [ruleId], references: [id], onDelete: Restrict)
-
-  @@index([inviterUserId, createdAt])
-  @@index([inviteeUserId, createdAt])
-  @@index([ruleId])
-}
-
-model CheckoutGroup {
-  id               String              @id @default(uuid())
-  userId           String
-  provider         String              @default("RAZORPAY")
-  providerOrderId  String?
-  totalAmountPaise Int
-  currency         String              @default("INR")
-  status           CheckoutGroupStatus @default(PENDING_PAYMENT)
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders           Order[]
-
-  @@index([userId, createdAt])
-  @@index([providerOrderId])
-}
-
-model OrderDeliverySlotSnapshot {
-  id          String             @id @default(uuid())
-  orderId     String             @unique
-  vendorId    String
-  slotStartAt DateTime
-  slotEndAt   DateTime
-  timezone    String             @default("Asia/Kolkata")
-  source      DeliverySlotSource @default(AUTO)
-  createdAt   DateTime           @default(now())
-  order       Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  vendor      Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-
-  @@index([vendorId, slotStartAt])
-}
-
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model VendorServiceArea {
-  id        String   @id @default(uuid())
+  id        String   @id
   vendorId  String
   type      String
   centerLat Float?
@@ -1459,765 +2158,107 @@ model VendorServiceArea {
   polygon   Json?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  updatedAt DateTime
+  Vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
-  @@index([vendorId])
   @@index([isActive])
-}
-
-model VendorDeliveryWindow {
-  id          String   @id @default(uuid())
-  vendorId    String
-  weekday     Int
-  startMinute Int
-  endMinute   Int
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-
-  @@index([vendorId, weekday, isActive])
-  @@index([vendorId, isActive])
-}
-
-model OrderPackingProof {
-  id               String   @id @default(uuid())
-  orderId          String   @unique
-  vendorId         String
-  uploadedByUserId String
-  videoPath        String
-  videoMime        String?
-  videoSizeBytes   Int?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  vendor           Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  uploadedByUser   User     @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
-
   @@index([vendorId])
-  @@index([createdAt])
 }
 
-model PickupPoint {
-  id           String     @id @default(uuid())
-  vendorId     String
-  name         String
-  addressLine1 String
-  addressLine2 String?
-  city         String
-  state        String
-  pincode      String
-  latitude     Float?
-  longitude    Float?
-  timings      Json?
-  isActive     Boolean    @default(true)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  vendor       Vendor     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  shipments    Shipment[]
-
-  @@index([vendorId])
-  @@index([pincode])
-}
-
-model Shipment {
-  id              String       @id @default(uuid())
-  orderId         String       @unique
-  mode            String
-  status          String
-  courierProvider String?
-  awb             String?
-  trackingUrl     String?
-  pickupPointId   String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  order           Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  pickupPoint     PickupPoint? @relation(fields: [pickupPointId], references: [id], onDelete: SetNull)
-
-  @@index([awb])
-  @@index([pickupPointId])
-}
-
-model PincodeGeo {
-  pincode   String    @id
-  latitude  Float
-  longitude Float
-  source    GeoSource @default(PINCODE_DB)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-}
-
-// ============================================
-// LEDGER MODELS (NO COUNTERS - ALL LEDGER-BASED)
-// ============================================
-
-model VendorBowCoinLedger {
-  id           String   @id @default(cuid())
-  vendorId     String
-  sourceType   String // RATING_5_STAR, ADMIN_ADJUSTMENT, PENALTY, etc.
-  sourceId     String? // ratingId, adminId, orderId, etc.
-  coinsDelta   Int // +2 for rating, -5 for penalty, etc.
-  balanceAfter Int // Calculated balance after this entry
-  createdAt    DateTime @default(now())
-  vendor       Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-
-  @@index([vendorId, createdAt])
-  @@index([sourceType, sourceId])
-}
-
-model BannerImpressionLedger {
-  id        String    @id @default(cuid())
-  bannerId  String
-  userId    String? // null for anonymous
-  viewedAt  DateTime  @default(now())
-  clickedAt DateTime?
-  banner    Banner    @relation(fields: [bannerId], references: [id], onDelete: Cascade)
-  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([bannerId, viewedAt])
-  @@index([userId, viewedAt])
-}
-
-model ReelInteractionLedger {
-  id              String   @id @default(cuid())
-  reelId          String
-  userId          String
-  interactionType String // VIEW, LIKE
-  createdAt       DateTime @default(now())
-  reel            Reel     @relation(fields: [reelId], references: [id], onDelete: Cascade)
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([reelId, userId, interactionType]) // Prevent duplicate views/likes
-  @@index([reelId, interactionType])
-  @@index([userId, createdAt])
-}
-
-// ============================================
-// DISCIPLINE STATE MACHINE (NO COUNTERS)
-// ============================================
-
-model VendorDisciplineEvent {
-  id          String   @id @default(cuid())
-  vendorId    String
-  eventType   String // STRIKE_ADDED, STRIKE_REMOVED, AUTO_BLOCKED, AUTO_UNBLOCKED, ADMIN_OVERRIDE
-  orderId     String? // For delivery-related events
-  reason      String?
-  performedBy String? // adminId for overrides, null for auto
-  createdAt   DateTime @default(now())
-  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-
-  @@index([vendorId, createdAt])
-  @@index([eventType])
-}
-
-model VendorDisciplineState {
-  vendorId             String   @id
-  state                String // ACTIVE, WARNING, BLOCKED
-  activeStrikes        Int      @default(0) // Derived from events
-  consecutiveSuccesses Int      @default(0) // Derived from orders
-  lastStateChange      DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  vendor               Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-
-  @@index([state])
-}
-
-// ============================================
-// CORE MODELS (NO COUNTERS)
-// ============================================
-
-model Story {
-  id               String   @id @default(cuid())
-  vendorId         String
-  mediaUrl         String
-  mediaType        String // IMAGE, VIDEO
-  expiresAt        DateTime
-  isActive         Boolean  @default(true)
-  flaggedForReview Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  vendor           Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-
-  @@index([vendorId, expiresAt])
-  @@index([isActive, expiresAt])
-}
-
-model Reel {
-  id               String                  @id @default(cuid())
-  vendorId         String?
-  creatorId        String?
-  mediaUrl         String
-  thumbnailUrl     String?
-  productId        String?
-  description      String?
-  flaggedForReview Boolean                 @default(false)
-  createdAt        DateTime                @default(now())
-  vendor           Vendor?                 @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  creator          CreatorProfile?         @relation(fields: [creatorId], references: [id], onDelete: SetNull)
-  product          Product?                @relation(fields: [productId], references: [id], onDelete: SetNull)
-  interactions     ReelInteractionLedger[]
-
-  @@index([vendorId])
-  @@index([creatorId])
-  @@index([productId])
-  @@index([createdAt])
-}
-
-model ClearanceProduct {
-  id             String   @id @default(cuid())
-  productId      String
-  vendorId       String
-  clearancePrice Int
-  originalPrice  Int
-  expiryDate     DateTime
-  quantity       Int
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  vendor         Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-
-  @@index([vendorId, isActive])
-  @@index([expiryDate, isActive])
-}
-
-model CreatorProfile {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  displayName     String
-  bio             String?
-  profileImageUrl String?
-  isVerified      Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reels           Reel[]
-
-  @@index([userId])
-}
-
-model VendorDocument {
-  id              String    @id @default(cuid())
-  vendorId        String
-  documentType    String // AADHAAR, PAN, BANK, GST, UPI
-  documentUrl     String
-  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
-  uploadedAt      DateTime  @default(now())
-  reviewedAt      DateTime?
-  reviewedBy      String? // adminId
-  rejectionReason String?
-  vendor          Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-
-  @@index([vendorId, status])
-  @@index([status])
-}
-
-model ContentModeration {
-  id          String    @id @default(cuid())
-  contentType String // STORY, REEL
-  contentId   String
-  flaggedBy   String? // userId (null for auto-flag)
-  reason      String
-  status      String    @default("PENDING") // PENDING, APPROVED, REJECTED
-  reviewedBy  String? // adminId
-  reviewedAt  DateTime?
-  createdAt   DateTime  @default(now())
-
-  @@index([contentType, contentId])
-  @@index([status])
-}
-
-// ============================================
-// REFUNDS MODULE
-// ============================================
-
-model Refund {
-  id              String         @id @default(cuid())
-  refundNumber    String         @unique
-  orderId         String
-  order           Order          @relation(fields: [orderId], references: [id])
-  returnId        String?
-  return          ReturnRequest? @relation(fields: [returnId], references: [id])
-  userId          String
-  user            User           @relation(fields: [userId], references: [id], name: "UserRefunds")
-  amount          Int // in paise
-  reason          String
-  status          RefundStatus   @default(PENDING)
-  method          RefundMethod   @default(ORIGINAL_PAYMENT)
-  transactionId   String?
-  processedBy     String?
-  processedAt     DateTime?
-  rejectionReason String?
-  notes           String?
-  metadata        Json?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  @@index([orderId])
-  @@index([userId])
-  @@index([status])
-  @@index([returnId])
-  @@index([refundNumber])
-  @@index([createdAt])
-}
-
-// ============================================
-// SUPPORT/TICKETS MODULE
-// ============================================
-
-model SupportTicket {
-  id              String          @id @default(cuid())
-  ticketNumber    String          @unique
-  userId          String
-  user            User            @relation(fields: [userId], references: [id], name: "UserTickets")
-  category        TicketCategory
-  subject         String
-  description     String          @db.Text
-  priority        TicketPriority  @default(MEDIUM)
-  status          TicketStatus    @default(OPEN)
-  assignedTo      String?
-  assignedAdmin   Admin?          @relation(fields: [assignedTo], references: [id], name: "AssignedTickets")
-  orderId         String?
-  order           Order?          @relation(fields: [orderId], references: [id], name: "OrderTickets")
-  productId       String?
-  vendorId        String?
-  attachments     String[]
-  tags            String[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  closedAt        DateTime?
-  firstResponseAt DateTime?
-  resolvedAt      DateTime?
-  messages        TicketMessage[]
-
-  @@index([userId])
-  @@index([status])
-  @@index([assignedTo])
-  @@index([category])
-  @@index([priority])
-  @@index([createdAt])
-  @@index([orderId])
-}
-
-model TicketMessage {
-  id          String        @id @default(cuid())
-  ticketId    String
-  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  senderId    String
-  senderType  MessageSender
-  senderName  String
-  message     String        @db.Text
-  attachments String[]
-  isInternal  Boolean       @default(false)
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Wallet {
+  id          String        @id
+  userId      String        @unique
+  balance     Int           @default(0)
   createdAt   DateTime      @default(now())
+  updatedAt   DateTime
+  LedgerEntry LedgerEntry[]
+  User        User          @relation(fields: [userId], references: [id])
 
-  @@index([ticketId])
-  @@index([createdAt])
-}
-
-model TicketTemplate {
-  id        String          @id @default(cuid())
-  name      String
-  category  TicketCategory?
-  subject   String?
-  content   String          @db.Text
-  isActive  Boolean         @default(true)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-
-  @@index([category])
-  @@index([isActive])
-}
-
-// ============================================
-// EMPLOYEE MANAGEMENT MODULE
-// ============================================
-
-model Employee {
-  id          String       @id @default(cuid())
-  employeeId  String       @unique
-  name        String
-  email       String       @unique
-  mobile      String       @unique
-  password    String
-  avatar      String?
-  role        EmployeeRole
-  department  String?
-  permissions String[]
-  isActive    Boolean      @default(true)
-  lastLoginAt DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  @@index([role])
-  @@index([department])
-  @@index([isActive])
-}
-
-// ============================================
-// DRIVER MANAGEMENT MODULE
-// ============================================
-
-model Driver {
-  id              String           @id @default(cuid())
-  driverId        String           @unique
-  name            String
-  mobile          String           @unique
-  email           String?
-  avatar          String?
-  vehicleType     VehicleType
-  vehicleNumber   String
-  licenseNumber   String
-  licenseExpiry   DateTime
-  status          DriverStatus     @default(PENDING)
-  isAvailable     Boolean          @default(false)
-  isOnline        Boolean          @default(false)
-  currentLocation Json?
-  rating          Float            @default(5.0)
-  totalDeliveries Int              @default(0)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  documents       DriverDocument[]
-  deliveries      Delivery[]
-
-  @@index([status])
-  @@index([isAvailable])
-  @@index([isOnline])
-}
-
-model DriverDocument {
-  id          String         @id @default(cuid())
-  driverId    String
-  driver      Driver         @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  type        DocumentType
-  documentUrl String
-  status      DocumentStatus @default(PENDING)
-  verifiedBy  String?
-  verifiedAt  DateTime?
-  expiryDate  DateTime?
-  notes       String?
-  createdAt   DateTime       @default(now())
-
-  @@index([driverId])
-  @@index([status])
-}
-
-model Delivery {
-  id              String         @id @default(cuid())
-  deliveryNumber  String         @unique
-  orderId         String
-  order           Order          @relation(fields: [orderId], references: [id], name: "OrderDeliveries")
-  driverId        String?
-  driver          Driver?        @relation(fields: [driverId], references: [id])
-  pickupAddress   Json
-  deliveryAddress Json
-  status          DeliveryStatus @default(PENDING)
-  distance        Float?
-  estimatedTime   Int? // minutes
-  actualTime      Int?
-  pickupOtp       String?
-  deliveryOtp     String?
-  pickedAt        DateTime?
-  deliveredAt     DateTime?
-  proofImage      String?
-  notes           String?
-  rating          Int?
-  feedback        String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  @@index([orderId])
-  @@index([driverId])
-  @@index([status])
-  @@index([createdAt])
-}
-
-// ============================================
-// NOTIFICATION TEMPLATES & CAMPAIGNS
-// ============================================
-
-model NotificationTemplate {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  title     String
-  body      String
-  imageUrl  String?
-  action    String?
-  data      Json?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([isActive])
-}
-
-model NotificationCampaign {
-  id             String    @id @default(cuid())
-  name           String
-  templateId     String?
-  title          String
-  body           String
-  imageUrl       String?
-  targetAudience Json // { role: [], status: [], location: [] }
-  scheduledAt    DateTime?
-  sentAt         DateTime?
-  totalSent      Int       @default(0)
-  totalOpened    Int       @default(0)
-  totalClicked   Int       @default(0)
-  status         String    @default("draft") // draft, scheduled, sending, sent, cancelled
-  createdBy      String
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  @@index([status])
-  @@index([scheduledAt])
-  @@index([createdAt])
-}
-
-// ============================================
-// CMS MODULE
-// ============================================
-
-model CMSPage {
-  id            String   @id @default(cuid())
-  slug          String   @unique
-  title         String
-  content       String   @db.Text
-  excerpt       String?
-  metaTitle     String?
-  metaDesc      String?
-  featuredImage String?
-  template      String   @default("default")
-  isActive      Boolean  @default(true)
-  sortOrder     Int      @default(0)
-  createdBy     String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([slug])
-  @@index([isActive])
-  @@index([sortOrder])
-}
-
-model CMSMenu {
-  id        String        @id @default(cuid())
-  name      String        @unique
-  location  MenuLocation
-  items     CMSMenuItem[]
-  isActive  Boolean       @default(true)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-
-  @@index([location])
-  @@index([isActive])
-}
-
-model CMSMenuItem {
-  id        String        @id @default(cuid())
-  menuId    String
-  menu      CMSMenu       @relation(fields: [menuId], references: [id], onDelete: Cascade)
-  label     String
-  url       String
-  icon      String?
-  target    String        @default("_self")
-  parentId  String?
-  parent    CMSMenuItem?  @relation("MenuItemChildren", fields: [parentId], references: [id])
-  children  CMSMenuItem[] @relation("MenuItemChildren")
-  sortOrder Int           @default(0)
-  isActive  Boolean       @default(true)
-
-  @@index([menuId])
-  @@index([parentId])
-  @@index([sortOrder])
-}
-
-// ============================================
-// BLOG MODULE
-// ============================================
-
-model BlogPost {
-  id          String        @id @default(cuid())
-  slug        String        @unique
-  title       String
-  excerpt     String?
-  content     String        @db.Text
-  coverImage  String?
-  categoryId  String?
-  category    BlogCategory? @relation(fields: [categoryId], references: [id])
-  authorId    String
-  author      Admin         @relation(fields: [authorId], references: [id], name: "AuthorPosts")
-  tags        String[]
-  status      PostStatus    @default(DRAFT)
-  isFeatured  Boolean       @default(false)
-  publishedAt DateTime?
-  viewCount   Int           @default(0)
-  readTime    Int? // minutes
-  seoTitle    String?
-  seoDesc     String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  @@index([categoryId])
-  @@index([authorId])
-  @@index([status])
-  @@index([isFeatured])
-  @@index([publishedAt])
-  @@index([slug])
-}
-
-model BlogCategory {
-  id          String         @id @default(cuid())
-  slug        String         @unique
-  name        String
-  description String?
-  image       String?
-  parentId    String?
-  parent      BlogCategory?  @relation("CategoryChildren", fields: [parentId], references: [id])
-  children    BlogCategory[] @relation("CategoryChildren")
-  posts       BlogPost[]
-  sortOrder   Int            @default(0)
-  isActive    Boolean        @default(true)
-  createdAt   DateTime       @default(now())
-
-  @@index([parentId])
-  @@index([isActive])
-  @@index([slug])
-}
-
-model ReturnQCChecklist {
-  id                    String   @id @default(cuid())
-  orderId               String   @unique
-  inspectorId           String
-  status                Boolean  @default(false)
-  isOriginalPackaging   Boolean  @default(false)
-  isUnused              Boolean  @default(false)
-  allAccessoriesPresent Boolean  @default(false)
-  hasPhysicalDamage     Boolean  @default(false)
-  imeiMatch             Boolean  @default(true)
-  photos                String[]
-  notes                 String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  order                 Order    @relation(fields: [orderId], references: [id])
+  @@index([userId])
 }
 
 model Warehouse {
-  id        String      @id @default(cuid())
+  id        String      @id
   name      String
   location  String
   isActive  Boolean     @default(true)
   createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  inventory Inventory[]
+  updatedAt DateTime
+  Inventory Inventory[]
 }
 
-model Inventory {
-  id              String          @id @default(cuid())
-  productId       String
-  warehouseId     String?
-  stock           Int             @default(0)
-  reservedStock   Int             @default(0)
-  reorderPoint    Int             @default(10)
-  reorderQuantity Int             @default(50)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  product         Product         @relation(fields: [productId], references: [id])
-  warehouse       Warehouse?      @relation(fields: [warehouseId], references: [id])
-  movements       StockMovement[]
-
-  @@index([productId])
-  @@index([warehouseId])
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model WeeklyOffer {
+  id        String   @id
+  name      String
+  startAt   DateTime
+  endAt     DateTime
+  isActive  Boolean  @default(true)
+  rules     Json?
+  createdAt DateTime @default(now())
 }
 
-model StockMovement {
-  id          String            @id @default(cuid())
-  inventoryId String
-  type        StockMovementType
-  quantity    Int
-  reason      String?
-  reference   String?
-  createdBy   String
-  createdAt   DateTime          @default(now())
-  inventory   Inventory         @relation(fields: [inventoryId], references: [id])
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Wishlist {
+  id        String   @id
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  Product   Product  @relation(fields: [productId], references: [id])
+  User      User     @relation(fields: [userId], references: [id])
 
-  @@index([inventoryId])
-  @@index([createdAt])
+  @@unique([userId, productId])
 }
 
-enum StockMovementType {
-  IN
-  OUT
-  ADJUSTMENT
-  TRANSFER
+enum AdminRole {
+  SUPER_ADMIN
+  OPERATIONS_ADMIN
+  FINANCE_ADMIN
+  CONTENT_MODERATOR
+  ANALYTICS_VIEWER
 }
 
-enum SettlementStatus {
-  PENDING
-  ELIGIBLE
-  SETTLED
-  REVERSED
+enum AttributeScope {
+  PRODUCT
+  VARIATION
 }
 
-enum ReturnStatus {
+enum BannerCampaignStatus {
+  DRAFT
+  PENDING_PAYMENT
+  PAYMENT_RECEIVED
   PENDING_APPROVAL
   APPROVED
+  ACTIVE
+  PAUSED
+  EXPIRED
   REJECTED
-  PICKUP_SCHEDULED
-  PICKUP_COMPLETED
-  IN_TRANSIT
-  RECEIVED_AT_WAREHOUSE
-  QC_IN_PROGRESS
-  QC_PASSED
-  QC_FAILED
-  REFUND_INITIATED
-  REFUND_COMPLETED
-  REPLACEMENT_INITIATED
-  REPLACEMENT_SHIPPED
-  REPLACEMENT_COMPLETED
+  DEACTIVATED
+}
+
+enum BannerType {
+  HOMEPAGE_HERO
+  CATEGORY_SPOTLIGHT
+  SEARCH_RESULT
+  STORY_PROMOTION
+  WEEKLY_STANDARD
+  MONTHLY_PREMIUM
+}
+
+enum BetStatus {
+  PENDING
+  PLACED
+  SETTLED_WIN
+  SETTLED_LOSE
   CANCELLED
+  VOIDED
 }
 
-enum ReturnReason {
-  DAMAGED_PRODUCT
-  WRONG_ITEM
-  MISSING_PARTS
-  QUALITY_ISSUE
-  SIZE_FIT_ISSUE
-  OTHER
-  NOT_AS_DESCRIBED
-  DEFECTIVE
-  CHANGED_MIND
-}
-
-enum ItemCondition {
-  UNOPENED
-  OPENED_UNUSED
-  USED_LIKE_NEW
-  USED_GOOD
-  USED_FAIR
-  DAMAGED
-  DEFECTIVE
-}
-
-enum CostBearer {
-  PLATFORM
-  VENDOR
-  CUSTOMER
-  SHARED
-}
-
-enum CartInsightType {
-  HESITATION
-  THRESHOLD_NEAR
-  BUNDLE_OPPORTUNITY
-  PRICE_SENSITIVITY
-  REPEAT_REMOVAL
-  GIFT_ELIGIBLE
-}
-
-enum InsightSeverity {
-  LOW
-  MEDIUM
-  HIGH
+enum BetType {
+  SINGLE
+  MULTIPLE
+  SYSTEM
 }
 
 enum BowActionType {
@@ -2237,34 +2278,198 @@ enum BowActionType {
   REMOVE_SUGGESTION
 }
 
-enum UserStatus {
+enum CallOutcome {
+  NOT_REACHABLE
+  FOLLOW_UP_SCHEDULED
+  CONVERTED
+  DROPPED
+  WRONG_NUMBER
+}
+
+enum CartInsightType {
+  HESITATION
+  THRESHOLD_NEAR
+  BUNDLE_OPPORTUNITY
+  PRICE_SENSITIVITY
+  REPEAT_REMOVAL
+  GIFT_ELIGIBLE
+}
+
+enum CheckoutGroupStatus {
+  PENDING_PAYMENT
+  PAID
+  FAILED
+}
+
+enum CheckoutRecoveryStatus {
+  NEW
+  ASSIGNED
+  FOLLOW_UP
+  CONVERTED
+  DROPPED
+}
+
+enum ContentFlagType {
+  STORY
+  REEL
+  PRODUCT_IMAGE
+  REVIEW
+  VENDOR_PROFILE
+}
+
+enum CostBearer {
+  PLATFORM
+  VENDOR
+  CUSTOMER
+  SHARED
+}
+
+enum DeliverySlotSource {
+  AUTO
+  CUSTOMER
+}
+
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  ACCEPTED
+  PICKING_UP
+  PICKED_UP
+  IN_TRANSIT
+  ARRIVED
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum DisciplineStatus {
+  GOOD_STANDING
+  WARNING
+  PROBATION
+  SUSPENDED
+  FINAL_WARNING
+  BLOCKED
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DocumentType {
+  AADHAAR
+  PAN
+  LICENSE
+  RC_BOOK
+  INSURANCE
+}
+
+enum DriverStatus {
+  PENDING
+  DOCUMENTS_SUBMITTED
+  VERIFIED
   ACTIVE
   SUSPENDED
-  PENDING
-  BANNED
+  BLOCKED
 }
 
-enum UserRole {
-  CUSTOMER
-  VENDOR
-  WHOLESALER
-  ADMIN
-  SUPER_ADMIN
+enum EmployeeRole {
   TELECALLER
+  SUPPORT_AGENT
+  CONTENT_MODERATOR
+  WAREHOUSE_STAFF
+  FINANCE_STAFF
+  OPERATIONS_MANAGER
 }
 
-enum RoomStatus {
-  LOCKED
-  ACTIVE
-  UNLOCKED
+enum FlagPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FlagReason {
+  NUDITY
+  VIOLENCE
+  HATE_SPEECH
+  COUNTERFEIT
+  PROHIBITED_ITEM
+  MISLEADING
+  SPAM
+  COPYRIGHT
+  TRADEMARK
+  HARASSMENT
+  MISINFORMATION
+  OTHER
+}
+
+enum FlagStatus {
+  PENDING
+  IN_REVIEW
+  RESOLVED
+  ESCALATED
+}
+
+enum GeoSource {
+  PINCODE_DB
+  NOMINATIM
+  MANUAL
+}
+
+enum InquiryStatus {
+  PENDING
+  RESPONDED
+  ACCEPTED
+  REJECTED
   EXPIRED
-  OPEN
-  COMPLETED
 }
 
-enum RoomType {
-  GOAL_BASED
-  LINEAR_DISCOUNT
+enum InsightSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum InteractionType {
+  CHAT
+  VOICE
+  RECOMMENDATION
+  ACTION
+}
+
+enum InvoiceStatus {
+  DRAFT
+  GENERATED
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum InvoiceType {
+  BANNER_CAMPAIGN
+  SUBSCRIPTION
+  COMMISSION
+  REFUND
+  ORDER
+}
+
+enum ItemCondition {
+  UNOPENED
+  OPENED_UNUSED
+  USED_LIKE_NEW
+  USED_GOOD
+  USED_FAIR
+  DAMAGED
+  DEFECTIVE
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  GIF
 }
 
 enum MemberStatus {
@@ -2274,10 +2479,34 @@ enum MemberStatus {
   CANCELLED
 }
 
-enum RoomBoostType {
-  PRIORITY_VISIBILITY
-  UNLOCK_ACCELERATOR
-  SPONSORED_PRODUCT
+enum MembershipTier {
+  FREE
+  BASIC
+  PRO
+  PREMIUM
+  ELITE
+}
+
+enum MenuLocation {
+  HEADER
+  FOOTER
+  MOBILE_NAV
+  SIDEBAR
+}
+
+enum MessageSender {
+  CUSTOMER
+  VENDOR
+  ADMIN
+  SYSTEM
+}
+
+enum ModerationAction {
+  APPROVED
+  REMOVED
+  REMOVED_WITH_WARNING
+  REMOVED_WITH_STRIKE
+  ESCALATED
 }
 
 enum OrderStatus {
@@ -2299,9 +2528,110 @@ enum OrderStatus {
   REFUNDED
 }
 
-enum VendorRole {
-  RETAILER
-  WHOLESALER
+enum PaymentIntentPurpose {
+  BANNER_SLOT
+  ROOM_PROMOTION
+  VENDOR_MEMBERSHIP
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PayoutCycle {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  INSTANT
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum PostStatus {
+  DRAFT
+  REVIEW
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ProductVisibility {
+  DRAFT
+  PUBLISHED
+  BLOCKED
+}
+
+enum PromotionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum PromotionType {
+  BANNER
+  ROOM_PACKAGE
+  FEATURED
+}
+
+enum ReferralStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+}
+
+enum RefundMethod {
+  ORIGINAL_PAYMENT
+  WALLET
+  BANK_TRANSFER
+  UPI
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSED
+  FAILED
+}
+
+enum ReturnReason {
+  DAMAGED_PRODUCT
+  WRONG_ITEM
+  MISSING_PARTS
+  QUALITY_ISSUE
+  SIZE_FIT_ISSUE
+  OTHER
+  NOT_AS_DESCRIBED
+  DEFECTIVE
+  CHANGED_MIND
+}
+
+enum ReturnStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PICKUP_SCHEDULED
+  PICKUP_COMPLETED
+  IN_TRANSIT
+  RECEIVED_AT_WAREHOUSE
+  QC_IN_PROGRESS
+  QC_PASSED
+  QC_FAILED
+  REFUND_INITIATED
+  REFUND_COMPLETED
+  REPLACEMENT_INITIATED
+  REPLACEMENT_SHIPPED
+  REPLACEMENT_COMPLETED
+  CANCELLED
 }
 
 enum ReviewStatus {
@@ -2314,76 +2644,71 @@ enum ReviewStatus {
   REJECTED
 }
 
-enum PaymentStatus {
-  PENDING
-  SUCCESS
-  FAILED
-  REFUNDED
-}
-
-enum PaymentIntentPurpose {
-  BANNER_SLOT
-  ROOM_PROMOTION
-  VENDOR_MEMBERSHIP
-}
-
-enum InquiryStatus {
-  PENDING
-  RESPONDED
-  ACCEPTED
-  REJECTED
-  EXPIRED
-}
-
-enum UserProductEventType {
-  PRODUCT_VIEW
-  PRODUCT_CLICK
-  ADD_TO_CART
-  REMOVE_FROM_CART
-  WISHLIST_ADD
-  PURCHASE
-}
-
 enum RiskTag {
   LOW
   MEDIUM
   HIGH
 }
 
-enum ValueTag {
-  NORMAL
-  VIP
+enum RoomBoostType {
+  PRIORITY_VISIBILITY
+  UNLOCK_ACCELERATOR
+  SPONSORED_PRODUCT
 }
 
-enum CheckoutRecoveryStatus {
-  NEW
-  ASSIGNED
-  FOLLOW_UP
-  CONVERTED
-  DROPPED
+enum RoomStatus {
+  LOCKED
+  ACTIVE
+  UNLOCKED
+  EXPIRED
+  OPEN
+  COMPLETED
 }
 
-enum CallOutcome {
-  NOT_REACHABLE
-  FOLLOW_UP_SCHEDULED
-  CONVERTED
-  DROPPED
-  WRONG_NUMBER
+enum RoomType {
+  GOAL_BASED
+  LINEAR_DISCOUNT
 }
 
-enum RefundStatus {
+enum SettlementStatus {
   PENDING
-  APPROVED
-  REJECTED
-  PROCESSED
-  FAILED
+  ELIGIBLE
+  SETTLED
+  REVERSED
 }
 
-enum RefundMethod {
-  ORIGINAL_PAYMENT
-  WALLET
-  BANK_TRANSFER
-  UPI
+enum SpecType {
+  TEXT
+  NUMBER
+  SELECT
+  BOOLEAN
+  MULTISELECT
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  TRANSFER
+}
+
+enum StrikeResolution {
+  REMOVED
+  UPHELD
+  REDUCED
+  APPEALED
+  DECAYED
+}
+
+enum StrikeType {
+  FAILED_DELIVERY
+  SHOP_CLOSED
+  LATE_PREPARATION
+  CUSTOMER_COMPLAINT
+  QUALITY_ISSUE
+  REPEATED_CANCELLATION
+  POLICY_VIOLATION
+  CONTENT_VIOLATION
 }
 
 enum TicketCategory {
@@ -2415,11 +2740,40 @@ enum TicketStatus {
   CLOSED
 }
 
-enum MessageSender {
+enum UserProductEventType {
+  PRODUCT_VIEW
+  PRODUCT_CLICK
+  ADD_TO_CART
+  REMOVE_FROM_CART
+  WISHLIST_ADD
+  PURCHASE
+}
+
+enum UserRole {
   CUSTOMER
   VENDOR
+  WHOLESALER
   ADMIN
-  SYSTEM
+  SUPER_ADMIN
+  TELECALLER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+  BANNED
+}
+
+enum ValueTag {
+  NORMAL
+  VIP
+}
+
+enum VariationStatus {
+  ACTIVE
+  OUT_OF_STOCK
+  ARCHIVED
 }
 
 enum VehicleType {
@@ -2430,591 +2784,12 @@ enum VehicleType {
   TRUCK
 }
 
-enum DriverStatus {
-  PENDING
-  DOCUMENTS_SUBMITTED
-  VERIFIED
-  ACTIVE
-  SUSPENDED
-  BLOCKED
-}
-
-enum DeliveryStatus {
-  PENDING
-  ASSIGNED
-  ACCEPTED
-  PICKING_UP
-  PICKED_UP
-  IN_TRANSIT
-  ARRIVED
-  DELIVERED
-  FAILED
-  CANCELLED
-}
-
-enum MenuLocation {
-  HEADER
-  FOOTER
-  MOBILE_NAV
-  SIDEBAR
-}
-
-enum PostStatus {
-  DRAFT
-  REVIEW
-  SCHEDULED
-  PUBLISHED
-  ARCHIVED
-}
-
-enum EmployeeRole {
-  TELECALLER
-  SUPPORT_AGENT
-  CONTENT_MODERATOR
-  WAREHOUSE_STAFF
-  FINANCE_STAFF
-  OPERATIONS_MANAGER
-}
-
-enum DocumentType {
-  AADHAAR
-  PAN
-  LICENSE
-  RC_BOOK
-  INSURANCE
-}
-
-enum DocumentStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-enum AttributeScope {
-  PRODUCT
-  VARIATION
-}
-
-enum ProductVisibility {
-  DRAFT
-  PUBLISHED
-  BLOCKED
-}
-
-enum VariationStatus {
-  ACTIVE
-  OUT_OF_STOCK
-  ARCHIVED
-}
-
-enum MediaType {
-  IMAGE
-  VIDEO
-  GIF
+enum VendorRole {
+  RETAILER
+  WHOLESALER
 }
 
 enum VendorStatus {
   ACTIVE
   SUSPENDED
-}
-
-enum SpecType {
-  TEXT
-  NUMBER
-  SELECT
-  BOOLEAN
-  MULTISELECT
-}
-
-enum MembershipTier {
-  FREE
-  BASIC
-  PRO
-  PREMIUM
-  ELITE
-}
-
-enum PayoutCycle {
-  WEEKLY
-  BIWEEKLY
-  MONTHLY
-  INSTANT
-}
-
-enum PromotionType {
-  BANNER
-  ROOM_PACKAGE
-  FEATURED
-}
-
-enum PromotionStatus {
-  ACTIVE
-  PAUSED
-  COMPLETED
-  CANCELLED
-}
-
-enum PayoutStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-}
-
-enum InteractionType {
-  CHAT
-  VOICE
-  RECOMMENDATION
-  ACTION
-}
-
-enum ReferralStatus {
-  PENDING
-  COMPLETED
-  EXPIRED
-}
-
-enum BetStatus {
-  PENDING
-  PLACED
-  SETTLED_WIN
-  SETTLED_LOSE
-  CANCELLED
-  VOIDED
-}
-
-enum BetType {
-  SINGLE
-  MULTIPLE
-  SYSTEM
-}
-
-enum CheckoutGroupStatus {
-  PENDING_PAYMENT
-  PAID
-  FAILED
-}
-
-enum DeliverySlotSource {
-  AUTO
-  CUSTOMER
-}
-
-enum GeoSource {
-  PINCODE_DB
-  NOMINATIM
-  MANUAL
-}
-
-// ============== ADMIN PANEL MODELS ==============
-
-model AdminUser {
-  id             String    @id @default(cuid())
-  email          String    @unique
-  passwordHash   String
-  name           String
-  role           AdminRole @default(OPERATIONS_ADMIN)
-  isActive       Boolean   @default(true)
-  mfaEnabled     Boolean   @default(false)
-  mfaSecret      String?
-  backupCodes    String[]  @default([])
-  lastLoginAt    DateTime?
-  lastLoginIp    String?
-  failedAttempts Int       @default(0)
-  lockedUntil    DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  sessions      AdminSession[]
-  actions       AdminAction[]
-  createdAdmins AdminUser[]    @relation("AdminCreator")
-  createdBy     AdminUser?     @relation("AdminCreator", fields: [createdById], references: [id])
-  createdById   String?
-
-  @@index([email])
-  @@index([role])
-  @@index([isActive])
-}
-
-model AdminSession {
-  id           String   @id @default(cuid())
-  adminId      String
-  token        String   @unique
-  refreshToken String   @unique
-  ipAddress    String
-  userAgent    String
-  expiresAt    DateTime
-  lastActiveAt DateTime @default(now())
-  isRevoked    Boolean  @default(false)
-  createdAt    DateTime @default(now())
-
-  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
-
-  @@index([adminId])
-  @@index([token])
-  @@index([refreshToken])
-  @@index([expiresAt])
-}
-
-model AdminAction {
-  id           String   @id @default(cuid())
-  adminId      String
-  action       String
-  resourceType String
-  resourceId   String?
-  beforeState  Json?
-  afterState   Json?
-  metadata     Json?
-  ipAddress    String
-  userAgent    String
-  duration     Int?
-  createdAt    DateTime @default(now())
-
-  admin AdminUser @relation(fields: [adminId], references: [id])
-
-  @@index([adminId])
-  @@index([action])
-  @@index([resourceType])
-  @@index([resourceId])
-  @@index([createdAt])
-}
-
-// ============== BOW COIN ADMIN MODELS ==============
-
-model BowCoinConfig {
-  id                 String   @id @default(cuid())
-  coinValueInr       Decimal  @default(0.10) @db.Decimal(10, 4)
-  coinsPerFiveStar   Int      @default(10)
-  coinsPerFourStar   Int      @default(5)
-  coinsPerThreeStar  Int      @default(0)
-  coinsPerReferral   Int      @default(50)
-  coinsFirstOrder    Int      @default(20)
-  coinsWeeklyStreak  Int      @default(25)
-  strikePenaltyCoins Int      @default(100)
-  minRedemption      Int      @default(100)
-  maxDailyEarn       Int      @default(500)
-  expiryDays         Int      @default(365)
-  isActive           Boolean  @default(true)
-  updatedById        String
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  @@index([isActive])
-}
-
-// ============== BANNER CAMPAIGN MODELS ==============
-
-model BannerCampaign {
-  id              String               @id @default(cuid())
-  vendorId        String
-  bannerType      BannerType
-  title           String
-  description     String?
-  imageUrl        String
-  targetUrl       String?
-  targetAudience  Json?
-  pricing         Decimal              @db.Decimal(10, 2)
-  discountApplied Decimal?             @db.Decimal(10, 2)
-  paymentId       String?
-  paymentStatus   PaymentStatus        @default(PENDING)
-  status          BannerCampaignStatus @default(DRAFT)
-  impressions     Int                  @default(0)
-  clicks          Int                  @default(0)
-  conversions     Int                  @default(0)
-  startDate       DateTime?
-  endDate         DateTime?
-  approvedById    String?
-  approvedAt      DateTime?
-  rejectionReason String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-
-  vendor  Vendor         @relation(fields: [vendorId], references: [id])
-  metrics BannerMetric[]
-  Banner  Banner[]
-
-  @@index([vendorId])
-  @@index([status])
-  @@index([bannerType])
-  @@index([startDate, endDate])
-}
-
-model BannerPricing {
-  id             String     @id @default(cuid())
-  bannerType     BannerType @unique
-  name           String
-  basePrice      Decimal    @db.Decimal(10, 2)
-  durationDays   Int
-  maxImpressions Int?
-  description    String?
-  isActive       Boolean    @default(true)
-  updatedById    String
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-}
-
-model BannerMetric {
-  id          String   @id @default(cuid())
-  campaignId  String
-  date        DateTime @db.Date
-  impressions Int      @default(0)
-  clicks      Int      @default(0)
-  conversions Int      @default(0)
-  revenue     Decimal? @db.Decimal(10, 2)
-  createdAt   DateTime @default(now())
-
-  campaign BannerCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-
-  @@unique([campaignId, date])
-  @@index([campaignId])
-  @@index([date])
-}
-
-// ============== CONTENT MODERATION MODELS ==============
-
-model ContentFlag {
-  id            String            @id @default(cuid())
-  contentType   ContentFlagType
-  contentId     String
-  flagReason    FlagReason
-  customReason  String?
-  reportedById  String?
-  reportCount   Int               @default(1)
-  priority      FlagPriority      @default(MEDIUM)
-  status        FlagStatus        @default(PENDING)
-  moderatedById String?
-  moderatedAt   DateTime?
-  actionTaken   ModerationAction?
-  actionReason  String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-
-  @@index([contentType])
-  @@index([contentId])
-  @@index([status])
-  @@index([priority])
-  @@index([createdAt])
-}
-
-// ============== VENDOR STRIKE & DISCIPLINE MODELS ==============
-
-model VendorStrike {
-  id             String            @id @default(cuid())
-  vendorId       String
-  strikeType     StrikeType
-  severity       Decimal           @default(1.0) @db.Decimal(3, 1)
-  orderId        String?
-  reason         String
-  evidence       Json?
-  autoGenerated  Boolean           @default(true)
-  coinsPenalty   Int               @default(0)
-  resolvedById   String?
-  resolvedAt     DateTime?
-  resolutionNote String?
-  resolutionType StrikeResolution?
-  createdAt      DateTime          @default(now())
-
-  vendor Vendor @relation(fields: [vendorId], references: [id])
-  order  Order? @relation(fields: [orderId], references: [id])
-
-  @@index([vendorId])
-  @@index([orderId])
-  @@index([strikeType])
-  @@index([createdAt])
-  @@index([resolvedAt])
-}
-
-model VendorDiscipline {
-  id                 String           @id @default(cuid())
-  vendorId           String           @unique
-  totalStrikes       Decimal          @default(0) @db.Decimal(5, 1)
-  activeStrikes      Decimal          @default(0) @db.Decimal(5, 1)
-  successStreak      Int              @default(0)
-  disciplineStatus   DisciplineStatus @default(GOOD_STANDING)
-  suspendedUntil     DateTime?
-  suspensionCount    Int              @default(0)
-  permanentlyBlocked Boolean          @default(false)
-  blockedAt          DateTime?
-  blockedById        String?
-  blockReason        String?
-  lastStrikeAt       DateTime?
-  lastDecayAt        DateTime?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-
-  vendor Vendor @relation(fields: [vendorId], references: [id])
-
-  @@index([vendorId])
-  @@index([disciplineStatus])
-  @@index([permanentlyBlocked])
-}
-
-// ============== PLATFORM CONFIGURATION ==============
-
-model PlatformConfig {
-  id          String   @id @default(cuid())
-  category    String
-  key         String
-  value       Json
-  description String?
-  updatedById String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([category, key])
-  @@index([category])
-}
-
-// ============== INVOICE GENERATION ==============
-
-model Invoice {
-  id             String        @id @default(cuid())
-  invoiceNumber  String        @unique
-  type           InvoiceType
-  vendorId       String?
-  orderId        String?
-  campaignId     String?
-  subtotal       Decimal       @db.Decimal(10, 2)
-  tax            Decimal       @db.Decimal(10, 2)
-  totalAmount    Decimal       @db.Decimal(10, 2)
-  status         InvoiceStatus @default(DRAFT)
-  items          Json
-  billingDetails Json
-  pdfUrl         String?
-  generatedAt    DateTime?
-  sentAt         DateTime?
-  paidAt         DateTime?
-  dueDate        DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  vendor Vendor? @relation(fields: [vendorId], references: [id])
-
-  @@index([vendorId])
-  @@index([type])
-  @@index([status])
-  @@index([createdAt])
-  @@index([invoiceNumber])
-}
-
-// ============== ADMIN PANEL ENUMS ==============
-
-enum AdminRole {
-  SUPER_ADMIN
-  OPERATIONS_ADMIN
-  FINANCE_ADMIN
-  CONTENT_MODERATOR
-  ANALYTICS_VIEWER
-}
-
-enum BannerType {
-  HOMEPAGE_HERO
-  CATEGORY_SPOTLIGHT
-  SEARCH_RESULT
-  STORY_PROMOTION
-  WEEKLY_STANDARD
-  MONTHLY_PREMIUM
-}
-
-enum BannerCampaignStatus {
-  DRAFT
-  PENDING_PAYMENT
-  PAYMENT_RECEIVED
-  PENDING_APPROVAL
-  APPROVED
-  ACTIVE
-  PAUSED
-  EXPIRED
-  REJECTED
-  DEACTIVATED
-}
-
-enum ContentFlagType {
-  STORY
-  REEL
-  PRODUCT_IMAGE
-  REVIEW
-  VENDOR_PROFILE
-}
-
-enum FlagReason {
-  NUDITY
-  VIOLENCE
-  HATE_SPEECH
-  COUNTERFEIT
-  PROHIBITED_ITEM
-  MISLEADING
-  SPAM
-  COPYRIGHT
-  TRADEMARK
-  HARASSMENT
-  MISINFORMATION
-  OTHER
-}
-
-enum FlagPriority {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
-}
-
-enum FlagStatus {
-  PENDING
-  IN_REVIEW
-  RESOLVED
-  ESCALATED
-}
-
-enum ModerationAction {
-  APPROVED
-  REMOVED
-  REMOVED_WITH_WARNING
-  REMOVED_WITH_STRIKE
-  ESCALATED
-}
-
-enum StrikeType {
-  FAILED_DELIVERY
-  SHOP_CLOSED
-  LATE_PREPARATION
-  CUSTOMER_COMPLAINT
-  QUALITY_ISSUE
-  REPEATED_CANCELLATION
-  POLICY_VIOLATION
-  CONTENT_VIOLATION
-}
-
-enum StrikeResolution {
-  REMOVED
-  UPHELD
-  REDUCED
-  APPEALED
-  DECAYED
-}
-
-enum DisciplineStatus {
-  GOOD_STANDING
-  WARNING
-  PROBATION
-  SUSPENDED
-  FINAL_WARNING
-  BLOCKED
-}
-
-enum InvoiceType {
-  BANNER_CAMPAIGN
-  SUBSCRIPTION
-  COMMISSION
-  REFUND
-  ORDER
-}
-
-enum InvoiceStatus {
-  DRAFT
-  GENERATED
-  SENT
-  PAID
-  OVERDUE
-  CANCELLED
 }

@@ -19,6 +19,7 @@ import { RecommendationStrategyService } from './recommendation-strategy.service
 import { BowRevenueService } from './bow-revenue.service';
 import { BowMessageDto, BowResponse, BowActionExecuteDto } from './dto/bow.dto';
 import { BowActionType } from '@prisma/client';
+import { PlatformConfigHelper } from '../common/platform-config.helper';
 
 // Inline types for missing BowProduct and BowStockCheckResult
 type BowProduct = {
@@ -78,8 +79,11 @@ export class BowService {
             this.logger.log(`Processing message for user ${userId}: ${dto.message}`);
 
             // 🛑 Track 5.2: AI Kill Switch
-            const killSwitch = await this.prisma.platformConfig.findUnique({ where: { key: 'AI_KILL_SWITCH' } });
-            if (killSwitch?.value === 'true') {
+            const killSwitch = await this.prisma.platformConfig.findUnique({ 
+                where: PlatformConfigHelper.buildWhereUnique('app', 'AI_KILL_SWITCH')
+            });
+            const killValue = killSwitch ? PlatformConfigHelper.parseJsonValue(killSwitch.value) : false;
+            if (killValue === true || killValue === 'true') {
                 return { message: 'Bow AI is temporarily unavailable due to maintenance.' };
             }
 
@@ -181,8 +185,11 @@ export class BowService {
     async processAutomaticActions(userId: string): Promise<void> {
         try {
             // 🛑 Track 5.2: AI Kill Switch
-            const killSwitch = await this.prisma.platformConfig.findUnique({ where: { key: 'AI_KILL_SWITCH' } });
-            if (killSwitch?.value === 'true') {
+            const killSwitch = await this.prisma.platformConfig.findUnique({ 
+                where: PlatformConfigHelper.buildWhereUnique('app', 'AI_KILL_SWITCH')
+            });
+            const killValue = killSwitch ? PlatformConfigHelper.parseJsonValue(killSwitch.value) : false;
+            if (killValue === true || killValue === 'true') {
                 this.logger.warn(`Skipping automatic actions for user ${userId} - Kill Switch ACTIVE`);
                 return;
             }

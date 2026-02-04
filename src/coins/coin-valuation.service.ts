@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole } from '@prisma/client';
+import { PlatformConfigHelper } from '../common/platform-config.helper';
 
 /**
  * CoinValuationService
@@ -112,14 +113,15 @@ export class CoinValuationService {
   async getCoinsPerFiveStarRating(): Promise<number> {
     try {
       const config = await (this.prisma as any).platformConfig.findUnique({
-        where: { key: 'RATING_5_STAR_COINS' },
+        where: PlatformConfigHelper.buildWhereUnique('app', 'RATING_5_STAR_COINS'),
       });
 
       if (!config || !config.value) {
         return 2; // Default: 2 coins
       }
 
-      const coins = parseInt(config.value as string, 10);
+      const parsedValue = PlatformConfigHelper.parseJsonValue(config.value);
+      const coins = typeof parsedValue === 'number' ? parsedValue : parseInt(parsedValue, 10);
       return Number.isNaN(coins) ? 2 : coins;
     } catch (error) {
       this.logger.warn('Failed to get rating coins config, using default: 2');
@@ -138,13 +140,16 @@ export class CoinValuationService {
 
     return this.prisma.$transaction(async (tx) => {
       const config = await (tx as any).platformConfig.upsert({
-        where: { key: 'RATING_5_STAR_COINS' },
+        where: PlatformConfigHelper.buildWhereUnique('app', 'RATING_5_STAR_COINS'),
         create: {
+          category: 'app',
           key: 'RATING_5_STAR_COINS',
-          value: coins.toString(),
+          value: PlatformConfigHelper.serializeValue(coins),
+          updatedById: actorUserId,
         },
         update: {
-          value: coins.toString(),
+          value: PlatformConfigHelper.serializeValue(coins),
+          updatedById: actorUserId,
         },
       });
 

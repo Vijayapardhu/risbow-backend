@@ -1,9 +1,10 @@
-import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Body, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { PlatformConfigHelper } from '../common/platform-config.helper';
 
 @ApiTags('Admin Settings')
 @Controller('admin/settings')
@@ -18,32 +19,33 @@ export class AdminSettingsController {
     @ApiOperation({ summary: 'Get general settings' })
     async getGeneralSettings() {
         const configs = await this.prisma.platformConfig.findMany({
-            where: { key: { startsWith: 'general.' } },
+            where: { category: 'general' },
         });
         const settings: any = {};
         configs.forEach((c) => {
-            const key = c.key.replace('general.', '');
-            try {
-                settings[key] = JSON.parse(c.value);
-            } catch {
-                settings[key] = c.value;
-            }
+            settings[c.key] = PlatformConfigHelper.parseJsonValue(c.value);
         });
         return settings;
     }
 
     @Patch('general')
     @ApiOperation({ summary: 'Update general settings' })
-    async updateGeneralSettings(@Body() data: any) {
+    async updateGeneralSettings(@Req() req: any, @Body() data: any) {
+        const updatedById = req.user?.id || 'system';
         const updates = [];
         for (const [key, value] of Object.entries(data)) {
             updates.push(
                 this.prisma.platformConfig.upsert({
-                    where: { key: `general.${key}` },
-                    update: { value: typeof value === 'string' ? value : JSON.stringify(value) },
+                    where: PlatformConfigHelper.buildWhereUnique('general', key),
+                    update: { 
+                        value: PlatformConfigHelper.serializeValue(value),
+                        updatedById 
+                    },
                     create: {
-                        key: `general.${key}`,
-                        value: typeof value === 'string' ? value : JSON.stringify(value),
+                        category: 'general',
+                        key,
+                        value: PlatformConfigHelper.serializeValue(value),
+                        updatedById,
                         description: `General setting: ${key}`,
                     },
                 }),
@@ -58,7 +60,7 @@ export class AdminSettingsController {
     @ApiOperation({ summary: 'Get verification settings' })
     async getVerificationSettings() {
         const configs = await this.prisma.platformConfig.findMany({
-            where: { key: { startsWith: 'verification.' } },
+            where: { category: 'verification' },
         });
         const settings: any = {
             requireKyc: true,
@@ -67,28 +69,29 @@ export class AdminSettingsController {
             minDocuments: 2,
         };
         configs.forEach((c) => {
-            const key = c.key.replace('verification.', '');
-            try {
-                settings[key] = JSON.parse(c.value);
-            } catch {
-                settings[key] = c.value === 'true' ? true : c.value === 'false' ? false : c.value;
-            }
+            settings[c.key] = PlatformConfigHelper.parseJsonValue(c.value);
         });
         return settings;
     }
 
     @Patch('verification')
     @ApiOperation({ summary: 'Update verification settings' })
-    async updateVerificationSettings(@Body() data: any) {
+    async updateVerificationSettings(@Req() req: any, @Body() data: any) {
+        const updatedById = req.user?.id || 'system';
         const updates = [];
         for (const [key, value] of Object.entries(data)) {
             updates.push(
                 this.prisma.platformConfig.upsert({
-                    where: { key: `verification.${key}` },
-                    update: { value: typeof value === 'string' ? value : JSON.stringify(value) },
+                    where: PlatformConfigHelper.buildWhereUnique('verification', key),
+                    update: { 
+                        value: PlatformConfigHelper.serializeValue(value),
+                        updatedById 
+                    },
                     create: {
-                        key: `verification.${key}`,
-                        value: typeof value === 'string' ? value : JSON.stringify(value),
+                        category: 'verification',
+                        key,
+                        value: PlatformConfigHelper.serializeValue(value),
+                        updatedById,
                         description: `Verification setting: ${key}`,
                     },
                 }),
@@ -103,7 +106,7 @@ export class AdminSettingsController {
     @ApiOperation({ summary: 'Get AI settings' })
     async getAISettings() {
         const configs = await this.prisma.platformConfig.findMany({
-            where: { key: { startsWith: 'ai.' } },
+            where: { category: 'ai' },
         });
         const settings: any = {
             systemPrompt: '',
@@ -114,28 +117,29 @@ export class AdminSettingsController {
             temperature: 0.7,
         };
         configs.forEach((c) => {
-            const key = c.key.replace('ai.', '');
-            try {
-                settings[key] = JSON.parse(c.value);
-            } catch {
-                settings[key] = c.value;
-            }
+            settings[c.key] = PlatformConfigHelper.parseJsonValue(c.value);
         });
         return settings;
     }
 
     @Patch('ai')
     @ApiOperation({ summary: 'Update AI settings' })
-    async updateAISettings(@Body() data: any) {
+    async updateAISettings(@Req() req: any, @Body() data: any) {
+        const updatedById = req.user?.id || 'system';
         const updates = [];
         for (const [key, value] of Object.entries(data)) {
             updates.push(
                 this.prisma.platformConfig.upsert({
-                    where: { key: `ai.${key}` },
-                    update: { value: typeof value === 'string' ? value : JSON.stringify(value) },
+                    where: PlatformConfigHelper.buildWhereUnique('ai', key),
+                    update: { 
+                        value: PlatformConfigHelper.serializeValue(value),
+                        updatedById 
+                    },
                     create: {
-                        key: `ai.${key}`,
-                        value: typeof value === 'string' ? value : JSON.stringify(value),
+                        category: 'ai',
+                        key,
+                        value: PlatformConfigHelper.serializeValue(value),
+                        updatedById,
                         description: `AI setting: ${key}`,
                     },
                 }),
@@ -150,7 +154,7 @@ export class AdminSettingsController {
     @ApiOperation({ summary: 'Get theme settings' })
     async getThemeSettings() {
         const configs = await this.prisma.platformConfig.findMany({
-            where: { key: { startsWith: 'theme.' } },
+            where: { category: 'theme' },
         });
         const settings: any = {
             primaryColor: '#3b82f6',
@@ -160,24 +164,29 @@ export class AdminSettingsController {
             textColor: '#1f2937',
         };
         configs.forEach((c) => {
-            const key = c.key.replace('theme.', '');
-            settings[key] = c.value;
+            settings[c.key] = PlatformConfigHelper.parseJsonValue(c.value);
         });
         return settings;
     }
 
     @Patch('theme')
     @ApiOperation({ summary: 'Update theme settings' })
-    async updateThemeSettings(@Body() data: any) {
+    async updateThemeSettings(@Req() req: any, @Body() data: any) {
+        const updatedById = req.user?.id || 'system';
         const updates = [];
         for (const [key, value] of Object.entries(data)) {
             updates.push(
                 this.prisma.platformConfig.upsert({
-                    where: { key: `theme.${key}` },
-                    update: { value: String(value) },
+                    where: PlatformConfigHelper.buildWhereUnique('theme', key),
+                    update: { 
+                        value: PlatformConfigHelper.serializeValue(value),
+                        updatedById 
+                    },
                     create: {
-                        key: `theme.${key}`,
-                        value: String(value),
+                        category: 'theme',
+                        key,
+                        value: PlatformConfigHelper.serializeValue(value),
+                        updatedById,
                         description: `Theme setting: ${key}`,
                     },
                 }),
@@ -192,7 +201,7 @@ export class AdminSettingsController {
     @ApiOperation({ summary: 'Get social links settings' })
     async getSocialSettings() {
         const configs = await this.prisma.platformConfig.findMany({
-            where: { key: { startsWith: 'social.' } },
+            where: { category: 'social' },
         });
         const settings: any = {
             facebook: '',
@@ -203,24 +212,29 @@ export class AdminSettingsController {
             whatsapp: '',
         };
         configs.forEach((c) => {
-            const key = c.key.replace('social.', '');
-            settings[key] = c.value;
+            settings[c.key] = PlatformConfigHelper.parseJsonValue(c.value);
         });
         return settings;
     }
 
     @Patch('social')
     @ApiOperation({ summary: 'Update social links settings' })
-    async updateSocialSettings(@Body() data: any) {
+    async updateSocialSettings(@Req() req: any, @Body() data: any) {
+        const updatedById = req.user?.id || 'system';
         const updates = [];
         for (const [key, value] of Object.entries(data)) {
             updates.push(
                 this.prisma.platformConfig.upsert({
-                    where: { key: `social.${key}` },
-                    update: { value: String(value) },
+                    where: PlatformConfigHelper.buildWhereUnique('social', key),
+                    update: { 
+                        value: PlatformConfigHelper.serializeValue(value),
+                        updatedById 
+                    },
                     create: {
-                        key: `social.${key}`,
-                        value: String(value),
+                        category: 'social',
+                        key,
+                        value: PlatformConfigHelper.serializeValue(value),
+                        updatedById,
                         description: `Social link: ${key}`,
                     },
                 }),
@@ -235,27 +249,30 @@ export class AdminSettingsController {
     @ApiOperation({ summary: 'Get ticket issue types' })
     async getTicketSettings() {
         const config = await this.prisma.platformConfig.findUnique({
-            where: { key: 'tickets.issueTypes' },
+            where: PlatformConfigHelper.buildWhereUnique('tickets', 'issueTypes'),
         });
         if (config) {
-            try {
-                return { types: JSON.parse(config.value) };
-            } catch {
-                return { types: config.value.split(',') };
-            }
+            const parsed = PlatformConfigHelper.parseJsonValue(config.value);
+            return { types: Array.isArray(parsed) ? parsed : [parsed] };
         }
         return { types: ['Order Issue', 'Payment Issue', 'Product Issue', 'Account Issue', 'Other'] };
     }
 
     @Patch('tickets')
     @ApiOperation({ summary: 'Update ticket issue types' })
-    async updateTicketSettings(@Body() data: { types: string[] }) {
+    async updateTicketSettings(@Req() req: any, @Body() data: { types: string[] }) {
+        const updatedById = req.user?.id || 'system';
         await this.prisma.platformConfig.upsert({
-            where: { key: 'tickets.issueTypes' },
-            update: { value: JSON.stringify(data.types) },
+            where: PlatformConfigHelper.buildWhereUnique('tickets', 'issueTypes'),
+            update: { 
+                value: PlatformConfigHelper.serializeValue(data.types),
+                updatedById 
+            },
             create: {
-                key: 'tickets.issueTypes',
-                value: JSON.stringify(data.types),
+                category: 'tickets',
+                key: 'issueTypes',
+                value: PlatformConfigHelper.serializeValue(data.types),
+                updatedById,
                 description: 'Support ticket issue types',
             },
         });
@@ -269,46 +286,53 @@ export class AdminSettingsController {
         const configs = await this.prisma.platformConfig.findMany();
         const settings: any = {};
         configs.forEach((c) => {
-            const parts = c.key.split('.');
-            let current = settings;
-            for (let i = 0; i < parts.length - 1; i++) {
-                if (!current[parts[i]]) current[parts[i]] = {};
-                current = current[parts[i]];
+            if (!settings[c.category]) {
+                settings[c.category] = {};
             }
-            try {
-                current[parts[parts.length - 1]] = JSON.parse(c.value);
-            } catch {
-                current[parts[parts.length - 1]] = c.value;
-            }
+            settings[c.category][c.key] = PlatformConfigHelper.parseJsonValue(c.value);
         });
         return settings;
     }
 
     @Patch()
     @ApiOperation({ summary: 'Update settings (nested object)' })
-    async updateSettings(@Body() data: any) {
+    async updateSettings(@Req() req: any, @Body() data: any) {
+        const updatedById = req.user?.id || 'system';
         const updates: any[] = [];
-        const flatten = (obj: any, prefix = '') => {
+        
+        const flatten = (obj: any, category: string) => {
             for (const [key, value] of Object.entries(obj)) {
-                const fullKey = prefix ? `${prefix}.${key}` : key;
                 if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                    flatten(value, fullKey);
+                    // Nested object - treat as new category
+                    flatten(value, key);
                 } else {
                     updates.push(
                         this.prisma.platformConfig.upsert({
-                            where: { key: fullKey },
-                            update: { value: typeof value === 'string' ? value : JSON.stringify(value) },
+                            where: PlatformConfigHelper.buildWhereUnique(category, key),
+                            update: { 
+                                value: PlatformConfigHelper.serializeValue(value),
+                                updatedById 
+                            },
                             create: {
-                                key: fullKey,
-                                value: typeof value === 'string' ? value : JSON.stringify(value),
-                                description: `Setting: ${fullKey}`,
+                                category,
+                                key,
+                                value: PlatformConfigHelper.serializeValue(value),
+                                updatedById,
+                                description: `${category} setting: ${key}`,
                             },
                         }),
                     );
                 }
             }
         };
-        flatten(data);
+        
+        // Process top-level categories
+        for (const [category, settings] of Object.entries(data)) {
+            if (typeof settings === 'object' && settings !== null) {
+                flatten(settings, category);
+            }
+        }
+        
         await Promise.all(updates);
         return { success: true };
     }

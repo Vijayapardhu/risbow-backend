@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RoomStatus, RiskTag, ValueTag, UserRole, UserStatus, OrderStatus } from '@prisma/client';
 import { OrderStateValidatorService } from '../orders/order-state-validator.service';
 import { RedisService } from '../shared/redis.service';
+import { PlatformConfigHelper } from '../common/platform-config.helper';
 
 @Injectable()
 export class AdminService {
@@ -1838,11 +1839,22 @@ export class AdminService {
         return this.prisma.platformConfig.findMany();
     }
 
-    async updatePlatformConfig(key: string, value: string) {
+    async updatePlatformConfig(key: string, value: string, updatedById: string = 'system') {
+        const category = PlatformConfigHelper.extractCategory(key);
+        const keyPart = PlatformConfigHelper.extractKey(key);
+        
         return this.prisma.platformConfig.upsert({
-            where: { key },
-            update: { value },
-            create: { key, value }
+            where: PlatformConfigHelper.buildWhereUnique(category, keyPart),
+            update: { 
+                value: PlatformConfigHelper.serializeValue(value),
+                updatedById 
+            },
+            create: { 
+                category,
+                key: keyPart,
+                value: PlatformConfigHelper.serializeValue(value),
+                updatedById
+            }
         });
     }
 
@@ -1853,12 +1865,10 @@ export class AdminService {
         const configMap: Record<string, any> = {};
 
         for (const config of configs) {
-            // Try to parse JSON values, otherwise use string
-            try {
-                configMap[config.key] = JSON.parse(config.value);
-            } catch {
-                configMap[config.key] = config.value;
-            }
+            const fullKey = `${config.category}.${config.key}`;
+            configMap[fullKey] = PlatformConfigHelper.parseJsonValue(config.value);
+            // Also add the key without category for backward compatibility
+            configMap[config.key] = PlatformConfigHelper.parseJsonValue(config.value);
         }
 
         // Add defaults for essential app config
@@ -1872,16 +1882,27 @@ export class AdminService {
         };
     }
 
-    async updateAppConfig(data: Record<string, any>) {
+    async updateAppConfig(data: Record<string, any>, updatedById: string = 'system') {
         const updates = [];
 
         for (const [key, value] of Object.entries(data)) {
-            const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+            const category = PlatformConfigHelper.extractCategory(key.toUpperCase());
+            const keyPart = PlatformConfigHelper.extractKey(key.toUpperCase());
+            const serializedValue = PlatformConfigHelper.serializeValue(value);
+            
             updates.push(
                 this.prisma.platformConfig.upsert({
-                    where: { key: key.toUpperCase() },
-                    update: { value: stringValue },
-                    create: { key: key.toUpperCase(), value: stringValue }
+                    where: PlatformConfigHelper.buildWhereUnique(category, keyPart),
+                    update: { 
+                        value: serializedValue,
+                        updatedById 
+                    },
+                    create: { 
+                        category,
+                        key: keyPart,
+                        value: serializedValue,
+                        updatedById
+                    }
                 })
             );
         }
