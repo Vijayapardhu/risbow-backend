@@ -68,7 +68,7 @@ export class ReturnsService {
                     },
                 },
             },
-            include: { items: true },
+            include: { ReturnRequestItem: true },
         });
     }
 
@@ -93,9 +93,9 @@ export class ReturnsService {
                 skip,
                 take: Number(limit),
                 include: {
-                    items: { include: { product: true } },
-                    user: { select: { name: true, email: true, mobile: true } },
-                    order: { select: { id: true, items: true } },
+                    ReturnRequestItem: { include: { Product: true } },
+                    User: { select: { name: true, email: true, mobile: true } },
+                    Order: { select: { id: true, items: true } },
                 },
                 orderBy: { requestedAt: 'desc' },
             }),
@@ -116,12 +116,12 @@ export class ReturnsService {
         const returnReq = await this.prisma.returnRequest.findUnique({
             where: { id },
             include: {
-                items: { include: { product: true } },
-                user: true,
-                order: true,
+                ReturnRequestItem: { include: { Product: true } },
+                User: true,
+                Order: true,
                 timeline: { orderBy: { timestamp: 'desc' } },
                 settlement: true,
-                vendor: true,
+                Vendor: true,
             },
         });
 
@@ -132,7 +132,7 @@ export class ReturnsService {
     async updateStatus(id: string, dto: UpdateReturnStatusDto, adminId: string) {
         const returnReq = await this.prisma.returnRequest.findUnique({
             where: { id },
-            include: { vendor: true, items: true, order: true }
+            include: { Vendor: true, ReturnRequestItem: true, Order: true }
         });
         if (!returnReq) throw new NotFoundException('Return request not found');
 

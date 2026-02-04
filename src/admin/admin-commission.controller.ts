@@ -24,7 +24,7 @@ export class AdminCommissionController {
     @ApiOperation({ summary: 'List all category commissions' })
     async listCategoryCommissions() {
         return this.prisma.categoryCommission.findMany({
-            include: { category: true }
+            include: { Category: true }
         });
     }
 

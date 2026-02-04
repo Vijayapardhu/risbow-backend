@@ -1,0 +1,221 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║        PRISMA RELATION NAMING ERRORS - COMPLETE ANALYSIS REPORT
+║                    risbow-backend Build Analysis Results
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+EXECUTIVE SUMMARY
+─────────────────────────────────────────────────────────────────────────────────
+
+Build Status: ❌ FAILED
+Total TypeScript Errors: 157
+Total Files Affected: 31
+Categories of Errors:
+  1. Include/Select clause errors (Prisma query definitions):  61 errors
+  2. Property access errors (after query execution):           96 errors
+
+Estimated Fix Time: 3-4 hours
+
+
+TOP 5 MOST PROBLEMATIC RELATION NAMES
+─────────────────────────────────────────────────────────────────────────────────
+
+Rank │ Relation   │ Include/Select │ Property Access │ Total │ Fix Pattern
+─────┼────────────┼────────────────┼─────────────────┼───────┼──────────────────────
+  1  │ items      │      3         │      28         │  31   │ items → Items
+  2  │ category   │     13         │      14         │  27   │ category → Category
+  3  │ user       │     12         │      13         │  25   │ user → User
+  4  │ product    │     10         │      10         │  20   │ product → Product
+  5  │ vendor     │      8         │       4         │  12   │ vendor → Vendor
+
+
+DETAILED FINDINGS BY FILE
+─────────────────────────────────────────────────────────────────────────────────
+
+CRITICAL PRIORITY (24+ errors):
+┌─ src/admin/admin.service.ts (24 errors)
+│  ├─ Include/Select: user (5x), addresses, payment, product, products, vendor
+│  └─ Property Access: user (4x), orders (3x), items (3x), vendor (2x)
+│
+└─ src/bow/bow.service.ts (18 errors)
+   ├─ Include/Select: category (10x)
+   └─ Property Access: category (8x total across lines 542, 569, 589, 728)
+
+HIGH PRIORITY (10-18 errors):
+├─ src/bow/bow-optimization.service.ts (11 errors - all property access)
+│  └─ items accessed on lines: 54, 62, 63, 109, 144, 149, 152, 207, 209, 255, 263
+│
+└─ src/cart/cart.service.ts (11 errors)
+   ├─ Include/Select: product (1)
+   └─ Property Access: product (4x), items (6x)
+
+MEDIUM PRIORITY (6-9 errors):
+├─ src/checkout/checkout.service.ts (6 errors - all property access)
+│  └─ items accessed on lines: 66, 95, 138, 146, 176, 190
+│
+├─ src/bow/bow-outfit-recommender.service.ts (6 errors - property access)
+│  └─ category accessed on lines: 129, 188, 235, 236, 238, 298
+│
+├─ src/vendor-store/vendor-store.service.ts (6 errors - all include/select)
+│  └─ _count references on lines: 31, 32, 33, 62, 63, 64 ⚠️ NEEDS MANUAL REVIEW
+│
+├─ src/bow/bow-smart-reminders.service.ts (7 errors - property access)
+│  ├─ category (1)
+│  └─ product (6)
+│
+├─ src/vendors/vendors.service.ts (9 errors)
+│  ├─ Include/Select: category, reviews, user, vendor
+│  └─ Property Access: reviews (3x), user (2x)
+│
+└─ src/vendor-memberships/vendor-memberships.service.ts (6 errors)
+   ├─ Include/Select: products, vendor (3x)
+   └─ Property Access: products, vendor
+
+
+COMPLETE LOWERCASE → PASCALCASE MAPPING
+─────────────────────────────────────────────────────────────────────────────────
+
+user/User          → User
+vendor/Vendor      → Vendor
+category/Category  → Category
+product/Product    → Product
+cart/Cart          → Cart
+item/items         → Items
+order/orders       → Orders
+address/addresses  → Addresses
+payment/Payment    → Payment
+review/reviews     → Reviews
+agent/Agent        → Agent
+wallet/Wallet      → Wallet
+
+
+ALL 31 AFFECTED FILES (Complete List)
+─────────────────────────────────────────────────────────────────────────────────
+
+ 1. src/admin/admin.service.ts                          │ 24 errors
+ 2. src/admin/admin-product.service.ts                  │  1 error
+ 3. src/admin/admin-recovery.controller.ts              │  6 errors
+ 4. src/admin/moderation/content-moderation.service.ts  │  2 errors
+ 5. src/admin/reports/reporting.service.ts              │  1 error
+ 6. src/analytics/analytics.service.ts                  │  2 errors
+ 7. src/analytics/recovery.service.ts                   │  1 error
+ 8. src/auth/auth.service.ts                            │  1 error
+ 9. src/bow/bow.service.ts                              │ 18 errors
+10. src/bow/bow-action.service.ts                       │  3 errors
+11. src/bow/bow-demand-forecasting.service.ts           │  1 error
+12. src/bow/bow-intent.service.ts                       │  2 errors
+13. src/bow/bow-ml-personalization.service.ts           │  1 error
+14. src/bow/bow-optimization.service.ts                 │ 11 errors
+15. src/bow/bow-outfit-recommender.service.ts           │  6 errors
+16. src/bow/bow-recommendation.service.ts               │  2 errors
+17. src/bow/bow-smart-reminders.service.ts              │  7 errors
+18. src/bow/bow-visual-search.service.ts                │  1 error
+19. src/bow/recommendation.service.ts                   │  5 errors
+20. src/cart/buy-later.service.ts                       │  5 errors
+21. src/cart/cart.service.ts                            │ 11 errors
+22. src/catalog/buy-later.service.ts                    │  3 errors
+23. src/catalog/catalog.service.ts                      │  3 errors
+24. src/checkout/checkout.controller.ts                 │  4 errors
+25. src/checkout/checkout.service.ts                    │  6 errors
+26. src/clearance/clearance.service.ts                  │  2 errors
+27. src/vendor-memberships/vendor-memberships.service   │  6 errors
+28. src/vendor-orders/vendor-orders.service.ts          │  3 errors
+29. src/vendor-store/vendor-store.service.ts            │  6 errors
+30. src/vendors/vendors.service.ts                      │  9 errors
+31. src/wholesalers/wholesalers.service.ts              │  4 errors
+
+
+RECOMMENDED FIX APPROACH
+─────────────────────────────────────────────────────────────────────────────────
+
+Method 1: Using IDE Find & Replace (Recommended - Safest)
+──────────────────────────────────────────────────────────
+
+Step 1: Fix Include/Select statements
+  Replace in all files (with careful review):
+    • include: { user:          → include: { User:
+    • include: { vendor:        → include: { Vendor:
+    • include: { category:      → include: { Category:
+    • include: { product:       → include: { Product:
+    • include: { products:      → include: { Products:
+    • include: { items:         → include: { Items:
+    • include: { orders:        → include: { Orders:
+    • include: { addresses:     → include: { Addresses:
+    • include: { payment:       → include: { Payment:
+    • include: { reviews:       → include: { Reviews:
+    • include: { cart:          → include: { Cart:
+    • include: { wallet:        → include: { Wallet:
+
+Step 2: Fix Property Access
+  For each pattern, use regex matching and replace:
+    • \.user([^a-zA-Z])         → .User
+    • \.vendor([^a-zA-Z])       → .Vendor
+    • \.category([^a-zA-Z])     → .Category
+    • \.product([^a-zA-Z])      → .Product
+    • \.items([^a-zA-Z])        → .Items
+    • \.orders([^a-zA-Z])       → .Orders
+    • \.addresses([^a-zA-Z])    → .Addresses
+    • \.payment([^a-zA-Z])      → .Payment
+    • \.reviews([^a-zA-Z])      → .Reviews
+    • \.cart([^a-zA-Z])         → .Cart
+    • \.wallet([^a-zA-Z])       → .Wallet
+
+Method 2: Manual File-by-File Fix (Most Reliable)
+──────────────────────────────────────────────────────
+
+Fix files in priority order:
+  1. src/admin/admin.service.ts (24 errors)
+  2. src/bow/bow.service.ts (18 errors)
+  3. src/bow/bow-optimization.service.ts (11 errors)
+  4. src/cart/cart.service.ts (11 errors)
+  ... continue with remaining files
+
+
+POST-FIX VERIFICATION
+─────────────────────────────────────────────────────────────────────────────────
+
+After making corrections, run:
+
+1. npm run build
+   → Should complete without relation naming errors
+
+2. npm run lint (if configured)
+   → Should pass all style checks
+
+3. npm run test (if configured)
+   → Should pass all unit tests
+
+4. git diff
+   → Review all changes to ensure only relation names were modified
+
+
+CRITICAL NOTES
+─────────────────────────────────────────────────────────────────────────────────
+
+⚠️  SPECIAL CASE - src/vendor-store/vendor-store.service.ts
+   Lines 31-64 show "_count" relation errors. This may indicate:
+   • A different schema issue with _count aggregation syntax
+   • Or these are false positives related to Prisma's special _count field
+   → MANUAL REVIEW REQUIRED before applying fixes
+
+⚠️  CONSISTENCY CHECK
+   Ensure your Prisma schema uses PascalCase relation names:
+   model User {
+     id String @id
+     Cart Cart[]    // NOT cart
+     Orders Order[] // NOT orders
+   }
+
+⚠️  CODEBASE PATTERNS
+   Check if all your queries consistently use:
+   • include: { User: true }  (not user)
+   • where: { User: { id: "..." } } (not user)
+   • Access as: result.User (not result.user)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Report Generated: 2026-02-04 10:35:33
+Analysis Tool: npm run build with TypeScript compiler
+Build Directory: C:\office\risbow-backend
+
+═══════════════════════════════════════════════════════════════════════════════

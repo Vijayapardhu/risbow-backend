@@ -147,7 +147,7 @@ export class VendorStrikeService {
   async resolveStrike(strikeId: string, dto: ResolveStrikeDto) {
     const strike = await this.prisma.vendorStrike.findUnique({
       where: { id: strikeId },
-      include: { vendor: true },
+      include: { Vendor: true },
     });
 
     if (!strike) {

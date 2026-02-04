@@ -47,7 +47,7 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
         isRevoked: false,
         expiresAt: { gt: new Date() },
       },
-      include: { admin: true },
+      include: { Admin: true },
     });
 
     if (!session) {

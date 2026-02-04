@@ -175,7 +175,7 @@ export class BowAutoActionService {
   private async validateProduct(productId: string, quantity: number): Promise<GuardrailResult> {
     const product = await (this.prisma as any).product.findUnique({
       where: { id: productId },
-      include: { category: true }
+      include: { Category: true }
     });
 
     if (!product) {
@@ -242,14 +242,14 @@ export class BowAutoActionService {
   private async checkCategoryRestrictions(productId: string): Promise<GuardrailResult> {
     const product = await (this.prisma as any).product.findUnique({
       where: { id: productId },
-      include: { category: true }
+      include: { Category: true }
     });
 
-    if (!product?.category) {
+    if (!product?.Category) {
       return { allowed: false, reason: 'Product category information unavailable' };
     }
 
-    const categoryName = product.category.name.toLowerCase();
+    const categoryName = product.Category.name.toLowerCase();
     if (this.RESTRICTED_CATEGORIES.includes(categoryName)) {
       return { allowed: false, reason: `Auto-actions not allowed for ${categoryName} category` };
     }
@@ -287,11 +287,11 @@ export class BowAutoActionService {
     if (profile && productId) {
       const product = await (this.prisma as any).product.findUnique({
         where: { id: productId },
-        include: { category: true }
+        include: { Category: true }
       });
 
-      if (product?.category) {
-        const categoryName = product.category.name.toLowerCase();
+      if (product?.Category) {
+        const categoryName = product.Category.name.toLowerCase();
         const preferredCategories = profile.preferredCategories?.map((c: string) => c.toLowerCase()) || [];
 
         if (preferredCategories.length > 0 && !preferredCategories.includes(categoryName)) {

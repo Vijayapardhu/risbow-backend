@@ -19,7 +19,7 @@ export class RecoveryService {
     async calculateAbandonRiskScore(checkoutId: string): Promise<number> {
         const checkout = await this.prisma.abandonedCheckout.findUnique({
             where: { id: checkoutId },
-            include: { user: { include: { cartInsights: { orderBy: { triggeredAt: 'desc' }, take: 1 } } } }
+            include: { User: { include: { cartInsights: { orderBy: { triggeredAt: 'desc' }, take: 1 } } } }
         });
 
         if (!checkout) return 0;
@@ -27,7 +27,7 @@ export class RecoveryService {
         let score = 0;
 
         // 1. Core Intent Risk (from CartInsight) - 40% weight
-        const latestInsight = checkout.user?.cartInsights?.[0];
+        const latestInsight = checkout.User?.cartInsights?.[0];
         if (latestInsight) {
             score += (latestInsight.abandonRisk * 0.4);
             // Hesitation also adds to risk

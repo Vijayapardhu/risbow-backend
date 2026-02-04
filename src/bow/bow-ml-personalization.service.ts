@@ -277,7 +277,7 @@ export class BowMLPersonalizationEngine {
     const products = await this.prisma.product.findMany({
       where: whereClause,
       take: count * 2,
-      select: { id: true, title: true, price: true, offerPrice: true, images: true, category: { select: { name: true } } }
+      select: { id: true, title: true, price: true, offerPrice: true, images: true, Category: { select: { name: true } } }
     });
 
     for (const product of products) {
@@ -285,9 +285,9 @@ export class BowMLPersonalizationEngine {
       let reasons = [];
 
       // Category match
-      if ((product as any).category && userProfile.preferences.categories.includes((product as any).category.name)) {
+      if ((product as any).Category && userProfile.preferences.categories.includes((product as any).Category.name)) {
         score += 0.3;
-        reasons.push(`Matches your interest in ${(product as any).category.name}`);
+        reasons.push(`Matches your interest in ${(product as any).Category.name}`);
       }
 
       // Price preference

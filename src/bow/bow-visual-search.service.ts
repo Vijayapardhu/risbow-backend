@@ -319,7 +319,7 @@ Respond in JSON format like:
       // Get reference product
       const referenceProduct = await this.prisma.product.findUnique({
         where: { id: productId },
-        include: { category: { select: { name: true } } }
+        include: { Category: { select: { name: true } } }
       });
 
       if (!referenceProduct) {
@@ -339,7 +339,7 @@ Respond in JSON format like:
           ]
         },
         take: options.maxResults || 5,
-        include: { category: { select: { name: true } } }
+        include: { Category: { select: { name: true } } }
       });
 
       return similarProducts.map(product => ({

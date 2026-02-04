@@ -130,7 +130,7 @@ export class ContentModerationService {
   async moderateFlag(flagId: string, dto: ModerateFlagDto) {
     const flag = await this.prisma.contentFlag.findUnique({
       where: { id: flagId },
-      include: { vendor: true },
+      include: { Vendor: true },
     });
 
     if (!flag) {

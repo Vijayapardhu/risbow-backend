@@ -20,7 +20,7 @@ export class InventoryService {
         if (variationId) {
             const variant = await (this.prisma as any).productVariant.findUnique({
                 where: { id: variationId },
-                include: { product: true }
+                include: { Product: true }
             });
 
             if (!variant || variant.productId !== productId) {

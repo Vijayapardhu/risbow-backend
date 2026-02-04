@@ -497,7 +497,7 @@ export class VendorsService {
             where: {
                 status: { in: ['CONFIRMED', 'PAID', 'PACKED', 'SHIPPED', 'DELIVERED'] }
             },
-            include: { user: { select: { id: true, name: true } } }
+            include: { User: { select: { id: true, name: true } } }
         });
 
         const customerMap = new Map();
@@ -513,7 +513,7 @@ export class VendorsService {
                 const orderRev = vendorItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
                 totalRevenue += orderRev;
 
-                const c = customerMap.get(order.userId) || { id: order.userId, name: order.user?.name || 'Guest', orders: 0, revenue: 0, lastOrder: null };
+                const c = customerMap.get(order.userId) || { id: order.userId, name: order.User?.name || 'Guest', orders: 0, revenue: 0, lastOrder: null };
                 c.orders++;
                 c.revenue += orderRev;
                 if (!c.lastOrder || order.createdAt > c.lastOrder) c.lastOrder = order.createdAt;

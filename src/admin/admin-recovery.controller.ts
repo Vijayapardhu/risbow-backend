@@ -48,7 +48,7 @@ export class AdminRecoveryController {
         skip,
         take,
         orderBy: { abandonedAt: 'desc' },
-        include: { user: { select: { id: true, name: true, mobile: true, email: true } }, agent: { select: { id: true, name: true } } },
+        include: { User: { select: { id: true, name: true, mobile: true, email: true } }, agent: { select: { id: true, name: true } } },
       }),
     ]);
 
@@ -58,9 +58,9 @@ export class AdminRecoveryController {
       return {
         id: lead.id,
         userId: lead.userId,
-        userName: lead.user?.name || (lead.guestInfo as any)?.name || 'Guest',
-        userEmail: lead.user?.email,
-        userPhone: lead.user?.mobile || (lead.guestInfo as any)?.phone,
+        userName: lead.User?.name || (lead.guestInfo as any)?.name || 'Guest',
+        userEmail: lead.User?.email,
+        userPhone: lead.User?.mobile || (lead.guestInfo as any)?.phone,
         cartValue: finance?.totalAmount || 0,
         items: Array.isArray(items) ? items.map((i) => ({ productId: i.productId, productName: i.title || i.name || i.productId, quantity: i.quantity || 1 })) : [],
         abandonedAt: lead.abandonedAt,

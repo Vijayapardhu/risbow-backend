@@ -38,7 +38,7 @@ export class PaymentsService {
         // 1. Validate internal order existence
         const order = await this.prisma.order.findUnique({
             where: { id: orderId },
-            include: { payment: true },
+            include: { Payment: true },
         });
 
         if (!order) {
@@ -49,7 +49,7 @@ export class PaymentsService {
             throw new BadRequestException('Order does not belong to user');
         }
 
-        if (order.payment && order.payment.status === 'SUCCESS') {
+        if (order.Payment && order.Payment.status === 'SUCCESS') {
             throw new BadRequestException('Order is already paid');
         }
 

@@ -35,10 +35,10 @@ export class FraudService {
             // Check if other users on this device share the same referrer
             const siblingUsersOnDevice = await (this.prisma as any).userDevice.findMany({
                 where: { token: deviceFingerprint, userId: { not: userId } },
-                include: { user: { select: { referredBy: true } } }
+                include: { User: { select: { referredBy: true } } }
             });
 
-            const shareReferrer = siblingUsersOnDevice.some((d: any) => d.user.referredBy === user.referredBy);
+            const shareReferrer = siblingUsersOnDevice.some((d: any) => d.User.referredBy === user.referredBy);
             if (shareReferrer) {
                 riskScore += 50; // High probability of referral farming
                 this.logger.warn(`Potential referral abuse detected for User ${userId} on device ${deviceFingerprint}`);

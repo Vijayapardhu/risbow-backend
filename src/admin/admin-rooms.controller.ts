@@ -65,10 +65,10 @@ export class AdminRoomsController {
       where: { id },
       include: {
         members: {
-          include: { user: { select: { id: true, name: true, mobile: true } } }
+          include: { User: { select: { id: true, name: true, mobile: true } } }
         },
         createdBy: { select: { id: true, name: true } },
-        product: { select: { id: true, title: true, price: true } }
+        Product: { select: { id: true, title: true, price: true } }
       }
     });
 
@@ -80,7 +80,7 @@ export class AdminRoomsController {
   async getMembers(@Param('id') id: string) {
     return this.prisma.roomMember.findMany({
       where: { roomId: id },
-      include: { user: { select: { id: true, name: true, mobile: true } } }
+      include: { User: { select: { id: true, name: true, mobile: true } } }
     });
   }
 
@@ -88,7 +88,7 @@ export class AdminRoomsController {
   async getOrders(@Param('id') id: string) {
     return this.prisma.order.findMany({
       where: { roomId: id },
-      include: { user: { select: { id: true, name: true } } }
+      include: { User: { select: { id: true, name: true } } }
     });
   }
 

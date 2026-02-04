@@ -134,7 +134,7 @@ export class CmsService {
           }))
         }
       },
-      include: { items: true }
+      include: { MenuItem: true }
     });
   }
 

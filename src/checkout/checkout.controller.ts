@@ -47,15 +47,15 @@ export class CheckoutController {
         // For now, we'll just validate the gift selection
         const cart = await this.checkoutService['prisma'].cart.findUnique({
             where: { userId: req.user.id },
-            include: { items: { include: { product: true } } }
+            include: { CartItem: { include: { Product: true } } }
         });
 
-        if (!cart || cart.items.length === 0) {
+        if (!cart || cart.CartItem.length === 0) {
             throw new Error('Cart is empty');
         }
 
         // Extract category IDs from cart
-        const categoryIds = [...new Set(cart.items.map(item => item.product.categoryId))];
+        const categoryIds = [...new Set(cart.CartItem.map(item => item.Product.categoryId))];
 
         // Validate gift selection
         await this.giftsService.validateGiftSelection(dto.giftId, categoryIds);
@@ -77,17 +77,17 @@ export class CheckoutController {
         // Get cart total
         const cart = await this.checkoutService['prisma'].cart.findUnique({
             where: { userId: req.user.id },
-            include: { items: { include: { product: true } } }
+            include: { CartItem: { include: { Product: true } } }
         });
 
-        if (!cart || cart.items.length === 0) {
+        if (!cart || cart.CartItem.length === 0) {
             throw new Error('Cart is empty');
         }
 
         // Calculate cart total
         let cartTotal = 0;
-        for (const item of cart.items) {
-            const price = item.product.offerPrice || item.product.price;
+        for (const item of cart.CartItem) {
+            const price = item.Product.offerPrice || item.Product.price;
             cartTotal += price * item.quantity;
         }
 

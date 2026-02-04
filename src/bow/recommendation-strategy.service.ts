@@ -360,7 +360,7 @@ export class RecommendationStrategyService {
         offerPrice: { gte: minPrice, lte: maxPrice },
         categoryId: excludeCategories.length > 0 ? { notIn: excludeCategories } : undefined
       },
-      include: { category: true },
+      include: { Category: true },
       orderBy: { popularityScore: 'desc' },
       take: 3
     });

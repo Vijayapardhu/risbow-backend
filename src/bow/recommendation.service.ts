@@ -31,13 +31,13 @@ export class RecommendationService {
     async analyzeCart(userId: string): Promise<CartSnapshot | null> {
         const cart = await this.prisma.cart.findUnique({
             where: { userId },
-            include: { items: { include: { product: { include: { category: true } } } } }
+            include: { CartItem: { include: { Product: { include: { Category: true } } } } }
         });
 
-        if (!cart || cart.items.length === 0) return null;
+        if (!cart || cart.CartItem.length === 0) return null;
 
-        const cartValue = cart.items.reduce((sum, item) => sum + (item.product.offerPrice || item.product.price) * item.quantity, 0);
-        const itemCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+        const cartValue = cart.CartItem.reduce((sum, item) => sum + (item.Product.offerPrice || item.Product.price) * item.quantity, 0);
+        const itemCount = cart.CartItem.reduce((sum, item) => sum + item.quantity, 0);
         const categories = [...new Set(cart.items.map(i => i.product.category?.name || 'Uncategorized'))];
 
         // Price distribution buckets (paise)

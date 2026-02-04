@@ -14,7 +14,7 @@ export class RefundsService {
   async create(dto: CreateRefundDto, adminId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: dto.orderId },
-      include: { user: true }
+      include: { User: true }
     });
 
     if (!order) throw new NotFoundException('Order not found');

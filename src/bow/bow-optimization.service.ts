@@ -36,9 +36,9 @@ export class BowOptimizationService {
         const cart = await this.prisma.cart.findUnique({
             where: { userId },
             include: {
-                items: {
+                CartItem: {
                     include: {
-                        product: {
+                        Product: {
                             select: {
                                 id: true,
                                 title: true,
@@ -51,7 +51,7 @@ export class BowOptimizationService {
             }
         });
 
-        if (!cart || cart.items.length === 0) {
+        if (!cart || cart.CartItem.length === 0) {
             return {
                 totalItems: 0,
                 totalValue: 0,
@@ -59,9 +59,9 @@ export class BowOptimizationService {
             };
         }
 
-        const totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0);
-        const totalValue = cart.items.reduce(
-            (sum, item) => sum + (item.product.price * item.quantity),
+        const totalItems = cart.CartItem.reduce((sum, item) => sum + item.quantity, 0);
+        const totalValue = cart.CartItem.reduce(
+            (sum, item) => sum + (item.Product.price * item.quantity),
             0
         );
 
@@ -96,9 +96,9 @@ export class BowOptimizationService {
         const cart = await this.prisma.cart.findUnique({
             where: { userId },
             include: {
-                items: {
+                CartItem: {
                     include: {
-                        product: { select: { categoryId: true, price: true } }
+                        Product: { select: { categoryId: true, price: true } }
                     }
                 }
             }
@@ -106,8 +106,8 @@ export class BowOptimizationService {
 
         if (cart) {
             const categoryCount = new Map<string, number>();
-            cart.items.forEach(item => {
-                const catId = item.product.categoryId;
+            cart.CartItem.forEach(item => {
+                const catId = item.Product.categoryId;
                 categoryCount.set(catId, (categoryCount.get(catId) || 0) + item.quantity);
             });
 
@@ -129,9 +129,9 @@ export class BowOptimizationService {
         const cart = await this.prisma.cart.findUnique({
             where: { userId },
             include: {
-                items: {
+                CartItem: {
                     include: {
-                        product: {
+                        Product: {
                             select: {
                                 categoryId: true
                             }
@@ -141,15 +141,15 @@ export class BowOptimizationService {
             }
         });
 
-        if (!cart || cart.items.length === 0) {
+        if (!cart || cart.CartItem.length === 0) {
             return [];
         }
 
         // Get categories from cart
-        const cartCategories = [...new Set(cart.items.map(item => item.product.categoryId))];
+        const cartCategories = [...new Set(cart.CartItem.map(item => item.Product.categoryId))];
 
         // Find complementary products from same categories not in cart
-        const cartProductIds = cart.items.map(item => item.productId);
+        const cartProductIds = cart.CartItem.map(item => item.productId);
 
         const complementary = await this.prisma.product.findMany({
             where: {
@@ -164,7 +164,7 @@ export class BowOptimizationService {
                 title: true,
                 price: true,
                 images: true,
-                category: { select: { name: true } }
+                Category: { select: { name: true } }
             },
             orderBy: {
                 createdAt: 'desc'
@@ -190,9 +190,9 @@ export class BowOptimizationService {
             const cart = await this.prisma.cart.findUnique({
                 where: { userId },
                 include: {
-                    items: {
+                    CartItem: {
                         include: {
-                            product: {
+                            Product: {
                                 select: {
                                     id: true,
                                     price: true,
@@ -204,11 +204,11 @@ export class BowOptimizationService {
                 },
             });
 
-            if (cart && cart.items.length > 0) {
+            if (cart && cart.CartItem.length > 0) {
                 let productSavings = 0;
-                for (const item of cart.items) {
-                    const originalPrice = item.product.price;
-                    const discountedPrice = item.product.offerPrice || item.product.price;
+                for (const item of cart.CartItem) {
+                    const originalPrice = item.Product.price;
+                    const discountedPrice = item.Product.offerPrice || item.Product.price;
                     if (discountedPrice < originalPrice) {
                         productSavings += (originalPrice - discountedPrice) * item.quantity;
                     }
@@ -242,9 +242,9 @@ export class BowOptimizationService {
             const cart = await this.prisma.cart.findUnique({
                 where: { userId },
                 include: {
-                    items: {
+                    CartItem: {
                         include: {
-                            product: { select: { categoryId: true, price: true, offerPrice: true } },
+                            Product: { select: { categoryId: true, price: true, offerPrice: true } },
                         },
                     },
                 },
@@ -252,17 +252,17 @@ export class BowOptimizationService {
 
             if (cart) {
                 const categoryCount = new Map<string, number>();
-                cart.items.forEach(item => {
-                    const catId = item.product.categoryId;
+                cart.CartItem.forEach(item => {
+                    const catId = item.Product.categoryId;
                     categoryCount.set(catId, (categoryCount.get(catId) || 0) + item.quantity);
                 });
 
                 for (const [catId, count] of categoryCount.entries()) {
                     if (count >= 3) {
                         // Apply 10% bulk discount on items from this category
-                        const categoryItems = cart.items.filter(item => item.product.categoryId === catId);
+                        const categoryItems = cart.CartItem.filter(item => item.Product.categoryId === catId);
                         const categoryValue = categoryItems.reduce((sum, item) => {
-                            const price = (item.product.offerPrice ?? item.product.price) || 0;
+                            const price = (item.Product.offerPrice ?? item.Product.price) || 0;
                             return sum + (price * item.quantity);
                         }, 0);
                         const bulkDiscount = Math.floor(categoryValue * 0.1); // 10% discount

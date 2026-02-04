@@ -267,8 +267,8 @@ export class BowActionService {
             const cart = await this.prisma.cart.findUnique({
                 where: { userId },
                 include: {
-                    items: {
-                        include: { product: true }
+                    CartItem: {
+                        include: { Product: true }
                     }
                 }
             });

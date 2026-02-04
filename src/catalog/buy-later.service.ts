@@ -34,7 +34,7 @@ export class BuyLaterService {
     async getBuyLaterItems(userId: string) {
         return this.prisma.buyLater.findMany({
             where: { userId, isActive: true },
-            include: { product: true }
+            include: { Product: true }
         });
     }
 
@@ -59,7 +59,7 @@ export class BuyLaterService {
     async checkPriceDrops() {
         const activeItems = await this.prisma.buyLater.findMany({
             where: { isActive: true, isNotified: false },
-            include: { product: true }
+            include: { Product: true }
         });
 
         for (const item of activeItems) {

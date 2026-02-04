@@ -96,7 +96,7 @@ export class ReviewsService {
                 const [reviews, total] = await this.prisma.$transaction([
                     this.prisma.review.findMany({
                         where: { productId, status: 'ACTIVE' },
-                        include: { user: { select: { id: true, name: true } } },
+                        include: { User: { select: { id: true, name: true } } },
                         orderBy: [
                             { helpfulCount: 'desc' },
                             { createdAt: 'desc' }

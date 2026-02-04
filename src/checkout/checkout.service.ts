@@ -61,9 +61,9 @@ export class CheckoutService {
     async getDeliveryOptionsForCart(userId: string, shippingAddressId: string) {
         const cart = await this.prisma.cart.findUnique({
             where: { userId },
-            include: { items: { include: { product: true } } },
+            include: { CartItem: { include: { Product: true } } },
         });
-        if (!cart || cart.items.length === 0) throw new BadRequestException('Cart is empty');
+        if (!cart || cart.CartItem.length === 0) throw new BadRequestException('Cart is empty');
 
         const address = await this.prisma.address.findUnique({ where: { id: shippingAddressId } });
         if (!address || address.userId !== userId) throw new BadRequestException('Invalid shipping address');
@@ -92,7 +92,7 @@ export class CheckoutService {
         }
         if (lat == null || lng == null) throw new BadRequestException('Address geo is missing (lat/lng)');
 
-        const vendorIds = Array.from(new Set(cart.items.map((i) => i.product.vendorId))).filter(Boolean);
+        const vendorIds = Array.from(new Set(cart.CartItem.map((i) => i.Product.vendorId))).filter(Boolean);
         const results = await Promise.all(
             vendorIds.map(async (vendorId) => {
                 const res = await this.deliveryOptions.getDeliveryOptions({ vendorId, point: { lat: lat!, lng: lng! } });
@@ -132,10 +132,10 @@ export class CheckoutService {
         // 🔐 P0 FIX: Pre-fetch cart for stock reservation BEFORE transaction
         const cartForReservation = await this.prisma.cart.findUnique({
             where: { userId },
-            include: { items: { include: { product: true } } }
+            include: { CartItem: { include: { Product: true } } }
         });
 
-        if (!cartForReservation || cartForReservation.items.length === 0) {
+        if (!cartForReservation || cartForReservation.CartItem.length === 0) {
             throw new BadRequestException('Cart is empty');
         }
 
@@ -143,7 +143,7 @@ export class CheckoutService {
         const reservedItems: { productId: string; variantId?: string; quantity: number }[] = [];
 
         try {
-            for (const item of cartForReservation.items) {
+            for (const item of cartForReservation.CartItem) {
                 await this.inventoryService.reserveStock(
                     item.productId,
                     item.quantity,
@@ -171,9 +171,9 @@ export class CheckoutService {
             return await this.prisma.$transaction(async (tx) => {
                 const cart = await tx.cart.findUnique({
                     where: { userId },
-                    include: { items: { include: { product: true } } },
+                    include: { CartItem: { include: { Product: true } } },
                 });
-                if (!cart || cart.items.length === 0) throw new BadRequestException('Cart is empty');
+                if (!cart || cart.CartItem.length === 0) throw new BadRequestException('Cart is empty');
 
                 const address = await tx.address.findUnique({ where: { id: shippingAddressId } });
                 if (!address || address.userId !== userId) throw new BadRequestException('Invalid shipping address');
@@ -187,7 +187,7 @@ export class CheckoutService {
                 const categoryIds = new Set<string>();
                 const vendorToCategories = new Map<string, Set<string>>();
 
-                for (const item of cart.items) {
+                for (const item of cart.CartItem) {
                     const product = await tx.product.findUnique({ where: { id: item.productId } });
                     if (!product) throw new NotFoundException(`Product ${item.productId} not found`);
                     categoryIds.add(product.categoryId);

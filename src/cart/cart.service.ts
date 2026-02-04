@@ -50,12 +50,12 @@ export class CartService {
         return this.prisma.cart.findUnique({
             where: { userId },
             include: {
-                items: {
+                CartItem: {
                     include: {
-                        product: {
+                        Product: {
                             include: {
-                                vendor: true,
-                                variants: true,
+                                Vendor: true,
+                                ProductVariant: true,
                                 // Assuming images are in mediaGallery or similar, keeping simple for now
                             }
                         },
@@ -63,7 +63,7 @@ export class CartService {
                         // Currently CartItem has variantId but no relation in schema provided in audit?
                         // Let's check schema again. Schema says: 
                         // variantId String? 
-                        // But NO relation to ProductVariation model in CartItem. 
+                        // But NO relation to ProductVariant model in CartItem. 
                         // This means we have to manually fetch variation if needed or rely on ID.
                         // Ideally there SHOULD be a relation. I'll stick to manual fetch for stock check.
                     }
@@ -93,7 +93,7 @@ export class CartService {
         // ACTUALLY, strict requirements say "Price is always fetched from product variant".
         // I must handle this.
 
-        if (!cart.items) {
+        if (!cart.CartItem) {
             return {
                 id: cart.id,
                 items: [],
@@ -102,22 +102,22 @@ export class CartService {
             };
         }
 
-        const enrichedItems = await Promise.all(cart.items.map(async (item) => {
-            let price = item.product.price;
-            let stock = item.product.stock;
-            // No need to redeclare title/image if unused or use item.product directly
+        const enrichedItems = await Promise.all(cart.CartItem.map(async (item) => {
+            let price = item.Product.price;
+            let stock = item.Product.stock;
+            // No need to redeclare title/image if unused or use item.Product directly
 
             // JSON Variant Handling
             if (item.variantId) {
-                const variants = ((item.product as any).ProductVariant as any[]) || [];
+                const variants = ((item.Product as any).ProductVariant as any[]) || [];
                 const variant = variants.find(v => v.id === item.variantId);
 
                 if (variant) {
                     price = (variant.price ?? null) !== null ? Number(variant.price) : price;
                     stock = Number(variant.stock);
                 }
-            } else if (item.product.offerPrice) {
-                price = item.product.offerPrice;
+            } else if (item.Product.offerPrice) {
+                price = item.Product.offerPrice;
             }
 
             return {
@@ -278,7 +278,7 @@ export class CartService {
 
             const item = await this.prisma.cartItem.findUnique({
                 where: { id: itemId },
-                include: { product: true }
+                include: { Product: true }
             });
 
             if (!item || item.cartId !== cart.id) {
@@ -286,13 +286,13 @@ export class CartService {
             }
 
             // Validate Rules
-            this.validateQuantityRules(item.product, dto.quantity);
+            this.validateQuantityRules(item.Product, dto.quantity);
 
             // Stock Validation
-            let availableStock = item.product.stock;
+            let availableStock = item.Product.stock;
 
             if (item.variantId) {
-                const variant = this.getVariant(item.product, item.variantId);
+                const variant = this.getVariant(item.Product, item.variantId);
                 if (variant) availableStock = variant.stock;
             }
 
@@ -306,7 +306,7 @@ export class CartService {
             });
 
             // --- ENTERPRISE: Cart Intelligence ---
-            this.updateCartInsights(userId, cart.id, item.product.categoryId).catch(err =>
+            this.updateCartInsights(userId, cart.id, item.Product.categoryId).catch(err =>
                 this.logger.error(`Insight Error: ${err.message}`)
             );
             // -------------------------------------
@@ -445,16 +445,16 @@ export class CartService {
         try {
             const cart = await this.prisma.cart.findUnique({
                 where: { id: cartId },
-                include: { items: { include: { product: true } } }
+                include: { CartItem: { include: { Product: true } } }
             });
 
-            if (!cart || cart.items.length === 0) return;
+            if (!cart || cart.CartItem.length === 0) return;
 
-            const totalValue = cart.items.reduce((sum, item) => sum + (item.product.offerPrice || item.product.price) * item.quantity, 0);
-            const itemCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+            const totalValue = cart.CartItem.reduce((sum, item) => sum + (item.Product.offerPrice || item.Product.price) * item.quantity, 0);
+            const itemCount = cart.CartItem.reduce((sum, item) => sum + item.quantity, 0);
 
             // Analyze Categories
-            const categories = [...new Set(cart.items.map(i => i.product.categoryId))];
+            const categories = [...new Set(cart.CartItem.map(i => i.Product.categoryId))];
 
             // Determine Pattern
             let pattern = 'NORMAL';

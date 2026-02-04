@@ -291,7 +291,7 @@ export class ProductSuggestionsService {
     const [cart, profile, trendingIds, recentViews] = await Promise.all([
       this.prisma.cart.findUnique({
         where: { userId },
-        include: { items: { include: { product: { select: { id: true, categoryId: true, vendorId: true } } } } },
+        include: { CartItem: { include: { Product: { select: { id: true, categoryId: true, vendorId: true } } } } },
       }),
       (async () => {
         try {
@@ -479,12 +479,12 @@ export class ProductSuggestionsService {
 
     const cart = await this.prisma.cart.findUnique({
       where: { userId },
-      include: { items: { include: { product: { select: { id: true, categoryId: true, vendorId: true, brandName: true, tags: true, price: true, offerPrice: true } } } } },
+      include: { CartItem: { include: { Product: { select: { id: true, categoryId: true, vendorId: true, brandName: true, tags: true, price: true, offerPrice: true } } } } },
     });
-    if (!cart || cart.items.length === 0) return [];
+    if (!cart || cart.CartItem.length === 0) return [];
 
-    const cartIds = new Set<string>(cart.items.map((i: any) => String(i.productId)));
-    const seeds = cart.items.map((i: any) => i.product).filter(Boolean);
+    const cartIds = new Set<string>(cart.CartItem.map((i: any) => String(i.productId)));
+    const seeds = cart.CartItem.map((i: any) => i.Product).filter(Boolean);
 
     const candidateIds: string[] = [];
     const byId = new Map<string, Set<string>>();

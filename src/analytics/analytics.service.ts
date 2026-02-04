@@ -74,7 +74,7 @@ export class AnalyticsService {
         return this.prisma.productSearchMiss.findMany({
             orderBy: { count: 'desc' },
             take: 50,
-            include: { category: { select: { name: true } } }
+            include: { Category: { select: { name: true } } }
         });
     }
 

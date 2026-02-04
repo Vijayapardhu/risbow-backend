@@ -389,7 +389,7 @@ export class AdminProductService {
         // In current schema, products belong to single vendor
         const product = await this.prisma.product.findUnique({
             where: { id: productId },
-            include: { vendor: true },
+            include: { Vendor: true },
         });
 
         if (!product) return [];

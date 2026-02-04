@@ -33,7 +33,7 @@ export class AdminSubscriptionsController {
         where,
         skip,
         take: Number(limit),
-        include: { vendor: { select: { id: true, name: true, email: true, mobile: true } } },
+        include: { Vendor: { select: { id: true, name: true, email: true, mobile: true } } },
         orderBy: { createdAt: 'desc' }
       })
     ]);
@@ -87,7 +87,7 @@ export class AdminSubscriptionsController {
   async findOne(@Param('id') id: string) {
     const subscription = await this.prisma.vendorMembership.findUnique({
       where: { id },
-      include: { vendor: true }
+      include: { Vendor: true }
     });
 
     if (!subscription) throw new Error('Subscription not found');

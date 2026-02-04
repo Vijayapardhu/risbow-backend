@@ -95,7 +95,7 @@ export class AdminService {
             this.prisma.product.count({ where: { stock: { lte: 10 } } }),
             this.prisma.order.findMany({
                 where: { createdAt: { gte: sevenDaysAgo } },
-                select: { id: true, createdAt: true, totalAmount: true, user: { select: { name: true } }, status: true },
+                select: { id: true, createdAt: true, totalAmount: true, User: { select: { name: true } }, status: true },
                 orderBy: { createdAt: 'desc' }
             }),
             this.prisma.product.groupBy({
@@ -146,7 +146,7 @@ export class AdminService {
             ...recentOrders.slice(0, 5).map(o => ({
                 id: o.id,
                 title: `Order #${o.id.substring(0, 6)}`,
-                subtitle: `${o.user?.name || 'User'} · ${o.totalAmount}`,
+                subtitle: `${o.User?.name || 'User'} · ${o.totalAmount}`,
                 type: 'ORDER',
                 status: o.status,
                 time: o.createdAt
@@ -249,17 +249,17 @@ export class AdminService {
             const user = await this.prisma.user.findUnique({
                 where: { id },
                 include: {
-                    addresses: true,
-                    receivedNotes: {
-                        include: { admin: { select: { email: true } } },
+                    Address: true,
+                    AdminNote_AdminNote_userIdToUser: {
+                        include: { User_AdminNote_adminIdToUser: { select: { email: true } } },
                         orderBy: { createdAt: 'desc' }
                     },
-                    orders: {
+                    Order: {
                         take: 20,
                         orderBy: { createdAt: 'desc' },
-                        include: { payment: true }
+                        include: { Payment: true }
                     },
-                    reviews: { take: 5, orderBy: { createdAt: 'desc' } },
+                    Review: { take: 5, orderBy: { createdAt: 'desc' } },
                 }
             });
 
@@ -278,8 +278,8 @@ export class AdminService {
             }
 
             // Enhanced Risk Calculation
-            const totalOrders = user.orders?.length || 0;
-            const cancelledOrders = user.orders ? user.orders.filter(o => o.status === 'CANCELLED').length : 0;
+            const totalOrders = user.Order?.length || 0;
+            const cancelledOrders = user.Order ? user.Order.filter(o => o.status === 'CANCELLED').length : 0;
             const cancellationRate = totalOrders > 0 ? (cancelledOrders / totalOrders) * 100 : 0;
 
             // Auto Update Risk if necessary (Logic can be moved to a private method)
@@ -289,7 +289,7 @@ export class AdminService {
 
             return {
                 ...user,
-                adminNotes: user.receivedNotes, // Map for frontend compatibility
+                adminNotes: user.AdminNote_AdminNote_userIdToUser, // Map for frontend compatibility
                 coinLedger,
                 riskStats: { totalOrders, cancellationRate, derivedRiskTag }
             };
@@ -445,9 +445,9 @@ export class AdminService {
         const cart = await this.prisma.cart.findUnique({
             where: { userId },
             include: {
-                items: {
+                CartItem: {
                     include: {
-                        product: {
+                        Product: {
                             select: {
                                 id: true,
                                 title: true,
@@ -466,17 +466,17 @@ export class AdminService {
             return { items: [], totalItems: 0, totalValue: 0 };
         }
 
-        const totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0);
-        const totalValue = cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+        const totalItems = cart.CartItem.reduce((sum, item) => sum + item.quantity, 0);
+        const totalValue = cart.CartItem.reduce((sum, item) => sum + (item.Product.price * item.quantity), 0);
 
         return {
             id: cart.id,
-            items: cart.items.map(item => ({
+            items: cart.CartItem.map(item => ({
                 id: item.id,
                 productId: item.productId,
                 variantId: item.variantId,
                 quantity: item.quantity,
-                product: item.product
+                product: item.Product
             })),
             totalItems,
             totalValue
@@ -1980,7 +1980,7 @@ export class AdminService {
         return this.prisma.review.findMany({
             take: 20,
             orderBy: { createdAt: 'desc' },
-            include: { user: { select: { name: true } }, product: { select: { title: true } } }
+            include: { User: { select: { name: true } }, Product: { select: { title: true } } }
         });
     }
 

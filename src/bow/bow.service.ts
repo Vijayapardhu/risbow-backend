@@ -517,13 +517,13 @@ export class BowService {
                     OR: [
                         { title: { contains: kw, mode: 'insensitive' } },
                         { description: { contains: kw, mode: 'insensitive' } },
-                        { category: { name: { contains: kw, mode: 'insensitive' } } }
+                        { Category: { name: { contains: kw, mode: 'insensitive' } } }
                     ]
                 })),
                 isActive: true
             },
             take: 20,
-            include: { category: { select: { name: true } } }
+            include: { Category: { select: { name: true } } }
         });
 
         // Deduplicate by id
@@ -539,7 +539,7 @@ export class BowService {
             title: p.title,
             price: p.offerPrice || p.price,
             images: p.images,
-            category: p.category ? { name: p.category.name } : undefined,
+            category: p.Category ? { name: p.Category.name } : undefined,
             description: p.description,
             stock: p.stock,
             vendorId: p.vendorId
@@ -552,13 +552,13 @@ export class BowService {
                 isActive: true,
                 stock: { gt: 0 },
                 OR: [
-                    { category: { name: { contains: categoryName, mode: 'insensitive' } } },
-                    { category: { parent: { name: { contains: categoryName, mode: 'insensitive' } } } }
+                    { Category: { name: { contains: categoryName, mode: 'insensitive' } } },
+                    { Category: { parent: { name: { contains: categoryName, mode: 'insensitive' } } } }
                 ]
             },
             orderBy: { createdAt: 'desc' },
             take: 10,
-            include: { category: { select: { name: true } } }
+            include: { Category: { select: { name: true } } }
         });
 
         return products.map((p) => ({
@@ -566,7 +566,7 @@ export class BowService {
             title: p.title,
             price: p.offerPrice || p.price,
             images: p.images,
-            category: p.category ? { name: p.category.name } : undefined,
+            category: p.Category ? { name: p.Category.name } : undefined,
             description: p.description,
             stock: p.stock,
             vendorId: p.vendorId
@@ -578,7 +578,7 @@ export class BowService {
             where: { isActive: true, stock: { gt: 0 } },
             orderBy: { createdAt: 'desc' },
             take: 10,
-            include: { category: { select: { name: true } } }
+            include: { Category: { select: { name: true } } }
         });
 
         return products.map((p) => ({
@@ -586,7 +586,7 @@ export class BowService {
             title: p.title,
             price: p.offerPrice || p.price,
             images: p.images,
-            category: p.category ? { name: p.category.name } : undefined,
+            category: p.Category ? { name: p.Category.name } : undefined,
             description: p.description,
             stock: p.stock,
             vendorId: p.vendorId
@@ -639,7 +639,7 @@ export class BowService {
                 },
                 orderBy: { createdAt: 'desc' },
                 take: 3,
-                include: { category: { select: { name: true } } }
+                include: { Category: { select: { name: true } } }
             });
             // Also recommend from cart categories, not in cart
             const more = await this.prisma.product.findMany({
@@ -651,7 +651,7 @@ export class BowService {
                 },
                 orderBy: { stock: 'desc' },
                 take: 2,
-                include: { category: { select: { name: true } } }
+                include: { Category: { select: { name: true } } }
             });
             recs = recs.concat(more);
         }
@@ -681,7 +681,7 @@ export class BowService {
                     where: { categoryId: { in: topCategories }, isActive: true, stock: { gt: 0 } },
                     orderBy: { createdAt: 'desc' },
                     take: 2,
-                    include: { category: { select: { name: true } } }
+                    include: { Category: { select: { name: true } } }
                 });
                 recs = recs.concat(more);
             }
@@ -692,7 +692,7 @@ export class BowService {
                 where: { isActive: true, stock: { gt: 0 } },
                 orderBy: [{ stock: 'desc' }, { createdAt: 'desc' }],
                 take: 5,
-                include: { category: { select: { name: true } } }
+                include: { Category: { select: { name: true } } }
             });
         }
         // Deduplicate by id
@@ -707,7 +707,7 @@ export class BowService {
             title: p.title,
             price: p.offerPrice || p.price,
             images: p.images,
-            category: p.category ? { name: p.category.name } : undefined,
+            category: p.Category ? { name: p.Category.name } : undefined,
             description: p.description,
             stock: p.stock,
             vendorId: p.vendorId
@@ -717,7 +717,7 @@ export class BowService {
     private async getProductDetails(productId: string) {
         const product = await this.prisma.product.findUnique({
             where: { id: productId },
-            include: { category: { select: { name: true } } }
+            include: { Category: { select: { name: true } } }
         });
         if (!product) return null;
         return {
@@ -725,7 +725,7 @@ export class BowService {
             title: product.title,
             price: product.offerPrice || product.price,
             images: product.images,
-            category: product.category ? { name: product.category.name } : undefined,
+            category: product.Category ? { name: product.Category.name } : undefined,
             description: product.description,
             stock: product.stock,
             vendorId: product.vendorId
@@ -770,7 +770,7 @@ export class BowService {
                 title: item.product.title,
                 price: item.price,
                 images: item.product.images,
-                category: item.product.category ? { name: item.product.category.name } : undefined,
+                category: item.product.Category ? { name: item.product.Category.name } : undefined,
                 description: item.product.description,
                 stock: item.stock,
                 vendorId: item.product.vendorId

@@ -72,13 +72,13 @@ export class TelecallerService {
                 // Actually ledger tracks credit/debit. 'expiresAt' usually on CREDIT entries.
                 // We need to check if user still has balance? simplified: notify about expiry.
             },
-            include: { user: true },
+            include: { User: true },
             take: 20
         });
 
         return expiringLedgers.map(l => ({
-            name: l.user.name || 'Unknown',
-            mobile: l.user.mobile,
+            name: l.User.name || 'Unknown',
+            mobile: l.User.mobile,
             coins: l.amount,
             expiryDate: l.expiresAt,
             daysLeft: Math.ceil((new Date(l.expiresAt!).getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
@@ -143,7 +143,7 @@ export class TelecallerService {
                     { status: 'NEW' } // Allow picking up new leads
                 ]
             },
-            include: { user: true },
+            include: { User: true },
             orderBy: { abandonedAt: 'desc' },
             take: 50
         });
@@ -153,8 +153,8 @@ export class TelecallerService {
             const items = lead.cartSnapshot as any;
             return {
                 id: lead.id,
-                customerName: lead.user?.name || (lead.guestInfo as any)?.name || 'Guest',
-                mobile: lead.user?.mobile || (lead.guestInfo as any)?.phone || 'N/A',
+                customerName: lead.User?.name || (lead.guestInfo as any)?.name || 'Guest',
+                mobile: lead.User?.mobile || (lead.guestInfo as any)?.phone || 'N/A',
                 cartValue: finance?.totalAmount || 0,
                 itemCount: Array.isArray(items) ? items.length : 0,
                 abandonedAt: lead.abandonedAt,

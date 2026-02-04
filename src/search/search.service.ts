@@ -264,7 +264,7 @@ export class SearchService {
           orderBy,
           take: limit,
           skip,
-          include: { vendor: { select: { name: true, performanceScore: true } } }
+          include: { Vendor: { select: { name: true, performanceScore: true } } }
         }),
         this.prisma.product.count({ where })
       ]);
@@ -306,7 +306,7 @@ export class SearchService {
       this.prisma.product.findMany({
         where,
         take: candidateLimit,
-        include: { vendor: { select: { name: true, performanceScore: true } } }
+        include: { Vendor: { select: { name: true, performanceScore: true } } }
       }),
       this.prisma.product.count({ where })
     ]);
@@ -392,7 +392,7 @@ export class SearchService {
         orderBy: { popularityScore: 'desc' },
         take: limit,
         skip: (page - 1) * limit,
-        include: { vendor: { select: { name: true, performanceScore: true } } },
+        include: { Vendor: { select: { name: true, performanceScore: true } } },
       });
 
       if (categoryProducts.length > 0) {

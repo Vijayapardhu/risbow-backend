@@ -42,17 +42,17 @@ export class CartIntelligenceService {
     const cart = await (this.prisma as any).cart.findUnique({
       where: { userId },
       include: {
-        items: {
+        CartItem: {
           include: {
-            product: {
-              include: { category: true }
+            Product: {
+              include: { Category: true }
             }
           }
         }
       }
     });
 
-    if (!cart || !cart.items.length) {
+    if (!cart || !cart.CartItem.length) {
       return [];
     }
 
@@ -177,7 +177,7 @@ export class CartIntelligenceService {
           actionType: 'REMOVE_FROM_CART',
           createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } // Last 30 days
         },
-        include: { product: true }
+        include: { Product: true }
       });
     } catch {
       recentRemovals = [];

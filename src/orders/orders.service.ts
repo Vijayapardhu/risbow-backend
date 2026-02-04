@@ -443,7 +443,7 @@ export class OrdersService {
     async cancelOrder(userId: string, orderId: string) {
         const order = await this.prisma.order.findFirst({
             where: { id: orderId, userId },
-            include: { payment: true },
+            include: { Payment: true },
         });
         if (!order) throw new NotFoundException('Order not found');
 
@@ -998,7 +998,7 @@ export class OrdersService {
     async updatePaymentStatus(orderId: string, paymentStatus: string, notes?: string) {
         const order = await this.prisma.order.findUnique({
             where: { id: orderId },
-            include: { payment: true }
+            include: { Payment: true }
         });
 
         if (!order) {

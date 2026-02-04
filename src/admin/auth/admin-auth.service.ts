@@ -217,7 +217,7 @@ export class AdminAuthService {
         refreshToken,
         isRevoked: false,
       },
-      include: { admin: true },
+      include: { Admin: true },
     });
 
     if (!session) {

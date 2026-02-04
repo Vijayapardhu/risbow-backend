@@ -42,7 +42,7 @@ export class ReferralRewardsService {
     // Must be in a “paid” state at time of awarding
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { payment: true, financialSnapshot: true },
+      include: { Payment: true, financialSnapshot: true },
     } as any);
     if (!order) return { awarded: false, reason: 'ORDER_NOT_FOUND' };
 

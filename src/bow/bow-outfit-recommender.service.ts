@@ -121,12 +121,12 @@ export class BowOutfitRecommender {
             // Get frequently purchased categories
             const userProducts = await this.prisma.product.findMany({
                 where: { vendor: { id: userId } },
-                select: { categoryId: true, category: { select: { name: true } } },
+                select: { categoryId: true, Category: { select: { name: true } } },
                 take: 5
             });
 
             profile.preferredCategories = userProducts
-                .map(p => p.category?.name)
+                .map(p => p.Category?.name)
                 .filter(Boolean)
                 .slice(0, 5);
 
@@ -175,7 +175,7 @@ export class BowOutfitRecommender {
                         id: true,
                         title: true,
                         price: true,
-                        category: { select: { name: true } }
+                        Category: { select: { name: true } }
                     },
                     skip: variant // Use variant to get different products
                 });
@@ -185,7 +185,7 @@ export class BowOutfitRecommender {
                         productId: product.id,
                         title: product.title,
                         price: product.price,
-                        category: product.category.name
+                        category: product.Category.name
                     });
                     totalPrice += product.price;
                 }
@@ -224,7 +224,7 @@ export class BowOutfitRecommender {
                     id: true,
                     title: true,
                     price: true,
-                    category: { select: { name: true } }
+                    Category: { select: { name: true } }
                 },
                 orderBy: { createdAt: 'desc' }
             });
@@ -232,10 +232,10 @@ export class BowOutfitRecommender {
             // Group by category and create outfit combinations
             const byCategory = new Map<string, any[]>();
             trendingProducts.forEach(p => {
-                if (!byCategory.has(p.category.name)) {
-                    byCategory.set(p.category.name, []);
+                if (!byCategory.has(p.Category.name)) {
+                    byCategory.set(p.Category.name, []);
                 }
-                byCategory.get(p.category.name)!.push(p);
+                byCategory.get(p.Category.name)!.push(p);
             });
 
             // Create outfits from available categories
@@ -253,7 +253,7 @@ export class BowOutfitRecommender {
                             productId: p.id,
                             title: p.title,
                             price: p.price,
-                            category: p.category.name
+                            category: p.Category.name
                         })),
                         totalPrice,
                         occasion,
@@ -295,7 +295,7 @@ export class BowOutfitRecommender {
                 'Laptops': ['Bags', 'Chargers', 'Mice'],
             };
 
-            const categoryName = product.category.name;
+            const categoryName = product.Category.name;
             const complementCategories = complements[categoryName] || [];
 
             if (complementCategories.length === 0) return [];
@@ -318,7 +318,7 @@ export class BowOutfitRecommender {
                     title: true,
                     price: true,
                     images: true,
-                    category: { select: { name: true } }
+                    Category: { select: { name: true } }
                 }
             });
 

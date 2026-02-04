@@ -116,10 +116,10 @@ export class VendorOrdersService {
         // 2. State Machine Validation
         const orderWithPayment = await this.prisma.order.findUnique({
             where: { id: orderId },
-            include: { payment: true }
+            include: { Payment: true }
         });
 
-        const mode = (orderWithPayment?.payment?.provider === 'COD' || orderWithPayment?.payment?.provider === 'CASH') ? 'COD' : 'ONLINE';
+        const mode = (orderWithPayment?.Payment?.provider === 'COD' || orderWithPayment?.Payment?.provider === 'CASH') ? 'COD' : 'ONLINE';
 
         this.stateMachine.validateTransition(
             order.status,
