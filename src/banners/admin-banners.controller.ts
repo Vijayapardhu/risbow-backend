@@ -24,6 +24,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { randomUUID } from 'crypto';
 
 class AdminBannerQueryDto {
   page?: number;
@@ -146,7 +147,7 @@ export class AdminBannersController {
       where: { isActive: true },
       take: 5,
       include: {
-        _count: { select: { impressions: true } },
+        _count: { select: { BannerImpressionLedger: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -266,6 +267,7 @@ export class AdminBannersController {
   async create(@Body() dto: any) {
     const banner = await this.prisma.banner.create({
       data: {
+        id: randomUUID(),
         imageUrl: dto.imageUrl,
         redirectUrl: dto.redirectUrl,
         slotType: dto.slotType,
@@ -377,7 +379,7 @@ export class AdminBannersController {
         skip,
         take: Number(limit),
         include: {
-          user: { select: { id: true, name: true } },
+          User: { select: { id: true, name: true } },
         },
         orderBy: { viewedAt: 'desc' },
       }),

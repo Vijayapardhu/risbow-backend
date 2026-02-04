@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreatePageDto, UpdatePageDto } from './dto/create-page.dto';
 import { CreateMenuDto, UpdateMenuDto, CreateMenuItemDto } from './dto/create-menu.dto';
 import { MenuLocation, Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class CmsService {
@@ -22,6 +23,7 @@ export class CmsService {
 
     return this.prisma.cMSPage.create({
       data: {
+        id: randomUUID(),
         slug: dto.slug,
         title: dto.title,
         content: dto.content,
@@ -31,7 +33,8 @@ export class CmsService {
         featuredImage: dto.featuredImage,
         template: dto.template || 'default',
         sortOrder: dto.sortOrder || 0,
-        createdBy
+        createdBy,
+        updatedAt: new Date()
       }
     });
   }
@@ -121,10 +124,13 @@ export class CmsService {
 
     return this.prisma.cMSMenu.create({
       data: {
+        id: randomUUID(),
         name: dto.name,
         location: dto.location,
-        items: {
+        updatedAt: new Date(),
+        CMSMenuItem: {
           create: dto.items.map((item, index) => ({
+            id: randomUUID(),
             label: item.label,
             url: item.url,
             icon: item.icon,
@@ -134,7 +140,7 @@ export class CmsService {
           }))
         }
       },
-      include: { MenuItem: true }
+      include: { CMSMenuItem: true }
     });
   }
 
@@ -146,7 +152,7 @@ export class CmsService {
     return this.prisma.cMSMenu.findMany({
       where,
       include: {
-        items: {
+        CMSMenuItem: {
           where: { isActive: true },
           orderBy: { sortOrder: 'asc' }
         }
@@ -159,7 +165,7 @@ export class CmsService {
     const menu = await this.prisma.cMSMenu.findFirst({
       where: { location, isActive: true },
       include: {
-        items: {
+        CMSMenuItem: {
           where: { isActive: true },
           orderBy: { sortOrder: 'asc' }
         }
@@ -195,6 +201,7 @@ export class CmsService {
 
     return this.prisma.cMSMenuItem.create({
       data: {
+        id: randomUUID(),
         menuId,
         label: dto.label,
         url: dto.url,

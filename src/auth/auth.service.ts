@@ -6,6 +6,7 @@ import { GeoService } from '../shared/geo.service';
 import { SupabaseService } from '../shared/supabase.service';
 import * as bcrypt from 'bcrypt';
 import { FraudService } from '../common/fraud.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -202,6 +203,7 @@ export class AuthService {
 
         const user = await this.prisma.user.create({
             data: {
+                id: randomUUID(),
                 name: registerDto.name,
                 email: registerDto.email,
                 password: hashedPassword,
@@ -210,13 +212,14 @@ export class AuthService {
                 gender: registerDto.gender,
                 referralCode: Math.random().toString(36).substring(7).toUpperCase(),
                 referredBy,
-                status: 'ACTIVE' // Explicitly set status matching schema enum
+                status: 'ACTIVE', // Explicitly set status matching schema enum
+                updatedAt: new Date(),
             } as any,
         }) as any;
 
         // Initialize empty cart
-        await this.prisma.cart.create({
-            data: { userId: user.id },
+        await (this.prisma.cart.create as any)({
+            data: { id: randomUUID(), userId: user.id, updatedAt: new Date() },
         });
 
         // Add default address if provided
@@ -231,8 +234,9 @@ export class AuthService {
                 })
                 .catch(() => null);
 
-            await this.prisma.address.create({
+            await (this.prisma.address.create as any)({
                 data: {
+                    id: randomUUID(),
                     userId: user.id,
                     name: registerDto.name || '',
                     phone: registerDto.phone || '',
@@ -245,8 +249,9 @@ export class AuthService {
                     isDefault: true,
                     latitude: geo?.point.lat,
                     longitude: geo?.point.lng,
-                    geoSource: geo?.source as any,
+                    geoSource: geo?.source,
                     geoUpdatedAt: geo ? new Date() : undefined,
+                    updatedAt: new Date(),
                 },
             });
         }
@@ -461,7 +466,7 @@ export class AuthService {
         // 3. Create User and Vendor in a transaction
         const result = await this.prisma.$transaction(async (prisma) => {
             // Create User
-            const user = await prisma.user.create({
+            const user = await (prisma.user.create as any)({
                 data: {
                     name: registerDto.name,
                     email: registerDto.email,
@@ -470,19 +475,21 @@ export class AuthService {
                     role: 'VENDOR',
                     status: 'ACTIVE',
                     referralCode: Math.random().toString(36).substring(7).toUpperCase(),
-                    wallet: {
-                        create: {
-                            balance: 0
-                        }
-                    },
-                    cart: {
-                        create: {}
-                    }
-                }
+                },
+            });
+
+            // Create wallet for user
+            await (prisma.wallet.create as any)({
+                data: { userId: user.id, balance: 0 },
+            });
+
+            // Create cart for user
+            await (prisma.cart.create as any)({
+                data: { userId: user.id },
             });
 
             // Create Vendor
-            const vendor = await prisma.vendor.create({
+            const vendor = await (prisma.vendor.create as any)({
                 data: {
                     name: registerDto.name,
                     mobile: registerDto.mobile,
@@ -490,40 +497,41 @@ export class AuthService {
                     storeName: registerDto.storeName,
                     storeStatus: 'ACTIVE',
                     gstNumber: registerDto.gstNumber,
-                    panNumber: registerDto.panNumber,
                     isGstVerified: false, // Pending verification
                     kycStatus: 'PENDING',
-                    pickupAddress: registerDto.pickupAddress,
                     bankDetails: registerDto.bankDetails,
                     role: 'RETAILER', // Default role
-                    // Initialize empty discipline state
-                    discipline: {
-                        create: {
-                            state: 'ACTIVE',
-                            activeStrikes: 0,
-                            consecutiveSuccesses: 0
-                        }
-                    }
-                }
+                },
+            });
+
+            // Initialize empty discipline state for vendor
+            await (prisma.vendorDisciplineState.create as any)({
+                data: {
+                    vendorId: vendor.id,
+                    state: 'ACTIVE',
+                    activeStrikes: 0,
+                    consecutiveSuccesses: 0,
+                },
             });
 
             // Add compliance fee if Non-GST (optional logic, can be handled via ledger later)
             if (!registerDto.isGstRegistered) {
                 // Record compliance fee deduction as audit log for future ledger integration
-                await tx.auditLog.create({
+                await (prisma.auditLog.create as any)({
                     data: {
+                        adminId: user.id,
                         action: 'COMPLIANCE_FEE_PENDING',
                         entity: 'VENDOR',
                         entityId: vendor.id,
-                        details: JSON.stringify({
+                        details: {
                             vendorId: vendor.id,
-                            userId: result.user.id,
+                            userId: user.id,
                             feeType: 'NON_GST_COMPLIANCE',
                             amount: 500, // Standard compliance fee
                             status: 'PENDING',
                             createdAt: new Date().toISOString()
-                        })
-                    }
+                        }
+                    },
                 });
             }
 

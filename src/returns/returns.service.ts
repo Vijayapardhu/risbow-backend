@@ -5,6 +5,7 @@ import { UpdateReturnStatusDto } from './dto/update-return.dto';
 import { NotificationsService } from '../shared/notifications.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { ReturnStatus, OrderStatus } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class ReturnsService {
@@ -39,6 +40,7 @@ export class ReturnsService {
 
         return this.prisma.returnRequest.create({
             data: {
+                id: randomUUID(),
                 returnNumber,
                 userId,
                 orderId: dto.orderId,
@@ -49,8 +51,10 @@ export class ReturnsService {
                 evidenceVideo: dto.evidenceVideo,
                 pickupAddress: dto.pickupAddress,
                 status: ReturnStatus.PENDING_APPROVAL,
-                items: {
+                updatedAt: new Date(),
+                ReturnItem: {
                     create: dto.items.map((item) => ({
+                        id: randomUUID(),
                         productId: item.productId,
                         variantId: item.variantId,
                         quantity: item.quantity,
@@ -58,8 +62,9 @@ export class ReturnsService {
                         condition: item.condition,
                     })),
                 },
-                timeline: {
+                ReturnTimeline: {
                     create: {
+                        id: randomUUID(),
                         status: ReturnStatus.PENDING_APPROVAL,
                         action: 'RETURN_REQUESTED',
                         performedBy: 'CUSTOMER',
@@ -68,7 +73,7 @@ export class ReturnsService {
                     },
                 },
             },
-            include: { ReturnRequestItem: true },
+            include: { ReturnItem: true },
         });
     }
 
@@ -93,7 +98,7 @@ export class ReturnsService {
                 skip,
                 take: Number(limit),
                 include: {
-                    ReturnRequestItem: { include: { Product: true } },
+                    ReturnItem: { include: { Product: true } },
                     User: { select: { name: true, email: true, mobile: true } },
                     Order: { select: { id: true, items: true } },
                 },
@@ -116,11 +121,11 @@ export class ReturnsService {
         const returnReq = await this.prisma.returnRequest.findUnique({
             where: { id },
             include: {
-                ReturnRequestItem: { include: { Product: true } },
+                ReturnItem: { include: { Product: true } },
                 User: true,
                 Order: true,
-                timeline: { orderBy: { timestamp: 'desc' } },
-                settlement: true,
+                ReturnTimeline: { orderBy: { timestamp: 'desc' } },
+                ReturnSettlement: true,
                 Vendor: true,
             },
         });
@@ -132,7 +137,7 @@ export class ReturnsService {
     async updateStatus(id: string, dto: UpdateReturnStatusDto, adminId: string) {
         const returnReq = await this.prisma.returnRequest.findUnique({
             where: { id },
-            include: { Vendor: true, ReturnRequestItem: true, Order: true }
+            include: { Vendor: true, ReturnItem: true, Order: true }
         });
         if (!returnReq) throw new NotFoundException('Return request not found');
 
@@ -148,25 +153,26 @@ export class ReturnsService {
             data: {
                 status: dto.status,
                 updatedAt: new Date(),
-                timeline: {
+                ReturnTimeline: {
                     create: {
+                        id: randomUUID(),
                         ...timelineEntry,
                         actorId: adminId,
                     },
                 },
             },
-            include: { timeline: true },
+            include: { ReturnTimeline: true },
         });
 
         if (dto.status === ReturnStatus.QC_PASSED && returnReq.status !== ReturnStatus.QC_PASSED) {
-            for (const item of returnReq.items) {
+            for (const item of returnReq.ReturnItem) {
                 await this.inventoryService.restoreStock(item.productId, item.quantity, item.variantId || undefined);
             }
         }
 
-        if (dto.status === ReturnStatus.APPROVED && returnReq.vendor) {
+        if (dto.status === ReturnStatus.APPROVED && returnReq.Vendor) {
             const vendorUser = await this.prisma.user.findUnique({
-                where: { mobile: returnReq.vendor.mobile }
+                where: { mobile: returnReq.Vendor.mobile }
             });
 
             if (vendorUser) {
@@ -196,8 +202,9 @@ export class ReturnsService {
             data: {
                 status: ReturnStatus.REPLACEMENT_SHIPPED,
                 replacementTrackingId: trackingId,
-                timeline: {
+                ReturnTimeline: {
                     create: {
+                        id: randomUUID(),
                         status: ReturnStatus.REPLACEMENT_SHIPPED,
                         action: 'REPLACEMENT_DISPATCHED',
                         performedBy: 'ADMIN',
@@ -212,10 +219,10 @@ export class ReturnsService {
     private async createReplacementOrder(returnId: string): Promise<any> {
         const returnReq = await this.prisma.returnRequest.findUnique({
             where: { id: returnId },
-            include: { order: true, items: true }
+            include: { Order: true, ReturnItem: true }
         });
 
-        if (!returnReq || !returnReq.order) {
+        if (!returnReq || !returnReq.Order) {
             throw new NotFoundException('Return request or associated order not found');
         }
 
@@ -223,27 +230,30 @@ export class ReturnsService {
             const replacementOrder = await this.prisma.$transaction(async (tx) => {
                 const newOrder = await tx.order.create({
                     data: {
+                        id: randomUUID(),
                         userId: returnReq.userId,
-                        roomId: returnReq.order.roomId,
-                        addressId: returnReq.order.addressId,
-                        items: returnReq.order.items as any,
+                        roomId: returnReq.Order.roomId,
+                        addressId: returnReq.Order.addressId,
+                        items: returnReq.Order.items as any,
                         totalAmount: 0,
                         coinsUsed: 0,
                         status: 'CONFIRMED',
                         discountAmount: 0,
-                        shippingCharges: 0
+                        shippingCharges: 0,
+                        updatedAt: new Date()
                     }
                 });
 
                 await (tx as any).replacementOrder.create({
                     data: {
+                        id: randomUUID(),
                         originalOrderId: returnReq.orderId,
                         returnId: returnReq.id,
                         newOrderId: newOrder.id
                     }
                 });
 
-                for (const item of returnReq.items) {
+                for (const item of returnReq.ReturnItem) {
                     await this.inventoryService.deductStock(
                         item.productId,
                         item.quantity,

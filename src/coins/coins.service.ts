@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CoinSource } from './dto/coin.dto';
 import { Prisma, UserRole } from '@prisma/client';
 import { CoinValuationService } from './coin-valuation.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class CoinsService {
@@ -79,6 +80,7 @@ export class CoinsService {
             // Create Ledger Entry
             await db.coinLedger.create({
                 data: {
+                    id: randomUUID(),
                     userId,
                     amount,
                     source,
@@ -123,6 +125,7 @@ export class CoinsService {
             // Create Ledger Entry
             await db.coinLedger.create({
                 data: {
+                    id: randomUUID(),
                     userId,
                     amount: -amount,
                     source,

@@ -9,6 +9,7 @@ import { CreateGiftDto, UpdateGiftDto, GiftResponseDto } from './dto/gift.dto';
 
 import { CacheService } from '../shared/cache.service';
 import { RedisService } from '../shared/redis.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class GiftsService {
@@ -105,6 +106,7 @@ export class GiftsService {
 
         const gift = await this.prisma.giftSKU.create({
             data: {
+                id: randomUUID(),
                 title: dto.title,
                 stock: dto.stock,
                 cost: dto.cost,

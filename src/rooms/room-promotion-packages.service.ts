@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PromotionType, PromotionStatus, PaymentIntentPurpose, UserRole } from '@prisma/client';
 import { PaymentsService } from '../payments/payments.service';
 import { CoinValuationService } from '../coins/coin-valuation.service';
+import { randomUUID } from 'crypto';
 
 /**
  * Room Promotion Packages Service
@@ -132,7 +133,8 @@ export class RoomPromotionPackagesService {
             // 3. Create promotion record
             const promotion = await tx.vendorPromotion.create({
                 data: {
-                    vendorId,
+                    id: randomUUID(),
+                    Vendor: { connect: { id: vendorId } },
                     type: PromotionType.ROOM_PACKAGE,
                     packageType,
                     productIds,
@@ -142,13 +144,15 @@ export class RoomPromotionPackagesService {
                     moneyCost: paymentMethod === 'RUPEES' ? costInPaise : null,
                     status: paymentStatus === 'COMPLETED' ? PromotionStatus.ACTIVE : PromotionStatus.PAUSED,
                     metadata: paymentMethod === 'RUPEES' ? { paymentStatus: 'PENDING' } : { paymentStatus: 'COMPLETED' },
+                    updatedAt: new Date(),
                 },
             });
 
             // 4. Create RoomPackage record for tracking
             await tx.roomPackage.create({
                 data: {
-                    vendorId,
+                    id: randomUUID(),
+                    vendorId: vendorId,
                     packageType,
                     remainingCredits: this.getVisibilityMultiplier(packageType),
                 },

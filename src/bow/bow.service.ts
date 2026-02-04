@@ -1,4 +1,5 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { BowIntentService } from './bow-intent.service';
 import { BowContextService } from './bow-context.service';
@@ -553,7 +554,7 @@ export class BowService {
                 stock: { gt: 0 },
                 OR: [
                     { Category: { name: { contains: categoryName, mode: 'insensitive' } } },
-                    { Category: { parent: { name: { contains: categoryName, mode: 'insensitive' } } } }
+                    { Category: { Category: { name: { contains: categoryName, mode: 'insensitive' } } } }
                 ]
             },
             orderBy: { createdAt: 'desc' },
@@ -874,11 +875,13 @@ export class BowService {
             } else {
                 await this.prisma.productSearchMiss.create({
                     data: {
+                        id: randomUUID(),
                         query,
                         normalizedQuery: normalized,
                         keywords: removeStopwords(normalized).split(' '),
                         userId,
                         count: 1,
+                        lastSearchedAt: new Date(),
                         metadata: { inferredCategoryName: inferredCategory }
                     }
                 });

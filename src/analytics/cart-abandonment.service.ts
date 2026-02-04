@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { PriceResolverService } from '../common/price-resolver.service';
 import { CommissionService } from '../common/commission.service';
+import { randomUUID } from 'crypto';
 
 /**
  * Cart Abandonment Service
@@ -48,19 +49,19 @@ export class CartAbandonmentService {
         const abandonedCarts = await this.prisma.cart.findMany({
             where: {
                 updatedAt: { lte: thresholdTime },
-                items: { some: {} }, // Has at least one item
+                CartItem: { some: {} }, // Has at least one item
             },
             include: {
-                items: {
+                CartItem: {
                     include: {
-                        product: {
+                        Product: {
                             include: {
-                                category: true,
+                                Category: true,
                             },
                         },
                     },
                 },
-                user: {
+                User: {
                     select: {
                         id: true,
                         mobile: true,
@@ -100,6 +101,7 @@ export class CartAbandonmentService {
                 // Create AbandonedCheckout record with type: 'CART'
                 await this.prisma.abandonedCheckout.create({
                     data: {
+                        id: randomUUID(),
                         userId: cart.userId,
                         cartSnapshot,
                         financeSnapshot,
@@ -112,7 +114,7 @@ export class CartAbandonmentService {
                             thresholdMinutes: this.abandonmentThresholdMinutes,
                         },
                         abandonedAt: cart.updatedAt, // Use cart's last update time
-                    },
+                    } as any,
                 });
 
                 createdCount++;
@@ -134,7 +136,7 @@ export class CartAbandonmentService {
     private async createCartSnapshot(cart: any): Promise<any> {
         return {
             cartId: cart.id,
-            items: cart.items.map((item: any) => ({
+            items: cart.CartItem.map((item: any) => ({
                 productId: item.productId,
                 variantId: item.variantId,
                 quantity: item.quantity,
@@ -142,8 +144,8 @@ export class CartAbandonmentService {
                 productImage: item.product.images?.[0] || null,
                 categoryId: item.product.categoryId,
             })),
-            itemCount: cart.items.length,
-            totalItems: cart.items.reduce((sum: number, item: any) => sum + item.quantity, 0),
+            itemCount: cart.CartItem.length,
+            totalItems: cart.CartItem.reduce((sum: number, item: any) => sum + item.quantity, 0),
         };
     }
 
@@ -155,7 +157,7 @@ export class CartAbandonmentService {
         let totalTaxAmount = 0;
         let totalCommissionAmount = 0;
 
-        for (const item of cart.items) {
+        for (const item of cart.CartItem) {
             const unitPrice = await this.priceResolver.resolvePrice(
                 item.productId,
                 item.variantId || undefined

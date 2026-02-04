@@ -516,13 +516,11 @@ export class BowFraudDetectionService {
    */
   private async loadFraudPatterns(): Promise<void> {
     try {
-      // Load historical fraud flags from orders
-      const flaggedOrders = await this.prisma.order.findMany({
+      // Load historical fraud flags from audit logs (Order model does not have fraudCheckStatus)
+      const flaggedOrders = await this.prisma.auditLog.findMany({
         where: {
-          OR: [
-            { fraudCheckStatus: 'FLAGGED' },
-            { fraudCheckStatus: 'CONFIRMED_FRAUD' }
-          ]
+          entity: 'FRAUD',
+          action: { in: ['FRAUD_FLAGGED', 'FRAUD_CONFIRMED'] }
         },
         take: 100,
         orderBy: { createdAt: 'desc' }
@@ -554,14 +552,17 @@ export class BowFraudDetectionService {
         const recentOrders = await this.prisma.order.findMany({
           where: {
             createdAt: { gte: new Date(Date.now() - 15 * 60 * 1000) }, // Last 15 minutes
-            fraudCheckStatus: null
           },
-          take: 50
+          take: 50,
+          select: { id: true, userId: true, totalAmount: true, createdAt: true }
         });
 
         for (const order of recentOrders) {
           // Trigger fraud check for unchecked orders
-          await this.analyzeTransaction(order.id);
+          await this.analyzeTransaction(order.userId, {
+            amount: order.totalAmount,
+            timestamp: order.createdAt,
+          });
         }
       } catch (error) {
         this.logger.warn(`Real-time monitoring error: ${error.message}`);

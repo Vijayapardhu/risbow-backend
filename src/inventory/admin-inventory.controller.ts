@@ -11,6 +11,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -56,8 +57,8 @@ export class AdminInventoryController {
         skip,
         take: Number(limit),
         include: {
-          product: { select: { id: true, title: true, sku: true, price: true } },
-          warehouse: { select: { id: true, name: true } }
+          Product: { select: { id: true, title: true, sku: true, price: true } },
+          Warehouse: { select: { id: true, name: true } }
         },
         orderBy: { updatedAt: 'desc' }
       })
@@ -67,15 +68,15 @@ export class AdminInventoryController {
       data: data.map(item => ({
         id: item.id,
         productId: item.productId,
-        productName: item.product?.title,
-        sku: item.product?.sku,
+        productName: item.Product?.title,
+        sku: item.Product?.sku,
         stock: item.stock,
         reservedStock: item.reservedStock || 0,
         availableStock: item.stock - (item.reservedStock || 0),
         reorderPoint: item.reorderPoint || 10,
         reorderQuantity: item.reorderQuantity || 50,
         warehouseId: item.warehouseId,
-        warehouseName: item.warehouse?.name,
+        warehouseName: item.Warehouse?.name,
         lastUpdated: item.updatedAt
       })),
       meta: { total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / limit) }
@@ -112,8 +113,8 @@ export class AdminInventoryController {
     const item = await this.prisma.inventory.findUnique({
       where: { id },
       include: {
-        product: { select: { id: true, title: true, sku: true } },
-        warehouse: { select: { id: true, name: true } }
+        Product: { select: { id: true, title: true, sku: true } },
+        Warehouse: { select: { id: true, name: true } }
       }
     });
 
@@ -131,13 +132,14 @@ export class AdminInventoryController {
       where: { id },
       data: { stock: dto.stock },
       include: {
-        product: { select: { id: true, title: true } }
+        Product: { select: { id: true, title: true } }
       }
     });
 
     // Create stock movement record
     await this.prisma.stockMovement.create({
       data: {
+        id: randomUUID(),
         inventoryId: id,
         type: 'ADJUSTMENT',
         quantity: dto.stock - (item.stock || 0),
@@ -168,6 +170,7 @@ export class AdminInventoryController {
     // Create stock movement record
     await this.prisma.stockMovement.create({
       data: {
+        id: randomUUID(),
         inventoryId: id,
         type: 'ADJUSTMENT',
         quantity: dto.quantity,
@@ -194,9 +197,11 @@ export class AdminInventoryController {
   async createWarehouse(@Body() dto: { name: string; location: string; manager?: string }) {
     return this.prisma.warehouse.create({
       data: {
+        id: randomUUID(),
         name: dto.name,
         location: dto.location,
-        isActive: true
+        isActive: true,
+        updatedAt: new Date()
       }
     });
   }
@@ -233,9 +238,9 @@ export class AdminInventoryController {
         skip,
         take: Number(limit),
         include: {
-          inventory: {
+          Inventory: {
             include: {
-              product: { select: { id: true, title: true } }
+              Product: { select: { id: true, title: true } }
             }
           }
         },
@@ -246,8 +251,8 @@ export class AdminInventoryController {
     return {
       data: data.map(m => ({
         id: m.id,
-        productId: m.inventory?.productId,
-        productName: m.inventory?.product?.title,
+        productId: m.Inventory?.productId,
+        productName: m.Inventory?.Product?.title,
         type: m.type,
         quantity: m.quantity,
         reason: m.reason,
@@ -287,9 +292,11 @@ export class AdminInventoryController {
     if (!destInventory) {
       destInventory = await this.prisma.inventory.create({
         data: {
+          id: randomUUID(),
           productId: dto.productId,
           warehouseId: dto.toWarehouseId,
-          stock: 0
+          stock: 0,
+          updatedAt: new Date()
         }
       });
     }
@@ -309,6 +316,7 @@ export class AdminInventoryController {
       // Create movement records
       this.prisma.stockMovement.create({
         data: {
+          id: randomUUID(),
           inventoryId: sourceInventory.id,
           type: 'TRANSFER',
           quantity: -dto.quantity,
@@ -318,6 +326,7 @@ export class AdminInventoryController {
       }),
       this.prisma.stockMovement.create({
         data: {
+          id: randomUUID(),
           inventoryId: destInventory.id,
           type: 'TRANSFER',
           quantity: dto.quantity,

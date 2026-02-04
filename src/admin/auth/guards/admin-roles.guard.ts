@@ -1,14 +1,14 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { AdminRole } from '@prisma/client';
 import { ADMIN_ROLES_KEY } from '../decorators/admin-roles.decorator';
+import { AdminRole } from '../types';
 
 /**
  * Guard that checks if the current admin has one of the required roles.
  * 
  * Usage:
  * @UseGuards(AdminJwtAuthGuard, AdminRolesGuard)
- * @AdminRoles(AdminRole.SUPER_ADMIN, AdminRole.ADMIN)
+ * @AdminRoles('SUPER_ADMIN', 'OPERATIONS_ADMIN')
  */
 @Injectable()
 export class AdminRolesGuard implements CanActivate {
@@ -32,11 +32,11 @@ export class AdminRolesGuard implements CanActivate {
     }
 
     // SUPER_ADMIN always has access
-    if (user.role === AdminRole.SUPER_ADMIN) {
+    if (user.role === 'SUPER_ADMIN') {
       return true;
     }
 
     // Check if user has one of the required roles
-    return requiredRoles.includes(user.role);
+    return requiredRoles.includes(user.role as AdminRole);
   }
 }

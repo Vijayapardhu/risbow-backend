@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class NotificationsAdminService {
@@ -12,12 +13,14 @@ export class NotificationsAdminService {
   async createTemplate(data: { name: string; title: string; body: string; imageUrl?: string; action?: string; data?: any }) {
     return this.prisma.notificationTemplate.create({
       data: {
+        id: randomUUID(),
         name: data.name,
         title: data.title,
         body: data.body,
         imageUrl: data.imageUrl,
         action: data.action,
-        data: data.data || {}
+        data: data.data || {},
+        updatedAt: new Date()
       }
     });
   }
@@ -78,6 +81,7 @@ export class NotificationsAdminService {
   }) {
     return this.prisma.notificationCampaign.create({
       data: {
+        id: randomUUID(),
         name: data.name,
         title: data.title,
         body: data.body,
@@ -85,7 +89,8 @@ export class NotificationsAdminService {
         targetAudience: data.targetAudience,
         scheduledAt: data.scheduledAt,
         status: data.scheduledAt ? 'scheduled' : 'draft',
-        createdBy: data.createdBy
+        createdBy: data.createdBy,
+        updatedAt: new Date()
       }
     });
   }
@@ -139,6 +144,7 @@ export class NotificationsAdminService {
       targetUsers.map(userId =>
         this.prisma.notification.create({
           data: {
+            id: randomUUID(),
             userId,
             title: data.title,
             body: data.body,

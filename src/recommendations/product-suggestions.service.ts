@@ -315,11 +315,11 @@ export class ProductSuggestionsService {
       })(),
     ]);
 
-    const cartProductIds = new Set<string>((cart?.items || []).map((i: any) => String(i.productId)));
+    const cartProductIds = new Set<string>((cart?.CartItem || []).map((i: any) => String(i.productId)));
     const seedCategoryIds: string[] = Array.from(
       new Set([
         ...(Array.isArray(profile?.preferredCategories) ? profile.preferredCategories : []),
-        ...((cart?.items || []).map((i: any) => i.product?.categoryId).filter(Boolean) as string[]),
+        ...((cart?.CartItem || []).map((i: any) => i.product?.categoryId).filter(Boolean) as string[]),
       ]),
     ).slice(0, 8);
 

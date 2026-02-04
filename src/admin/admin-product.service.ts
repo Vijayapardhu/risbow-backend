@@ -58,15 +58,15 @@ export class AdminProductService {
                 skip,
                 take: limitNum,
                 include: {
-                    category: {
+                    Category: {
                         select: {
                             id: true,
                             name: true,
                             // isActive: true, // DB Migration Mismatch: Column missing in Prod
                         }
                     },
-                    vendor: true,
-                    reviews: {
+                    Vendor: true,
+                    Review: {
                         select: { rating: true },
                     },
                 },
@@ -179,22 +179,22 @@ export class AdminProductService {
         const product = await this.prisma.product.findUnique({
             where: { id },
             include: {
-                vendor: {
+                Vendor: {
                     select: {
                         id: true,
                         name: true,
                     }
                 },
-                category: {
+                Category: {
                     select: {
                         id: true,
                         name: true,
                         parentId: true,
                     }
                 },
-                specValues: {
+                ProductSpecValue: {
                     include: {
-                        spec: true
+                        CategorySpec: true
                     }
                 }
             },
@@ -363,8 +363,8 @@ export class AdminProductService {
                 where: { id },
                 data,
                 include: {
-                    vendor: true,
-                    category: { select: { id: true, name: true } },
+                    Vendor: true,
+                    Category: { select: { id: true, name: true } },
                 },
             });
 
@@ -397,7 +397,7 @@ export class AdminProductService {
         return [
             {
                 vendorId: product.vendorId,
-                vendorName: product.vendor.name,
+                vendorName: product.Vendor.name,
                 price: product.price,
                 offerPrice: product.offerPrice,
                 stock: product.stock,

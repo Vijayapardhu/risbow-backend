@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class ContentModerationService {
@@ -45,6 +46,7 @@ export class ContentModerationService {
     // Create ContentModeration record
     const moderation = await this.prisma.contentModeration.create({
       data: {
+        id: randomUUID(),
         contentType,
         contentId,
         flaggedBy: flaggedBy || null,

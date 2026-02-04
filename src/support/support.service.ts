@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { ReplyTicketDto } from './dto/reply-ticket.dto';
@@ -21,6 +22,7 @@ export class SupportService {
 
     return this.prisma.supportTicket.create({
       data: {
+        id: randomUUID(),
         ticketNumber,
         userId,
         category: dto.category,
@@ -29,10 +31,11 @@ export class SupportService {
         priority: dto.priority || TicketPriority.MEDIUM,
         orderId: dto.orderId,
         productId: dto.productId,
-        attachments: dto.attachments || []
-      },
+        attachments: dto.attachments || [],
+        updatedAt: new Date(),
+      } as any,
       include: {
-        user: { select: { id: true, name: true, email: true, mobile: true } }
+        User: { select: { id: true, name: true, email: true, mobile: true } }
       }
     });
   }
@@ -62,9 +65,9 @@ export class SupportService {
         skip,
         take: Number(limit),
         include: {
-          user: { select: { id: true, name: true, email: true, mobile: true } },
-          assignedAdmin: { select: { id: true, email: true, name: true } },
-          _count: { select: { messages: true } }
+          User: { select: { id: true, name: true, email: true, mobile: true } },
+          Admin: { select: { id: true, email: true, name: true } },
+          _count: { select: { TicketMessage: true } }
         },
         orderBy: { createdAt: 'desc' }
       })
@@ -92,7 +95,7 @@ export class SupportService {
         skip,
         take: Number(limit),
         include: {
-          _count: { select: { messages: true } }
+          _count: { select: { TicketMessage: true } }
         },
         orderBy: { createdAt: 'desc' }
       })
@@ -113,14 +116,11 @@ export class SupportService {
     const ticket = await this.prisma.supportTicket.findUnique({
       where: { id },
       include: {
-        user: { select: { id: true, name: true, email: true, mobile: true } },
-        assignedAdmin: { select: { id: true, email: true, name: true } },
-        order: { select: { id: true, status: true, totalAmount: true } },
-        messages: {
-          orderBy: { createdAt: 'asc' },
-          include: {
-            ticket: false
-          }
+        User: { select: { id: true, name: true, email: true, mobile: true } },
+        Admin: { select: { id: true, email: true, name: true } },
+        Order: { select: { id: true, status: true, totalAmount: true } },
+        TicketMessage: {
+          orderBy: { createdAt: 'asc' }
         }
       }
     });
@@ -135,6 +135,7 @@ export class SupportService {
 
     const message = await this.prisma.ticketMessage.create({
       data: {
+        id: randomUUID(),
         ticketId,
         senderId,
         senderType,
@@ -167,8 +168,8 @@ export class SupportService {
         status: TicketStatus.IN_PROGRESS
       },
       include: {
-        assignedAdmin: { select: { id: true, email: true, name: true } },
-        user: { select: { id: true, name: true, email: true } }
+        Admin: { select: { id: true, email: true, name: true } },
+        User: { select: { id: true, name: true, email: true } }
       }
     });
   }
@@ -242,10 +243,12 @@ export class SupportService {
   async createTemplate(data: { name: string; category?: string; subject?: string; content: string }) {
     return this.prisma.ticketTemplate.create({
       data: {
+        id: randomUUID(),
         name: data.name,
         category: data.category as any,
         subject: data.subject,
-        content: data.content
+        content: data.content,
+        updatedAt: new Date()
       }
     });
   }

@@ -365,7 +365,7 @@ export class BowDemandForecastingService {
       // Get category details
       const category = await this.prisma.category.findUnique({
         where: { id: categoryId },
-        select: { name: true, products: { select: { id: true } } }
+        select: { name: true, Product: { select: { id: true } } }
       });
 
       if (!category) return { totalImpact: 0, confidence: 0.3 };
@@ -388,7 +388,7 @@ export class BowDemandForecastingService {
       }
 
       // Category size affects confidence
-      const categorySize = category.products?.length || 0;
+      const categorySize = category.Product?.length || 0;
       const confidence = Math.min(0.7, 0.3 + (categorySize / 100) * 0.4);
 
       return { totalImpact: seasonalImpact, confidence };
@@ -440,10 +440,10 @@ export class BowDemandForecastingService {
       const activeCoupons = await this.prisma.coupon.findMany({
         where: {
           isActive: true,
-          expiresAt: { gte: new Date() },
+          validUntil: { gte: new Date() },
           OR: [
-            { applicableProducts: { has: productId } },
-            { applicableProducts: { isEmpty: true } } // Global coupons
+            { productIds: { has: productId } },
+            { productIds: { isEmpty: true } } // Global coupons
           ]
         },
         select: { discountValue: true, discountType: true }
@@ -851,7 +851,7 @@ export class BowDemandForecastingService {
           createdAt: { gte: thirtyDaysAgo },
           status: { not: 'CANCELLED' as any }
         },
-        select: { total: true }
+        select: { totalAmount: true }
       });
 
       if (orders.length < 10) {
@@ -859,7 +859,7 @@ export class BowDemandForecastingService {
       }
 
       // Calculate variance metrics as proxy for forecast accuracy
-      const totals = orders.map(o => o.total);
+      const totals = orders.map(o => o.totalAmount);
       const mean = totals.reduce((a, b) => a + b, 0) / totals.length;
       
       const mae = totals.reduce((sum, t) => sum + Math.abs(t - mean), 0) / totals.length;

@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CartIntelligenceService } from './cart-intelligence.service';
 import { CartInsightType, InsightSeverity } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 export interface CartSnapshot {
     cartValue: number;
@@ -38,12 +39,12 @@ export class RecommendationService {
 
         const cartValue = cart.CartItem.reduce((sum, item) => sum + (item.Product.offerPrice || item.Product.price) * item.quantity, 0);
         const itemCount = cart.CartItem.reduce((sum, item) => sum + item.quantity, 0);
-        const categories = [...new Set(cart.items.map(i => i.product.category?.name || 'Uncategorized'))];
+        const categories = [...new Set(cart.CartItem.map(i => i.Product.Category?.name || 'Uncategorized'))];
 
         // Price distribution buckets (paise)
         const buckets = { LT_500: 0, BETWEEN_500_2000: 0, GT_2000: 0 } as Record<string, number>;
-        for (const item of cart.items) {
-            const unit = item.product.offerPrice || item.product.price;
+        for (const item of cart.CartItem) {
+            const unit = item.Product.offerPrice || item.Product.price;
             const subtotal = unit * item.quantity;
             if (unit < 50000) buckets.LT_500 += subtotal;
             else if (unit <= 200000) buckets.BETWEEN_500_2000 += subtotal;
@@ -64,6 +65,7 @@ export class RecommendationService {
         for (const s of signals) {
             await this.prisma.cartInsight.create({
                 data: {
+                    id: randomUUID(),
                     userId,
                     cartValue,
                     itemCount,
@@ -134,7 +136,7 @@ export class RecommendationService {
             const complements = await this.prisma.product.findMany({
                 where: {
                     isActive: true,
-                    category: { name: { contains: targetCategory, mode: 'insensitive' } }
+                    Category: { name: { contains: targetCategory, mode: 'insensitive' } }
                 },
                 take: 2
             });
@@ -155,7 +157,7 @@ export class RecommendationService {
             const accessories = await this.prisma.product.findMany({
                 where: {
                     isActive: true,
-                    category: { name: { equals: mainCategory, mode: 'insensitive' } },
+                    Category: { name: { equals: mainCategory, mode: 'insensitive' } },
                     price: { lte: 1000 } // Cheaper add-ons
                 },
                 take: 2
@@ -176,6 +178,7 @@ export class RecommendationService {
     private async logRecommendation(userId: string, strategy: string, productIds: string[], cartValue: number) {
         await this.prisma.recommendationEvent.create({
             data: {
+                id: randomUUID(),
                 userId,
                 source: 'BOW',
                 strategy,

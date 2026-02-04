@@ -18,7 +18,7 @@ export class VendorStoreService {
             include: {
                 VendorMembership: true,
                 _count: {
-                    select: { products: true, reviews: true, VendorFollower: true }
+                    select: { Product: true, Review: true, VendorFollower: true }
                 }
             }
         });
@@ -28,9 +28,9 @@ export class VendorStoreService {
         return {
             ...vendor,
             stats: {
-                productsRaw: vendor._count.products,
+                productsRaw: vendor._count.Product,
                 followers: vendor._count.VendorFollower,
-                reviews: vendor._count.reviews
+                reviews: vendor._count.Review
             }
         };
     }
@@ -40,7 +40,7 @@ export class VendorStoreService {
             where: { vendorCode },
             include: {
                 _count: {
-                    select: { products: true, reviews: true, VendorFollower: true }
+                    select: { Product: true, Review: true, VendorFollower: true }
                 }
             }
         });
@@ -59,8 +59,8 @@ export class VendorStoreService {
             rating: vendor.performanceScore,
             joinedAt: vendor.createdAt,
             stats: {
-                products: vendor._count.products,
-                reviews: vendor._count.reviews,
+                products: vendor._count.Product,
+                reviews: vendor._count.Review,
                 followers: vendor._count.VendorFollower
             }
         };

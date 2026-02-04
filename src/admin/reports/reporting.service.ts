@@ -187,95 +187,133 @@ export class ReportingService {
 
   /**
    * Sales by Vendor Report
+   * Note: Orders use JSON items field, so we aggregate by product vendor
    */
   async getSalesByVendor(dateRange: DateRange, limit = 20) {
     const { startDate, endDate } = dateRange;
 
-    const vendorSales = await this.prisma.orderItem.groupBy({
-      by: ['vendorId'],
+    // Get products grouped by vendor with their sales data
+    const products = await this.prisma.product.findMany({
       where: {
-        order: {
-          createdAt: {
-            gte: startDate,
-            lte: endDate,
+        Vendor: {
+          Product: {
+            some: {},
           },
         },
       },
-      _sum: {
-        total: true,
-        quantity: true,
-      },
-      _count: {
+      select: {
         id: true,
-      },
-      orderBy: {
-        _sum: {
-          total: 'desc',
+        vendorId: true,
+        price: true,
+        Vendor: {
+          select: { id: true, storeName: true },
         },
       },
-      take: limit,
     });
 
-    // Fetch vendor details
-    const vendorIds = vendorSales
-      .filter((v) => v.vendorId)
-      .map((v) => v.vendorId as string);
-
-    const vendors = await this.prisma.vendor.findMany({
-      where: { id: { in: vendorIds } },
-      select: { id: true, storeName: true },
+    // Get orders in date range
+    const orders = await this.prisma.order.findMany({
+      where: {
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: {
+        items: true,
+        totalAmount: true,
+      },
     });
 
-    const vendorMap = new Map(vendors.map((v) => [v.id, v]));
+    // Build vendor stats from order items JSON
+    const vendorStats: Record<string, { storeName: string; revenue: number; quantity: number; orderCount: number }> = {};
+    const productMap = new Map(products.map((p) => [p.id, p]));
 
-    return vendorSales.map((v) => ({
-      vendorId: v.vendorId,
-      vendorName: v.vendorId ? vendorMap.get(v.vendorId)?.storeName : 'Unknown',
-      totalRevenue: v._sum.total || 0,
-      totalQuantity: v._sum.quantity || 0,
-      orderItemCount: v._count.id,
-    }));
+    for (const order of orders) {
+      const items = order.items as Array<{ productId: string; quantity: number; price: number }>;
+      if (!Array.isArray(items)) continue;
+
+      for (const item of items) {
+        const product = productMap.get(item.productId);
+        if (!product) continue;
+
+        const vendorId = product.vendorId;
+        if (!vendorStats[vendorId]) {
+          vendorStats[vendorId] = {
+            storeName: product.Vendor?.storeName || 'Unknown',
+            revenue: 0,
+            quantity: 0,
+            orderCount: 0,
+          };
+        }
+        vendorStats[vendorId].revenue += (item.price || 0) * (item.quantity || 1);
+        vendorStats[vendorId].quantity += item.quantity || 1;
+        vendorStats[vendorId].orderCount++;
+      }
+    }
+
+    return Object.entries(vendorStats)
+      .map(([vendorId, data]) => ({
+        vendorId,
+        vendorName: data.storeName,
+        totalRevenue: data.revenue,
+        totalQuantity: data.quantity,
+        orderItemCount: data.orderCount,
+      }))
+      .sort((a, b) => b.totalRevenue - a.totalRevenue)
+      .slice(0, limit);
   }
 
   /**
    * Sales by Category Report
+   * Note: Orders use JSON items field
    */
   async getSalesByCategory(dateRange: DateRange, limit = 20) {
     const { startDate, endDate } = dateRange;
 
-    // This requires a more complex query through products
-    const orderItems = await this.prisma.orderItem.findMany({
+    // Get products with category info
+    const products = await this.prisma.product.findMany({
+      select: {
+        id: true,
+        categoryId: true,
+        Category: { select: { id: true, name: true } },
+      },
+    });
+
+    const productMap = new Map(products.map((p) => [p.id, p]));
+
+    // Get orders in date range
+    const orders = await this.prisma.order.findMany({
       where: {
-        order: {
-          createdAt: {
-            gte: startDate,
-            lte: endDate,
-          },
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
         },
       },
-      include: {
-        product: {
-          select: {
-            categoryId: true,
-            category: { select: { id: true, name: true } },
-          },
-        },
+      select: {
+        items: true,
       },
     });
 
     const categoryStats: Record<string, { name: string; revenue: number; quantity: number; count: number }> = {};
 
-    for (const item of orderItems) {
-      const categoryId = item.product?.categoryId || 'uncategorized';
-      const categoryName = item.product?.category?.name || 'Uncategorized';
+    for (const order of orders) {
+      const items = order.items as Array<{ productId: string; quantity: number; price: number }>;
+      if (!Array.isArray(items)) continue;
 
-      if (!categoryStats[categoryId]) {
-        categoryStats[categoryId] = { name: categoryName, revenue: 0, quantity: 0, count: 0 };
+      for (const item of items) {
+        const product = productMap.get(item.productId);
+        const categoryId = product?.categoryId || 'uncategorized';
+        const categoryName = product?.Category?.name || 'Uncategorized';
+
+        if (!categoryStats[categoryId]) {
+          categoryStats[categoryId] = { name: categoryName, revenue: 0, quantity: 0, count: 0 };
+        }
+
+        categoryStats[categoryId].revenue += (item.price || 0) * (item.quantity || 1);
+        categoryStats[categoryId].quantity += item.quantity || 1;
+        categoryStats[categoryId].count++;
       }
-
-      categoryStats[categoryId].revenue += item.total;
-      categoryStats[categoryId].quantity += item.quantity;
-      categoryStats[categoryId].count++;
     }
 
     return Object.entries(categoryStats)
@@ -286,52 +324,68 @@ export class ReportingService {
 
   /**
    * Sales by Product Report
+   * Note: Orders use JSON items field
    */
   async getSalesByProduct(dateRange: DateRange, limit = 50) {
     const { startDate, endDate } = dateRange;
 
-    const productSales = await this.prisma.orderItem.groupBy({
-      by: ['productId'],
-      where: {
-        order: {
-          createdAt: {
-            gte: startDate,
-            lte: endDate,
-          },
-        },
-      },
-      _sum: {
-        total: true,
-        quantity: true,
-      },
-      _count: {
-        id: true,
-      },
-      orderBy: {
-        _sum: {
-          total: 'desc',
-        },
-      },
-      take: limit,
-    });
-
-    const productIds = productSales.map((p) => p.productId);
-
+    // Get products
     const products = await this.prisma.product.findMany({
-      where: { id: { in: productIds } },
-      select: { id: true, name: true, sku: true },
+      select: { id: true, title: true, sku: true },
     });
 
     const productMap = new Map(products.map((p) => [p.id, p]));
 
-    return productSales.map((p) => ({
-      productId: p.productId,
-      productName: productMap.get(p.productId)?.name || 'Unknown',
-      sku: productMap.get(p.productId)?.sku || '',
-      totalRevenue: p._sum.total || 0,
-      totalQuantity: p._sum.quantity || 0,
-      orderCount: p._count.id,
-    }));
+    // Get orders in date range
+    const orders = await this.prisma.order.findMany({
+      where: {
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: {
+        items: true,
+      },
+    });
+
+    const productStats: Record<string, { title: string; sku: string; revenue: number; quantity: number; orderCount: number }> = {};
+
+    for (const order of orders) {
+      const items = order.items as Array<{ productId: string; quantity: number; price: number }>;
+      if (!Array.isArray(items)) continue;
+
+      for (const item of items) {
+        const productId = item.productId;
+        const product = productMap.get(productId);
+
+        if (!productStats[productId]) {
+          productStats[productId] = {
+            title: product?.title || 'Unknown',
+            sku: product?.sku || '',
+            revenue: 0,
+            quantity: 0,
+            orderCount: 0,
+          };
+        }
+
+        productStats[productId].revenue += (item.price || 0) * (item.quantity || 1);
+        productStats[productId].quantity += item.quantity || 1;
+        productStats[productId].orderCount++;
+      }
+    }
+
+    return Object.entries(productStats)
+      .map(([productId, data]) => ({
+        productId,
+        productName: data.title,
+        sku: data.sku,
+        totalRevenue: data.revenue,
+        totalQuantity: data.quantity,
+        orderCount: data.orderCount,
+      }))
+      .sort((a, b) => b.totalRevenue - a.totalRevenue)
+      .slice(0, limit);
   }
 
   /**
@@ -410,76 +464,105 @@ export class ReportingService {
       select: {
         id: true,
         storeName: true,
-        isActive: true,
+        storeStatus: true,
         createdAt: true,
-        _count: {
-          select: {
-            products: true,
-            orders: {
-              where: {
-                createdAt: {
-                  gte: startDate,
-                  lte: endDate,
-                },
-              },
-            },
-          },
-        },
       },
     });
 
-    // Get order stats for each vendor
-    const vendorStats = await Promise.all(
-      vendors.map(async (vendor) => {
-        const orders = await this.prisma.order.findMany({
-          where: {
-            vendorId: vendor.id,
-            createdAt: {
-              gte: startDate,
-              lte: endDate,
-            },
-          },
-          select: {
-            totalAmount: true,
-            status: true,
-          },
-        });
+    // Get product counts for vendors
+    const productCounts = await this.prisma.product.groupBy({
+      by: ['vendorId'],
+      where: {
+        vendorId: { in: vendors.map((v) => v.id) },
+      },
+      _count: {
+        id: true,
+      },
+    });
 
-        const totalRevenue = orders.reduce((sum, o) => sum + o.totalAmount, 0);
-        const completedOrders = orders.filter((o) => o.status === 'DELIVERED').length;
-        const cancelledOrders = orders.filter((o) => o.status === 'CANCELLED').length;
-        const fulfillmentRate = orders.length > 0
-          ? (completedOrders / orders.length) * 100
-          : 0;
+    const productCountMap = new Map(productCounts.map((p) => [p.vendorId, p._count.id]));
 
-        // Get average rating
-        const reviews = await this.prisma.review.aggregate({
-          where: {
-            product: { vendorId: vendor.id },
-            createdAt: {
-              gte: startDate,
-              lte: endDate,
-            },
-          },
-          _avg: { rating: true },
-          _count: { id: true },
-        });
+    // Get order stats for each vendor from JSON items
+    const orders = await this.prisma.order.findMany({
+      where: {
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: {
+        items: true,
+        totalAmount: true,
+        status: true,
+      },
+    });
 
-        return {
-          vendorId: vendor.id,
-          vendorName: vendor.storeName,
-          isActive: vendor.isActive,
-          productCount: vendor._count.products,
-          orderCount: orders.length,
-          totalRevenue,
-          completedOrders,
-          cancelledOrders,
-          fulfillmentRate: Math.round(fulfillmentRate * 100) / 100,
-          avgRating: reviews._avg.rating || 0,
-          reviewCount: reviews._count.id,
-        };
-      }),
-    );
+    // Get products to map productId -> vendorId
+    const products = await this.prisma.product.findMany({
+      where: {
+        vendorId: { in: vendors.map((v) => v.id) },
+      },
+      select: { id: true, vendorId: true },
+    });
+    const productVendorMap = new Map(products.map((p) => [p.id, p.vendorId]));
+
+    // Build vendor order stats
+    const vendorOrderStats: Record<string, { orders: number; revenue: number; completed: number; cancelled: number }> = {};
+
+    for (const order of orders) {
+      const items = order.items as Array<{ productId: string; quantity: number; price: number }>;
+      if (!Array.isArray(items)) continue;
+
+      for (const item of items) {
+        const vId = productVendorMap.get(item.productId);
+        if (!vId) continue;
+
+        if (!vendorOrderStats[vId]) {
+          vendorOrderStats[vId] = { orders: 0, revenue: 0, completed: 0, cancelled: 0 };
+        }
+
+        vendorOrderStats[vId].orders++;
+        vendorOrderStats[vId].revenue += (item.price || 0) * (item.quantity || 1);
+        if (order.status === 'DELIVERED') vendorOrderStats[vId].completed++;
+        if (order.status === 'CANCELLED') vendorOrderStats[vId].cancelled++;
+      }
+    }
+
+    // Get average rating per vendor
+    const reviewStats = await this.prisma.review.groupBy({
+      by: ['vendorId'],
+      where: {
+        vendorId: { in: vendors.map((v) => v.id) },
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+
+    const reviewMap = new Map(reviewStats.map((r) => [r.vendorId, { avg: r._avg.rating, count: r._count._all }]));
+
+    const vendorStats = vendors.map((vendor) => {
+      const stats = vendorOrderStats[vendor.id] || { orders: 0, revenue: 0, completed: 0, cancelled: 0 };
+      const review = reviewMap.get(vendor.id) || { avg: 0, count: 0 };
+      const fulfillmentRate = stats.orders > 0 ? (stats.completed / stats.orders) * 100 : 0;
+
+      return {
+        vendorId: vendor.id,
+        vendorName: vendor.storeName,
+        isActive: vendor.storeStatus === 'ACTIVE',
+        productCount: productCountMap.get(vendor.id) || 0,
+        orderCount: stats.orders,
+        totalRevenue: stats.revenue,
+        completedOrders: stats.completed,
+        cancelledOrders: stats.cancelled,
+        fulfillmentRate: Math.round(fulfillmentRate * 100) / 100,
+        avgRating: review.avg || 0,
+        reviewCount: review.count,
+      };
+    });
 
     return vendorStats.sort((a, b) => b.totalRevenue - a.totalRevenue);
   }
@@ -518,24 +601,25 @@ export class ReportingService {
       _sum: { totalAmount: true },
     });
 
-    // Banner revenue
-    const bannerRevenue = await this.prisma.bannerMetric.aggregate({
+    // Banner revenue (from BannerCampaign payments)
+    const bannerRevenue = await this.prisma.bannerCampaign.aggregate({
       where: {
-        date: {
+        createdAt: {
           gte: startDate,
           lte: endDate,
         },
+        paymentStatus: 'PAID',
       },
-      _sum: { spent: true },
+      _sum: { amountPaid: true },
     });
 
     return {
       grossRevenue: orderRevenue._sum.totalAmount || 0,
       commissionEarned: Math.round(totalCommission * 100) / 100,
       refunds: refunds._sum.totalAmount || 0,
-      bannerRevenue: bannerRevenue._sum.spent || 0,
+      bannerRevenue: bannerRevenue._sum.amountPaid || 0,
       netRevenue: Math.round(
-        (totalCommission + (bannerRevenue._sum.spent || 0) - (refunds._sum.totalAmount || 0)) * 100,
+        (totalCommission + (bannerRevenue._sum.amountPaid || 0) - (refunds._sum.totalAmount || 0)) * 100,
       ) / 100,
     };
   }
@@ -546,7 +630,7 @@ export class ReportingService {
   async getCoinCirculation(dateRange: DateRange) {
     const { startDate, endDate } = dateRange;
 
-    const transactions = await this.prisma.coinTransaction.findMany({
+    const transactions = await this.prisma.coinLedger.findMany({
       where: {
         createdAt: {
           gte: startDate,
@@ -557,7 +641,7 @@ export class ReportingService {
 
     let totalEarned = 0;
     let totalRedeemed = 0;
-    const byType: Record<string, { count: number; amount: number }> = {};
+    const bySource: Record<string, { count: number; amount: number }> = {};
 
     for (const tx of transactions) {
       if (tx.amount > 0) {
@@ -566,26 +650,26 @@ export class ReportingService {
         totalRedeemed += Math.abs(tx.amount);
       }
 
-      if (!byType[tx.type]) {
-        byType[tx.type] = { count: 0, amount: 0 };
+      if (!bySource[tx.source]) {
+        bySource[tx.source] = { count: 0, amount: 0 };
       }
-      byType[tx.type].count++;
-      byType[tx.type].amount += tx.amount;
+      bySource[tx.source].count++;
+      bySource[tx.source].amount += tx.amount;
     }
 
     // Get current total circulation
     const totalCirculation = await this.prisma.user.aggregate({
-      _sum: { coinBalance: true },
+      _sum: { coinsBalance: true },
     });
 
     return {
       summary: {
-        totalCirculation: totalCirculation._sum.coinBalance || 0,
+        totalCirculation: totalCirculation._sum.coinsBalance || 0,
         periodEarned: totalEarned,
         periodRedeemed: totalRedeemed,
         netChange: totalEarned - totalRedeemed,
       },
-      byType,
+      bySource,
     };
   }
 
@@ -609,7 +693,7 @@ export class ReportingService {
       this.prisma.user.count({
         where: { createdAt: { gte: startDate, lte: endDate } },
       }),
-      this.prisma.vendor.count({ where: { isActive: true } }),
+      this.prisma.vendor.count({ where: { storeStatus: 'ACTIVE' } }),
       this.prisma.vendor.count({
         where: { createdAt: { gte: startDate, lte: endDate } },
       }),
@@ -655,10 +739,10 @@ export class ReportingService {
       },
       select: {
         id: true,
-        name: true,
+        title: true,
         sku: true,
         stock: true,
-        vendor: { select: { id: true, storeName: true } },
+        Vendor: { select: { id: true, storeName: true } },
       },
       orderBy: { stock: 'asc' },
     });

@@ -41,7 +41,7 @@ export class VendorRevenueService {
             where: {
                 performanceScore: { gte: 80 }
             },
-            include: { products: { take: 5 } }
+            include: { Product: { take: 5 } }
         });
 
         // Filter for low visibility (simulated here since we don't have global impressions table yet)

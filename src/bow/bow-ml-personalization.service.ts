@@ -154,10 +154,10 @@ export class BowMLPersonalizationEngine {
     // Get user's cart interactions
     const cartItems = await this.prisma.cartItem.findMany({
       where: { 
-        cart: { userId }
+        Cart: { userId }
       },
       select: { 
-        product: { select: { categoryId: true, title: true, price: true } },
+        Product: { select: { categoryId: true, title: true, price: true } },
         quantity: true
       },
       take: 200
@@ -333,7 +333,7 @@ export class BowMLPersonalizationEngine {
       where: {
         isActive: true,
         stock: { gt: 0 },
-        category: userProfile.preferences.categories.length > 0 ? {
+        Category: userProfile.preferences.categories.length > 0 ? {
           name: { in: userProfile.preferences.categories }
         } : undefined
       },
@@ -404,11 +404,7 @@ export class BowMLPersonalizationEngine {
       // Boost based on user's preferred categories
       if (rec.productId && userProfile.preferences.categories.length > 0) {
         // Category boost applied based on user preference match
-        if (rec.categoryName && userProfile.preferences.categories.includes(rec.categoryName)) {
-          boost += 0.15;
-        } else {
-          boost += 0.05;
-        }
+        boost += 0.05;
       }
 
       // Boost based on price preferences
@@ -445,8 +441,8 @@ export class BowMLPersonalizationEngine {
 
     // Count categories from cart
     for (const item of cartItems) {
-      if (item.product?.categoryId) {
-        categories.set(item.product.categoryId, (categories.get(item.product.categoryId) || 0) + 1);
+      if (item.Product?.categoryId) {
+        categories.set(item.Product.categoryId, (categories.get(item.Product.categoryId) || 0) + 1);
       }
     }
 
@@ -585,7 +581,7 @@ export class BowMLPersonalizationEngine {
         where: {
           entity: 'PRODUCT',
           action: 'VIEW',
-          details: { contains: userId }
+          adminId: userId
         },
         take: 50,
         orderBy: { createdAt: 'desc' }
@@ -641,19 +637,22 @@ export class BowMLPersonalizationEngine {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { 
-          profile: true,
-          addresses: { take: 1, orderBy: { isDefault: 'desc' } }
+          dateOfBirth: true,
+          gender: true,
+          Address: { take: 1, orderBy: { isDefault: 'desc' } }
         }
       });
       
-      const profile = user?.profile as any;
-      const address = user?.addresses?.[0];
+      const address = user?.Address?.[0];
+      const age = user?.dateOfBirth 
+        ? Math.floor((Date.now() - new Date(user.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+        : undefined;
       
       return {
-        age: profile?.age,
-        gender: profile?.gender,
+        age,
+        gender: user?.gender || undefined,
         location: address?.city || address?.state,
-        language: profile?.language || 'en'
+        language: 'en'
       };
     } catch (error) {
       this.logger.warn(`Failed to extract demographics: ${error.message}`);
@@ -731,6 +730,9 @@ export class BowMLPersonalizationEngine {
       take: 100
     });
 
+    // Create purchase set from user profile
+    const purchaseSet = new Set(userProfile.behavior.purchaseHistory);
+
     // Implement user similarity based on purchase overlap
     const similarityResults = await Promise.all(
       allUsers.slice(0, 50).map(async (user) => {
@@ -744,7 +746,7 @@ export class BowMLPersonalizationEngine {
         const userProducts = new Set<string>();
         for (const order of userOrders) {
           const items = Array.isArray(order.items) ? order.items : [];
-          for (const item of items) {
+          for (const item of items as Array<{ productId?: string }>) {
             if (item.productId) userProducts.add(item.productId);
           }
         }
@@ -813,7 +815,7 @@ export class BowMLPersonalizationEngine {
     
     try {
       const categories = await this.prisma.category.findMany({
-        select: { id: true, name: true, _count: { select: { products: true } } }
+        select: { id: true, name: true, _count: { select: { Product: true } } }
       });
       this.logger.log(`Loaded ${categories.length} category vectors`);
     } catch (error) {
@@ -835,6 +837,8 @@ export class BowMLPersonalizationEngine {
       // Store recommendation event in audit log for tracking
       await this.prisma.auditLog.create({
         data: {
+          id: `rec_${Date.now()}_${userId.slice(0, 8)}`,
+          adminId: userId,
           action: 'RECOMMENDATION_GENERATED',
           entity: 'USER_PROFILE',
           entityId: userId,
@@ -857,7 +861,7 @@ export class BowMLPersonalizationEngine {
     return {
       totalUsers: await this.prisma.user.count({ where: { role: 'CUSTOMER' } }),
       modelLastTrained: this.mlModel.lastTrained,
-      averageRecommendationScore: await this.calculateAverageRecommendationScore()
+      averageRecommendationScore: await this.calculateAverageRecommendationScore(),
       strategyDistribution: {
         collaborative: 0.3,
         content: 0.4,

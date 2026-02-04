@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBannerCampaignDto } from './dto/create-banner-campaign.dto';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class BannerCampaignsService {
@@ -24,7 +25,7 @@ export class BannerCampaignsService {
     }
 
     // Check if campaign already exists for this banner
-    const existingCampaign = await this.prisma.bannerCampaign.findUnique({
+    const existingCampaign = await this.prisma.bannerCampaign.findFirst({
       where: { bannerId },
     });
 
@@ -33,8 +34,10 @@ export class BannerCampaignsService {
     }
 
     // Create campaign
-    const campaign = await this.prisma.bannerCampaign.create({
+    const campaignId = randomUUID();
+    await this.prisma.bannerCampaign.create({
       data: {
+        id: campaignId,
         bannerId,
         vendorId,
         campaignType: dto.campaignType,
@@ -44,8 +47,13 @@ export class BannerCampaignsService {
         amountPaid: dto.amountPaid,
         paymentStatus: 'PAID', // Assuming payment is processed before campaign creation
       },
+    });
+
+    // Fetch campaign with relations
+    const campaign = await this.prisma.bannerCampaign.findUnique({
+      where: { id: campaignId },
       include: {
-        banner: {
+        Banner: {
           select: {
             id: true,
             imageUrl: true,
@@ -53,7 +61,7 @@ export class BannerCampaignsService {
             redirectUrl: true,
           },
         },
-        vendor: {
+        Vendor: {
           select: {
             id: true,
             name: true,
@@ -61,7 +69,7 @@ export class BannerCampaignsService {
           },
         },
       },
-    });
+    } as any);
 
     this.logger.log(`Banner campaign ${campaign.id} created for vendor ${vendorId}`);
     return campaign;
@@ -71,8 +79,8 @@ export class BannerCampaignsService {
     const campaign = await this.prisma.bannerCampaign.findUnique({
       where: { id: campaignId },
       include: {
-        banner: true,
-        vendor: {
+        Banner: true,
+        Vendor: {
           select: {
             id: true,
             name: true,
@@ -80,7 +88,7 @@ export class BannerCampaignsService {
           },
         },
       },
-    });
+    } as any);
 
     if (!campaign) {
       throw new NotFoundException('Campaign not found');
@@ -93,7 +101,7 @@ export class BannerCampaignsService {
     return this.prisma.bannerCampaign.findMany({
       where: { vendorId },
       include: {
-        banner: {
+        Banner: {
           select: {
             id: true,
             imageUrl: true,
@@ -104,7 +112,7 @@ export class BannerCampaignsService {
         },
       },
       orderBy: { createdAt: 'desc' },
-    });
+    } as any);
   }
 
   async getCampaignStats(campaignId: string) {

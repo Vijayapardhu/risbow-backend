@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MembershipTier, PayoutCycle, PaymentIntentPurpose, UserRole } from '@prisma/client';
 import {
@@ -179,6 +180,7 @@ export class VendorMembershipsService {
 
         const membership = await this.prisma.vendorMembership.create({
             data: {
+                id: randomUUID(),
                 vendorId,
                 tier: dto.tier,
                 price: tierConfig.price,
@@ -190,6 +192,7 @@ export class VendorMembershipsService {
                 endDate,
                 autoRenew: dto.autoRenew ?? false,
                 isActive: true,
+                updatedAt: new Date(),
             },
         });
 
@@ -209,7 +212,7 @@ export class VendorMembershipsService {
     async upgrade(vendorId: string, dto: UpgradeMembershipDto): Promise<CurrentMembershipResponseDto> {
         const vendor = await this.prisma.vendor.findUnique({
             where: { id: vendorId },
-            include: { VendorMembership: true, products: true },
+            include: { VendorMembership: true, Product: true },
         });
 
         if (!vendor) {
@@ -279,7 +282,7 @@ export class VendorMembershipsService {
                 autoRenew: vendor.VendorMembership.autoRenew,
                 startDate: vendor.VendorMembership.startDate,
                 endDate: vendor.VendorMembership.endDate,
-                usage: { currentSkus: vendor.products.length, remainingSkus: Math.max(0, newTierConfig.skuLimit - vendor.products.length), usagePercentage: 0 },
+                usage: { currentSkus: vendor.Product.length, remainingSkus: Math.max(0, newTierConfig.skuLimit - vendor.Product.length), usagePercentage: 0 },
                 payment: payment as any,
             } as any;
         }
@@ -316,7 +319,7 @@ export class VendorMembershipsService {
             where: { id: vendorId },
             include: {
                 VendorMembership: true,
-                products: {
+                Product: {
                     where: { isActive: true },
                     select: { id: true },
                 },
@@ -331,7 +334,7 @@ export class VendorMembershipsService {
             throw new NotFoundException('No active membership found');
         }
 
-        const currentSkus = vendor.products.length;
+        const currentSkus = vendor.Product.length;
         const remainingSkus = vendor.VendorMembership.skuLimit - currentSkus;
         const usagePercentage = Math.round((currentSkus / vendor.VendorMembership.skuLimit) * 100);
 
@@ -405,7 +408,7 @@ export class VendorMembershipsService {
                 autoRenew: false, // Only notify if not auto-renewing
             },
             include: {
-                vendor: {
+                Vendor: {
                     select: { id: true, name: true, email: true, mobile: true },
                 },
             },
@@ -431,7 +434,7 @@ export class VendorMembershipsService {
                 autoRenew: false,
             },
             include: {
-                vendor: {
+                Vendor: {
                     select: { id: true, name: true, email: true, mobile: true },
                 },
             },
@@ -467,7 +470,7 @@ export class VendorMembershipsService {
                 },
             },
             include: {
-                vendor: {
+                Vendor: {
                     select: { id: true, coinsBalance: true },
                 },
             },
@@ -483,7 +486,7 @@ export class VendorMembershipsService {
                 const paisePerCoin = await this.coinValuation.getActivePaisePerCoin(UserRole.VENDOR);
                 const renewalCostInCoins = Math.ceil((tierConfig.price * 100) / paisePerCoin);
 
-                if (membership.vendor.coinsBalance >= renewalCostInCoins) {
+                if (membership.Vendor.coinsBalance >= renewalCostInCoins) {
                     // Renew with coins
                     await this.prisma.$transaction(async (tx) => {
                         await tx.vendor.updateMany({

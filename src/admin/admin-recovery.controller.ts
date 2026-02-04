@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../shared/notifications.service';
 import { TelecallerService } from '../telecaller/telecaller.service';
 import { CheckoutRecoveryStatus } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @ApiTags('Admin Recovery')
 @ApiBearerAuth()
@@ -48,26 +49,28 @@ export class AdminRecoveryController {
         skip,
         take,
         orderBy: { abandonedAt: 'desc' },
-        include: { User: { select: { id: true, name: true, mobile: true, email: true } }, agent: { select: { id: true, name: true } } },
+        include: { User_AbandonedCheckout_userIdToUser: { select: { id: true, name: true, mobile: true, email: true } }, User_AbandonedCheckout_agentIdToUser: { select: { id: true, name: true } } },
       }),
     ]);
 
     const data = rows.map((lead) => {
       const finance = lead.financeSnapshot as any;
       const items = lead.cartSnapshot as any;
+      const user = lead.User_AbandonedCheckout_userIdToUser;
+      const agent = lead.User_AbandonedCheckout_agentIdToUser;
       return {
         id: lead.id,
         userId: lead.userId,
-        userName: lead.User?.name || (lead.guestInfo as any)?.name || 'Guest',
-        userEmail: lead.User?.email,
-        userPhone: lead.User?.mobile || (lead.guestInfo as any)?.phone,
+        userName: user?.name || (lead.guestInfo as any)?.name || 'Guest',
+        userEmail: user?.email,
+        userPhone: user?.mobile || (lead.guestInfo as any)?.phone,
         cartValue: finance?.totalAmount || 0,
         items: Array.isArray(items) ? items.map((i) => ({ productId: i.productId, productName: i.title || i.name || i.productId, quantity: i.quantity || 1 })) : [],
         abandonedAt: lead.abandonedAt,
         lastNotifiedAt: (lead.metadata as any)?.lastNotifiedAt,
         recoveryStatus: lead.status,
         recoveryChannel: (lead.metadata as any)?.recoveryChannel,
-        assignedTo: lead.agent ? { id: lead.agent.id, name: lead.agent.name } : null,
+        assignedTo: agent ? { id: agent.id, name: agent.name } : null,
       };
     });
 
@@ -135,7 +138,7 @@ export class AdminRecoveryController {
     // Add followup note if present
     if (body.notes) {
       await this.prisma.checkoutFollowup.create({
-        data: { checkoutId: id, agentId: req.user.id, note: body.notes },
+        data: { id: randomUUID(), checkoutId: id, agentId: req.user.id, note: body.notes },
       });
     }
 

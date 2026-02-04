@@ -120,7 +120,7 @@ export class BowOutfitRecommender {
 
             // Get frequently purchased categories
             const userProducts = await this.prisma.product.findMany({
-                where: { vendor: { id: userId } },
+                where: { Vendor: { id: userId } },
                 select: { categoryId: true, Category: { select: { name: true } } },
                 take: 5
             });
@@ -162,7 +162,7 @@ export class BowOutfitRecommender {
             for (const category of categories) {
                 const product = await this.prisma.product.findFirst({
                     where: {
-                        category: {
+                        Category: {
                             name: { contains: category, mode: 'insensitive' }
                         },
                         isActive: true,
@@ -279,7 +279,7 @@ export class BowOutfitRecommender {
                 select: {
                     id: true,
                     categoryId: true,
-                    category: { select: { name: true } },
+                    Category: { select: { name: true } },
                     price: true
                 }
             });
@@ -295,7 +295,7 @@ export class BowOutfitRecommender {
                 'Laptops': ['Bags', 'Chargers', 'Mice'],
             };
 
-            const categoryName = product.Category.name;
+            const categoryName = product.Category?.name;
             const complementCategories = complements[categoryName] || [];
 
             if (complementCategories.length === 0) return [];
@@ -303,7 +303,7 @@ export class BowOutfitRecommender {
             // Find products in complement categories
             const complementaryProducts = await this.prisma.product.findMany({
                 where: {
-                    category: {
+                    Category: {
                         name: { in: complementCategories }
                     },
                     id: { not: productId },

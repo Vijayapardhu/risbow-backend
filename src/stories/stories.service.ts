@@ -100,7 +100,7 @@ export class StoriesService {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
-        vendor: {
+        Vendor: {
           select: {
             id: true,
             name: true,

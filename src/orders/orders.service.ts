@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CheckoutDto, ConfirmOrderDto } from './dto/order.dto';
 import { generateOrderNumber } from '../common/order-number.utils';
@@ -121,6 +122,7 @@ export class OrdersService {
         // 5) Persist Order with linked Snapshot
         const order = await this.prisma.order.create({
             data: {
+                id: randomUUID(),
                 userId,
                 roomId: dto.roomId,
                 orderNumber,
@@ -131,8 +133,9 @@ export class OrdersService {
                 razorpayOrderId: rzpOrder.id,
                 abandonedCheckoutId: dto.abandonedCheckoutId,
                 // P0: Immutable Snapshot
-                financialSnapshot: {
+                OrderFinancialSnapshot: {
                     create: {
+                        id: randomUUID(),
                         subtotal: totalBasePrice,
                         taxAmount: totalTaxAmount,
                         shippingAmount: shippingFee,
@@ -144,17 +147,17 @@ export class OrdersService {
                         vendorEarnings: netVendorEarnings,
                         platformEarnings: totalCommissionAmount, // Fixed portion
                     }
-                } as any,
+                },
                 // P0: Initial Settlement state
-                settlement: {
+                OrderSettlement: {
                     create: {
-                        id: require('crypto').randomUUID(),
+                        id: randomUUID(),
+                        vendorId: vendorId || '',
                         amount: netVendorEarnings,
                         status: 'PENDING',
-                        vendor: { connect: { id: vendorId || '' } },
                     }
                 }
-            },
+            } as any,
         });
 
         return {
@@ -173,11 +176,11 @@ export class OrdersService {
         // 🔐 IDEMPOTENCY: Check Redis for duplicate processing
         const idempotencyKey = `confirm_order:${dto.razorpayOrderId}:${dto.razorpayPaymentId}`;
         const existingProcessing = await this.redisService.get(idempotencyKey);
-        
+
         if (existingProcessing === 'processing') {
             throw new BadRequestException('Order confirmation is already in progress');
         }
-        
+
         if (existingProcessing === 'completed') {
             this.logger.log(`Idempotency: Order ${dto.razorpayOrderId} already confirmed`);
             const orders = await this.prisma.order.findMany({
@@ -443,7 +446,7 @@ export class OrdersService {
     async cancelOrder(userId: string, orderId: string) {
         const order = await this.prisma.order.findFirst({
             where: { id: orderId, userId },
-            include: { Payment: true },
+            include: { payment: true },
         });
         if (!order) throw new NotFoundException('Order not found');
 
@@ -569,7 +572,7 @@ export class OrdersService {
         // Collect all unique productIds and vendorIds from order items
         const allProductIds = new Set<string>();
         const allVendorIds = new Set<string>();
-        
+
         orders.forEach(order => {
             const items = Array.isArray(order.items) ? order.items : [];
             items.forEach((item: any) => {
@@ -602,7 +605,7 @@ export class OrdersService {
             // Get vendor info from the first item's product
             let shopId = '';
             let shopName = 'Risbow Store';
-            
+
             if (items.length > 0) {
                 const firstItem = items[0] as any;
                 // Try to get vendor directly from item first
@@ -629,9 +632,9 @@ export class OrdersService {
             // Transform items to match frontend OrderItem interface
             const transformedItems = items.map((item: any, index: number) => {
                 const product = productMap.get(item.productId);
-                const vendor = item.vendorId ? vendorMap.get(item.vendorId) : 
-                               (product?.vendorId ? vendorMap.get(product.vendorId) : null);
-                
+                const vendor = item.vendorId ? vendorMap.get(item.vendorId) :
+                    (product?.vendorId ? vendorMap.get(product.vendorId) : null);
+
                 return {
                     id: `${order.id}-item-${index}`,
                     productId: item.productId || '',
@@ -732,7 +735,7 @@ export class OrdersService {
                 }))
             }
         };
-        
+
         return response;
     }
 
@@ -748,10 +751,10 @@ export class OrdersService {
             this.prisma.order.count({ where: { status: 'DELIVERED' } }),
             this.prisma.order.count({ where: { status: 'CANCELLED' } }),
         ]);
-        
+
         // Sum all pending-related statuses
         const pending = pendingCreated + pendingPayment + pendingOrders;
-        
+
         return { pending, confirmed, packed, shipped, delivered, cancelled };
     }
 
@@ -800,7 +803,7 @@ export class OrdersService {
         // Get vendor info from the first item
         let shopId = '';
         let shopName = 'Risbow Store';
-        
+
         if (items.length > 0) {
             const firstItem = items[0] as any;
             if (firstItem.vendorId) {
@@ -825,9 +828,9 @@ export class OrdersService {
         // Transform items to match frontend OrderItem interface
         const transformedItems = items.map((item: any, index: number) => {
             const product = productMap.get(item.productId);
-            const vendor = item.vendorId ? vendorMap.get(item.vendorId) : 
-                           (product?.vendorId ? vendorMap.get(product.vendorId) : null);
-            
+            const vendor = item.vendorId ? vendorMap.get(item.vendorId) :
+                (product?.vendorId ? vendorMap.get(product.vendorId) : null);
+
             return {
                 id: `${order.id}-item-${index}`,
                 productId: item.productId || '',
@@ -929,6 +932,22 @@ export class OrdersService {
             allowAdminOverride,
         );
 
+        if (status === 'OUT_FOR_INSPECTION' as OrderStatus) {
+            const obdOtp = Math.floor(1000 + Math.random() * 9000).toString();
+            // In production, send this via SMS/WhatsApp to customer
+            this.logger.log(`Generated OBD OTP for order ${orderId}: ${obdOtp}`);
+
+            await this.prisma.order.update({
+                where: { id: orderId },
+                data: {
+                    status,
+                    obdOtp,
+                    obdVerifiedAt: null
+                }
+            });
+            return this.prisma.order.findUnique({ where: { id: orderId } });
+        }
+
         const updatedOrder = await this.prisma.order.update({
             where: { id: orderId },
             data: { status }
@@ -940,7 +959,7 @@ export class OrdersService {
                 // Extract vendor ID from order items
                 const items = (order.items as any[]) || [];
                 const vendorIds = [...new Set(items.map(item => item.vendorId).filter(Boolean))];
-                
+
                 // Process successful delivery for each vendor
                 for (const vendorId of vendorIds) {
                     await this.vendorDiscipline.processSuccessfulDelivery(vendorId, orderId);
@@ -952,12 +971,12 @@ export class OrdersService {
         }
 
         // Process vendor discipline for CANCELLED/RETURNED orders (missed delivery = strike)
-        if ((status === OrderStatus.CANCELLED || status === OrderStatus.RETURNED) && 
+        if ((status === OrderStatus.CANCELLED || status === OrderStatus.RETURNED) &&
             (order.status === OrderStatus.SHIPPED || order.status === OrderStatus.PACKED)) {
             try {
                 const items = (order.items as any[]) || [];
                 const vendorIds = [...new Set(items.map(item => item.vendorId).filter(Boolean))];
-                
+
                 // Add strike for missed delivery
                 for (const vendorId of vendorIds) {
                     await this.vendorDiscipline.addStrike(
@@ -976,6 +995,7 @@ export class OrdersService {
         if (adminId) {
             await this.prisma.auditLog.create({
                 data: {
+                    id: randomUUID(),
                     adminId,
                     entity: 'Order',
                     entityId: orderId,
@@ -998,7 +1018,7 @@ export class OrdersService {
     async updatePaymentStatus(orderId: string, paymentStatus: string, notes?: string) {
         const order = await this.prisma.order.findUnique({
             where: { id: orderId },
-            include: { Payment: true }
+            include: { payment: true }
         });
 
         if (!order) {
@@ -1011,7 +1031,7 @@ export class OrdersService {
         if (order.payment) {
             updatedPayment = await this.prisma.payment.update({
                 where: { id: order.payment.id },
-                data: { 
+                data: {
                     status: paymentStatus as any,
                     updatedAt: new Date()
                 }
@@ -1020,12 +1040,13 @@ export class OrdersService {
             // Create a payment record if it doesn't exist
             updatedPayment = await this.prisma.payment.create({
                 data: {
+                    id: randomUUID(),
                     orderId,
                     amount: order.totalAmount,
                     currency: 'INR',
                     provider: 'MANUAL',
                     status: paymentStatus as any,
-                }
+                } as any
             });
         }
 

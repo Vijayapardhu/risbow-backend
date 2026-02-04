@@ -5,6 +5,7 @@ import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { EmployeeQueryDto } from './dto/employee-query.dto';
 import { EmployeeRole, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class EmployeesService {
@@ -32,6 +33,7 @@ export class EmployeesService {
 
     return this.prisma.employee.create({
       data: {
+        id: randomUUID(),
         employeeId,
         name: dto.name,
         email: dto.email,
@@ -40,7 +42,8 @@ export class EmployeesService {
         role: dto.role,
         department: dto.department,
         permissions: dto.permissions || [],
-        avatar: dto.avatar
+        avatar: dto.avatar,
+        updatedAt: new Date()
       }
     });
   }

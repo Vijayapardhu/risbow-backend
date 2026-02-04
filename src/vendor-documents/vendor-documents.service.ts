@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseStorageService } from '../shared/supabase-storage.service';
 import { DocumentType } from './dto/upload-document.dto';
@@ -39,10 +40,11 @@ export class VendorDocumentsService {
     // Create document record
     const document = await this.prisma.vendorDocument.create({
       data: {
-        vendorId,
+        id: randomUUID(),
         documentType,
         documentUrl: url,
         status: 'PENDING',
+        Vendor: { connect: { id: vendorId } },
       },
     });
 
@@ -66,7 +68,7 @@ export class VendorDocumentsService {
       where,
       orderBy: { uploadedAt: 'desc' },
       include: {
-        vendor: {
+        Vendor: {
           select: {
             id: true,
             name: true,

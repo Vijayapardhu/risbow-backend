@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../shared/redis.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class WalletService {
@@ -35,6 +36,7 @@ export class WalletService {
       // Log to ledger
       await tx.ledgerEntry.create({
         data: {
+          id: randomUUID(),
           userId,
           walletId: wallet.id,
           amount,
@@ -71,6 +73,7 @@ export class WalletService {
 
       await tx.ledgerEntry.create({
         data: {
+          id: randomUUID(),
           userId,
           walletId: wallet.id,
           amount: -amount,

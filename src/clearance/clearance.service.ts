@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RoomsService } from '../rooms/rooms.service';
 import { NotificationsService } from '../shared/notifications.service';
 import { RoomType, RoomStatus } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class ClearanceService {
@@ -53,6 +54,7 @@ export class ClearanceService {
     // Create clearance product
     const clearanceProduct = await this.prisma.clearanceProduct.create({
       data: {
+        id: randomUUID(),
         productId,
         vendorId,
         clearancePrice,
@@ -62,7 +64,7 @@ export class ClearanceService {
         isActive: true,
       },
       include: {
-        product: {
+        Product: {
           select: {
             id: true,
             title: true,
@@ -91,7 +93,7 @@ export class ClearanceService {
       take: limit,
       skip: offset,
       include: {
-        product: {
+        Product: {
           select: {
             id: true,
             title: true,
@@ -100,7 +102,7 @@ export class ClearanceService {
             categoryId: true,
           },
         },
-        vendor: {
+        Vendor: {
           select: {
             id: true,
             name: true,
@@ -120,7 +122,7 @@ export class ClearanceService {
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        product: {
+        Product: {
           select: {
             id: true,
             title: true,
@@ -242,6 +244,7 @@ export class ClearanceService {
           // Create clearance product
           const clearanceProduct = await this.prisma.clearanceProduct.create({
             data: {
+              id: randomUUID(),
               productId: product.id,
               vendorId: vendor.id,
               clearancePrice,
@@ -251,7 +254,7 @@ export class ClearanceService {
               isActive: true,
             },
             include: {
-              product: {
+              Product: {
                 select: {
                   title: true,
                 },
@@ -407,7 +410,7 @@ export class ClearanceService {
           },
         },
         include: {
-          product: {
+          Product: {
             select: {
               id: true,
               title: true,

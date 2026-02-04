@@ -4,6 +4,7 @@ import { Job } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.service';
 import { OrderProcessingJob } from '../queues.service';
 import { OrderStatus } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Processor('orders', {
     concurrency: 5,
@@ -105,6 +106,7 @@ export class OrderProcessor extends WorkerHost {
         // Create ledger entry
         await this.prisma.coinLedger.create({
             data: {
+                id: randomUUID(),
                 userId: data.userId,
                 amount: -data.amount,
                 source: 'ORDER_PAYMENT',

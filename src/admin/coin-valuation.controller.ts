@@ -6,6 +6,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CoinValuationService } from '../coins/coin-valuation.service';
 import { AuditLogService } from '../audit/audit.service';
 import { SetCoinValuationDto } from './dto/coin-valuation.dto';
+import { randomUUID } from 'crypto';
 
 @ApiTags('Admin')
 @ApiBearerAuth()
@@ -61,10 +62,14 @@ export class CoinValuationController {
 
     // Store in PlatformConfig
     const config = await this.valuation['prisma'].platformConfig.upsert({
-      where: { key: 'RATING_5_STAR_COINS' },
+      where: { category_key: { category: 'COINS', key: 'RATING_5_STAR_COINS' } },
       create: {
+        id: randomUUID(),
+        category: 'COINS',
         key: 'RATING_5_STAR_COINS',
         value: coins.toString(),
+        updatedById: 'system',
+        updatedAt: new Date(),
       },
       update: {
         value: coins.toString(),
@@ -86,7 +91,7 @@ export class CoinValuationController {
   @ApiOperation({ summary: 'Get current coins awarded per 5-star rating' })
   async getRatingCoins() {
     const config = await this.valuation['prisma'].platformConfig.findUnique({
-      where: { key: 'RATING_5_STAR_COINS' },
+      where: { category_key: { category: 'COINS', key: 'RATING_5_STAR_COINS' } },
     });
 
     const coins = config ? parseInt(config.value as string) || 2 : 2; // Default: 2 coins

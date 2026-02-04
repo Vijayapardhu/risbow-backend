@@ -7,6 +7,7 @@ import { CacheService } from '../shared/cache.service';
 import { SearchService } from '../search/search.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { parse } from 'csv-parse/sync';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class CatalogService {
@@ -158,11 +159,13 @@ export class CatalogService {
     async createCategory(data: { name: string; parentId?: string; image?: string; attributeSchema?: any }) {
         return this.prisma.category.create({
             data: {
+                id: randomUUID(),
                 name: data.name,
                 parentId: data.parentId,
                 image: data.image,
                 attributeSchema: data.attributeSchema,
-                isActive: true
+                isActive: true,
+                updatedAt: new Date()
             },
         });
     }
@@ -171,8 +174,8 @@ export class CatalogService {
         return this.prisma.category.findUnique({
             where: { id },
             include: {
-                parent: true,
-                children: {
+                Category: true,
+                other_Category: {
                     where: { isActive: true }
                 }
             }
@@ -225,14 +228,14 @@ export class CatalogService {
                             nameTE: true,
                             parentId: true,
                             isActive: true,
-                            parent: {
+                            Category: {
                                 select: {
                                     id: true,
                                     name: true,
                                 }
                             },
                             _count: {
-                                select: { products: true }
+                                select: { Product: true }
                             }
                         }
                     });
@@ -263,6 +266,7 @@ export class CatalogService {
 
         const product = await this.prisma.product.create({
             data: {
+                id: randomUUID(),
                 title: dto.title,
                 description: dto.description,
                 price: dto.price,
@@ -297,6 +301,8 @@ export class CatalogService {
                 isWholesale: dto.isWholesale || false,
                 wholesalePrice: dto.wholesalePrice,
                 moq: dto.moq || 1,
+                
+                updatedAt: new Date()
             },
         });
 
@@ -474,6 +480,7 @@ export class CatalogService {
     async createGift(data: { title: string; stock: number; cost: number; eligibleCategories?: any }) {
         return this.prisma.giftSKU.create({
             data: {
+                id: randomUUID(),
                 title: data.title,
                 stock: data.stock,
                 cost: data.cost,
@@ -545,14 +552,14 @@ export class CatalogService {
                             moq: true,
                             createdAt: true,
                             updatedAt: true,
-                            vendor: {
+                            Vendor: {
                                 select: {
                                     id: true,
                                     name: true,
                                     tier: true,
                                 }
                             },
-                            category: {
+                            Category: {
                                 select: {
                                     id: true,
                                     name: true,
@@ -580,7 +587,7 @@ export class CatalogService {
                         rating: true,
                         comment: true,
                         createdAt: true,
-                        user: {
+                        User: {
                             select: { id: true, name: true }
                         }
                     }
@@ -616,6 +623,7 @@ export class CatalogService {
             if (!row.title || !row.price || !row.categoryId) continue;
             await this.prisma.product.create({
                 data: {
+                    id: randomUUID(),
                     title: String(row.title).trim(),
                     description: row.description ? String(row.description) : '',
                     price: Number(row.price),
@@ -626,6 +634,7 @@ export class CatalogService {
                     sku: row.sku ? String(row.sku).trim() : undefined,
                     images: [],
                     isActive: false,
+                    updatedAt: new Date()
                 },
             });
             uploaded++;

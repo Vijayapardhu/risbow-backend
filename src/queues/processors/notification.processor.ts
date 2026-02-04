@@ -6,6 +6,7 @@ import { NotificationJob } from '../queues.service';
 import axios from 'axios';
 import { CommunicationService } from '../../shared/communication.service';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { randomUUID } from 'crypto';
 
 @Processor('notifications', {
     concurrency: 10,
@@ -57,6 +58,7 @@ export class NotificationProcessor extends WorkerHost {
         if (userId) {
             await this.prisma.notification.create({
                 data: {
+                    id: randomUUID(),
                     userId,
                     title,
                     body,

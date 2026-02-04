@@ -5,6 +5,7 @@ import { UpdateDriverDto } from './dto/update-driver.dto';
 import { DriverQueryDto } from './dto/driver-query.dto';
 import { CreateDeliveryDto, UpdateDeliveryStatusDto } from './dto/create-delivery.dto';
 import { DriverStatus, DeliveryStatus, Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class DriversService {
@@ -33,6 +34,7 @@ export class DriversService {
 
     return this.prisma.driver.create({
       data: {
+        id: randomUUID(),
         driverId,
         name: dto.name,
         mobile: dto.mobile,
@@ -42,7 +44,8 @@ export class DriversService {
         licenseNumber: dto.licenseNumber,
         licenseExpiry: new Date(dto.licenseExpiry),
         avatar: dto.avatar,
-        status: DriverStatus.PENDING
+        status: DriverStatus.PENDING,
+        updatedAt: new Date()
       }
     });
   }
@@ -89,7 +92,7 @@ export class DriversService {
   async findOne(id: string) {
     const driver = await this.prisma.driver.findUnique({
       where: { id },
-      include: { documents: true }
+      include: { DriverDocument: true }
     });
 
     if (!driver) throw new NotFoundException('Driver not found');
@@ -152,6 +155,7 @@ export class DriversService {
 
     return this.prisma.delivery.create({
       data: {
+        id: randomUUID(),
         deliveryNumber,
         orderId: dto.orderId,
         driverId: dto.driverId,
@@ -159,11 +163,12 @@ export class DriversService {
         deliveryAddress: dto.deliveryAddress,
         distance: dto.distance,
         estimatedTime: dto.estimatedTime,
-        status: DeliveryStatus.PENDING
+        status: DeliveryStatus.PENDING,
+        updatedAt: new Date()
       },
       include: {
-        order: { select: { id: true, totalAmount: true, status: true } },
-        driver: { select: { id: true, name: true, mobile: true } }
+        Order: { select: { id: true, totalAmount: true, status: true } },
+        Driver: { select: { id: true, name: true, mobile: true } }
       }
     });
   }
@@ -183,8 +188,8 @@ export class DriversService {
         skip,
         take: Number(limit),
         include: {
-          order: { select: { id: true, totalAmount: true, status: true } },
-          driver: { select: { id: true, name: true, mobile: true } }
+          Order: { select: { id: true, totalAmount: true, status: true } },
+          Driver: { select: { id: true, name: true, mobile: true } }
         },
         orderBy: { createdAt: 'desc' }
       })

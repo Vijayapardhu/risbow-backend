@@ -172,6 +172,12 @@ export class UpdateProductDto {
     @IsString()
     @IsOptional()
     dimensionUnit?: string;
+
+    @ApiPropertyOptional()
+    @IsArray()
+    @IsString({ each: true })
+    @IsOptional()
+    images?: string[];
 }
 
 export class ProductStatusDto {

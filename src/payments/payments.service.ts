@@ -5,6 +5,7 @@ import { CreatePaymentOrderDto } from './dto/create-payment-order.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import Razorpay from 'razorpay';
 import * as crypto from 'crypto';
+import { randomUUID } from 'crypto';
 import { BowService } from '../bow/bow.service';
 import { PaymentIntentPurpose } from '@prisma/client';
 
@@ -38,7 +39,7 @@ export class PaymentsService {
         // 1. Validate internal order existence
         const order = await this.prisma.order.findUnique({
             where: { id: orderId },
-            include: { Payment: true },
+            include: { payment: true },
         });
 
         if (!order) {
@@ -49,7 +50,7 @@ export class PaymentsService {
             throw new BadRequestException('Order does not belong to user');
         }
 
-        if (order.Payment && order.Payment.status === 'SUCCESS') {
+        if (order.payment && order.payment.status === 'SUCCESS') {
             throw new BadRequestException('Order is already paid');
         }
 
@@ -89,13 +90,14 @@ export class PaymentsService {
                     status: 'PENDING',
                 },
                 create: {
+                    id: randomUUID(),
                     orderId: orderId,
                     amount: expectedAmount,
                     currency: currency,
                     provider: 'RAZORPAY',
                     providerOrderId: razorpayOrder.id,
                     status: 'PENDING',
-                }
+                } as any
             });
 
             // Update Order with Razorpay Order ID for reference
@@ -223,7 +225,7 @@ export class PaymentsService {
         // 2. Find internal payment record(s) (split-checkout can have multiple payments sharing providerOrderId)
         const payments = await this.prisma.payment.findMany({
             where: { providerOrderId: razorpay_order_id },
-            include: { order: true }
+            include: { Order: true }
         });
 
         if (!payments || payments.length === 0) {
@@ -231,7 +233,7 @@ export class PaymentsService {
         }
 
         // 3. Security Check: Ensure user owns all orders
-        if (payments.some((p) => p.order.userId !== userId)) {
+        if (payments.some((p) => p.Order.userId !== userId)) {
             throw new BadRequestException('Unauthorized access to this payment');
         }
 
@@ -302,7 +304,7 @@ export class PaymentsService {
         // 3. Find Internal Payment(s) (order payments) OR PaymentIntent (non-order payments)
         const payments = await this.prisma.payment.findMany({
             where: { providerOrderId: razorpayOrderId },
-            include: { order: true }
+            include: { Order: true }
         }).catch(() => []);
 
         const paymentIntent = (!payments || payments.length === 0)
@@ -358,8 +360,8 @@ export class PaymentsService {
 
                 // TRIGGER BOW RECOVERY NUDGE (best-effort, once)
                 const first = payments[0];
-                if (first?.order?.userId && first?.orderId) {
-                    await this.bowService.handlePaymentFailure(first.order.userId, first.orderId);
+                if (first?.Order?.userId && first?.orderId) {
+                    await this.bowService.handlePaymentFailure(first.Order.userId, first.orderId);
                 }
             } else if (paymentIntent) {
                 await (this.prisma as any).paymentIntent.update({
@@ -439,6 +441,7 @@ export class PaymentsService {
             if (adminId) {
                 await this.prisma.auditLog.create({
                     data: {
+                        id: String(randomUUID()),
                         adminId,
                         entity: 'PAYMENT',
                         entityId: paymentId,

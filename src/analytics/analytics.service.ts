@@ -83,7 +83,7 @@ export class AnalyticsService {
         const totalUsers = await this.prisma.user.count({ where: { role: 'CUSTOMER' } });
 
         const cartUsers = await this.prisma.cart.count({
-            where: { items: { some: {} } }
+            where: { CartItem: { some: {} } }
         });
 
         const checkoutStarted = await this.prisma.abandonedCheckout.count();
@@ -149,7 +149,7 @@ export class AnalyticsService {
                 id: true,
                 financeSnapshot: true,
                 metadata: true,
-                orders: {
+                Order: {
                     select: { totalAmount: true }
                 }
             }
@@ -176,7 +176,7 @@ export class AnalyticsService {
             const metadata = (checkout.metadata as any) || {};
             const recoveryChannel = metadata.recoveryChannel || 'SELF';
             const finance = checkout.financeSnapshot as any;
-            const orderValue = checkout.orders?.[0]?.totalAmount || finance?.totalAmount || 0;
+            const orderValue = checkout.Order?.[0]?.totalAmount || finance?.totalAmount || 0;
             
             // Convert to paise if needed (order.totalAmount might be in rupees)
             const valueInPaise = orderValue > 100000 ? orderValue : orderValue * 100;
@@ -243,13 +243,13 @@ export class AnalyticsService {
         const telecallers = await this.prisma.user.findMany({
             where: { role: 'TELECALLER', status: 'ACTIVE' },
             include: {
-                assignedLeads: {
+                AbandonedCheckout_AbandonedCheckout_agentIdToUser: {
                     where: { createdAt: { gte: since } },
                     select: {
                         id: true,
                         status: true,
                         financeSnapshot: true,
-                        orders: {
+                        Order: {
                             select: { totalAmount: true }
                         }
                     }
@@ -258,10 +258,10 @@ export class AnalyticsService {
         });
 
         const performance = telecallers.map(agent => {
-            const leads = agent.assignedLeads;
+            const leads = agent.AbandonedCheckout_AbandonedCheckout_agentIdToUser;
             const converted = leads.filter(l => l.status === 'CONVERTED');
             const totalValue = converted.reduce((sum, lead) => {
-                const orderValue = lead.orders?.[0]?.totalAmount || 0;
+                const orderValue = lead.Order?.[0]?.totalAmount || 0;
                 const finance = lead.financeSnapshot as any;
                 const value = orderValue > 100000 ? orderValue : (finance?.totalAmount || orderValue * 100);
                 return sum + value;

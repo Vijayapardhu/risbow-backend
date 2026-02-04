@@ -84,6 +84,15 @@ export class VendorsController {
         return this.vendorsService.getCustomerAnalytics(req.user.id);
     }
 
+    @Get('analytics/traffic')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Get vendor traffic and funnel analytics' })
+    @ApiResponse({ status: 200, description: 'Traffic analytics data' })
+    async getTrafficAnalytics(@Request() req, @Query('days') days?: string) {
+        const period = days ? Math.max(7, Math.min(90, parseInt(days, 10))) : 30;
+        return this.vendorsService.getTrafficAnalytics(req.user.id, period);
+    }
+
     @Post('promotions/banner')
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Purchase a banner slot' })

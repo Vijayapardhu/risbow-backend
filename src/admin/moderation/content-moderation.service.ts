@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   ContentFlagType,
@@ -34,16 +35,23 @@ const AUTO_FLAG_KEYWORDS = [
  * Priority scoring based on flag reason
  */
 const PRIORITY_SCORES: Record<FlagReason, number> = {
-  [FlagReason.INAPPROPRIATE]: 3,
+  [FlagReason.NUDITY]: 4,
+  [FlagReason.VIOLENCE]: 4,
+  [FlagReason.HATE_SPEECH]: 5,
+  [FlagReason.COUNTERFEIT]: 4,
+  [FlagReason.PROHIBITED_ITEM]: 5,
   [FlagReason.MISLEADING]: 2,
   [FlagReason.SPAM]: 1,
-  [FlagReason.COUNTERFEIT]: 4,
-  [FlagReason.PROHIBITED]: 5,
   [FlagReason.COPYRIGHT]: 3,
+  [FlagReason.TRADEMARK]: 3,
+  [FlagReason.HARASSMENT]: 4,
+  [FlagReason.MISINFORMATION]: 3,
+  [FlagReason.OTHER]: 1,
+  [FlagReason.INAPPROPRIATE]: 3,
+  [FlagReason.PROHIBITED]: 5,
   [FlagReason.OFFENSIVE]: 4,
   [FlagReason.LOW_QUALITY]: 1,
   [FlagReason.DUPLICATE]: 1,
-  [FlagReason.OTHER]: 1,
 };
 
 interface CreateFlagDto {
@@ -111,6 +119,7 @@ export class ContentModerationService {
 
     return this.prisma.contentFlag.create({
       data: {
+        id: randomUUID(),
         contentType: dto.contentType,
         contentId: dto.contentId,
         vendorId,
@@ -244,7 +253,7 @@ export class ContentModerationService {
       this.prisma.contentFlag.findMany({
         where,
         include: {
-          vendor: { select: { id: true, storeName: true } },
+          Vendor: { select: { id: true, storeName: true } },
         },
         orderBy: [
           { priority: 'desc' },
@@ -427,8 +436,8 @@ export class ContentModerationService {
         return this.prisma.product.findUnique({
           where: { id: contentId },
           include: {
-            vendor: { select: { id: true, storeName: true } },
-            category: { select: { id: true, name: true } },
+            Vendor: { select: { id: true, storeName: true } },
+            Category: { select: { id: true, name: true } },
           },
         });
 
@@ -436,8 +445,8 @@ export class ContentModerationService {
         return this.prisma.review.findUnique({
           where: { id: contentId },
           include: {
-            user: { select: { id: true, name: true } },
-            product: { select: { id: true, name: true } },
+            User: { select: { id: true, name: true } },
+            Product: { select: { id: true, title: true } },
           },
         });
 
@@ -449,7 +458,7 @@ export class ContentModerationService {
       case ContentFlagType.PRODUCT_IMAGE:
         return this.prisma.product.findUnique({
           where: { id: contentId },
-          select: { id: true, name: true, images: true },
+          select: { id: true, title: true, images: true },
         });
 
       case ContentFlagType.BANNER:
@@ -574,7 +583,7 @@ export class ContentModerationService {
       case ContentFlagType.BANNER:
         await this.prisma.bannerCampaign.update({
           where: { id: contentId },
-          data: { status: 'CANCELLED' },
+          data: { paymentStatus: 'CANCELLED' },
         });
         break;
     }
@@ -592,7 +601,7 @@ export class ContentModerationService {
       case ContentFlagType.VENDOR_PROFILE:
         await this.prisma.vendor.update({
           where: { id: contentId },
-          data: { isActive: false },
+          data: { storeStatus: 'INACTIVE' },
         });
         break;
     }

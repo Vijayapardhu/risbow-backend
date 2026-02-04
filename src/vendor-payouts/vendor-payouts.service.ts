@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit/audit.service';
 import { PayoutStatus } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class VendorPayoutsService {
@@ -49,7 +50,7 @@ export class VendorPayoutsService {
         }));
     }
 
-    async processPayout(adminId: string, vendorId: string, amount: number, transactionId: string, notes?: string) {
+    async processPayout(adminId: string, vendorId: string, amount: number, transactionId: string) {
         return this.prisma.$transaction(async (tx) => {
             const vendor = await tx.vendor.findUnique({ where: { id: vendorId } });
             if (!vendor) throw new NotFoundException('Vendor not found');
@@ -61,13 +62,15 @@ export class VendorPayoutsService {
             // 1. Create Payout Record
             const payout = await tx.vendorPayout.create({
                 data: {
+                    id: randomUUID(),
                     vendorId,
                     amount,
                     period: new Date().toISOString().slice(0, 7), // YYYY-MM
                     status: PayoutStatus.COMPLETED,
                     bankDetails: vendor.bankDetails as any || {},
                     transactionId,
-                    processedAt: new Date()
+                    processedAt: new Date(),
+                    updatedAt: new Date()
                 }
             });
 
@@ -96,7 +99,6 @@ export class VendorPayoutsService {
             where: { id: vendorId },
             select: {
                 pendingEarnings: true,
-                totalEarnings: true,
                 lastPayoutDate: true,
                 VendorMembership: {
                     select: {
@@ -123,7 +125,7 @@ export class VendorPayoutsService {
 
         return {
             availableBalance: vendor.pendingEarnings,
-            totalEarnings: vendor.totalEarnings,
+            totalEarnings: vendor.pendingEarnings + totalPaidOut,
             totalPaidOut,
             lastPayoutDate: vendor.lastPayoutDate,
             payoutCycle: vendor.VendorMembership?.payoutCycle || 'MONTHLY'
@@ -140,7 +142,7 @@ export class VendorPayoutsService {
         });
     }
 
-    async requestPayout(vendorId: string, amount: number, notes?: string) {
+    async requestPayout(vendorId: string, amount: number) {
         const vendor = await this.prisma.vendor.findUnique({
             where: { id: vendorId },
             select: {
@@ -179,12 +181,13 @@ export class VendorPayoutsService {
         // Create payout request
         const payout = await this.prisma.vendorPayout.create({
             data: {
+                id: randomUUID(),
                 vendorId,
                 amount,
                 period: new Date().toISOString().slice(0, 7), // YYYY-MM
                 status: PayoutStatus.PENDING,
                 bankDetails: vendor.bankDetails as any,
-                notes
+                updatedAt: new Date()
             }
         });
 

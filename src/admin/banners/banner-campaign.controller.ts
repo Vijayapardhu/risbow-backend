@@ -22,9 +22,9 @@ import { AdminPermissionsGuard } from '../auth/guards/admin-permissions.guard';
 import { RequirePermissions } from '../auth/decorators/admin-permissions.decorator';
 import { CurrentAdmin } from '../auth/decorators/current-admin.decorator';
 import { Permission } from '../rbac/admin-permissions.service';
-import { BannerType, BannerCampaignStatus } from '@prisma/client';
 import { IsString, IsEnum, IsOptional, IsNumber, IsDateString, IsObject, IsArray, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { BannerType, BannerCampaignStatus } from './banner-campaign.service';
 
 // DTOs
 class CreateCampaignDto {

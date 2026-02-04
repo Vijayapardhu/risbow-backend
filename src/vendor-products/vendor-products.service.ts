@@ -235,7 +235,8 @@ export class VendorProductsService {
                 ...dto,
                 stock: dto.stock !== undefined ? Number(dto.stock) : undefined,
                 price: dto.price !== undefined ? Number(dto.price) : undefined,
-                offerPrice: dto.offerPrice !== undefined ? Number(dto.offerPrice) : undefined
+                offerPrice: dto.offerPrice !== undefined ? Number(dto.offerPrice) : undefined,
+                images: dto.images !== undefined ? dto.images : undefined
             }
         });
     }
@@ -481,7 +482,7 @@ export class VendorProductsService {
     async publishProduct(vendorId: string, productId: string) {
         const product = await this.prisma.product.findFirst({
             where: { id: productId, vendorId },
-            include: { specValues: true }
+            include: { ProductSpecValue: true } as any
         });
         if (!product) throw new BadRequestException('Product not found or access denied');
 
@@ -515,7 +516,7 @@ export class VendorProductsService {
         });
 
         if (requiredSpecs.length > 0) {
-            const existingSpecIds = new Set(product.specValues.map(sv => sv.specId));
+            const existingSpecIds = new Set((product as any).ProductSpecValue.map((sv: any) => sv.specId));
             const missingSpecs = requiredSpecs.filter(rs => !existingSpecIds.has(rs.id));
 
             if (missingSpecs.length > 0) {
@@ -534,7 +535,8 @@ export class VendorProductsService {
 
     async unpublishProduct(vendorId: string, productId: string) {
         const product = await this.prisma.product.findFirst({
-            where: { id: productId, vendorId }
+            where: { id: productId, vendorId },
+            include: { ProductSpecValue: true } as any
         });
         if (!product) throw new BadRequestException('Product not found or access denied');
 

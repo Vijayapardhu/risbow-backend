@@ -4,6 +4,7 @@ import { CreateRefundDto } from './dto/create-refund.dto';
 import { ProcessRefundDto } from './dto/process-refund.dto';
 import { RefundQueryDto } from './dto/refund-query.dto';
 import { RefundStatus, Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class RefundsService {
@@ -14,7 +15,7 @@ export class RefundsService {
   async create(dto: CreateRefundDto, adminId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: dto.orderId },
-      include: { User: true }
+      include: { user: true }
     });
 
     if (!order) throw new NotFoundException('Order not found');
@@ -23,20 +24,22 @@ export class RefundsService {
 
     return this.prisma.refund.create({
       data: {
+        id: randomUUID(),
         refundNumber,
+        userId: order.userId,
         orderId: dto.orderId,
         returnId: dto.returnId,
-        userId: order.userId,
         amount: dto.amount,
         reason: dto.reason,
         method: dto.method,
         notes: dto.notes,
         status: RefundStatus.PENDING,
-      },
+        updatedAt: new Date(),
+      } as any,
       include: {
-        order: { select: { id: true, totalAmount: true, status: true } },
-        user: { select: { id: true, name: true, email: true, mobile: true } },
-        return: { select: { id: true, returnNumber: true, status: true } }
+        Order: { select: { id: true, totalAmount: true, status: true } },
+        User: { select: { id: true, name: true, email: true, mobile: true } },
+        ReturnRequest: { select: { id: true, returnNumber: true, status: true } }
       }
     });
   }
@@ -70,9 +73,9 @@ export class RefundsService {
         skip,
         take: Number(limit),
         include: {
-          order: { select: { id: true, totalAmount: true, status: true } },
-          user: { select: { id: true, name: true, email: true, mobile: true } },
-          return: { select: { id: true, returnNumber: true, status: true } }
+          Order: { select: { id: true, totalAmount: true, status: true } },
+          User: { select: { id: true, name: true, email: true, mobile: true } },
+          ReturnRequest: { select: { id: true, returnNumber: true, status: true } }
         },
         orderBy: { createdAt: 'desc' }
       })
@@ -93,9 +96,9 @@ export class RefundsService {
     const refund = await this.prisma.refund.findUnique({
       where: { id },
       include: {
-        order: true,
-        user: true,
-        return: true
+        Order: true,
+        User: true,
+        ReturnRequest: true
       }
     });
 
@@ -125,8 +128,8 @@ export class RefundsService {
       where: { id },
       data: updateData,
       include: {
-        order: { select: { id: true, totalAmount: true, status: true } },
-        user: { select: { id: true, name: true, email: true, mobile: true } }
+        Order: { select: { id: true, totalAmount: true, status: true } },
+        User: { select: { id: true, name: true, email: true, mobile: true } }
       }
     });
   }

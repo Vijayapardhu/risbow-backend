@@ -49,9 +49,9 @@ export class AdminRefundsController {
         take: Number(limit),
         orderBy: { requestedAt: 'desc' },
         include: {
-          user: { select: { id: true, name: true, mobile: true } },
-          vendor: { select: { id: true, name: true, storeName: true } },
-          order: { select: { id: true, totalAmount: true } },
+          User: { select: { id: true, name: true, mobile: true } },
+          Vendor: { select: { id: true, name: true, storeName: true } },
+          Order: { select: { id: true, totalAmount: true } },
         },
       }),
     ]);

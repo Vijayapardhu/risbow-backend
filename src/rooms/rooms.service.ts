@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { RoomStatus, MemberStatus, OrderStatus, RoomType } from '@prisma/client';
@@ -67,6 +68,7 @@ export class RoomsService {
 
         const room = await this.prisma.room.create({
             data: {
+                id: randomUUID(),
                 name: dto.name,
                 size: dto.size,
                 unlockMinOrders: dto.unlockMinOrders,
@@ -76,14 +78,14 @@ export class RoomsService {
                 isSystemRoom: false,
                 startAt: new Date(),
                 endAt: activeOffer.endAt,
-                members: {
+                RoomMember: {
                     create: {
                         userId,
                         status: MemberStatus.PENDING,
                     },
                 },
             },
-            include: { members: true },
+            include: { RoomMember: true },
         });
 
         await this.addActivity(room.id, 'MEMBER_JOINED', `Host ${userId} created the room!`, { userId });
@@ -94,15 +96,15 @@ export class RoomsService {
         return await this.prisma.$transaction(async (tx) => {
             const room = await tx.room.findUnique({
                 where: { id: roomId },
-                include: { members: { where: { userId } } }
+                include: { RoomMember: { where: { userId } } }
             });
 
             if (!room) throw new NotFoundException('Room not found');
             if (room.status !== RoomStatus.LOCKED && room.status !== RoomStatus.ACTIVE) {
                 throw new ForbiddenException('Room is not active or locked');
             }
-            if (room.members.length > 0) {
-                return { message: 'Already joined', member: room.members[0] };
+            if (room.RoomMember.length > 0) {
+                return { message: 'Already joined', member: room.RoomMember[0] };
             }
 
             const updated = await tx.room.updateMany({
@@ -208,6 +210,7 @@ export class RoomsService {
 
         return await this.prisma.room.create({
             data: {
+                id: randomUUID(),
                 name: dto.name,
                 type: RoomType.LINEAR_DISCOUNT,
                 productId: dto.productId,
@@ -218,7 +221,7 @@ export class RoomsService {
                 createdById: userId,
                 startAt: new Date(),
                 endAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // Default 24h
-                members: {
+                RoomMember: {
                     create: {
                         userId,
                         status: MemberStatus.PENDING,
@@ -239,12 +242,12 @@ export class RoomsService {
         return await this.prisma.$transaction(async (tx) => {
             const room = await tx.room.findFirst({
                 where: { id: roomId, type: RoomType.LINEAR_DISCOUNT },
-                include: { members: { where: { userId } } }
+                include: { RoomMember: { where: { userId } } }
             });
 
             if (!room) throw new NotFoundException('Discount Room not found');
             if (room.status !== RoomStatus.OPEN) throw new ForbiddenException('Room is not open for joining');
-            if (room.members.length > 0) return { message: 'Already in room', roomId };
+            if (room.RoomMember.length > 0) return { message: 'Already in room', roomId };
 
             // Atomic increment with condition
             const updated = await tx.room.updateMany({
@@ -342,7 +345,7 @@ export class RoomsService {
         return await this.prisma.$transaction(async (tx) => {
             const room = await tx.room.findFirst({
                 where: { id: roomId, type: 'LINEAR_DISCOUNT' },
-                include: { members: true }
+                include: { RoomMember: true }
             });
 
             if (!room) throw new NotFoundException('Room not found');
@@ -350,7 +353,7 @@ export class RoomsService {
                 throw new ForbiddenException('Room is not available for purchase');
             }
 
-            const isMember = room.members.some(m => m.userId === userId);
+            const isMember = room.RoomMember.some(m => m.userId === userId);
             if (!isMember) throw new ForbiddenException('Only room members can initiate purchase');
 
             // Final lock
@@ -371,11 +374,11 @@ export class RoomsService {
         return await this.prisma.$transaction(async (tx) => {
             const room = await tx.room.findUnique({
                 where: { id: roomId },
-                include: { members: true }
+                include: { RoomMember: true }
             });
             if (!room) throw new NotFoundException('Room not found');
 
-            const member = room.members.find(m => m.userId === userId);
+            const member = room.RoomMember.find(m => m.userId === userId);
             if (!member) throw new ForbiddenException('You are not a member of this room');
 
             const order = await tx.order.findUnique({ where: { id: orderId } });
@@ -474,6 +477,7 @@ export class RoomsService {
 
             await tx.auditLog.create({
                 data: {
+                    id: randomUUID(),
                     adminId: 'SYSTEM',
                     entity: 'Room',
                     action: 'EXPIRE',

@@ -9,6 +9,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { TrendingService } from './trending.service';
 import { OpenRouterService } from '../shared/openrouter.service';
+import { randomUUID } from 'crypto';
 
 /**
  * SearchIntent: Determines user's search behavior pattern
@@ -498,7 +499,7 @@ export class SearchService {
       case SortOption.PRICE_LOW: return { price: 'asc' };
       case SortOption.PRICE_HIGH: return { price: 'desc' };
       case SortOption.NEWEST: return { createdAt: 'desc' };
-      case SortOption.RATING: return { reviews: { _count: 'desc' } }; // Approximate popularity
+      case SortOption.RATING: return { Review: { _count: 'desc' } }; // Approximate popularity
       case SortOption.RELEVANCE:
       default: return { createdAt: 'desc' }; // Default fallback
     }
@@ -520,14 +521,14 @@ export class SearchService {
         isActive: true,
         title: { contains: normalized, mode: 'insensitive' }
       },
-      select: { title: true, category: { select: { name: true } } },
+      select: { title: true, Category: { select: { name: true } } },
       take: 5
     });
 
     const suggestions = products.map(p => ({
       text: p.title,
       type: 'PRODUCT',
-      category: p.category.name
+      category: p.Category?.name
     }));
 
     await this.redis.set(cacheKey, JSON.stringify(suggestions), 600); // 10 mins
@@ -544,7 +545,7 @@ export class SearchService {
         count: true,
         lastSearchedAt: true,
         inferredCategoryId: true,
-        category: { select: { name: true } },
+        Category: { select: { name: true } },
       }
     });
   }
@@ -567,7 +568,7 @@ export class SearchService {
       orderBy: { count: 'desc' },
       take: limit,
       include: {
-        category: { select: { name: true } },
+        Category: { select: { name: true } },
       },
     });
 
@@ -621,7 +622,7 @@ export class SearchService {
         normalizedQuery: m.normalizedQuery,
         count: m.count,
         keywords: m.keywords,
-        suggestedCategory: m.category?.name || null,
+        suggestedCategory: m.Category?.name || null,
         lastSearchedAt: m.lastSearchedAt,
         resolved: m.resolved,
       })),
@@ -704,6 +705,7 @@ export class SearchService {
     } else {
       await this.prisma.productSearchMiss.create({
         data: {
+          id: randomUUID(),
           query,
           normalizedQuery: normalized,
           userId,
@@ -711,6 +713,7 @@ export class SearchService {
           count: 1,
           keywords: keywords || normalized.split(' '),
           inferredCategoryId,
+          lastSearchedAt: new Date(),
         }
       });
     }
@@ -764,8 +767,8 @@ export class SearchService {
         take: batchSize,
         skip: page * batchSize,
         include: {
-          vendor: { select: { name: true, performanceScore: true } },
-          category: { select: { name: true } }
+          Vendor: { select: { name: true, performanceScore: true } },
+          Category: { select: { name: true } }
         }
       });
 
@@ -778,9 +781,9 @@ export class SearchService {
           name: p.title,
           description: p.description,
           price: p.price,
-          category: p.category?.name,
-          vendor: p.vendor?.name,
-          popularityScore: (p as any).popularityScore || 0,
+          category: p.Category?.name,
+          vendor: p.Vendor?.name,
+          popularityScore: p.popularityScore || 0,
           createdAt: p.createdAt
         }
       }));

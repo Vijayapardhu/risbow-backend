@@ -198,7 +198,7 @@ Respond in JSON format like:
     const searchConditions = terms.flatMap(term => [
       { title: { contains: term, mode: 'insensitive' } },
       { description: { contains: term, mode: 'insensitive' } },
-      { category: { name: { contains: term, mode: 'insensitive' } } }
+      { Category: { name: { contains: term, mode: 'insensitive' } } }
     ]);
 
     const whereClause: any = {
@@ -209,7 +209,7 @@ Respond in JSON format like:
 
     // Apply filters
     if (options.categoryFilter) {
-      whereClause.category = { name: { contains: options.categoryFilter, mode: 'insensitive' } };
+      whereClause.Category = { name: { contains: options.categoryFilter, mode: 'insensitive' } };
     }
 
     if (options.priceRange) {
@@ -227,7 +227,7 @@ Respond in JSON format like:
       where: whereClause,
       take: options.maxResults || 20,
       include: {
-        category: { select: { name: true } }
+        Category: { select: { name: true } }
       }
     });
 
@@ -291,7 +291,7 @@ Respond in JSON format like:
         title: product.title,
         price: product.offerPrice || product.price,
         images: product.images,
-        category: product.category?.name,
+        category: product.Category?.name,
         confidence: imageAnalysis.confidence || 5,
         similarity: normalizedScore
       });
@@ -347,7 +347,7 @@ Respond in JSON format like:
         title: product.title,
         price: product.offerPrice || product.price,
         images: product.images,
-        category: product.category?.name,
+        category: product.Category?.name,
         confidence: 8, // High confidence for similar products
         similarity: 0.8 // High similarity for same category
       }));

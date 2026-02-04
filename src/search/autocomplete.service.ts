@@ -94,7 +94,7 @@ export class AutocompleteService {
         select: {
           title: true,
           brandName: true,
-          category: { select: { name: true } },
+          Category: { select: { name: true } },
         },
         orderBy: { popularityScore: 'desc' },
         take: limit,
@@ -103,7 +103,7 @@ export class AutocompleteService {
       return products.map(p => ({
         text: p.title,
         type: 'product' as const,
-        category: p.category?.name,
+        category: p.Category?.name,
         brand: p.brandName,
         priority: 100, // High priority for direct product matches
       }));
@@ -153,14 +153,14 @@ export class AutocompleteService {
           isActive: true,
           name: { contains: prefix, mode: 'insensitive' },
         },
-        select: { name: true, parent: { select: { name: true } } },
+        select: { name: true, Category: { select: { name: true } } },
         take: limit,
       });
 
       return categories.map(c => ({
         text: c.name,
         type: 'category' as const,
-        parentCategory: c.parent?.name,
+        parentCategory: c.Category?.name,
         priority: 90, // High priority for category matches
       }));
     } catch (error) {

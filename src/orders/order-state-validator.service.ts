@@ -44,18 +44,37 @@ export class OrderStateValidatorService {
         ]],
         [OrderStatus.SHIPPED, [
             OrderStatus.DELIVERED,
+            OrderStatus.OUT_FOR_INSPECTION,
             OrderStatus.CANCELLED,
+        ]],
+        [OrderStatus.OUT_FOR_INSPECTION, [
+            OrderStatus.DELIVERED,
+            OrderStatus.RETURNED, // Failed inspection / Rejected
+            OrderStatus.CANCELLED
         ]],
         [OrderStatus.DELIVERED, [
             // Delivered is final, but can be cancelled for returns
             OrderStatus.CANCELLED,
+            OrderStatus.RETURN_REQUESTED,
+        ]],
+        [OrderStatus.RETURN_REQUESTED, [
+            OrderStatus.RETURN_PICKED_UP,
+            OrderStatus.CANCELLED // Request cancelled
+        ]],
+        [OrderStatus.RETURN_PICKED_UP, [
+            OrderStatus.QC_IN_PROGRESS,
+            OrderStatus.RETURN_RECEIVED,
+        ]],
+        [OrderStatus.QC_IN_PROGRESS, [
+            OrderStatus.RETURNED, // Verification Passed (Refund)
+            OrderStatus.DELIVERED, // Verification Failed (Return rejected, item sent back?) - keeping simple
         ]],
         [OrderStatus.CANCELLED, [
             // Cancelled is final - no transitions allowed
         ]],
     ]);
 
-    constructor(private auditLog: AuditLogService) {}
+    constructor(private auditLog: AuditLogService) { }
 
     /**
      * Validates if a state transition is allowed.

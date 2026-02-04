@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RoomStatus, RiskTag, ValueTag, UserRole, UserStatus, OrderStatus } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { OrderStateValidatorService } from '../orders/order-state-validator.service';
 import { RedisService } from '../shared/redis.service';
 import { PlatformConfigHelper } from '../common/platform-config.helper';
@@ -95,7 +96,7 @@ export class AdminService {
             this.prisma.product.count({ where: { stock: { lte: 10 } } }),
             this.prisma.order.findMany({
                 where: { createdAt: { gte: sevenDaysAgo } },
-                select: { id: true, createdAt: true, totalAmount: true, User: { select: { name: true } }, status: true },
+                select: { id: true, createdAt: true, totalAmount: true, user: { select: { name: true } }, status: true },
                 orderBy: { createdAt: 'desc' }
             }),
             this.prisma.product.groupBy({
@@ -146,7 +147,7 @@ export class AdminService {
             ...recentOrders.slice(0, 5).map(o => ({
                 id: o.id,
                 title: `Order #${o.id.substring(0, 6)}`,
-                subtitle: `${o.User?.name || 'User'} · ${o.totalAmount}`,
+                subtitle: `${o.user?.name || 'User'} · ${o.totalAmount}`,
                 type: 'ORDER',
                 status: o.status,
                 time: o.createdAt
@@ -257,7 +258,7 @@ export class AdminService {
                     Order: {
                         take: 20,
                         orderBy: { createdAt: 'desc' },
-                        include: { Payment: true }
+                        include: { payment: true }
                     },
                     Review: { take: 5, orderBy: { createdAt: 'desc' } },
                 }
@@ -322,6 +323,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'USER',
                 entityId: userId,
@@ -341,6 +343,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'USER',
                 entityId: userId,
@@ -370,6 +373,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'USER',
                 entityId: userId,
@@ -398,6 +402,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'USER',
                 entityId: userId,
@@ -417,6 +422,7 @@ export class AdminService {
 
         const adminNote = await this.prisma.adminNote.create({
             data: {
+                id: randomUUID(),
                 userId,
                 adminId,
                 note
@@ -425,6 +431,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'USER',
                 entityId: userId,
@@ -500,6 +507,7 @@ export class AdminService {
             // Also create a ledger entry for tracking
             await tx.coinLedger.create({
                 data: {
+                    id: randomUUID(),
                     userId,
                     amount,
                     source: `ADMIN_${reason.toUpperCase().replace(/\s+/g, '_')}`,
@@ -509,6 +517,7 @@ export class AdminService {
 
             await tx.auditLog.create({
                 data: {
+                    id: randomUUID(),
                     adminId,
                     entity: 'USER',
                     entityId: userId,
@@ -541,6 +550,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'USER',
                 entityId: userId,
@@ -565,6 +575,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'USER',
                 entityId: userId,
@@ -589,6 +600,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'USER',
                 entityId: userId,
@@ -613,6 +625,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'USER',
                 entityId: userId,
@@ -642,6 +655,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: { 
+                id: randomUUID(),
                 adminId, 
                 entity: 'USER', 
                 entityId: userId, 
@@ -676,7 +690,7 @@ export class AdminService {
         });
 
         await this.prisma.auditLog.create({
-            data: { adminId, entity: 'USER', entityId: userId, action: 'TOGGLE_REFUNDS', details: { disabled } }
+            data: { id: randomUUID(), adminId, entity: 'USER', entityId: userId, action: 'TOGGLE_REFUNDS', details: { disabled } }
         });
 
         return updatedUser;
@@ -783,7 +797,7 @@ export class AdminService {
             where,
             orderBy: { createdAt: 'desc' },
             include: {
-                vendor: { select: { name: true, storeName: true } },
+                Vendor: { select: { name: true, storeName: true } },
             },
             take: 10000, // Limit for performance
         });
@@ -792,7 +806,7 @@ export class AdminService {
         const rows = products.map(product => [
             product.id,
             product.title,
-            product.vendor?.storeName || product.vendor?.name || '',
+            product.Vendor?.storeName || product.Vendor?.name || '',
             (product.price / 100).toFixed(2), // Convert paise to rupees
             product.stock.toString(),
             product.isActive ? 'Yes' : 'No',
@@ -868,6 +882,7 @@ export class AdminService {
         // Audit log
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'USER',
                 entityId: 'BULK',
@@ -892,6 +907,7 @@ export class AdminService {
         // Audit log
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'USER',
                 entityId: 'BULK',
@@ -915,6 +931,7 @@ export class AdminService {
         // Audit log
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'PRODUCT',
                 entityId: 'BULK',
@@ -934,6 +951,7 @@ export class AdminService {
         // Audit log
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'PRODUCT',
                 entityId: 'BULK',
@@ -1012,6 +1030,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'USER',
                 entityId: userId,
@@ -1063,7 +1082,7 @@ export class AdminService {
         const wishlist = await this.prisma.wishlist.findMany({
             where: { userId },
             include: {
-                product: {
+                Product: {
                     select: {
                         id: true,
                         title: true,
@@ -1105,6 +1124,7 @@ export class AdminService {
 
         const notification = await this.prisma.notification.create({
             data: {
+                id: randomUUID(),
                 userId,
                 title,
                 body: message,
@@ -1130,6 +1150,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'USER',
                 entityId: userId,
@@ -1274,6 +1295,7 @@ export class AdminService {
         // Audit Log
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'ORDER',
                 entityId: orderId,
@@ -1356,7 +1378,7 @@ export class AdminService {
                     performanceScore: true,
                     createdAt: true,
                     updatedAt: true,
-                    _count: { select: { products: true } },
+                    _count: { select: { Product: true } },
                 },
             }),
             this.prisma.vendor.count({ where }),
@@ -1371,7 +1393,7 @@ export class AdminService {
                 totalSales: 0,
                 totalOrders: 0,
                 rating: Number(v.performanceScore) || 0,
-                totalProducts: _count?.products ?? 0,
+                totalProducts: _count?.Product ?? 0,
             };
         });
 
@@ -1412,6 +1434,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'VENDOR',
                 entityId: id,
@@ -1445,6 +1468,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'VENDOR',
                 entityId: id,
@@ -1459,7 +1483,7 @@ export class AdminService {
         const vendor = await this.prisma.vendor.findUnique({
             where: { id },
             include: {
-                products: {
+                Product: {
                     take: 10,
                     orderBy: { createdAt: 'desc' },
                     select: {
@@ -1470,12 +1494,12 @@ export class AdminService {
                         isActive: true,
                     },
                 },
-                reviews: {
+                Review: {
                     take: 5,
                     orderBy: { createdAt: 'desc' },
                 },
                 VendorMembership: true,
-                documents: {
+                VendorDocument: {
                     orderBy: { uploadedAt: 'desc' },
                 },
             },
@@ -1518,6 +1542,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'VENDOR',
                 entityId: vendorId,
@@ -1540,6 +1565,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'VENDOR',
                 entityId: vendorId,
@@ -1562,6 +1588,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'VENDOR',
                 entityId: vendorId,
@@ -1715,7 +1742,7 @@ export class AdminService {
     }
 
     async createCategory(data: { name: string, parentId?: string, image?: string }) {
-        return this.prisma.category.create({ data });
+        return this.prisma.category.create({ data: { id: randomUUID(), ...data, updatedAt: new Date() } });
     }
 
     async createProduct(data: any) {
@@ -1799,6 +1826,7 @@ export class AdminService {
     async sendBroadcast(adminId: string, title: string, body: string, audience: string) {
         const broadcast = await this.prisma.notification.create({
             data: {
+                id: randomUUID(),
                 title,
                 body,
                 type: 'BROADCAST',
@@ -1809,6 +1837,7 @@ export class AdminService {
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'MARKETING',
                 entityId: broadcast.id,
@@ -1991,7 +2020,7 @@ export class AdminService {
     async getReports(status: string = 'PENDING') {
         return this.prisma.report.findMany({
             where: { status },
-            include: { reporter: { select: { name: true, email: true } } },
+            include: { User: { select: { name: true, email: true } } },
             orderBy: { createdAt: 'desc' }
         });
     }
@@ -2029,13 +2058,14 @@ export class AdminService {
 
     async toggleAiKillSwitch(adminId: string, enabled: boolean) {
         const config = await this.prisma.platformConfig.upsert({
-            where: { key: 'AI_KILL_SWITCH' },
-            update: { value: enabled ? 'true' : 'false' },
-            create: { key: 'AI_KILL_SWITCH', value: enabled ? 'true' : 'false' }
+            where: { category_key: { category: 'SYSTEM', key: 'AI_KILL_SWITCH' } },
+            update: { value: enabled ? 'true' : 'false', updatedById: adminId },
+            create: { category: 'SYSTEM', key: 'AI_KILL_SWITCH', value: enabled ? 'true' : 'false', updatedById: adminId }
         });
 
         await this.prisma.auditLog.create({
             data: {
+                id: randomUUID(),
                 adminId,
                 entity: 'SYSTEM',
                 entityId: 'AI_KILL_SWITCH',

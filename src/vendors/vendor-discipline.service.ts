@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class VendorDisciplineService {
     // Create VendorDisciplineEvent (STRIKE_ADDED)
     await this.prisma.vendorDisciplineEvent.create({
       data: {
+        id: randomUUID(),
         vendorId,
         orderId,
         eventType: 'STRIKE_ADDED',
@@ -45,10 +47,11 @@ export class VendorDisciplineService {
     await this.prisma.vendorDisciplineState.upsert({
       where: { vendorId },
       create: {
-        vendorId,
+        Vendor: { connect: { id: vendorId } },
         state: 'ACTIVE',
         activeStrikes: 0,
         consecutiveSuccesses: 1,
+        updatedAt: new Date(),
       },
       update: {
         consecutiveSuccesses,
@@ -122,11 +125,12 @@ export class VendorDisciplineService {
     await this.prisma.vendorDisciplineState.upsert({
       where: { vendorId },
       create: {
-        vendorId,
+        Vendor: { connect: { id: vendorId } },
         state,
         activeStrikes,
         consecutiveSuccesses: 0,
         lastStateChange: new Date(),
+        updatedAt: new Date(),
       },
       update: {
         state,
@@ -140,6 +144,7 @@ export class VendorDisciplineService {
     // Create AUTO_BLOCKED event
     await this.prisma.vendorDisciplineEvent.create({
       data: {
+        id: randomUUID(),
         vendorId,
         orderId,
         eventType: 'AUTO_BLOCKED',
@@ -167,6 +172,7 @@ export class VendorDisciplineService {
       for (let i = 0; i < activeStrikes; i++) {
         await this.prisma.vendorDisciplineEvent.create({
           data: {
+            id: randomUUID(),
             vendorId,
             orderId,
             eventType: 'STRIKE_REMOVED',
@@ -181,11 +187,12 @@ export class VendorDisciplineService {
     await this.prisma.vendorDisciplineState.upsert({
       where: { vendorId },
       create: {
-        vendorId,
+        Vendor: { connect: { id: vendorId } },
         state: 'ACTIVE',
         activeStrikes: 0,
         consecutiveSuccesses: 0,
         lastStateChange: new Date(),
+        updatedAt: new Date(),
       },
       update: {
         state: 'ACTIVE',
@@ -208,6 +215,7 @@ export class VendorDisciplineService {
     // Create ADMIN_OVERRIDE event
     await this.prisma.vendorDisciplineEvent.create({
       data: {
+        id: randomUUID(),
         vendorId,
         eventType: 'ADMIN_OVERRIDE',
         reason: `${action}: ${reason}`,
@@ -220,11 +228,12 @@ export class VendorDisciplineService {
     await this.prisma.vendorDisciplineState.upsert({
       where: { vendorId },
       create: {
-        vendorId,
+        Vendor: { connect: { id: vendorId } },
         state: newState,
         activeStrikes: 0,
         consecutiveSuccesses: 0,
         lastStateChange: new Date(),
+        updatedAt: new Date(),
       },
       update: {
         state: newState,

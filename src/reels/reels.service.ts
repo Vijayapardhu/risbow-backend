@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class ReelsService {
@@ -120,7 +121,7 @@ export class ReelsService {
       take: limit,
       skip: offset,
       include: {
-        vendor: {
+        Vendor: {
           select: {
             id: true,
             name: true,
@@ -128,14 +129,14 @@ export class ReelsService {
             storeLogo: true,
           },
         },
-        creator: {
+        CreatorProfile: {
           select: {
             id: true,
             displayName: true,
             profileImageUrl: true,
           },
         },
-        product: {
+        Product: {
           select: {
             id: true,
             title: true,
@@ -177,8 +178,9 @@ export class ReelsService {
       // Like: Create ledger entry
       await this.prisma.reelInteractionLedger.create({
         data: {
-          reelId,
-          userId,
+          id: randomUUID(),
+          User: { connect: { id: userId } },
+          Reel: { connect: { id: reelId } },
           interactionType: 'LIKE',
         },
       });
@@ -217,8 +219,9 @@ export class ReelsService {
       // Create view ledger entry
       await this.prisma.reelInteractionLedger.create({
         data: {
-          reelId,
-          userId,
+          id: randomUUID(),
+          User: { connect: { id: userId } },
+          Reel: { connect: { id: reelId } },
           interactionType: 'VIEW',
         },
       });
@@ -248,7 +251,7 @@ export class ReelsService {
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        vendor: {
+        Vendor: {
           select: {
             id: true,
             name: true,
@@ -256,7 +259,7 @@ export class ReelsService {
             storeLogo: true,
           },
         },
-        creator: {
+        CreatorProfile: {
           select: {
             id: true,
             displayName: true,
@@ -284,7 +287,7 @@ export class ReelsService {
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        product: {
+        Product: {
           select: {
             id: true,
             title: true,

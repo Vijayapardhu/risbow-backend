@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RoomBoostType, AuditLog } from '@prisma/client';
 import { AuditLogService } from '../audit/audit.service';
 import { RedisService } from '../shared/redis.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class RoomMonetizationService {
@@ -68,6 +69,7 @@ export class RoomMonetizationService {
         // Log Coin Movement
         await tx.coinLedger.create({
           data: {
+            id: randomUUID(),
             userId: actorId, // In vendor context, userId corresponds to the actor
             amount: -dto.coinsCost,
             source: `ROOM_BOOST_${dto.type}`,
@@ -79,6 +81,7 @@ export class RoomMonetizationService {
       // 4. Create Room Boost
       const boost = await tx.roomBoost.create({
         data: {
+          id: randomUUID(),
           roomId: dto.roomId,
           vendorId: dto.vendorId,
           type: dto.type,

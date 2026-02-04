@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class CreatorsService {
@@ -20,11 +21,13 @@ export class CreatorsService {
     // Create creator profile
     const creatorProfile = await this.prisma.creatorProfile.create({
       data: {
+        id: randomUUID(),
         userId,
         displayName,
         bio,
         profileImageUrl,
         isVerified: false,
+        updatedAt: new Date(),
       },
     });
 
@@ -65,7 +68,7 @@ export class CreatorsService {
     const creatorProfile = await this.prisma.creatorProfile.findUnique({
       where: { id: creatorId },
       include: {
-        user: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -108,7 +111,7 @@ export class CreatorsService {
       take: limit,
       skip: offset,
       include: {
-        product: {
+        Product: {
           select: {
             id: true,
             title: true,

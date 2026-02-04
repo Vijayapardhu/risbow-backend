@@ -1,5 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { AdminRole } from '@prisma/client';
+
+// Local enum for AdminRole - used as both type and value
+export enum AdminRole {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  ADMIN = 'ADMIN',
+  MODERATOR = 'MODERATOR',
+  SUPPORT = 'SUPPORT',
+  ANALYST = 'ANALYST',
+  VIEWER = 'VIEWER',
+}
 
 /**
  * All available permissions in the admin system.
@@ -248,6 +257,10 @@ const RolePermissions: Record<AdminRole, Permission[]> = {
     Permission.AUDIT_EXPORT,
     Permission.INVOICE_EXPORT,
   ],
+
+  [AdminRole.VIEWER]: [
+    ...PermissionGroups.VIEWER,
+  ],
 };
 
 @Injectable()
@@ -312,6 +325,7 @@ export class AdminPermissionsService {
    */
   getRoleHierarchy(): AdminRole[] {
     return [
+      AdminRole.VIEWER,
       AdminRole.ANALYST,
       AdminRole.SUPPORT,
       AdminRole.MODERATOR,

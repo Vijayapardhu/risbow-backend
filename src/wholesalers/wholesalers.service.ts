@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserRole, VendorRole } from '@prisma/client';
 import { parse } from 'csv-parse/sync';
 import { NotificationsService } from '../shared/notifications.service';
+import { randomUUID } from 'crypto';
 
 /**
  * Wholesalers Service
@@ -47,23 +48,25 @@ export class WholesalersService {
         // Create user with WHOLESALER role
         const user = await this.prisma.user.create({
             data: {
+                id: randomUUID(),
                 name: dto.name,
                 mobile: dto.mobile,
                 email: dto.email,
                 role: UserRole.WHOLESALER,
                 status: 'ACTIVE',
+                referralCode: `WH${Date.now()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                updatedAt: new Date(),
             },
         });
 
         // Create vendor record with WHOLESALER role
         const vendor = await this.prisma.vendor.create({
             data: {
+                id: randomUUID(),
                 name: dto.name,
                 mobile: dto.mobile,
                 email: dto.email,
                 role: VendorRole.WHOLESALER,
-                kycStatus: 'PENDING',
-                tier: 'BASIC',
                 gstNumber: dto.gstNumber,
                 isGstVerified: !!dto.gstNumber,
                 kycDocuments: {
@@ -71,6 +74,7 @@ export class WholesalersService {
                     bankAccount: dto.bankAccount,
                     bankIfsc: dto.bankIfsc,
                 },
+                updatedAt: new Date(),
             },
         });
 
@@ -85,7 +89,7 @@ export class WholesalersService {
         const vendor = await this.prisma.vendor.findUnique({
             where: { id: wholesalerId, role: VendorRole.WHOLESALER },
             include: {
-                products: {
+                Product: {
                     where: { isWholesale: true },
                     select: { id: true, title: true, stock: true, price: true },
                 },
@@ -118,9 +122,9 @@ export class WholesalersService {
             order => order.user?.role === UserRole.VENDOR
         );
 
-        const totalProducts = vendor.products.length;
-        const totalStock = vendor.products.reduce((sum, p) => sum + p.stock, 0);
-        const lowStockProducts = vendor.products.filter(p => p.stock < 10).length;
+        const totalProducts = vendor.Product.length;
+        const totalStock = vendor.Product.reduce((sum, p) => sum + p.stock, 0);
+        const lowStockProducts = vendor.Product.filter(p => p.stock < 10).length;
 
         return {
             wholesalerId: vendor.id,
@@ -351,8 +355,8 @@ export class WholesalersService {
                 status: 'PENDING',
             },
             include: {
-                product: { select: { title: true } },
-                requester: { select: { name: true, mobile: true } },
+                Product: { select: { title: true } },
+                Requester: { select: { name: true, mobile: true } },
             },
         });
 
@@ -428,8 +432,8 @@ export class WholesalersService {
             where: { requesterUserId },
             orderBy: { createdAt: 'desc' },
             include: {
-                product: { select: { id: true, title: true, moq: true, wholesalePrice: true } },
-                wholesaler: { select: { id: true, name: true, mobile: true, storeName: true } },
+                Product: { select: { id: true, title: true, moq: true, wholesalePrice: true } },
+                Wholesaler: { select: { id: true, name: true, mobile: true, storeName: true } },
             },
             take: 50,
         });

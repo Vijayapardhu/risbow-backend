@@ -25,8 +25,8 @@ export class BuyLaterService {
                 currentPrice,
                 targetPrice: currentPrice, // Default to current, user can update later
                 updatedAt: new Date(),
-                user: { connect: { id: userId } },
-                product: { connect: { id: productId } },
+                User: { connect: { id: userId } },
+                Product: { connect: { id: productId } },
             },
         });
     }

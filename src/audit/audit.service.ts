@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class AuditLogService {
@@ -21,7 +22,8 @@ export class AuditLogService {
 
         return this.prisma.auditLog.create({
             data: {
-                adminId,
+                id: randomUUID(),
+                User: { connect: { id: adminId } },
                 action,
                 entity,
                 entityId,
@@ -54,7 +56,7 @@ export class AuditLogService {
                 take: limit,
                 orderBy: { createdAt: 'desc' },
                 include: {
-                    admin: {
+                    User: {
                         select: { name: true, email: true }
                     }
                 }

@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreatePostDto, UpdatePostDto } from './dto/create-post.dto';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/create-category.dto';
 import { PostStatus, Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class BlogService {
@@ -22,6 +23,7 @@ export class BlogService {
 
     return this.prisma.blogCategory.create({
       data: {
+        id: randomUUID(),
         slug: dto.slug,
         name: dto.name,
         description: dto.description,
@@ -40,8 +42,8 @@ export class BlogService {
     return this.prisma.blogCategory.findMany({
       where,
       include: {
-        _count: { select: { posts: true } },
-        children: true
+        _count: { select: { BlogPost: true } },
+        other_BlogCategory: true
       },
       orderBy: { sortOrder: 'asc' }
     });
@@ -51,7 +53,7 @@ export class BlogService {
     const category = await this.prisma.blogCategory.findUnique({
       where: { slug },
       include: {
-        posts: {
+        BlogPost: {
           where: { status: PostStatus.PUBLISHED },
           select: { id: true, title: true, slug: true, excerpt: true, coverImage: true, publishedAt: true }
         }
@@ -94,23 +96,25 @@ export class BlogService {
 
     return this.prisma.blogPost.create({
       data: {
+        id: randomUUID(),
         slug: dto.slug,
         title: dto.title,
         excerpt: dto.excerpt,
         content: dto.content,
         coverImage: dto.coverImage,
-        categoryId: dto.categoryId,
-        authorId,
+        BlogCategory: dto.categoryId ? { connect: { id: dto.categoryId } } : undefined,
+        Admin: { connect: { id: authorId } },
         tags: dto.tags || [],
         status: dto.status || PostStatus.DRAFT,
         isFeatured: dto.isFeatured || false,
         publishedAt,
         seoTitle: dto.seoTitle,
-        seoDesc: dto.seoDesc
+        seoDesc: dto.seoDesc,
+        updatedAt: new Date()
       },
       include: {
-        category: { select: { id: true, name: true, slug: true } },
-        author: { select: { id: true, name: true, email: true } }
+        BlogCategory: { select: { id: true, name: true, slug: true } },
+        Admin: { select: { id: true, name: true, email: true } }
       }
     });
   }
@@ -147,8 +151,8 @@ export class BlogService {
         skip,
         take: Number(limit),
         include: {
-          category: { select: { id: true, name: true, slug: true } },
-          author: { select: { id: true, name: true, email: true } }
+          BlogCategory: { select: { id: true, name: true, slug: true } },
+          Admin: { select: { id: true, name: true, email: true } }
         },
         orderBy: { createdAt: 'desc' }
       })
@@ -179,8 +183,8 @@ export class BlogService {
     const post = await this.prisma.blogPost.findUnique({
       where: { slug },
       include: {
-        category: true,
-        author: { select: { id: true, name: true, email: true } }
+        BlogCategory: true,
+        Admin: { select: { id: true, name: true, email: true } }
       }
     });
 
@@ -201,8 +205,8 @@ export class BlogService {
     const post = await this.prisma.blogPost.findUnique({
       where: { id },
       include: {
-        category: true,
-        author: { select: { id: true, name: true, email: true } }
+        BlogCategory: true,
+        Admin: { select: { id: true, name: true, email: true } }
       }
     });
 
@@ -225,8 +229,8 @@ export class BlogService {
       where: { id },
       data: updateData,
       include: {
-        category: { select: { id: true, name: true, slug: true } },
-        author: { select: { id: true, name: true, email: true } }
+        BlogCategory: { select: { id: true, name: true, slug: true } },
+        Admin: { select: { id: true, name: true, email: true } }
       }
     });
   }

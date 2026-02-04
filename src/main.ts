@@ -6,7 +6,6 @@ import { GlobalExceptionsFilter } from './common/filters/http-exception.filter';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import helmet from 'helmet';
-import { ThrottlerGuard } from '@nestjs/throttler';
 
 // Trigger deployment update
 async function bootstrap() {
@@ -57,10 +56,7 @@ async function bootstrap() {
     }));
     app.useGlobalFilters(new GlobalExceptionsFilter());
 
-    // Global rate limiting - applies to ALL endpoints
-    // Individual endpoints can override with @Throttle() decorator
-    const throttlerGuard = app.get(ThrottlerGuard);
-    app.useGlobalGuards(throttlerGuard);
+    // Global rate limiting is now handled via APP_GUARD in AppModule
 
     // Swagger Setup
     const config = new DocumentBuilder()

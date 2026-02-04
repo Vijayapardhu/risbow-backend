@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RedisService } from '../shared/redis.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { randomUUID } from 'crypto';
 
 /**
  * TrendingService: Tracks search queries with time-decayed popularity scoring.
@@ -198,6 +199,7 @@ export class TrendingService {
     } else {
       await this.prisma.searchTrending.create({
         data: {
+          id: randomUUID(),
           query,
           region,
           count: 1,

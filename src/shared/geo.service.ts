@@ -88,7 +88,7 @@ export class GeoService {
         .upsert({
           where: { pincode },
           update: { latitude: lat, longitude: lng, source: 'NOMINATIM' as any },
-          create: { pincode, latitude: lat, longitude: lng, source: 'NOMINATIM' as any },
+          create: { pincode, latitude: lat, longitude: lng, source: 'NOMINATIM' as any, updatedAt: new Date() },
         })
         .catch(() => undefined);
 

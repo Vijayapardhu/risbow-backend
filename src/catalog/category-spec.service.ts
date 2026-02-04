@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategorySpecDto, UpdateCategorySpecDto, ProductSpecInput } from './dto/category-spec.dto';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class CategorySpecService {
@@ -13,7 +14,7 @@ export class CategorySpecService {
         // Verify category exists
         const category = await this.prisma.category.findUnique({
             where: { id: categoryId },
-            include: { parent: true }
+            include: { Category: true }
         });
 
         if (!category) {
@@ -88,6 +89,7 @@ export class CategorySpecService {
 
         return this.prisma.categorySpec.create({
             data: {
+                id: randomUUID() as string,
                 categoryId,
                 key: dto.key,
                 label: dto.label,
@@ -95,8 +97,9 @@ export class CategorySpecService {
                 type: dto.type,
                 unit: dto.unit,
                 required: dto.required,
-                options: dto.options || null,
+                options: dto.options || undefined,
                 sortOrder: dto.sortOrder,
+                updatedAt: new Date(),
             }
         });
     }
@@ -107,7 +110,7 @@ export class CategorySpecService {
     async updateCategorySpec(specId: string, dto: UpdateCategorySpecDto) {
         const spec = await this.prisma.categorySpec.findUnique({
             where: { id: specId },
-            include: { productValues: true }
+            include: { ProductSpecValue: true }
         });
 
         if (!spec) {
@@ -139,7 +142,7 @@ export class CategorySpecService {
     async deleteCategorySpec(specId: string) {
         const spec = await this.prisma.categorySpec.findUnique({
             where: { id: specId },
-            include: { productValues: true }
+            include: { ProductSpecValue: true }
         });
 
         if (!spec) {
@@ -274,9 +277,11 @@ export class CategorySpecService {
         if (specs && specs.length > 0) {
             await this.prisma.productSpecValue.createMany({
                 data: specs.map(s => ({
+                    id: randomUUID() as string,
                     productId,
                     specId: s.specId,
-                    value: s.value
+                    value: s.value,
+                    updatedAt: new Date(),
                 }))
             });
         }
@@ -289,7 +294,7 @@ export class CategorySpecService {
         return this.prisma.productSpecValue.findMany({
             where: { productId },
             include: {
-                spec: true
+                CategorySpec: true
             }
         });
     }

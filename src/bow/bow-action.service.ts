@@ -7,6 +7,7 @@ import { BowPriceTracker } from './bow-price-tracker.service';
 import { BowOutfitRecommender } from './bow-outfit-recommender.service';
 import { BowSmartReminders } from './bow-smart-reminders.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class BowActionService {
@@ -27,7 +28,8 @@ export class BowActionService {
         // Log action in BowInteraction
         await this.prisma.bowInteraction.create({
             data: {
-                user: { connect: { id: userId } },
+                id: randomUUID(),
+                User: { connect: { id: userId } },
                 sessionId: 'system', // Default session
                 type: 'ACTION',
                 actionType: action
@@ -60,7 +62,7 @@ export class BowActionService {
                         const cartItem = await this.prisma.cartItem.findFirst({
                             where: {
                                 productId: payload.productId,
-                                cart: { userId }
+                                Cart: { userId }
                             },
                             select: { id: true }
                         });
@@ -275,7 +277,7 @@ export class BowActionService {
 
             if (!cart) return 0;
 
-            return cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+            return cart.CartItem.reduce((sum, item) => sum + (item.Product.price * item.quantity), 0);
         } catch (error) {
             this.logger.error(`Failed to get cart total: ${error.message}`);
             return 0;
@@ -295,7 +297,8 @@ export class BowActionService {
         try {
             await this.prisma.bowInteraction.create({
                 data: {
-                    userId,
+                    id: randomUUID(),
+                    User: { connect: { id: userId } },
                     sessionId: 'action-execution',
                     type: 'ACTION',
                     actionType: action as any,

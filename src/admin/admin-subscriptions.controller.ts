@@ -19,7 +19,7 @@ export class AdminSubscriptionsController {
     const where: Prisma.VendorMembershipWhereInput = {};
     if (tier) where.tier = tier;
     if (search) {
-      where.vendor = {
+      where.Vendor = {
         OR: [
           { name: { contains: search, mode: 'insensitive' } },
           { email: { contains: search, mode: 'insensitive' } }

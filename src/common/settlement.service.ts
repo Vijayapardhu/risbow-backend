@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { CommissionService } from './commission.service';
 import { RedisLockService } from './redis-lock.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class SettlementService {
@@ -91,11 +92,13 @@ export class SettlementService {
                 // 3. Create historical Payout record
                 await tx.vendorPayout.create({
                     data: {
+                        id: randomUUID(),
                         vendorId: settlement.vendorId,
                         amount: settlement.amount,
                         period: new Date().toISOString().slice(0, 7),
                         status: 'COMPLETED',
                         processedAt: new Date(),
+                        updatedAt: new Date(),
                         bankDetails: {
                             orderId: settlement.orderId,
                             settlementType: 'AUTOMATED_FINALIZE'

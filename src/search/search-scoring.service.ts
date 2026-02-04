@@ -22,9 +22,9 @@ export class SearchScoringService {
             select: {
                 id: true,
                 _count: {
-                    select: { reviews: true, cartItems: true }
+                    select: { Review: true, CartItem: true }
                 },
-                reviews: {
+                Review: {
                     select: { rating: true }
                 }
             }
@@ -33,11 +33,11 @@ export class SearchScoringService {
         const updates = [];
 
         for (const p of products) {
-            const reviewCount = p._count.reviews;
-            const cartCount = p._count.cartItems;
+            const reviewCount = p._count.Review;
+            const cartCount = p._count.CartItem;
 
-            const avgRating = p.reviews.length > 0
-                ? p.reviews.reduce((sum, r) => sum + r.rating, 0) / p.reviews.length
+            const avgRating = p.Review.length > 0
+                ? p.Review.reduce((sum, r) => sum + r.rating, 0) / p.Review.length
                 : 0;
 
             // Trend Score Formula

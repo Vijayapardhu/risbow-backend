@@ -29,7 +29,7 @@ export class BowContextService {
                 totalAmount: cart.totalAmount,
                 items: cart.items.map(i => ({
                     productId: i.productId,
-                    title: i.product.title,
+                    title: i.Product.title,
                     quantity: i.quantity
                 }))
             },

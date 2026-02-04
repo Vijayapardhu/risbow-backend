@@ -32,8 +32,8 @@ export class AdminRoomsController {
         skip,
         take: Number(limit),
         include: {
-          _count: { select: { members: true } },
-          createdBy: { select: { id: true, name: true } }
+          _count: { select: { RoomMember: true } },
+          User: { select: { id: true, name: true } }
         },
         orderBy: { createdAt: 'desc' }
       })
@@ -64,10 +64,10 @@ export class AdminRoomsController {
     const room = await this.prisma.room.findUnique({
       where: { id },
       include: {
-        members: {
+        RoomMember: {
           include: { User: { select: { id: true, name: true, mobile: true } } }
         },
-        createdBy: { select: { id: true, name: true } },
+        User: { select: { id: true, name: true } },
         Product: { select: { id: true, title: true, price: true } }
       }
     });
@@ -88,7 +88,7 @@ export class AdminRoomsController {
   async getOrders(@Param('id') id: string) {
     return this.prisma.order.findMany({
       where: { roomId: id },
-      include: { User: { select: { id: true, name: true } } }
+      include: { user: { select: { id: true, name: true } } }
     });
   }
 
@@ -125,6 +125,7 @@ export class AdminRoomsController {
   async createWeeklyOffer(@Body() dto: { name: string; startAt: string; endAt: string; rules?: any }) {
     return this.prisma.weeklyOffer.create({
       data: {
+        id: crypto.randomUUID(),
         name: dto.name,
         startAt: new Date(dto.startAt),
         endAt: new Date(dto.endAt),

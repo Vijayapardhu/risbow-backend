@@ -1,6 +1,6 @@
-
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class SeedService implements OnModuleInit {
@@ -39,6 +39,7 @@ export class SeedService implements OnModuleInit {
                 tier: 'PRO',
                 gstNumber: 'GST000DEMO000',
                 role: 'RETAILER',
+                updatedAt: new Date(),
             },
         });
         this.logger.log(`Vendor ready: ${vendor.id}`);
@@ -56,6 +57,7 @@ export class SeedService implements OnModuleInit {
                 create: {
                     id: cat.id,
                     name: cat.name,
+                    updatedAt: new Date(),
                 },
             });
         }
@@ -65,25 +67,31 @@ export class SeedService implements OnModuleInit {
         await this.prisma.product.createMany({
             data: [
                 {
+                    id: randomUUID(),
                     title: 'Cotton Shirt Blue',
                     price: 599,
                     categoryId: 'shirts',
                     vendorId: vendor.id,
                     stock: 50,
+                    updatedAt: new Date(),
                 },
                 {
+                    id: randomUUID(),
                     title: 'Denim Jeans Black',
                     price: 999,
                     categoryId: 'pants',
                     vendorId: vendor.id,
                     stock: 30,
+                    updatedAt: new Date(),
                 },
                 {
+                    id: randomUUID(),
                     title: 'Silk Saree Red',
                     price: 2500,
                     categoryId: 'sarees',
                     vendorId: vendor.id,
                     stock: 10,
+                    updatedAt: new Date(),
                 },
             ],
             skipDuplicates: true,

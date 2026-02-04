@@ -41,9 +41,9 @@ export class BowRecommendationEngine {
                 this.prisma.cart.findUnique({
                     where: { userId },
                     include: {
-                        items: {
+                        CartItem: {
                             include: {
-                                product: { select: { id: true, categoryId: true, brandName: true, tags: true, price: true, offerPrice: true, stock: true, isActive: true, title: true } }
+                                Product: { select: { id: true, categoryId: true, brandName: true, tags: true, price: true, offerPrice: true, stock: true, isActive: true, title: true } }
                             }
                         }
                     }
@@ -63,14 +63,14 @@ export class BowRecommendationEngine {
                 }).catch(() => []),
             ]);
 
-            const cartProductIds = new Set<string>((cart?.items || []).map(i => String(i.productId)));
+            const cartProductIds = new Set<string>((cart?.CartItem || []).map(i => String(i.productId)));
             const viewedIds: string[] = Array.from(new Set<string>(recentViews.map((e: any) => String(e.productId))))
                 .filter((id) => !cartProductIds.has(id));
             const purchasedIds = new Set<string>(recentPurchases.map((e: any) => String(e.productId)));
 
             // 2) Candidate pools (commerce-style)
             const preferredCategoryIds: string[] = Array.isArray(profile?.preferredCategories) ? profile.preferredCategories : [];
-            const cartCategoryIds = Array.from(new Set((cart?.items || []).map(i => i.product.categoryId).filter(Boolean)));
+            const cartCategoryIds = Array.from(new Set((cart?.CartItem || []).map(i => i.Product.categoryId).filter(Boolean)));
             const seedCategoryIds = Array.from(new Set([...preferredCategoryIds, ...cartCategoryIds])).slice(0, 6);
 
             // 2a) Trending (from event stream)
@@ -214,7 +214,7 @@ export class BowRecommendationEngine {
                     title: true,
                     price: true,
                     offerPrice: true,
-                    category: { select: { name: true } }
+                    Category: { select: { name: true } }
                 }
             });
 
@@ -269,7 +269,7 @@ export class BowRecommendationEngine {
                     id: true,
                     title: true,
                     price: true,
-                    category: { select: { name: true } }
+                    Category: { select: { name: true } }
                 }
             });
 

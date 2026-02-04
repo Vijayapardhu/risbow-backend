@@ -1,0 +1,7 @@
+
+src/auth/auth.service.ts(219,13): error TS2322: Type '{ userId: any; }' is not assignable to type '(Without<CartCreateInput, CartUncheckedCreateInput> & CartUncheckedCreateInput) | (Without<...> & CartCreateInput)'.
+src/auth/auth.service.ts(235,17): error TS2322: Type '{ userId: any; name: any; phone: any; addressLine1: any; addressLine2: any; city: any; state: any; pincode: any; label: string; isDefault: true; latitude: any; longitude: any; geoSource: any; geoUpdatedAt: Date; }' is not assignable to type '(Without<AddressCreateInput, AddressUncheckedCreateInput> & AddressUncheckedCreateInput) | (Without<...> & AddressCreateInput)'.
+src/auth/auth.service.ts(473,21): error TS2561: Object literal may only specify known properties, but 'wallet' does not exist in type '(Without<UserCreateInput, UserUncheckedCreateInput> & UserUncheckedCreateInput) | (Without<...> & UserCreateInput)'. Did you mean to write 'Wallet'?
+src/auth/auth.service.ts(493,21): error TS2353: Object literal may only specify known properties, and 'panNumber' does not exist in type '(Without<VendorCreateInput, VendorUncheckedCreateInput> & VendorUncheckedCreateInput) | (Without<...> & VendorCreateInput)'.
+src/auth/auth.service.ts(514,21): error TS2322: Type '{ action: string; entity: string; entityId: string; details: string; }' is not assignable to type '(Without<AuditLogCreateInput, AuditLogUncheckedCreateInput> & AuditLogUncheckedCreateInput) | (Without<...> & AuditLogCreateInput)'.
+

@@ -217,7 +217,7 @@ export class BowIntentService {
             // Second try: Search by category name
             products = await this.prisma.product.findMany({
                 where: {
-                    category: {
+                    Category: {
                         name: { contains: cleanQuery, mode: 'insensitive' }
                     },
                     isActive: true
@@ -249,7 +249,7 @@ export class BowIntentService {
                         where: {
                             OR: [
                                 { title: { contains: word, mode: 'insensitive' } },
-                                { category: { name: { contains: word, mode: 'insensitive' } } }
+                                { Category: { name: { contains: word, mode: 'insensitive' } } }
                             ],
                             isActive: true
                         },

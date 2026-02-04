@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CheckoutRecoveryStatus } from '@prisma/client';
 import { RedisService } from '../shared/redis.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class RecoveryService {
@@ -19,7 +20,7 @@ export class RecoveryService {
     async calculateAbandonRiskScore(checkoutId: string): Promise<number> {
         const checkout = await this.prisma.abandonedCheckout.findUnique({
             where: { id: checkoutId },
-            include: { User: { include: { cartInsights: { orderBy: { triggeredAt: 'desc' }, take: 1 } } } }
+            include: { User_AbandonedCheckout_userIdToUser: { include: { CartInsight: { orderBy: { triggeredAt: 'desc' }, take: 1 } } } }
         });
 
         if (!checkout) return 0;
@@ -27,7 +28,7 @@ export class RecoveryService {
         let score = 0;
 
         // 1. Core Intent Risk (from CartInsight) - 40% weight
-        const latestInsight = checkout.User?.cartInsights?.[0];
+        const latestInsight = checkout.User_AbandonedCheckout_userIdToUser?.CartInsight?.[0];
         if (latestInsight) {
             score += (latestInsight.abandonRisk * 0.4);
             // Hesitation also adds to risk
@@ -90,8 +91,8 @@ export class RecoveryService {
         // Find agents with least load who are TELECALLER role
         const agents = await this.prisma.user.findMany({
             where: { role: 'TELECALLER', status: 'ACTIVE' },
-            include: { _count: { select: { assignedLeads: { where: { status: 'ASSIGNED' } } } } },
-            orderBy: { assignedLeads: { _count: 'asc' } },
+            include: { _count: { select: { AbandonedCheckout_AbandonedCheckout_agentIdToUser: { where: { status: 'ASSIGNED' } } } } },
+            orderBy: { AbandonedCheckout_AbandonedCheckout_agentIdToUser: { _count: 'asc' } },
             take: 1
         });
 
@@ -155,6 +156,7 @@ export class RecoveryService {
                     // Create abandoned checkout if it doesn't exist
                     abandonedCheckout = await this.prisma.abandonedCheckout.create({
                         data: {
+                            id: randomUUID(),
                             userId: order.userId,
                             cartSnapshot: order.items as any,
                             financeSnapshot: {
@@ -172,7 +174,7 @@ export class RecoveryService {
                                 detectedAt: new Date().toISOString(),
                             },
                             abandonedAt: order.createdAt, // Use order creation time
-                        },
+                        } as any,
                     });
                     detectedCount++;
                     this.logger.log(`Detected abandoned checkout via Redis TTL for order ${order.id}`);

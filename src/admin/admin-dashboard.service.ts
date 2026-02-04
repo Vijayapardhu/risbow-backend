@@ -174,7 +174,7 @@ export class AdminDashboardService {
         // Active Vendors
         const activeVendors = await this.prisma.vendor.count({
             where: {
-                products: {
+                Product: {
                     some: {
                         createdAt: { gte: dateRange.start },
                     },
@@ -400,7 +400,7 @@ export class AdminDashboardService {
             take: 5,
             orderBy: { followCount: 'desc' },
             include: {
-                products: {
+                Product: {
                     select: { id: true }
                 }
             }

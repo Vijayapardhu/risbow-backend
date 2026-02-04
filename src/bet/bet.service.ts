@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../shared/redis.service';
 import { WalletService } from '../wallet/wallet.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class BetService {
@@ -27,13 +28,15 @@ export class BetService {
 
       const bet = await tx.bet.create({
         data: {
-          userId,
+          id: randomUUID(),
+          User: { connect: { id: userId } },
           idempotencyKey,
           selections,
           stake,
           odds,
           potentialWin,
           status: 'PLACED',
+          updatedAt: new Date(),
         },
       });
 

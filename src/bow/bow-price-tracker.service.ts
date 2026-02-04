@@ -95,7 +95,7 @@ export class BowPriceTracker {
                     title: true,
                     price: true,
                     offerPrice: true,
-                    category: { select: { name: true } }
+                    Category: { select: { name: true } }
                 },
                 orderBy: { offerPrice: 'asc' },
                 take: limit * 3

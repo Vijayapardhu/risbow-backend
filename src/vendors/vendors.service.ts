@@ -4,9 +4,10 @@ import { RegisterVendorDto } from './dto/vendor.dto';
 import { CoinsService } from '../coins/coins.service';
 import { AuditLogService } from '../audit/audit.service';
 import { CoinSource } from '../coins/dto/coin.dto';
-import { VendorRole, MembershipTier } from '@prisma/client';
+import { VendorRole, MembershipTier, UserProductEventType } from '@prisma/client';
 import { RedisService } from '../shared/redis.service';
 import { VendorAvailabilityService } from './vendor-availability.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class VendorsService {
@@ -158,20 +159,24 @@ export class VendorsService {
 
         return this.prisma.vendor.create({
             data: {
+                id: randomUUID(),
                 name: dto.name,
                 mobile: dto.mobile,
                 email: dto.email,
                 kycStatus: 'PENDING',
                 tier: (dto.tier as any) || 'FREE',
                 role: (dto.role as any) || VendorRole.RETAILER,
+                updatedAt: new Date(),
                 VendorMembership: {
                     create: {
+                        id: randomUUID(),
                         tier: dto.tier || MembershipTier.FREE,
                         price: 0, // Default FREE price
                         skuLimit: 10, // Default FREE limit
                         imageLimit: 3,
                         commissionRate: 0.15,
-                        payoutCycle: 'MONTHLY'
+                        payoutCycle: 'MONTHLY',
+                        updatedAt: new Date()
                     }
                 }
             },
@@ -224,6 +229,7 @@ export class VendorsService {
             // 4. Create Records
             const banner = await tx.banner.create({
                 data: {
+                    id: randomUUID(),
                     vendorId,
                     imageUrl: dto.imageUrl,
                     redirectUrl: dto.redirectUrl,
@@ -236,12 +242,14 @@ export class VendorsService {
 
             await tx.vendorPromotion.create({
                 data: {
+                    id: randomUUID(),
                     vendorId,
                     type: 'BANNER',
                     startDate: dto.startDate,
                     endDate: dto.endDate,
                     coinsCost: dto.coinsCost,
                     status: 'ACTIVE',
+                    updatedAt: new Date()
                 },
             });
 
@@ -396,7 +404,7 @@ export class VendorsService {
 
         const topProductDetails = await this.prisma.product.findMany({
             where: { id: { in: topProductIds } },
-            select: { id: true, title: true, images: true, categoryId: true, category: { select: { name: true } } }
+            select: { id: true, title: true, images: true, categoryId: true, Category: { select: { name: true } } }
         });
 
         const topProducts = topProductDetails.map(p => ({
@@ -422,7 +430,7 @@ export class VendorsService {
         const products = await this.prisma.product.findMany({
             where: { vendorId },
             include: {
-                reviews: { select: { rating: true } },
+                Review: { select: { rating: true } },
             }
         });
 
@@ -455,7 +463,7 @@ export class VendorsService {
 
         const performance = products.map(p => {
             const m = productMetrics.get(p.id) || { totalRevenue: 0, totalOrders: 0, thirtyDayUnits: 0, lastOrderDate: null };
-            const avgRating = p.reviews.length > 0 ? p.reviews.reduce((acc, r) => acc + r.rating, 0) / p.reviews.length : 0;
+            const avgRating = p.Review.length > 0 ? p.Review.reduce((acc, r) => acc + r.rating, 0) / p.Review.length : 0;
             return {
                 id: p.id,
                 title: p.title,
@@ -497,7 +505,7 @@ export class VendorsService {
             where: {
                 status: { in: ['CONFIRMED', 'PAID', 'PACKED', 'SHIPPED', 'DELIVERED'] }
             },
-            include: { User: { select: { id: true, name: true } } }
+            include: { user: { select: { id: true, name: true } } }
         });
 
         const customerMap = new Map();
@@ -513,7 +521,7 @@ export class VendorsService {
                 const orderRev = vendorItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
                 totalRevenue += orderRev;
 
-                const c = customerMap.get(order.userId) || { id: order.userId, name: order.User?.name || 'Guest', orders: 0, revenue: 0, lastOrder: null };
+                const c = customerMap.get(order.userId) || { id: order.userId, name: order.user?.name || 'Guest', orders: 0, revenue: 0, lastOrder: null };
                 c.orders++;
                 c.revenue += orderRev;
                 if (!c.lastOrder || order.createdAt > c.lastOrder) c.lastOrder = order.createdAt;
@@ -540,6 +548,94 @@ export class VendorsService {
         };
 
         await this.redis.set(cacheKey, JSON.stringify(result), 3600); // 1 hour
+        return result;
+    }
+
+    async getTrafficAnalytics(vendorId: string, days: number = 30) {
+        const cacheKey = `vendor:traffic:${vendorId}:${days}d`;
+        const cached = await this.redis.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const productIds = await this.getVendorProductIds(vendorId);
+        if (productIds.length === 0) {
+            return {
+                periodDays: days,
+                totals: {
+                    views: 0,
+                    clicks: 0,
+                    addToCart: 0,
+                    purchases: 0,
+                    wishlists: 0,
+                },
+                rates: {
+                    clickThrough: 0,
+                    cartRate: 0,
+                    purchaseRate: 0,
+                    cartToPurchaseRate: 0,
+                },
+            };
+        }
+
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+
+        const grouped = await this.prisma.userProductEvent.groupBy({
+            by: ['type'],
+            where: {
+                productId: { in: productIds },
+                createdAt: { gte: startDate },
+            },
+            _count: { _all: true },
+        });
+
+        const totals = {
+            views: 0,
+            clicks: 0,
+            addToCart: 0,
+            purchases: 0,
+            wishlists: 0,
+        };
+
+        for (const row of grouped) {
+            const count = Number(row._count?._all || 0);
+            switch (row.type) {
+                case UserProductEventType.PRODUCT_VIEW:
+                    totals.views = count;
+                    break;
+                case UserProductEventType.PRODUCT_CLICK:
+                    totals.clicks = count;
+                    break;
+                case UserProductEventType.ADD_TO_CART:
+                    totals.addToCart = count;
+                    break;
+                case UserProductEventType.PURCHASE:
+                    totals.purchases = count;
+                    break;
+                case UserProductEventType.WISHLIST_ADD:
+                    totals.wishlists = count;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        const clickThrough = totals.views > 0 ? (totals.clicks / totals.views) * 100 : 0;
+        const cartRate = totals.views > 0 ? (totals.addToCart / totals.views) * 100 : 0;
+        const purchaseRate = totals.views > 0 ? (totals.purchases / totals.views) * 100 : 0;
+        const cartToPurchaseRate = totals.addToCart > 0 ? (totals.purchases / totals.addToCart) * 100 : 0;
+
+        const result = {
+            periodDays: days,
+            totals,
+            rates: {
+                clickThrough,
+                cartRate,
+                purchaseRate,
+                cartToPurchaseRate,
+            },
+        };
+
+        await this.redis.set(cacheKey, JSON.stringify(result), 900); // 15 mins
         return result;
     }
 
@@ -572,6 +668,7 @@ export class VendorsService {
             // 3. Audit Log
             await tx.auditLog.create({
                 data: {
+                    id: randomUUID(),
                     adminId,
                     entity: 'VENDOR',
                     entityId: vendorId,
@@ -808,15 +905,16 @@ export class VendorsService {
             for (const p of products) {
                 const product = await tx.product.create({
                     data: {
-                        vendor: { connect: { id: vendorId } },
-                        category: { connect: { id: p.categoryId } }, // Must be provided in DTO
+                        id: randomUUID(),
+                        Vendor: { connect: { id: vendorId } },
+                        Category: { connect: { id: p.categoryId } }, // Must be provided in DTO
                         title: p.title,
                         description: p.description,
                         price: p.price,
                         stock: p.stock,
                         sku: p.sku || `SKU-${Date.now()}-${Math.random()}`,
                         images: p.images || [],
-                        // Add other fields as needed based on schema
+                        updatedAt: new Date()
                     }
                 });
                 results.push(product);

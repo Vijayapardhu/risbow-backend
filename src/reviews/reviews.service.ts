@@ -4,6 +4,7 @@ import { CreateReviewDto, UpdateReviewDto, ReportReviewDto } from './dto/review.
 import { CacheService } from '../shared/cache.service';
 import { VendorBowCoinLedgerService } from '../vendors/vendor-bow-coin-ledger.service';
 import { CoinValuationService } from '../coins/coin-valuation.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class ReviewsService {
@@ -51,6 +52,7 @@ export class ReviewsService {
         // 4. Create Review
         const review = await this.prisma.review.create({
             data: {
+                id: randomUUID(),
                 userId,
                 productId,
                 vendorId: product.vendorId,
@@ -58,7 +60,8 @@ export class ReviewsService {
                 comment: dto.comment,
                 images: dto.images || [],
                 isVerified: true, // Logic enforced
-                status: 'ACTIVE'
+                status: 'ACTIVE',
+                updatedAt: new Date()
             }
         });
 
@@ -200,13 +203,14 @@ export class ReviewsService {
 
         await this.prisma.report.create({
             data: {
+                id: randomUUID(),
                 reporterId: userId,
                 targetType: 'REVIEW',
                 targetId: id,
                 reason: dto.reason,
                 description: dto.details,
                 status: 'PENDING'
-            }
+            } as any
         });
 
         return this.prisma.review.update({

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface ReplenishmentReminder {
@@ -71,7 +72,7 @@ export class BowSmartReminders {
                     id: true,
                     title: true,
                     price: true,
-                    category: { select: { name: true } }
+                    Category: { select: { name: true } }
                 }
             });
 
@@ -79,7 +80,7 @@ export class BowSmartReminders {
 
             for (const product of products) {
                 const count = productPurchaseCount.get(product.id) || 0;
-                if (consumableCategories.some(cat => product.category?.name?.includes(cat))) {
+                if (consumableCategories.some(cat => product.Category?.name?.includes(cat))) {
                     reminders.push({
                         productId: product.id,
                         title: product.title,
@@ -118,7 +119,7 @@ export class BowSmartReminders {
                     userId_productId: { userId, productId }
                 },
                 update: {},
-                create: { userId, productId }
+                create: { id: randomUUID(), userId, productId }
             });
 
             this.logger.log(`Added ${productId} to smart wishlist for user ${userId}`);
@@ -146,7 +147,7 @@ export class BowSmartReminders {
                 select: {
                     productId: true,
                     createdAt: true,
-                    product: {
+                    Product: {
                         select: {
                             id: true,
                             title: true,
@@ -163,14 +164,14 @@ export class BowSmartReminders {
             const items: WishlistItem[] = [];
 
             for (const item of wishlistItems) {
-                if (item.product) {
+                if (item.Product) {
                     // Check if price dropped (offerPrice < price)
-                    const priceDropped = (item.product.offerPrice || 0) < (item.product.price || 0);
+                    const priceDropped = (item.Product.offerPrice || 0) < (item.Product.price || 0);
 
                     items.push({
-                        productId: item.product.id,
-                        title: item.product.title,
-                        price: item.product.price,
+                        productId: item.Product.id,
+                        title: item.Product.title,
+                        price: item.Product.price,
                         addedDate: item.createdAt,
                         priceDropAlert: priceDropped
                     });
@@ -270,7 +271,7 @@ export class BowSmartReminders {
                 const giftSuggestions = await this.prisma.product.findMany({
                     where: {
                         isActive: true,
-                        category: {
+                        Category: {
                             name: { in: ['Electronics', 'Accessories', 'Fashion'] }
                         }
                     },

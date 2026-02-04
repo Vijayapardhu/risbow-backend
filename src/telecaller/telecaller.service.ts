@@ -143,7 +143,7 @@ export class TelecallerService {
                     { status: 'NEW' } // Allow picking up new leads
                 ]
             },
-            include: { User: true },
+            include: { User_AbandonedCheckout_userIdToUser: true },
             orderBy: { abandonedAt: 'desc' },
             take: 50
         });
@@ -153,8 +153,8 @@ export class TelecallerService {
             const items = lead.cartSnapshot as any;
             return {
                 id: lead.id,
-                customerName: lead.User?.name || (lead.guestInfo as any)?.name || 'Guest',
-                mobile: lead.User?.mobile || (lead.guestInfo as any)?.phone || 'N/A',
+                customerName: lead.User_AbandonedCheckout_userIdToUser?.name || (lead.guestInfo as any)?.name || 'Guest',
+                mobile: lead.User_AbandonedCheckout_userIdToUser?.mobile || (lead.guestInfo as any)?.phone || 'N/A',
                 cartValue: finance?.totalAmount || 0,
                 itemCount: Array.isArray(items) ? items.length : 0,
                 abandonedAt: lead.abandonedAt,
@@ -168,7 +168,7 @@ export class TelecallerService {
         // Using 'Report' as proxy for support tickets
         const reports = await this.prisma.report.findMany({
             where: { status: 'PENDING' },
-            include: { reporter: true },
+            include: { User: true },
             orderBy: { createdAt: 'desc' },
             take: 20
         });
@@ -177,8 +177,8 @@ export class TelecallerService {
             id: r.id,
             subject: `Report against ${r.targetType}`,
             description: r.reason,
-            customerName: r.reporter.name,
-            mobile: r.reporter.mobile,
+            customerName: r.User.name,
+            mobile: r.User.mobile,
             priority: 'Normal',
             createdAt: r.createdAt
         }));

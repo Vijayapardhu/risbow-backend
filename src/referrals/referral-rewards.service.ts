@@ -67,7 +67,7 @@ export class ReferralRewardsService {
       where: { id: orderId },
       include: {
         payment: true,
-        financialSnapshot: true,
+        OrderFinancialSnapshot: true,
       },
     });
 
@@ -78,7 +78,7 @@ export class ReferralRewardsService {
     const orderValuePaise = this.computeOrderValuePaise({
       order: orderWithRelations,
       payment: orderWithRelations.payment,
-      snapshot: orderWithRelations.financialSnapshot,
+      snapshot: orderWithRelations.OrderFinancialSnapshot,
     });
 
     const rule = await this.prisma.referralRewardRule.findFirst({

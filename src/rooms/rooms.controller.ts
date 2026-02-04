@@ -130,10 +130,9 @@ export class RoomsController {
         return this.prisma.room.findMany({
             where,
             include: {
-                members: true, // simple include, prod would aggregate 
-                createdBy: { select: { name: true } },
+                RoomMember: true, // simple include, prod would aggregate 
                 _count: {
-                    select: { members: true }
+                    select: { RoomMember: true }
                 }
             },
             orderBy: { createdAt: 'desc' },
@@ -145,7 +144,7 @@ export class RoomsController {
     async findOne(@Param('id') id: string) {
         return this.prisma.room.findUnique({
             where: { id },
-            include: { members: true }
+            include: { RoomMember: true }
         })
     }
 }

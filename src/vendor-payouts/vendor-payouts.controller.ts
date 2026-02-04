@@ -21,10 +21,10 @@ export class VendorPayoutsController {
     @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
     async processPayout(
         @Request() req,
-        @Body() body: { vendorId: string; amount: number; transactionId: string; notes?: string }
+        @Body() body: { vendorId: string; amount: number; transactionId: string }
     ) {
         const adminId = req.user.id;
-        return this.payoutsService.processPayout(adminId, body.vendorId, body.amount, body.transactionId, body.notes);
+        return this.payoutsService.processPayout(adminId, body.vendorId, body.amount, body.transactionId);
     }
 
     @Get('history')
@@ -56,9 +56,9 @@ export class VendorPayoutsController {
     @Roles(UserRole.VENDOR, UserRole.WHOLESALER)
     async requestPayout(
         @Request() req,
-        @Body() body: { amount: number; notes?: string }
+        @Body() body: { amount: number }
     ) {
         const vendorId = req.user.vendorId || req.user.id;
-        return this.payoutsService.requestPayout(vendorId, body.amount, body.notes);
+        return this.payoutsService.requestPayout(vendorId, body.amount);
     }
 }

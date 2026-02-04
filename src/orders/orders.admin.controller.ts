@@ -65,7 +65,7 @@ export class OrdersAdminController {
         const order = await this.prisma.order.findUnique({
             where: { id },
             include: { 
-                deliveries: { take: 1, orderBy: { createdAt: 'desc' } },
+                Delivery: { take: 1, orderBy: { createdAt: 'desc' } },
                 address: true 
             }
         });
@@ -94,7 +94,7 @@ export class OrdersAdminController {
 
         return {
             orderId: id,
-            currentDriver: order.deliveries[0]?.driverId || null,
+            currentDriver: order.Delivery[0]?.driverId || null,
             drivers,
         };
     }
@@ -107,7 +107,7 @@ export class OrdersAdminController {
         const order = await this.prisma.order.findUnique({
             where: { id },
             include: { 
-                deliveries: { take: 1, orderBy: { createdAt: 'desc' } },
+                Delivery: { take: 1, orderBy: { createdAt: 'desc' } },
                 address: true,
             }
         });
@@ -136,9 +136,9 @@ export class OrdersAdminController {
         });
 
         // Create or update delivery record
-        if (order.deliveries && order.deliveries.length > 0) {
+        if (order.Delivery && order.Delivery.length > 0) {
             await this.prisma.delivery.update({
-                where: { id: order.deliveries[0].id },
+                where: { id: order.Delivery[0].id },
                 data: {
                     driverId,
                     status: 'ASSIGNED',
@@ -208,11 +208,11 @@ export class OrdersAdminController {
         const order = await this.prisma.order.findUnique({
             where: { id },
             include: {
-                deliveries: {
+                Delivery: {
                     take: 1,
                     orderBy: { createdAt: 'desc' },
                     include: {
-                        driver: {
+                        Driver: {
                             select: {
                                 id: true,
                                 name: true,
@@ -230,7 +230,7 @@ export class OrdersAdminController {
             return { error: 'Order not found' };
         }
 
-        const latestDelivery = order.deliveries && order.deliveries.length > 0 ? order.deliveries[0] : null;
+        const latestDelivery = order.Delivery && order.Delivery.length > 0 ? order.Delivery[0] : null;
 
         return {
             orderId: id,
@@ -238,7 +238,7 @@ export class OrdersAdminController {
             courierPartner: order.courierPartner,
             trackingId: order.trackingId,
             awbNumber: order.awbNumber,
-            driver: latestDelivery?.driver || null,
+            driver: latestDelivery?.Driver || null,
             deliveryStatus: latestDelivery?.status || null,
         };
     }

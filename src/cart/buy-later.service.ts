@@ -58,11 +58,11 @@ export class BuyLaterService {
                 currentPrice,
                 quantity: dto.quantity || 1,
                 updatedAt: new Date(),
-                user: { connect: { id: userId } },
-                product: { connect: { id: dto.productId } }
+                User: { connect: { id: userId } },
+                Product: { connect: { id: dto.productId } }
             },
             include: {
-                product: {
+                Product: {
                     select: {
                         id: true,
                         title: true,
@@ -93,7 +93,7 @@ export class BuyLaterService {
                 take: limit,
                 orderBy: { createdAt: 'desc' },
                 include: {
-                    product: {
+                    Product: {
                         select: {
                             id: true,
                             title: true,
@@ -101,7 +101,7 @@ export class BuyLaterService {
                             offerPrice: true,
                             images: true,
                             isActive: true,
-                            vendor: {
+                            Vendor: {
                                 select: { name: true }
                             }
                         }
@@ -144,7 +144,7 @@ export class BuyLaterService {
                 isActive: dto.isActive
             },
             include: {
-                product: {
+                Product: {
                     select: {
                         id: true,
                         title: true,
@@ -192,13 +192,13 @@ export class BuyLaterService {
                 isNotified: false
             },
             include: {
-                user: { select: { id: true, name: true, email: true, mobile: true } },
-                product: { select: { id: true, title: true, price: true, offerPrice: true, images: true } }
+                User: { select: { id: true, name: true, email: true, mobile: true } },
+                Product: { select: { id: true, title: true, price: true, offerPrice: true, images: true } }
             }
         });
 
         for (const item of buyLaterItems) {
-            const currentPrice = (item as any).Product.offerPrice || (item as any).Product.price;
+            const currentPrice = item.Product.offerPrice || item.Product.price;
             
             if (currentPrice <= item.targetPrice) {
                 await this.processPriceDrop(item, currentPrice);

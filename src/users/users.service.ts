@@ -4,6 +4,7 @@ import { UpdateUserDto, AdminCreateUserDto } from './dto/user.dto';
 import { RegisterDeviceDto } from './dto/device.dto';
 import { GeoService } from '../shared/geo.service';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class UsersService {
@@ -106,6 +107,7 @@ export class UsersService {
 
         return this.prisma.address.create({
             data: {
+                id: randomUUID(),
                 userId,
                 name: addressData.name,
                 phone: addressData.phone,
@@ -120,6 +122,7 @@ export class UsersService {
                 longitude: geo?.point.lng,
                 geoSource: geo?.source as any,
                 geoUpdatedAt: geo ? new Date() : undefined,
+                updatedAt: new Date(),
             }
         });
     }
@@ -230,7 +233,7 @@ export class UsersService {
         return this.prisma.wishlist.findMany({
             where: { userId },
             include: {
-                product: {
+                Product: {
                     select: {
                         id: true,
                         title: true,
@@ -259,7 +262,7 @@ export class UsersService {
         }
 
         return this.prisma.wishlist.create({
-            data: { userId, productId }
+            data: { id: randomUUID(), User: { connect: { id: userId } }, Product: { connect: { id: productId } } }
         });
     }
 
@@ -330,6 +333,7 @@ export class UsersService {
         const hashedPassword = await bcrypt.hash(dto.password, 10);
         const user = await this.prisma.user.create({
             data: {
+                id: randomUUID(),
                 name: dto.name.trim(),
                 email,
                 mobile,
@@ -337,10 +341,11 @@ export class UsersService {
                 role: 'CUSTOMER',
                 status: 'ACTIVE',
                 referralCode: Math.random().toString(36).substring(2, 12).toUpperCase(),
+                updatedAt: new Date(),
             } as any,
         });
         await this.prisma.cart.create({
-            data: { userId: user.id },
+            data: { id: randomUUID(), userId: user.id, updatedAt: new Date() },
         });
         return {
             id: user.id,

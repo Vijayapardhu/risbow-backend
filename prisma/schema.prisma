@@ -573,6 +573,35 @@ model ContentModeration {
   @@index([status])
 }
 
+/// ContentFlag - Tracks flagged content for moderation
+model ContentFlag {
+  id              String          @id
+  contentType     ContentFlagType
+  contentId       String
+  vendorId        String?
+  reason          FlagReason
+  description     String?
+  priority        FlagPriority    @default(LOW)
+  status          FlagStatus      @default(PENDING)
+  reportedBy      String?
+  isAutoFlagged   Boolean         @default(false)
+  reportCount     Int             @default(1)
+  action          ModerationAction?
+  moderationNotes String?
+  moderatedBy     String?
+  moderatedAt     DateTime?
+  assignedTo      String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  Vendor          Vendor?         @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  @@index([contentType, contentId])
+  @@index([status])
+  @@index([priority])
+  @@index([vendorId])
+  @@index([assignedTo])
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Coupon {
   id             String    @id
@@ -874,6 +903,8 @@ model Order {
   returnWindow                                             Int                        @default(7)
   obdOtp                                                   String?
   obdVerifiedAt                                            DateTime?
+  obdFailedAt                                              DateTime?
+  obdNotes                                                 String?
   checkoutGroupId                                          String?
   orderNumber                                              String?                    @unique
   invoiceNumber                                            String?                    @unique
@@ -881,16 +912,16 @@ model Order {
   isThirdPartyDelivery                                     Boolean                    @default(false)
   trackingId                                               String?
   Delivery                                                 Delivery[]
-  AbandonedCheckout                                        AbandonedCheckout?         @relation(fields: [abandonedCheckoutId], references: [id])
-  Address                                                  Address?                   @relation(fields: [addressId], references: [id])
-  CheckoutGroup                                            CheckoutGroup?             @relation(fields: [checkoutGroupId], references: [id])
-  GiftSKU                                                  GiftSKU?                   @relation(fields: [giftId], references: [id])
-  User                                                     User                       @relation(fields: [userId], references: [id])
+  abandonedCheckout                                        AbandonedCheckout?         @relation(fields: [abandonedCheckoutId], references: [id])
+  address                                                  Address?                   @relation(fields: [addressId], references: [id])
+  checkoutGroup                                            CheckoutGroup?             @relation(fields: [checkoutGroupId], references: [id])
+  giftSKU                                                  GiftSKU?                   @relation(fields: [giftId], references: [id])
+  user                                                     User                       @relation(fields: [userId], references: [id])
   OrderDeliverySlotSnapshot                                OrderDeliverySlotSnapshot?
   OrderFinancialSnapshot                                   OrderFinancialSnapshot?
   OrderPackingProof                                        OrderPackingProof?
   OrderSettlement                                          OrderSettlement?
-  Payment                                                  Payment?
+  payment                                                  Payment?
   ReferralRewardGrant                                      ReferralRewardGrant?
   Refund                                                   Refund[]
   ReplacementOrder_ReplacementOrder_newOrderIdToOrder      ReplacementOrder?          @relation("ReplacementOrder_newOrderIdToOrder")
@@ -899,6 +930,7 @@ model Order {
   ReturnRequest                                            ReturnRequest[]
   Shipment                                                 Shipment?
   SupportTicket                                            SupportTicket[]
+  VendorStrike                                             VendorStrike[]
 
   @@index([awbNumber])
   @@index([checkoutGroupId])
@@ -911,6 +943,30 @@ model Order {
   @@index([status])
   @@index([userId])
   @@index([userId, status])
+}
+
+model ReturnQCChecklist {
+  id          String   @id @default(cuid())
+  orderId     String   @unique
+  returnId    String?
+  vendorId    String
+  agentId     String
+  isBrandBoxIntact Boolean @default(true)
+  isProductIntact  Boolean @default(true)
+  missingAccessories String[]
+  images      String[]
+  videoPath   String?
+  status      String   @default("PASSED") // PASSED, FAILED
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  order       Order    @relation(fields: [orderId], references: [id])
+  vendor      Vendor   @relation(fields: [vendorId], references: [id])
+  user        User     @relation(fields: [agentId], references: [id])
+
+  @@index([orderId])
+  @@index([vendorId])
+  @@index([status])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -1411,23 +1467,7 @@ model ReturnItem {
   @@index([returnId])
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model ReturnQCChecklist {
-  id                    String   @id
-  orderId               String   @unique
-  inspectorId           String
-  status                Boolean  @default(false)
-  isOriginalPackaging   Boolean  @default(false)
-  isUnused              Boolean  @default(false)
-  allAccessoriesPresent Boolean  @default(false)
-  hasPhysicalDamage     Boolean  @default(false)
-  imeiMatch             Boolean  @default(true)
-  photos                String[]
-  notes                 String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime
-  Order                 Order    @relation(fields: [orderId], references: [id])
-}
+
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model ReturnRequest {
@@ -1824,6 +1864,7 @@ model User {
   Refund                                                      Refund[]
   Report                                                      Report[]
   ReturnRequest                                               ReturnRequest[]
+  ReturnQCChecklists                                          ReturnQCChecklist[]
   Review                                                      Review[]
   Room                                                        Room[]
   RoomMember                                                  RoomMember[]
@@ -1945,6 +1986,7 @@ model Vendor {
   Product                         Product[]
   Reel                            Reel[]
   ReturnRequest                   ReturnRequest[]
+  ReturnQCChecklists              ReturnQCChecklist[]
   Review                          Review[]
   Story                           Story[]
   VendorBowCoinLedger             VendorBowCoinLedger[]
@@ -1958,6 +2000,9 @@ model Vendor {
   VendorPayout                    VendorPayout[]
   VendorPromotion                 VendorPromotion[]
   VendorServiceArea               VendorServiceArea[]
+  VendorStrike                    VendorStrike[]
+  VendorDiscipline                VendorDiscipline[]
+  ContentFlag                     ContentFlag[]
 
   @@index([kycStatus])
   @@index([pincode])
@@ -2021,6 +2066,56 @@ model VendorDisciplineState {
   Vendor               Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([state])
+}
+
+/// VendorStrike - Tracks strikes/violations issued to vendors
+model VendorStrike {
+  id              String            @id
+  vendorId        String
+  type            StrikeType
+  reason          String
+  evidence        String[]          @default([])
+  orderId         String?
+  productId       String?
+  issuedBy        String
+  issuedAt        DateTime          @default(now())
+  points          Int               @default(1)
+  resolution      StrikeResolution?
+  resolutionNotes String?
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  appealedAt      DateTime?
+  appealReason    String?
+  appealEvidence  String[]          @default([])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  Vendor          Vendor            @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  Order           Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([vendorId])
+  @@index([type])
+  @@index([resolution])
+  @@index([orderId])
+}
+
+/// VendorDiscipline - Tracks discipline actions taken against vendors
+model VendorDiscipline {
+  id         String           @id
+  vendorId   String
+  status     DisciplineStatus
+  reason     String
+  startedAt  DateTime         @default(now())
+  endsAt     DateTime?
+  endedAt    DateTime?
+  appliedBy  String
+  liftedBy   String?
+  liftReason String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  Vendor     Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([status])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -2315,6 +2410,8 @@ enum ContentFlagType {
   PRODUCT_IMAGE
   REVIEW
   VENDOR_PROFILE
+  PRODUCT
+  BANNER
 }
 
 enum CostBearer {
@@ -2349,6 +2446,10 @@ enum DisciplineStatus {
   SUSPENDED
   FINAL_WARNING
   BLOCKED
+  ACTIVE
+  BANNED
+  LIFTED
+  EXPIRED
 }
 
 enum DocumentStatus {
@@ -2403,11 +2504,17 @@ enum FlagReason {
   HARASSMENT
   MISINFORMATION
   OTHER
+  INAPPROPRIATE
+  PROHIBITED
+  OFFENSIVE
+  LOW_QUALITY
+  DUPLICATE
 }
 
 enum FlagStatus {
   PENDING
   IN_REVIEW
+  UNDER_REVIEW
   RESOLVED
   ESCALATED
 }
@@ -2507,6 +2614,11 @@ enum ModerationAction {
   REMOVED_WITH_WARNING
   REMOVED_WITH_STRIKE
   ESCALATED
+  APPROVE
+  REMOVE
+  HIDE
+  EDIT
+  WARN
 }
 
 enum OrderStatus {
@@ -2698,6 +2810,7 @@ enum StrikeResolution {
   REDUCED
   APPEALED
   DECAYED
+  OVERTURNED
 }
 
 enum StrikeType {
@@ -2709,6 +2822,11 @@ enum StrikeType {
   REPEATED_CANCELLATION
   POLICY_VIOLATION
   CONTENT_VIOLATION
+  WARNING
+  PRODUCT_VIOLATION
+  DELIVERY_FAILURE
+  FRAUD
+  REPEATED_OFFENSE
 }
 
 enum TicketCategory {

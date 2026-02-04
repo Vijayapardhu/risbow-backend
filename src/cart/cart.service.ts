@@ -5,6 +5,7 @@ import { AddCartItemDto, UpdateCartItemDto, SyncCartDto } from './dto/cart.dto';
 import { Prisma } from '@prisma/client';
 import { EcommerceEventsService } from '../recommendations/ecommerce-events.service';
 import { UserProductEventType } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class CartService {
@@ -204,7 +205,7 @@ export class CartService {
             // 2. Upsert Cart
             let cart = await this.prisma.cart.findUnique({ where: { userId } });
             if (!cart) {
-                cart = await this.prisma.cart.create({ data: { userId } });
+                cart = await this.prisma.cart.create({ data: { id: randomUUID(), User: { connect: { id: userId } }, updatedAt: new Date() } });
             }
 
             // 3. Check existing item
@@ -233,9 +234,10 @@ export class CartService {
             } else {
                 await this.prisma.cartItem.create({
                     data: {
-                        cartId: cart.id,
-                        productId,
-                        variantId,
+                        id: randomUUID(),
+                        Cart: { connect: { id: cart.id } },
+                        Product: { connect: { id: productId } },
+                        variantId: variantId || undefined,
                         quantity
                     }
                 });
@@ -375,7 +377,7 @@ export class CartService {
         // 1. Get or Create Cart
         let cart = await this.prisma.cart.findUnique({ where: { userId } });
         if (!cart) {
-            cart = await this.prisma.cart.create({ data: { userId } });
+            cart = await this.prisma.cart.create({ data: { id: randomUUID(), User: { connect: { id: userId } }, updatedAt: new Date() } });
         }
 
         // 2. Process items
@@ -424,9 +426,10 @@ export class CartService {
                 } else {
                     await this.prisma.cartItem.create({
                         data: {
-                            cartId: cart.id,
-                            productId: itemDto.productId,
-                            variantId: itemDto.variantId,
+                            id: randomUUID(),
+                            Cart: { connect: { id: cart.id } },
+                            Product: { connect: { id: itemDto.productId } },
+                            variantId: itemDto.variantId || undefined,
                             quantity: quantity
                         }
                     });

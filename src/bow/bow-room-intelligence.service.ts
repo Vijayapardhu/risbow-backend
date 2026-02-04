@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../shared/redis.service';
 import { RoomStatus, BowActionType, InteractionType, RoomBoost, RoomInsight } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class BowRoomIntelligenceService {
@@ -23,7 +24,7 @@ export class BowRoomIntelligenceService {
 
     const room = await this.prisma.room.findUnique({
       where: { id: roomId },
-      include: { _count: { select: { members: true } } }
+      include: { _count: { select: { RoomMember: true } } }
     });
 
     if (!room || room.status === 'EXPIRED') return 0;
@@ -67,7 +68,8 @@ export class BowRoomIntelligenceService {
     // Persist to RoomInsight for analytics
     await this.prisma.roomInsight.create({
       data: {
-        roomId,
+        id: randomUUID(),
+        Room: { connect: { id: roomId } },
         metric: 'UNLOCK_PROBABILITY',
         value: finalProb
       }
@@ -126,7 +128,8 @@ export class BowRoomIntelligenceService {
       // Record Interaction
       await this.prisma.bowInteraction.create({
         data: {
-          userId,
+          id: randomUUID(),
+          User: { connect: { id: userId } },
           sessionId: `room_${roomId}`, // Structured session
           type: InteractionType.RECOMMENDATION,
           intent: 'ROOM_NUDGE',

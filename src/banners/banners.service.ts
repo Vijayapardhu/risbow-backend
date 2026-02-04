@@ -4,6 +4,7 @@ import {
     BadRequestException,
     Logger,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import {
     CreateBannerDto,
@@ -141,6 +142,7 @@ export class BannersService {
 
         const banner = await this.prisma.banner.create({
             data: {
+                id: randomUUID(),
                 imageUrl: dto.imageUrl,
                 redirectUrl: dto.redirectUrl,
                 slotType: dto.slotType,
@@ -307,6 +309,7 @@ export class BannersService {
 
             const banner = await tx.banner.create({
                 data: {
+                    id: randomUUID(),
                     vendorId,
                     imageUrl: '', // Will be uploaded later
                     redirectUrl: null,
@@ -452,6 +455,7 @@ export class BannersService {
         // Create ledger entry (NO counter update)
         await this.prisma.bannerImpressionLedger.create({
             data: {
+                id: randomUUID(),
                 bannerId,
                 userId: userId || null,
                 viewedAt: new Date(),
@@ -483,6 +487,7 @@ export class BannersService {
             // Create new entry with both view and click
             await this.prisma.bannerImpressionLedger.create({
                 data: {
+                    id: randomUUID(),
                     bannerId,
                     userId: userId || null,
                     viewedAt: new Date(),
