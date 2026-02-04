@@ -9,10 +9,15 @@ import { VendorProductsService } from './vendor-products.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Response } from 'express';
 
+import { UploadService } from '../upload/upload.service';
+
 @ApiTags('Vendor Products')
 @Controller('vendor-products')
 export class VendorProductsController {
-    constructor(private readonly productsService: VendorProductsService) { }
+    constructor(
+        private readonly productsService: VendorProductsService,
+        private readonly uploadService: UploadService
+    ) { }
 
     @Post('bulk-upload')
     @UseGuards(JwtAuthGuard)
@@ -154,7 +159,48 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Bulk update expiry dates for multiple products' })
-    async bulkUpdateExpiry(@Req() req, @Body() dto: BulkUpdateExpiryDto) {
-        return this.productsService.bulkUpdateExpiry(req.user.id, dto);
+    @Post(':id/media')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Upload product media (Image/Video)' })
+    @ApiConsumes('multipart/form-data')
+    @ApiBody({
+        schema: {
+            type: 'object',
+            properties: {
+                file: { type: 'string', format: 'binary' },
+            },
+        },
+    })
+    @UseInterceptors(FileInterceptor('file'))
+    async uploadMedia(@Req() req, @Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
+        if (!file) throw new BadRequestException('No file uploaded');
+
+        // 1. Upload to Storage
+        const uploadResult = await this.uploadService.uploadProductMedia(file, id);
+
+        // 2. Update Product Record
+        return this.productsService.addProductMedia(req.user.id, id, uploadResult);
+    }
+
+    @Delete(':id/media')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Delete product media' })
+    async deleteMedia(@Req() req, @Param('id') id: string, @Query('url') url: string) {
+        if (!url) throw new BadRequestException('Media URL required');
+
+        // Note: Ideally we should delete from storage too, but for safety/simplicity we'll just unlink from product first.
+        // Implementing storage delete would require mapping URL to path or storing path in mediaGallery.
+        // The service method `deleteProductMedia` just removes from array.
+        return this.productsService.deleteProductMedia(req.user.id, id, url);
+    }
+
+    @Delete(':id')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Delete a product (soft delete)' })
+    async delete(@Req() req, @Param('id') id: string) {
+        return this.productsService.deleteProduct(req.user.id, id);
     }
 }

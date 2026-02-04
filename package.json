@@ -29,6 +29,7 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.981.0",
     "@elastic/elasticsearch": "^9.2.0",
     "@fastify/compress": "^7.0.3",
     "@fastify/helmet": "^11.1.1",

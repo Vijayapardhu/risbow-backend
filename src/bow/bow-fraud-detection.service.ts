@@ -515,16 +515,60 @@ export class BowFraudDetectionService {
    * Load existing fraud patterns
    */
   private async loadFraudPatterns(): Promise<void> {
-    // TODO: Load historical fraud patterns from database
-    this.logger.log('Loading fraud patterns');
+    try {
+      // Load historical fraud flags from orders
+      const flaggedOrders = await this.prisma.order.findMany({
+        where: {
+          OR: [
+            { fraudCheckStatus: 'FLAGGED' },
+            { fraudCheckStatus: 'CONFIRMED_FRAUD' }
+          ]
+        },
+        take: 100,
+        orderBy: { createdAt: 'desc' }
+      });
+
+      // Load fraud-related audit logs
+      const fraudLogs = await this.prisma.auditLog.findMany({
+        where: {
+          action: { in: ['FRAUD_DETECTED', 'FRAUD_CONFIRMED', 'FRAUD_BLOCKED'] }
+        },
+        take: 500,
+        orderBy: { createdAt: 'desc' }
+      });
+
+      this.logger.log(`Loaded ${flaggedOrders.length} flagged orders and ${fraudLogs.length} fraud logs`);
+    } catch (error) {
+      this.logger.warn(`Failed to load fraud patterns: ${error.message}`);
+    }
   }
 
   /**
    * Start real-time monitoring
    */
   private startRealTimeMonitoring(): void {
-    // TODO: Set up real-time monitoring of transactions
-    this.logger.log('Starting real-time fraud monitoring');
+    // Set up periodic fraud pattern analysis
+    setInterval(async () => {
+      try {
+        // Check for suspicious patterns in recent orders
+        const recentOrders = await this.prisma.order.findMany({
+          where: {
+            createdAt: { gte: new Date(Date.now() - 15 * 60 * 1000) }, // Last 15 minutes
+            fraudCheckStatus: null
+          },
+          take: 50
+        });
+
+        for (const order of recentOrders) {
+          // Trigger fraud check for unchecked orders
+          await this.analyzeTransaction(order.id);
+        }
+      } catch (error) {
+        this.logger.warn(`Real-time monitoring error: ${error.message}`);
+      }
+    }, 5 * 60 * 1000); // Every 5 minutes
+
+    this.logger.log('Started real-time fraud monitoring (5-minute intervals)');
   }
 
   /**

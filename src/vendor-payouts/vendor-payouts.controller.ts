@@ -34,4 +34,31 @@ export class VendorPayoutsController {
         const vendorId = req.user.vendorId || req.user.id;
         return this.payoutsService.getPayoutHistory(vendorId);
     }
+
+    @Get('balance')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.VENDOR, UserRole.WHOLESALER)
+    async getBalance(@Request() req) {
+        const vendorId = req.user.vendorId || req.user.id;
+        return this.payoutsService.getBalance(vendorId);
+    }
+
+    @Get('pending')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.VENDOR, UserRole.WHOLESALER)
+    async getPendingPayouts(@Request() req) {
+        const vendorId = req.user.vendorId || req.user.id;
+        return this.payoutsService.getPendingPayouts(vendorId);
+    }
+
+    @Post('request')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.VENDOR, UserRole.WHOLESALER)
+    async requestPayout(
+        @Request() req,
+        @Body() body: { amount: number; notes?: string }
+    ) {
+        const vendorId = req.user.vendorId || req.user.id;
+        return this.payoutsService.requestPayout(vendorId, body.amount, body.notes);
+    }
 }

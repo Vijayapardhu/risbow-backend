@@ -4,6 +4,7 @@ import { parse } from 'csv-parse/sync';
 import { BulkUploadProductDto } from './dto/bulk-upload.dto';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class VendorProductsService {
@@ -653,5 +654,50 @@ export class VendorProductsService {
             updated: result.count,
             message: `Updated expiry date for ${result.count} products`,
         };
+    }
+    async addProductMedia(vendorId: string, productId: string, media: { url: string, type: 'image' | 'video', path: string }) {
+        const product = await this.prisma.product.findFirst({
+            where: { id: productId, vendorId }
+        });
+        if (!product) throw new BadRequestException('Product not found or access denied');
+
+        const currentGallery = (product.mediaGallery as any[]) || [];
+        const updatedGallery = [...currentGallery, { ...media, id: randomUUID(), createdAt: new Date() }];
+
+        return this.prisma.product.update({
+            where: { id: productId },
+            data: { mediaGallery: updatedGallery }
+        });
+    }
+
+    async deleteProductMedia(vendorId: string, productId: string, mediaUrl: string) {
+        const product = await this.prisma.product.findFirst({
+            where: { id: productId, vendorId }
+        });
+        if (!product) throw new BadRequestException('Product not found or access denied');
+
+        const currentGallery = (product.mediaGallery as any[]) || [];
+        const updatedGallery = currentGallery.filter((m: any) => m.url !== mediaUrl);
+
+        return this.prisma.product.update({
+            where: { id: productId },
+            data: { mediaGallery: updatedGallery }
+        });
+    }
+
+    async deleteProduct(vendorId: string, productId: string) {
+        const product = await this.prisma.product.findFirst({
+            where: { id: productId, vendorId }
+        });
+        if (!product) throw new BadRequestException('Product not found or access denied');
+
+        // Soft delete: Set visibility to DRAFT and isActive to false
+        return this.prisma.product.update({
+            where: { id: productId },
+            data: {
+                visibility: 'DRAFT',
+                isActive: false
+            }
+        });
     }
 }

@@ -509,7 +509,22 @@ export class AuthService {
 
             // Add compliance fee if Non-GST (optional logic, can be handled via ledger later)
             if (!registerDto.isGstRegistered) {
-                // TODO: Record compliance fee deduction or pending charge
+                // Record compliance fee deduction as audit log for future ledger integration
+                await tx.auditLog.create({
+                    data: {
+                        action: 'COMPLIANCE_FEE_PENDING',
+                        entity: 'VENDOR',
+                        entityId: vendor.id,
+                        details: JSON.stringify({
+                            vendorId: vendor.id,
+                            userId: result.user.id,
+                            feeType: 'NON_GST_COMPLIANCE',
+                            amount: 500, // Standard compliance fee
+                            status: 'PENDING',
+                            createdAt: new Date().toISOString()
+                        })
+                    }
+                });
             }
 
             return { user, vendor };

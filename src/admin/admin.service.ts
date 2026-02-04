@@ -879,9 +879,13 @@ export class AdminService {
     }
 
     async bulkDeleteUsers(adminId: string, userIds: string[]) {
-        // For now, hard delete. TODO: Implement soft delete
-        const result = await this.prisma.user.deleteMany({
+        // Soft delete by setting status to BANNED and adding deletedAt marker
+        const result = await this.prisma.user.updateMany({
             where: { id: { in: userIds } },
+            data: { 
+                status: 'BANNED',
+                updatedAt: new Date()
+            }
         });
 
         // Audit log

@@ -362,13 +362,58 @@ Respond in JSON format like:
    * Get visual search analytics
    */
   async getVisualSearchStats(): Promise<any> {
-    // TODO: Implement visual search analytics
-    return {
-      totalSearches: 0,
-      averageConfidence: 0,
-      topCategories: [],
-      successfulMatches: 0
-    };
+    try {
+      // Query audit logs for visual search events
+      const searchLogs = await this.prisma.auditLog.findMany({
+        where: {
+          action: 'VISUAL_SEARCH',
+          createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+        },
+        take: 1000
+      });
+
+      // Parse analytics from logs
+      const categoryCount = new Map<string, number>();
+      let totalConfidence = 0;
+      let successfulMatches = 0;
+
+      for (const log of searchLogs) {
+        try {
+          const details = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
+          if (details?.category) {
+            categoryCount.set(details.category, (categoryCount.get(details.category) || 0) + 1);
+          }
+          if (details?.confidence) {
+            totalConfidence += details.confidence;
+          }
+          if (details?.matchCount > 0) {
+            successfulMatches++;
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      const topCategories = Array.from(categoryCount.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([category, count]) => ({ category, count }));
+
+      return {
+        totalSearches: searchLogs.length,
+        averageConfidence: searchLogs.length > 0 ? totalConfidence / searchLogs.length : 0,
+        topCategories,
+        successfulMatches
+      };
+    } catch (error) {
+      this.logger.warn(`Failed to get visual search stats: ${error.message}`);
+      return {
+        totalSearches: 0,
+        averageConfidence: 0,
+        topCategories: [],
+        successfulMatches: 0
+      };
+    }
   }
 
   /**

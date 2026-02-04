@@ -68,6 +68,56 @@ export class UploadService {
         }
     }
 
+    async uploadProductMedia(file: Express.Multer.File, contextId: string): Promise<{ url: string, path: string, type: 'image' | 'video' }> {
+        // 1. Validate MIME Type (Images & Videos)
+        const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm'];
+        if (!allowedMimes.includes(file.mimetype)) {
+            throw new BadRequestException(`Invalid file type. Allowed: ${allowedMimes.join(', ')}`);
+        }
+
+        // 2. Validate Size (Images: 5MB, Videos: 50MB)
+        const isVideo = file.mimetype.startsWith('video/');
+        const maxSize = isVideo ? 50 * 1024 * 1024 : 5 * 1024 * 1024;
+
+        if (file.size > maxSize) {
+            throw new BadRequestException(`File size exceeds limit (${isVideo ? '50MB' : '5MB'})`);
+        }
+
+        try {
+            let buffer = file.buffer;
+            let mimeType = file.mimetype;
+            let ext = file.originalname.split('.').pop() || 'bin';
+
+            // 3. Optimize if Image
+            if (!isVideo) {
+                buffer = await sharp(file.buffer)
+                    .resize({ width: 1200, withoutEnlargement: true })
+                    .webp({ quality: 80 })
+                    .toBuffer();
+                mimeType = 'image/webp';
+                ext = 'webp';
+            }
+
+            // 4. Generate Path
+            const filename = `${Date.now()}-${randomUUID()}.${ext}`;
+            const path = `products/${contextId}/${filename}`;
+
+            // 5. Upload to Supabase
+            // Note: Reuse 'products' bucket logic
+            const bucket = 'products';
+            const url = await this.supabaseStorageService.uploadFile(bucket, path, buffer, mimeType);
+
+            return { url, path, type: isVideo ? 'video' : 'image' };
+
+        } catch (error) {
+            this.logger.error(`Media upload failed: ${error.message}`, error.stack);
+            if (error instanceof BadRequestException || error instanceof InternalServerErrorException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Media upload failed');
+        }
+    }
+
     async uploadDocument(file: Express.Multer.File, userId: string, documentType: string): Promise<{ url: string, path: string }> {
         // 1. Validate MIME Type
         const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png'];

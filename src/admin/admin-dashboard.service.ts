@@ -122,7 +122,7 @@ export class AdminDashboardService {
                        typeof p.images === 'string' ? JSON.parse(p.images)[0] : null,
                 sales: Number(p.sales) || 0,
                 revenue: Number(p.price) * (Number(p.sales) || 0),
-                favorites: 0 // TODO: Implement with favorites table
+                favorites: Number(p.favorites_count) || 0
             }));
         } catch (error) {
             console.error('Error fetching top products:', error);
@@ -452,7 +452,7 @@ export class AdminDashboardService {
                 activeProducts: Number(stats.active_products) || 0,
                 userGrowth: 0,
                 revenueGrowth: 0,
-                totalWithdrawn: 0, // TODO: Implement with actual payout table
+                totalWithdrawn: Number(stats.total_withdrawn) || 0,
                 pendingWithdraw: 0,
                 totalCommission: Math.floor(Number(stats.total_commission) || 0),
                 rejectedWithdraw: 0

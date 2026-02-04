@@ -90,4 +90,104 @@ export class VendorPayoutsService {
             return payout;
         });
     }
+
+    async getBalance(vendorId: string) {
+        const vendor = await this.prisma.vendor.findUnique({
+            where: { id: vendorId },
+            select: {
+                pendingEarnings: true,
+                totalEarnings: true,
+                lastPayoutDate: true,
+                VendorMembership: {
+                    select: {
+                        payoutCycle: true
+                    }
+                }
+            }
+        });
+
+        if (!vendor) throw new NotFoundException('Vendor not found');
+
+        // Calculate total paid out
+        const payouts = await this.prisma.vendorPayout.findMany({
+            where: {
+                vendorId,
+                status: PayoutStatus.COMPLETED
+            },
+            select: {
+                amount: true
+            }
+        });
+
+        const totalPaidOut = payouts.reduce((sum, p) => sum + p.amount, 0);
+
+        return {
+            availableBalance: vendor.pendingEarnings,
+            totalEarnings: vendor.totalEarnings,
+            totalPaidOut,
+            lastPayoutDate: vendor.lastPayoutDate,
+            payoutCycle: vendor.VendorMembership?.payoutCycle || 'MONTHLY'
+        };
+    }
+
+    async getPendingPayouts(vendorId: string) {
+        return this.prisma.vendorPayout.findMany({
+            where: {
+                vendorId,
+                status: PayoutStatus.PENDING
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+
+    async requestPayout(vendorId: string, amount: number, notes?: string) {
+        const vendor = await this.prisma.vendor.findUnique({
+            where: { id: vendorId },
+            select: {
+                pendingEarnings: true,
+                kycStatus: true,
+                bankDetails: true
+            }
+        });
+
+        if (!vendor) throw new NotFoundException('Vendor not found');
+
+        if (vendor.kycStatus !== 'VERIFIED') {
+            throw new BadRequestException('KYC verification required to request payouts');
+        }
+
+        if (!vendor.bankDetails || Object.keys(vendor.bankDetails as any).length === 0) {
+            throw new BadRequestException('Bank details required to request payouts');
+        }
+
+        if (amount <= 0) {
+            throw new BadRequestException('Amount must be greater than 0');
+        }
+
+        if (amount > vendor.pendingEarnings) {
+            throw new BadRequestException(
+                `Insufficient balance. Available: ${vendor.pendingEarnings}, Requested: ${amount}`
+            );
+        }
+
+        // Minimum payout threshold (e.g., 500 INR)
+        const MIN_PAYOUT = 500;
+        if (amount < MIN_PAYOUT) {
+            throw new BadRequestException(`Minimum payout amount is ${MIN_PAYOUT}`);
+        }
+
+        // Create payout request
+        const payout = await this.prisma.vendorPayout.create({
+            data: {
+                vendorId,
+                amount,
+                period: new Date().toISOString().slice(0, 7), // YYYY-MM
+                status: PayoutStatus.PENDING,
+                bankDetails: vendor.bankDetails as any,
+                notes
+            }
+        });
+
+        return payout;
+    }
 }

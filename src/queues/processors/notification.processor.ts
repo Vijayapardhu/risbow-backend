@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationJob } from '../queues.service';
 import axios from 'axios';
 import { CommunicationService } from '../../shared/communication.service';
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 
 @Processor('notifications', {
     concurrency: 10,
@@ -210,10 +211,41 @@ export class NotificationProcessor extends WorkerHost {
         // Try AWS SES as fallback
         if (awsSesRegion && awsSesAccessKey && awsSesSecretKey) {
             try {
-                // AWS SES requires AWS SDK - for now, log that it needs implementation
-                // In production, use @aws-sdk/client-ses
-                this.logger.warn(`AWS SES email not yet implemented. Would send to ${user.email}: ${title}`);
-                // TODO: Implement AWS SES using @aws-sdk/client-ses
+                const sesClient = new SESClient({
+                    region: awsSesRegion,
+                    credentials: {
+                        accessKeyId: awsSesAccessKey,
+                        secretAccessKey: awsSesSecretKey,
+                    },
+                });
+
+                const fromEmail = process.env.AWS_SES_FROM_EMAIL || 'noreply@risbow.com';
+
+                const command = new SendEmailCommand({
+                    Source: fromEmail,
+                    Destination: {
+                        ToAddresses: [user.email],
+                    },
+                    Message: {
+                        Subject: {
+                            Data: title,
+                            Charset: 'UTF-8',
+                        },
+                        Body: {
+                            Html: {
+                                Data: this.formatEmailHTML(title, body),
+                                Charset: 'UTF-8',
+                            },
+                            Text: {
+                                Data: body,
+                                Charset: 'UTF-8',
+                            },
+                        },
+                    },
+                });
+
+                const result = await sesClient.send(command);
+                this.logger.log(`Email delivered via AWS SES to ${user.email}: ${title} (MessageId: ${result.MessageId})`);
                 return;
             } catch (error: any) {
                 this.logger.error(`AWS SES email failed: ${error.message}`);
