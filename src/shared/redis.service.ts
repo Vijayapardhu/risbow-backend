@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 
 @Injectable()
@@ -8,17 +9,20 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     private inMemoryStore = new Map<string, { value: string; expiresAt: number }>();
     private useMemory = false;
 
+    constructor(private configService: ConfigService) {}
+
     async onModuleInit() {
-        if (process.env.DISABLE_REDIS === 'true' || process.env.DISABLE_REDIS === '1') {
+        const disableRedis = this.configService.get<string>('DISABLE_REDIS');
+        if (disableRedis === 'true' || disableRedis === '1') {
             this.useMemory = true;
             this.logger.warn('DISABLE_REDIS=true; using in-memory store (no Redis connection)');
             return;
         }
-        const host = process.env.REDIS_HOST;
-        const port = parseInt(process.env.REDIS_PORT) || 6379;
-        const username = process.env.REDIS_USERNAME;
-        const password = process.env.REDIS_PASSWORD;
-        const useTls = process.env.REDIS_TLS === 'true' || process.env.REDIS_TLS === '1';
+        const host = this.configService.get<string>('REDIS_HOST');
+        const port = parseInt(this.configService.get<string>('REDIS_PORT')) || 6379;
+        const username = this.configService.get<string>('REDIS_USERNAME');
+        const password = this.configService.get<string>('REDIS_PASSWORD');
+        const useTls = this.configService.get<string>('REDIS_TLS') === 'true' || this.configService.get<string>('REDIS_TLS') === '1';
 
         if (!host) {
             this.useMemory = true;
@@ -44,10 +48,12 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         });
 
         this.client.on('error', (err) => {
+            // Only log once, then switch to in-memory silently
             if (!this.useMemory) {
-                this.logger.warn(`Redis unavailable, using in-memory store. Error: ${err.message}`);
+                this.logger.warn(`Redis unavailable, switching to in-memory store`);
                 this.useMemory = true;
             }
+            // Suppress further error logs
         });
 
         try {

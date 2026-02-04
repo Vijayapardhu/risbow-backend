@@ -1,11 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../shared/redis.service';
 import { SearchQueryDto, SortOption } from './dto/search.dto';
 import { Prisma } from '@prisma/client';
 import { BowRecommendationEngine } from '../bow/bow-recommendation.service';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
-import { InjectQueue } from '@nestjs/bullmq';
+import { getQueueToken } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { TrendingService } from './trending.service';
 import { OpenRouterService } from '../shared/openrouter.service';
@@ -45,7 +45,7 @@ export class SearchService {
     private redis: RedisService,
     private bowRecommendation: BowRecommendationEngine,
     private elasticsearchService: ElasticsearchService,
-    @InjectQueue('search-sync') private searchSyncQueue: Queue,
+    @Optional() @Inject(getQueueToken('search-sync')) private searchSyncQueue: Queue | null,
     private trendingService: TrendingService,
     private openRouterService: OpenRouterService,
   ) { }
@@ -788,7 +788,9 @@ export class SearchService {
         }
       }));
 
-      await this.searchSyncQueue.addBulk(jobs);
+      if (this.searchSyncQueue) {
+        await this.searchSyncQueue.addBulk(jobs);
+      }
       count += products.length;
       page++;
       this.logger.log(`Queued ${count} products for sync...`);
@@ -798,11 +800,15 @@ export class SearchService {
   }
 
   async indexProduct(product: any) {
-    await this.searchSyncQueue.add('index-product', product);
+    if (this.searchSyncQueue) {
+      await this.searchSyncQueue.add('index-product', product);
+    }
   }
 
   async removeProduct(productId: string) {
-    await this.searchSyncQueue.add('delete-product', { id: productId });
+    if (this.searchSyncQueue) {
+      await this.searchSyncQueue.add('delete-product', { id: productId });
+    }
   }
 
   private async searchElasticsearch(dto: SearchQueryDto) {

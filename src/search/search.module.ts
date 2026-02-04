@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module, forwardRef, DynamicModule } from '@nestjs/common';
 import { SearchController } from './search.controller';
 import { SearchService } from './search.service';
 import { SearchScoringService } from './search-scoring.service';
@@ -10,21 +10,29 @@ import { SearchSyncProcessor } from './search-sync.processor';
 import { BowModule } from '../bow/bow.module';
 import { RecommendationsModule } from '../recommendations/recommendations.module';
 
+// Check if Redis is disabled - prioritize DISABLE_REDIS flag
+const isRedisDisabled = () =>
+  process.env.DISABLE_REDIS === 'true' ||
+  process.env.DISABLE_REDIS === '1' ||
+  process.env.NODE_ENV === 'test' ||
+  !process.env.REDIS_HOST;
 
 @Module({
   imports: [
     ElasticsearchModule,
     forwardRef(() => BowModule),
     forwardRef(() => RecommendationsModule),
-    BullModule.registerQueue({
-      name: 'search-sync',
-    }),
+    // Only register Bull queue when Redis is enabled
+    ...(isRedisDisabled()
+      ? []
+      : [BullModule.registerQueue({ name: 'search-sync' })]),
   ],
   controllers: [SearchController],
   providers: [
     SearchService,
     SearchScoringService,
-    SearchSyncProcessor,
+    // Only register processor when Redis is enabled
+    ...(isRedisDisabled() ? [] : [SearchSyncProcessor]),
     TrendingService,
     AutocompleteService,
   ],
