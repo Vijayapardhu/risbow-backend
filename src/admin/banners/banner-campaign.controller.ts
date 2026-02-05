@@ -22,9 +22,18 @@ import { AdminPermissionsGuard } from '../auth/guards/admin-permissions.guard';
 import { RequirePermissions } from '../auth/decorators/admin-permissions.decorator';
 import { CurrentAdmin } from '../auth/decorators/current-admin.decorator';
 import { Permission } from '../rbac/admin-permissions.service';
-import { BannerType, BannerCampaignStatus } from '@prisma/client';
 import { IsString, IsEnum, IsOptional, IsNumber, IsDateString, IsObject, IsArray, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+
+// BannerCampaignStatus enum since it's not exported from Prisma
+enum BannerCampaignStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  ACTIVE = 'ACTIVE',
+  PAUSED = 'PAUSED',
+  COMPLETED = 'COMPLETED',
+}
 
 // DTOs
 class CreateCampaignDto {
@@ -35,11 +44,15 @@ class CreateCampaignDto {
 
   @ApiProperty()
   @IsString()
+  bannerId: string;
+
+  @ApiProperty()
+  @IsString()
   name: string;
 
-  @ApiProperty({ enum: BannerType })
-  @IsEnum(BannerType)
-  type: BannerType;
+  @ApiProperty()
+  @IsString()
+  type: string;
 
   @ApiProperty()
   @IsString()
@@ -87,6 +100,8 @@ class CreateCampaignDto {
   @IsNumber()
   @IsOptional()
   priority?: number;
+
+  id?: string;
 }
 
 class UpdateCampaignDto {
@@ -233,7 +248,7 @@ export class BannerCampaignController {
   })
   @ApiQuery({ name: 'vendorId', required: false })
   @ApiQuery({ name: 'status', required: false, enum: BannerCampaignStatus })
-  @ApiQuery({ name: 'type', required: false, enum: BannerType })
+  @ApiQuery({ name: 'type', required: false })
   @ApiQuery({ name: 'position', required: false })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -241,7 +256,7 @@ export class BannerCampaignController {
   async getCampaigns(
     @Query('vendorId') vendorId?: string,
     @Query('status') status?: BannerCampaignStatus,
-    @Query('type') type?: BannerType,
+    @Query('type') type?: string,
     @Query('position') position?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,

@@ -5,13 +5,17 @@ import { randomUUID } from 'crypto';
 import { OrderStateValidatorService } from '../orders/order-state-validator.service';
 import { RedisService } from '../shared/redis.service';
 import { PlatformConfigHelper } from '../common/platform-config.helper';
+import { NotificationsService } from '../shared/notifications.service';
 
 @Injectable()
 export class AdminService {
+    private readonly logger = new Logger(AdminService.name);
+
     constructor(
         private prisma: PrismaService,
         private orderStateValidator: OrderStateValidatorService,
         private redisService: RedisService,
+        private notificationsService: NotificationsService,
     ) { }
 
     async getDashboardKPIs(period: string = 'Last 7 Days') {
@@ -1443,6 +1447,7 @@ export class AdminService {
             }
         });
 
+        await this.notifyVendorKycStatus(vendor, newStatus, reason);
         return updated;
     }
 
@@ -1551,6 +1556,7 @@ export class AdminService {
             }
         });
 
+        await this.notifyVendorKycStatus(vendor, status, notes);
         return updated;
     }
 
@@ -1598,6 +1604,42 @@ export class AdminService {
         });
 
         return updated;
+    }
+
+    private async notifyVendorKycStatus(vendor: { id: string; name?: string; email?: string; mobile: string }, status: string, notes?: string) {
+        const title = `KYC ${status.toLowerCase()}`;
+        const messageBase = status === 'APPROVED' || status === 'VERIFIED'
+            ? 'Your KYC has been approved.'
+            : status === 'REJECTED'
+                ? 'Your KYC was rejected.'
+                : `Your KYC status was updated to ${status}.`;
+        const message = notes ? `${messageBase} Notes: ${notes}` : messageBase;
+
+        await this.notificationsService.createNotification(
+            vendor.id,
+            title,
+            message,
+            'KYC_STATUS_UPDATE',
+            'INDIVIDUAL',
+        );
+
+        const vendorEmail = vendor.email?.trim();
+        if (vendorEmail) {
+            await this.notificationsService.sendEmail(
+                vendorEmail,
+                `RISBOW: ${title}`,
+                message,
+                vendor.id,
+            );
+        } else {
+            this.logger.warn(`Skipping KYC email: vendor ${vendor.id} missing email`);
+        }
+
+        await this.notificationsService.sendSMS(
+            vendor.mobile,
+            `RISBOW: ${message}`,
+            vendor.id,
+        );
     }
 
     async getVendorAnalytics(vendorId: string) {

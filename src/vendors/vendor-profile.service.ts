@@ -177,7 +177,7 @@ export class VendorProfileService {
             where: { id: vendorId },
             data: {
                 pickupEnabled: dto.pickupEnabled,
-                pickupTimings: dto.pickupTimings || null,
+                pickupTimings: dto.pickupTimings as any || null,
             },
             select: {
                 id: true,
@@ -252,3 +252,4 @@ export class VendorProfileService {
         };
     }
 }
+

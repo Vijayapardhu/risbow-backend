@@ -194,7 +194,7 @@ export class ReportingService {
     const vendorSales = await this.prisma.orderItem.groupBy({
       by: ['vendorId'],
       where: {
-        order: {
+        Order: {
           createdAt: {
             gte: startDate,
             lte: endDate,
@@ -246,7 +246,7 @@ export class ReportingService {
     // This requires a more complex query through products
     const orderItems = await this.prisma.orderItem.findMany({
       where: {
-        order: {
+        Order: {
           createdAt: {
             gte: startDate,
             lte: endDate,
@@ -254,10 +254,10 @@ export class ReportingService {
         },
       },
       include: {
-        product: {
+        Product: {
           select: {
             categoryId: true,
-            category: { select: { id: true, name: true } },
+            Category: { select: { id: true, name: true } },
           },
         },
       },
@@ -266,8 +266,8 @@ export class ReportingService {
     const categoryStats: Record<string, { name: string; revenue: number; quantity: number; count: number }> = {};
 
     for (const item of orderItems) {
-      const categoryId = item.product?.categoryId || 'uncategorized';
-      const categoryName = item.product?.category?.name || 'Uncategorized';
+      const categoryId = item.Product?.categoryId || 'uncategorized';
+      const categoryName = item.Product?.Category?.name || 'Uncategorized';
 
       if (!categoryStats[categoryId]) {
         categoryStats[categoryId] = { name: categoryName, revenue: 0, quantity: 0, count: 0 };
@@ -293,7 +293,7 @@ export class ReportingService {
     const productSales = await this.prisma.orderItem.groupBy({
       by: ['productId'],
       where: {
-        order: {
+        Order: {
           createdAt: {
             gte: startDate,
             lte: endDate,
@@ -414,15 +414,18 @@ export class ReportingService {
         createdAt: true,
         _count: {
           select: {
-            products: true,
-            orders: {
-              where: {
-                createdAt: {
-                  gte: startDate,
-                  lte: endDate,
-                },
-              },
-            },
+            Product: true,
+            // orders field doesn't exist on Vendor
+            // OrderItem: {
+            //   where: {
+            //     Order: {
+            //       createdAt: {
+            //         gte: startDate,
+            //         lte: endDate,
+            //       },
+            //     },
+            //   },
+            // },
           },
         },
       },
@@ -431,21 +434,30 @@ export class ReportingService {
     // Get order stats for each vendor
     const vendorStats = await Promise.all(
       vendors.map(async (vendor) => {
-        const orders = await this.prisma.order.findMany({
+        // Note: Order model doesn't have vendorId field
+        // Orders need to be queried through OrderItems
+        const orderItems = await this.prisma.orderItem.findMany({
           where: {
             vendorId: vendor.id,
-            createdAt: {
-              gte: startDate,
-              lte: endDate,
+            Order: {
+              createdAt: {
+                gte: startDate,
+                lte: endDate,
+              },
             },
           },
-          select: {
-            totalAmount: true,
-            status: true,
+          include: {
+            Order: {
+              select: {
+                totalAmount: true,
+                status: true,
+              },
+            },
           },
         });
 
-        const totalRevenue = orders.reduce((sum, o) => sum + o.totalAmount, 0);
+        const orders = orderItems.map(item => item.Order);
+        const totalRevenue = orderItems.reduce((sum, item) => sum + item.total, 0);
         const completedOrders = orders.filter((o) => o.status === 'DELIVERED').length;
         const cancelledOrders = orders.filter((o) => o.status === 'CANCELLED').length;
         const fulfillmentRate = orders.length > 0
@@ -455,7 +467,7 @@ export class ReportingService {
         // Get average rating
         const reviews = await this.prisma.review.aggregate({
           where: {
-            product: { vendorId: vendor.id },
+            Product: { vendorId: vendor.id },
             createdAt: {
               gte: startDate,
               lte: endDate,
@@ -469,7 +481,7 @@ export class ReportingService {
           vendorId: vendor.id,
           vendorName: vendor.storeName,
           isActive: vendor.isActive,
-          productCount: vendor._count.products,
+          productCount: vendor._count.Product,
           orderCount: orders.length,
           totalRevenue,
           completedOrders,
@@ -526,16 +538,16 @@ export class ReportingService {
           lte: endDate,
         },
       },
-      _sum: { spent: true },
+      _sum: { cost: true },
     });
 
     return {
       grossRevenue: orderRevenue._sum.totalAmount || 0,
       commissionEarned: Math.round(totalCommission * 100) / 100,
       refunds: refunds._sum.totalAmount || 0,
-      bannerRevenue: bannerRevenue._sum.spent || 0,
+      bannerRevenue: bannerRevenue._sum.cost || 0,
       netRevenue: Math.round(
-        (totalCommission + (bannerRevenue._sum.spent || 0) - (refunds._sum.totalAmount || 0)) * 100,
+        (totalCommission + (bannerRevenue._sum.cost || 0) - (refunds._sum.totalAmount || 0)) * 100,
       ) / 100,
     };
   }
@@ -575,12 +587,12 @@ export class ReportingService {
 
     // Get current total circulation
     const totalCirculation = await this.prisma.user.aggregate({
-      _sum: { coinBalance: true },
+      _sum: { coinsBalance: true },
     });
 
     return {
       summary: {
-        totalCirculation: totalCirculation._sum.coinBalance || 0,
+        totalCirculation: totalCirculation._sum.coinsBalance || 0,
         periodEarned: totalEarned,
         periodRedeemed: totalRedeemed,
         netChange: totalEarned - totalRedeemed,
@@ -658,7 +670,7 @@ export class ReportingService {
         name: true,
         sku: true,
         stock: true,
-        vendor: { select: { id: true, storeName: true } },
+        Vendor: { select: { id: true, storeName: true } },
       },
       orderBy: { stock: 'asc' },
     });
@@ -693,3 +705,5 @@ export class ReportingService {
     return JSON.stringify(data);
   }
 }
+
+

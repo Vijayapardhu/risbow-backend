@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { VendorDocumentsService } from './vendor-documents.service';
-import { UploadDocumentDto } from './dto/upload-document.dto';
+import { RejectDocumentDto, UploadDocumentDto } from './dto/upload-document.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -62,8 +62,8 @@ export class VendorDocumentsController {
   async rejectDocument(
     @Param('id') id: string,
     @Request() req: any,
-    @Body('reason') reason: string,
+    @Body() body: RejectDocumentDto,
   ) {
-    return this.vendorDocumentsService.rejectDocument(id, req.user.id, reason);
+    return this.vendorDocumentsService.rejectDocument(id, req.user.id, body.reason);
   }
 }

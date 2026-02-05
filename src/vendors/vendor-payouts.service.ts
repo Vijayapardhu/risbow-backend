@@ -178,11 +178,12 @@ export class VendorPayoutsService {
             const newPayout = await tx.vendorPayout.create({
                 data: {
                     id: randomUUID(),
-                    vendorId,
+                    Vendor: { connect: { id: vendorId } },
                     amount,
                     period: currentMonth,
                     status: PayoutStatus.PENDING,
                     bankDetails: vendor.bankDetails as object,
+                    updatedAt: new Date(),
                 },
             });
 

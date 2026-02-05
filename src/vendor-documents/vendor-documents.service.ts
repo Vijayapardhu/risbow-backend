@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseStorageService } from '../shared/supabase-storage.service';
 import { DocumentType } from './dto/upload-document.dto';
+import { NotificationsService } from '../shared/notifications.service';
 
 @Injectable()
 export class VendorDocumentsService {
@@ -11,6 +12,7 @@ export class VendorDocumentsService {
   constructor(
     private prisma: PrismaService,
     private supabaseStorage: SupabaseStorageService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async uploadDocument(
@@ -32,7 +34,7 @@ export class VendorDocumentsService {
 
     // Upload to Supabase Storage
     const ext = file.originalname.split('.').pop() || 'pdf';
-    const path = `documents/${vendorId}/${documentType}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    const path = `documents/${vendorId}/${documentType}/${Date.now()}-${randomUUID()}.${ext}`;
     const bucket = 'users';
 
     const url = await this.supabaseStorage.uploadFile(bucket, path, file.buffer, file.mimetype);
@@ -47,6 +49,14 @@ export class VendorDocumentsService {
         Vendor: { connect: { id: vendorId } },
       },
     });
+
+    await this.notificationsService.createNotification(
+      vendorId,
+      'KYC document uploaded',
+      `${documentType} document uploaded and pending review.`,
+      'KYC_DOCUMENT_UPLOADED',
+      'INDIVIDUAL',
+    );
 
     return document;
   }
@@ -98,6 +108,14 @@ export class VendorDocumentsService {
       },
     });
 
+    await this.notificationsService.createNotification(
+      document.vendorId,
+      'KYC document approved',
+      `${document.documentType} document approved.`,
+      'KYC_DOCUMENT_APPROVED',
+      'INDIVIDUAL',
+    );
+
     // Check if all required documents are approved
     await this.checkVendorKYCStatus(document.vendorId);
 
@@ -123,12 +141,26 @@ export class VendorDocumentsService {
       },
     });
 
+    await this.notificationsService.createNotification(
+      document.vendorId,
+      'KYC document rejected',
+      `${document.documentType} document rejected. Reason: ${reason}`,
+      'KYC_DOCUMENT_REJECTED',
+      'INDIVIDUAL',
+    );
+
     return updated;
   }
 
   private async checkVendorKYCStatus(vendorId: string) {
-    // Check if all required documents (AADHAAR, PAN, BANK, UPI) are approved
-    const requiredTypes = ['AADHAAR', 'PAN', 'BANK', 'UPI'];
+    // Check if all required documents (AADHAAR, PAN, BANK, UPI, LICENSE) are approved
+    const requiredTypes: DocumentType[] = [
+      DocumentType.AADHAAR,
+      DocumentType.PAN,
+      DocumentType.BANK,
+      DocumentType.UPI,
+      DocumentType.LICENSE,
+    ];
     const approvedDocs = await this.prisma.vendorDocument.findMany({
       where: {
         vendorId,
@@ -145,8 +177,16 @@ export class VendorDocumentsService {
       // Update vendor KYC status
       await this.prisma.vendor.update({
         where: { id: vendorId },
-        data: { kycStatus: 'APPROVED' },
+        data: { kycStatus: 'VERIFIED' },
       });
+
+      await this.notificationsService.createNotification(
+        vendorId,
+        'KYC verified',
+        'All required documents have been approved. Your KYC is verified.',
+        'KYC_VERIFIED',
+        'INDIVIDUAL',
+      );
     }
   }
 }

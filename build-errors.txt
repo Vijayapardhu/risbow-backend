@@ -1,0 +1,699 @@
+
+> risbow-backend@0.0.1 build
+> prisma generate && nest build
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+
+Γ£ö Generated Prisma Client (v5.22.0) to .\node_modules\@prisma\client in 750ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to react to database changes in your app as they happen? Discover how with Pulse: https://pris.ly/tip-1-pulse
+
+src/admin/auth/admin-auth.service.ts:529:9 - error TS2561: Object literal may only specify known properties, but 'isMfaEnabled' does not exist in type '{ id: string; email: string; name: string; role: string; mfaEnabled: boolean; }'. Did you mean to write 'mfaEnabled'?
+
+529         isMfaEnabled: admin.isMfaEnabled,
+            ~~~~~~~~~~~~
+
+  src/admin/auth/dto/admin-login.dto.ts:31:3
+    31   admin: {
+         ~~~~~
+    The expected type comes from property 'admin' which is declared here on type 'AdminLoginResponseDto'
+src/admin/auth/types.ts:2:10 - error TS2459: Module '"../rbac/admin-permissions.service"' declares 'AdminRole' locally, but it is not exported.
+
+2 export { AdminRole } from '../rbac/admin-permissions.service';
+           ~~~~~~~~~
+
+  src/admin/rbac/admin-permissions.service.ts:2:10
+    2 import { AdminRole } from '@prisma/client';
+               ~~~~~~~~~
+    'AdminRole' is declared here.
+src/admin/banners/banner-campaign.controller.ts:249:52 - error TS2693: 'string' only refers to a type, but is being used as a value here.
+
+249   @ApiQuery({ name: 'type', required: false, enum: string })
+                                                       ~~~~~~
+src/admin/banners/banner-campaign.service.ts:137:37 - error TS2304: Cannot find name 'BannerType'.
+
+137     if (conflicting && dto.type !== BannerType.PROMOTIONAL) {
+                                        ~~~~~~~~~~
+src/admin/banners/banner-campaign.service.ts:162:23 - error TS2339: Property 'bannerId' does not exist on type 'CreateCampaignDto'.
+
+162         bannerId: dto.bannerId || `banner_${Date.now()}`,
+                          ~~~~~~~~
+src/admin/banners/banner-campaign.service.ts:385:44 - error TS2339: Property 'CANCELLED' does not exist on type 'typeof BannerCampaignStatus'.
+
+385       data: { status: BannerCampaignStatus.CANCELLED },
+                                               ~~~~~~~~~
+src/admin/banners/banner-campaign.service.ts:427:9 - error TS2322: Type '{ vendor: { select: { id: true; storeName: true; }; }; metrics: { select: { impressions: true; clicks: true; spent: true; }; }; }' is not assignable to type 'never'.
+
+427         include: {
+            ~~~~~~~
+
+  src/admin/banners/banner-campaign.service.ts:427:9
+    427         include: {
+                ~~~~~~~~~~
+    428           vendor: { select: { id: true, storeName: true } },
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ... 
+    431           },
+        ~~~~~~~~~~~~
+    432         },
+        ~~~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ where: BannerCampaignWhereInput; include: never; orderBy: { createdAt: "desc"; }; skip: number; take: number; }'
+src/admin/banners/banner-campaign.service.ts:475:18 - error TS2353: Object literal may only specify known properties, and 'priority' does not exist in type 'BannerCampaignOrderByWithRelationInput | BannerCampaignOrderByWithRelationInput[]'.
+
+475       orderBy: { priority: 'desc' },
+                     ~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:27692:5
+    27692     orderBy?: BannerCampaignOrderByWithRelationInput | BannerCampaignOrderByWithRelationInput[]
+              ~~~~~~~
+    The expected type comes from property 'orderBy' which is declared here on type '{ select?: BannerCampaignSelect<DefaultArgs>; where?: BannerCampaignWhereInput; orderBy?: BannerCampaignOrderByWithRelationInput | BannerCampaignOrderByWithRelationInput[]; cursor?: BannerCampaignWhereUniqueInput; take?: number; skip?: number; distinct?: BannerCampaignScalarFieldEnum | BannerCampaignScalarFieldEnum[...'
+src/admin/banners/banner-campaign.service.ts:485:9 - error TS2561: Object literal may only specify known properties, but 'campaignId_date' does not exist in type 'BannerMetricWhereUniqueInput'. Did you mean to write 'campaignId'?
+
+485         campaignId_date: {
+            ~~~~~~~~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:23869:5
+    23869     where: BannerMetricWhereUniqueInput
+              ~~~~~
+    The expected type comes from property 'where' which is declared here on type '{ select?: BannerMetricSelect<DefaultArgs>; where: BannerMetricWhereUniqueInput; create: (Without<BannerMetricCreateInput, BannerMetricUncheckedCreateInput> & BannerMetricUncheckedCreateInput) | (Without<...> & BannerMetricCreateInput); update: (Without<...> & BannerMetricUncheckedUpdateInput) | (Without<...> & Bann...'
+src/admin/banners/banner-campaign.service.ts:495:9 - error TS2353: Object literal may only specify known properties, and 'spent' does not exist in type '(Without<BannerMetricCreateInput, BannerMetricUncheckedCreateInput> & BannerMetricUncheckedCreateInput) | (Without<...> & BannerMetricCreateInput)'.
+
+495         spent: 0,
+            ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:23873:5
+    23873     create: XOR<BannerMetricCreateInput, BannerMetricUncheckedCreateInput>
+              ~~~~~~
+    The expected type comes from property 'create' which is declared here on type '{ select?: BannerMetricSelect<DefaultArgs>; where: BannerMetricWhereUniqueInput; create: (Without<BannerMetricCreateInput, BannerMetricUncheckedCreateInput> & BannerMetricUncheckedCreateInput) | (Without<...> & BannerMetricCreateInput); update: (Without<...> & BannerMetricUncheckedUpdateInput) | (Without<...> & Bann...'
+src/admin/banners/banner-campaign.service.ts:521:9 - error TS2561: Object literal may only specify known properties, but 'campaignId_date' does not exist in type 'BannerMetricWhereUniqueInput'. Did you mean to write 'campaignId'?
+
+521         campaignId_date: {
+            ~~~~~~~~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:23869:5
+    23869     where: BannerMetricWhereUniqueInput
+              ~~~~~
+    The expected type comes from property 'where' which is declared here on type '{ select?: BannerMetricSelect<DefaultArgs>; where: BannerMetricWhereUniqueInput; create: (Without<BannerMetricCreateInput, BannerMetricUncheckedCreateInput> & BannerMetricUncheckedCreateInput) | (Without<...> & BannerMetricCreateInput); update: (Without<...> & BannerMetricUncheckedUpdateInput) | (Without<...> & Bann...'
+src/admin/banners/banner-campaign.service.ts:531:9 - error TS2353: Object literal may only specify known properties, and 'spent' does not exist in type '(Without<BannerMetricCreateInput, BannerMetricUncheckedCreateInput> & BannerMetricUncheckedCreateInput) | (Without<...> & BannerMetricCreateInput)'.
+
+531         spent: cpcCost,
+            ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:23873:5
+    23873     create: XOR<BannerMetricCreateInput, BannerMetricUncheckedCreateInput>
+              ~~~~~~
+    The expected type comes from property 'create' which is declared here on type '{ select?: BannerMetricSelect<DefaultArgs>; where: BannerMetricWhereUniqueInput; create: (Without<BannerMetricCreateInput, BannerMetricUncheckedCreateInput> & BannerMetricUncheckedCreateInput) | (Without<...> & BannerMetricCreateInput); update: (Without<...> & BannerMetricUncheckedUpdateInput) | (Without<...> & Bann...'
+src/admin/banners/banner-campaign.service.ts:535:9 - error TS2353: Object literal may only specify known properties, and 'spent' does not exist in type '(Without<BannerMetricUpdateInput, BannerMetricUncheckedUpdateInput> & BannerMetricUncheckedUpdateInput) | (Without<...> & BannerMetricUpdateInput)'.
+
+535         spent: { increment: cpcCost },
+            ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:23877:5
+    23877     update: XOR<BannerMetricUpdateInput, BannerMetricUncheckedUpdateInput>
+              ~~~~~~
+    The expected type comes from property 'update' which is declared here on type '{ select?: BannerMetricSelect<DefaultArgs>; where: BannerMetricWhereUniqueInput; create: (Without<BannerMetricCreateInput, BannerMetricUncheckedCreateInput> & BannerMetricUncheckedCreateInput) | (Without<...> & BannerMetricCreateInput); update: (Without<...> & BannerMetricUncheckedUpdateInput) | (Without<...> & Bann...'
+src/admin/banners/banner-campaign.service.ts:542:15 - error TS2353: Object literal may only specify known properties, and 'spent' does not exist in type '(Without<BannerCampaignUpdateInput, BannerCampaignUncheckedUpdateInput> & BannerCampaignUncheckedUpdateInput) | (Without<...> & BannerCampaignUpdateInput)'.
+
+542       data: { spent: { increment: cpcCost } },
+                  ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:27765:5
+    27765     data: XOR<BannerCampaignUpdateInput, BannerCampaignUncheckedUpdateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: BannerCampaignSelect<DefaultArgs>; data: (Without<BannerCampaignUpdateInput, BannerCampaignUncheckedUpdateInput> & BannerCampaignUncheckedUpdateInput) | (Without<...> & BannerCampaignUpdateInput); where: BannerCampaignWhereUniqueInput; }'
+src/admin/banners/banner-campaign.service.ts:552:7 - error TS2322: Type '{ metrics: { orderBy: { date: string; }; }; }' is not assignable to type 'never'.
+
+552       include: {
+          ~~~~~~~
+
+  src/admin/banners/banner-campaign.service.ts:552:7
+    552       include: {
+              ~~~~~~~~~~
+    553         metrics: {
+        ~~~~~~~~~~~~~~~~~~
+    ... 
+    555         },
+        ~~~~~~~~~~
+    556       },
+        ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ where: { id: string; }; include: never; }'
+src/admin/banners/banner-campaign.service.ts:564:37 - error TS2339: Property 'reduce' does not exist on type 'never'.
+
+564     const totals = campaign.metrics.reduce(
+                                        ~~~~~~
+src/admin/banners/banner-campaign.service.ts:653:7 - error TS2322: Type '{ position: string; }' is not assignable to type 'BannerPricingWhereUniqueInput'.
+  Type '{ position: string; }' is not assignable to type '{ id: string; } & { id?: string; AND?: BannerPricingWhereInput | BannerPricingWhereInput[]; OR?: BannerPricingWhereInput[]; ... 8 more ...; updatedAt?: string | ... 1 more ... | DateTimeFilter<...>; }'.
+    Property 'id' is missing in type '{ position: string; }' but required in type '{ id: string; }'.
+
+653       where: { position },
+          ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:22833:5
+    22833     where: BannerPricingWhereUniqueInput
+              ~~~~~
+    The expected type comes from property 'where' which is declared here on type '{ select?: BannerPricingSelect<DefaultArgs>; where: BannerPricingWhereUniqueInput; create: (Without<BannerPricingCreateInput, BannerPricingUncheckedCreateInput> & BannerPricingUncheckedCreateInput) | (Without<...> & BannerPricingCreateInput); update: (Without<...> & BannerPricingUncheckedUpdateInput) | (Without<...>...'
+src/admin/banners/banner-campaign.service.ts:656:9 - error TS2353: Object literal may only specify known properties, and 'dailyRate' does not exist in type '(Without<BannerPricingCreateInput, BannerPricingUncheckedCreateInput> & BannerPricingUncheckedCreateInput) | (Without<...> & BannerPricingCreateInput)'.
+
+656         dailyRate,
+            ~~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:22837:5
+    22837     create: XOR<BannerPricingCreateInput, BannerPricingUncheckedCreateInput>
+              ~~~~~~
+    The expected type comes from property 'create' which is declared here on type '{ select?: BannerPricingSelect<DefaultArgs>; where: BannerPricingWhereUniqueInput; create: (Without<BannerPricingCreateInput, BannerPricingUncheckedCreateInput> & BannerPricingUncheckedCreateInput) | (Without<...> & BannerPricingCreateInput); update: (Without<...> & BannerPricingUncheckedUpdateInput) | (Without<...>...'
+src/admin/banners/banner-campaign.service.ts:662:9 - error TS2353: Object literal may only specify known properties, and 'dailyRate' does not exist in type '(Without<BannerPricingUpdateInput, BannerPricingUncheckedUpdateInput> & BannerPricingUncheckedUpdateInput) | (Without<...> & BannerPricingUpdateInput)'.
+
+662         dailyRate,
+            ~~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:22841:5
+    22841     update: XOR<BannerPricingUpdateInput, BannerPricingUncheckedUpdateInput>
+              ~~~~~~
+    The expected type comes from property 'update' which is declared here on type '{ select?: BannerPricingSelect<DefaultArgs>; where: BannerPricingWhereUniqueInput; create: (Without<BannerPricingCreateInput, BannerPricingUncheckedCreateInput> & BannerPricingUncheckedCreateInput) | (Without<...> & BannerPricingCreateInput); update: (Without<...> & BannerPricingUncheckedUpdateInput) | (Without<...>...'
+src/admin/coins/bow-coin.service.ts:232:49 - error TS1127: Invalid character.
+
+232           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + dto.amount,
+                                                    
+src/admin/coins/bow-coin.service.ts:232:50 - error TS2353: Object literal may only specify known properties, and 'n' does not exist in type '(Without<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput> & CoinTransactionUncheckedCreateInput) | (Without<...> & CoinTransactionCreateInput)'.
+
+232           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + dto.amount,
+                                                     ~
+
+  node_modules/.prisma/client/index.d.ts:21789:5
+    21789     data: XOR<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: CoinTransactionSelect<DefaultArgs>; data: (Without<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput> & CoinTransactionUncheckedCreateInput) | (Without<...> & CoinTransactionCreateInput); }'
+src/admin/coins/bow-coin.service.ts:232:50 - error TS18004: No value exists in scope for the shorthand property 'n'. Either declare one or provide an initializer.
+
+232           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + dto.amount,
+                                                     ~
+src/admin/coins/bow-coin.service.ts:232:61 - error TS1005: ',' expected.
+
+232           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + dto.amount,
+                                                                ~~~~~~~~~~~~
+src/admin/coins/bow-coin.service.ts:297:41 - error TS1127: Invalid character.
+
+297           balanceBefore: currentBalance,\n          balanceAfter: currentBalance - dto.amount,
+                                            
+src/admin/coins/bow-coin.service.ts:297:42 - error TS2353: Object literal may only specify known properties, and 'n' does not exist in type '(Without<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput> & CoinTransactionUncheckedCreateInput) | (Without<...> & CoinTransactionCreateInput)'.
+
+297           balanceBefore: currentBalance,\n          balanceAfter: currentBalance - dto.amount,
+                                             ~
+
+  node_modules/.prisma/client/index.d.ts:21789:5
+    21789     data: XOR<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: CoinTransactionSelect<DefaultArgs>; data: (Without<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput> & CoinTransactionUncheckedCreateInput) | (Without<...> & CoinTransactionCreateInput); }'
+src/admin/coins/bow-coin.service.ts:297:42 - error TS18004: No value exists in scope for the shorthand property 'n'. Either declare one or provide an initializer.
+
+297           balanceBefore: currentBalance,\n          balanceAfter: currentBalance - dto.amount,
+                                             ~
+src/admin/coins/bow-coin.service.ts:297:53 - error TS1005: ',' expected.
+
+297           balanceBefore: currentBalance,\n          balanceAfter: currentBalance - dto.amount,
+                                                        ~~~~~~~~~~~~
+src/admin/coins/bow-coin.service.ts:363:49 - error TS1127: Invalid character.
+
+363           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + coinsEarned,
+                                                    
+src/admin/coins/bow-coin.service.ts:363:50 - error TS2353: Object literal may only specify known properties, and 'n' does not exist in type '(Without<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput> & CoinTransactionUncheckedCreateInput) | (Without<...> & CoinTransactionCreateInput)'.
+
+363           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + coinsEarned,
+                                                     ~
+
+  node_modules/.prisma/client/index.d.ts:21789:5
+    21789     data: XOR<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: CoinTransactionSelect<DefaultArgs>; data: (Without<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput> & CoinTransactionUncheckedCreateInput) | (Without<...> & CoinTransactionCreateInput); }'
+src/admin/coins/bow-coin.service.ts:363:50 - error TS18004: No value exists in scope for the shorthand property 'n'. Either declare one or provide an initializer.
+
+363           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + coinsEarned,
+                                                     ~
+src/admin/coins/bow-coin.service.ts:363:61 - error TS1005: ',' expected.
+
+363           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + coinsEarned,
+                                                                ~~~~~~~~~~~~
+src/admin/coins/bow-coin.service.ts:452:26 - error TS2304: Cannot find name 'balance'.
+
+452           balanceBefore: balance,\n          balanceAfter: validation.remainingBalance,
+                             ~~~~~~~
+src/admin/coins/bow-coin.service.ts:452:34 - error TS1127: Invalid character.
+
+452           balanceBefore: balance,\n          balanceAfter: validation.remainingBalance,
+                                     
+src/admin/coins/bow-coin.service.ts:452:35 - error TS2353: Object literal may only specify known properties, and 'n' does not exist in type '(Without<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput> & CoinTransactionUncheckedCreateInput) | (Without<...> & CoinTransactionCreateInput)'.
+
+452           balanceBefore: balance,\n          balanceAfter: validation.remainingBalance,
+                                      ~
+
+  node_modules/.prisma/client/index.d.ts:21789:5
+    21789     data: XOR<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: CoinTransactionSelect<DefaultArgs>; data: (Without<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput> & CoinTransactionUncheckedCreateInput) | (Without<...> & CoinTransactionCreateInput); }'
+src/admin/coins/bow-coin.service.ts:452:35 - error TS18004: No value exists in scope for the shorthand property 'n'. Either declare one or provide an initializer.
+
+452           balanceBefore: balance,\n          balanceAfter: validation.remainingBalance,
+                                      ~
+src/admin/coins/bow-coin.service.ts:452:46 - error TS1005: ',' expected.
+
+452           balanceBefore: balance,\n          balanceAfter: validation.remainingBalance,
+                                                 ~~~~~~~~~~~~
+src/admin/coins/bow-coin.service.ts:502:49 - error TS1127: Invalid character.
+
+502           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + config.signupBonus,
+                                                    
+src/admin/coins/bow-coin.service.ts:502:50 - error TS2353: Object literal may only specify known properties, and 'n' does not exist in type '(Without<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput> & CoinTransactionUncheckedCreateInput) | (Without<...> & CoinTransactionCreateInput)'.
+
+502           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + config.signupBonus,
+                                                     ~
+
+  node_modules/.prisma/client/index.d.ts:21789:5
+    21789     data: XOR<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: CoinTransactionSelect<DefaultArgs>; data: (Without<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput> & CoinTransactionUncheckedCreateInput) | (Without<...> & CoinTransactionCreateInput); }'
+src/admin/coins/bow-coin.service.ts:502:50 - error TS18004: No value exists in scope for the shorthand property 'n'. Either declare one or provide an initializer.
+
+502           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + config.signupBonus,
+                                                     ~
+src/admin/coins/bow-coin.service.ts:502:61 - error TS1005: ',' expected.
+
+502           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + config.signupBonus,
+                                                                ~~~~~~~~~~~~
+src/admin/coins/bow-coin.service.ts:545:49 - error TS1127: Invalid character.
+
+545           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + config.referralBonus,
+                                                    
+src/admin/coins/bow-coin.service.ts:545:50 - error TS2353: Object literal may only specify known properties, and 'n' does not exist in type '(Without<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput> & CoinTransactionUncheckedCreateInput) | (Without<...> & CoinTransactionCreateInput)'.
+
+545           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + config.referralBonus,
+                                                     ~
+
+  node_modules/.prisma/client/index.d.ts:21789:5
+    21789     data: XOR<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: CoinTransactionSelect<DefaultArgs>; data: (Without<CoinTransactionCreateInput, CoinTransactionUncheckedCreateInput> & CoinTransactionUncheckedCreateInput) | (Without<...> & CoinTransactionCreateInput); }'
+src/admin/coins/bow-coin.service.ts:545:50 - error TS18004: No value exists in scope for the shorthand property 'n'. Either declare one or provide an initializer.
+
+545           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + config.referralBonus,
+                                                     ~
+src/admin/coins/bow-coin.service.ts:545:61 - error TS1005: ',' expected.
+
+545           balanceBefore: user.coinsBalance || 0,\n          balanceAfter: (user.coinsBalance || 0) + config.referralBonus,
+                                                                ~~~~~~~~~~~~
+src/admin/coins/bow-coin.service.ts:570:9 - error TS2353: Object literal may only specify known properties, and 'isExpired' does not exist in type 'CoinTransactionWhereInput'.
+
+570         isExpired: false,
+            ~~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:21750:5
+    21750     where?: CoinTransactionWhereInput
+              ~~~~~
+    The expected type comes from property 'where' which is declared here on type '{ select?: CoinTransactionSelect<DefaultArgs>; where?: CoinTransactionWhereInput; orderBy?: CoinTransactionOrderByWithRelationInput | CoinTransactionOrderByWithRelationInput[]; cursor?: CoinTransactionWhereUniqueInput; take?: number; skip?: number; distinct?: CoinTransactionScalarFieldEnum | CoinTransactionScalarFie...'
+src/admin/coins/bow-coin.service.ts:582:17 - error TS2353: Object literal may only specify known properties, and 'isExpired' does not exist in type '(Without<CoinTransactionUpdateInput, CoinTransactionUncheckedUpdateInput> & CoinTransactionUncheckedUpdateInput) | (Without<...> & CoinTransactionUpdateInput)'.
+
+582         data: { isExpired: true },
+                    ~~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:21829:5
+    21829     data: XOR<CoinTransactionUpdateInput, CoinTransactionUncheckedUpdateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: CoinTransactionSelect<DefaultArgs>; data: (Without<CoinTransactionUpdateInput, CoinTransactionUncheckedUpdateInput> & CoinTransactionUncheckedUpdateInput) | (Without<...> & CoinTransactionUpdateInput); where: CoinTransactionWhereUniqueInput; }'
+src/admin/moderation/content-moderation.service.ts:36:7 - error TS2740: Type '{ INAPPROPRIATE: number; MISLEADING: number; SPAM: number; COUNTERFEIT: number; PROHIBITED: number; COPYRIGHT: number; OFFENSIVE: number; LOW_QUALITY: number; DUPLICATE: number; OTHER: number; }' is missing the following properties from type 'Record<FlagReason, number>': NUDITY, VIOLENCE, HATE_SPEECH, PROHIBITED_ITEM, and 3 more.
+
+36 const PRIORITY_SCORES: Record<FlagReason, number> = {
+         ~~~~~~~~~~~~~~~
+src/admin/moderation/content-moderation.service.ts:113:7 - error TS2322: Type '{ contentType: $Enums.ContentFlagType; contentId: string; vendorId: string; reason: $Enums.FlagReason; description: string; priority: $Enums.FlagPriority; reportedBy: string; isAutoFlagged: boolean; reportCount: number; }' is not assignable to type '(Without<ContentFlagCreateInput, ContentFlagUncheckedCreateInput> & ContentFlagUncheckedCreateInput) | (Without<...> & ContentFlagCreateInput)'.
+  Type '{ contentType: $Enums.ContentFlagType; contentId: string; vendorId: string; reason: $Enums.FlagReason; description: string; priority: $Enums.FlagPriority; reportedBy: string; isAutoFlagged: boolean; reportCount: number; }' is not assignable to type 'Without<ContentFlagUncheckedCreateInput, ContentFlagCreateInput> & ContentFlagCreateInput'.
+    Type '{ contentType: $Enums.ContentFlagType; contentId: string; vendorId: string; reason: $Enums.FlagReason; description: string; priority: $Enums.FlagPriority; reportedBy: string; isAutoFlagged: boolean; reportCount: number; }' is not assignable to type 'Without<ContentFlagUncheckedCreateInput, ContentFlagCreateInput>'.
+      Types of property 'vendorId' are incompatible.
+        Type 'string' is not assignable to type 'never'.
+
+113       data: {
+          ~~~~
+
+  node_modules/.prisma/client/index.d.ts:51589:5
+    51589     data: XOR<ContentFlagCreateInput, ContentFlagUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: ContentFlagSelect<DefaultArgs>; include?: ContentFlagInclude<DefaultArgs>; data: (Without<ContentFlagCreateInput, ContentFlagUncheckedCreateInput> & ContentFlagUncheckedCreateInput) | (Without<...> & ContentFlagCreateInput); }'
+src/admin/moderation/content-moderation.service.ts:431:13 - error TS2561: Object literal may only specify known properties, but 'category' does not exist in type 'ProductInclude<DefaultArgs>'. Did you mean to write 'Category'?
+
+431             category: { select: { id: true, name: true } },
+                ~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:78714:5
+    78714     include?: ProductInclude<ExtArgs> | null
+              ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ select?: ProductSelect<DefaultArgs>; include?: ProductInclude<DefaultArgs>; where: ProductWhereUniqueInput; }'
+src/admin/moderation/content-moderation.service.ts:440:13 - error TS2561: Object literal may only specify known properties, but 'product' does not exist in type 'ReviewInclude<DefaultArgs>'. Did you mean to write 'Product'?
+
+440             product: { select: { id: true, name: true } },
+                ~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:96659:5
+    96659     include?: ReviewInclude<ExtArgs> | null
+              ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ select?: ReviewSelect<DefaultArgs>; include?: ReviewInclude<DefaultArgs>; where: ReviewWhereUniqueInput; }'
+src/admin/rbac/admin-permissions.service.ts:349:35 - error TS2339: Property 'ADMIN' does not exist on type '{ SUPER_ADMIN: "SUPER_ADMIN"; OPERATIONS_ADMIN: "OPERATIONS_ADMIN"; FINANCE_ADMIN: "FINANCE_ADMIN"; CONTENT_MODERATOR: "CONTENT_MODERATOR"; ANALYTICS_VIEWER: "ANALYTICS_VIEWER"; }'.
+
+349     if (managerRole === AdminRole.ADMIN) {
+                                      ~~~~~
+src/admin/rbac/admin-permissions.service.ts:350:79 - error TS2339: Property 'ADMIN' does not exist on type '{ SUPER_ADMIN: "SUPER_ADMIN"; OPERATIONS_ADMIN: "OPERATIONS_ADMIN"; FINANCE_ADMIN: "FINANCE_ADMIN"; CONTENT_MODERATOR: "CONTENT_MODERATOR"; ANALYTICS_VIEWER: "ANALYTICS_VIEWER"; }'.
+
+350       return targetRole !== AdminRole.SUPER_ADMIN && targetRole !== AdminRole.ADMIN;
+                                                                                  ~~~~~
+src/admin/reports/reporting.service.ts:194:31 - error TS2615: Type of property 'AND' circularly references itself in mapped type '{ [K in keyof { AND?: OrderItemScalarWhereWithAggregatesInput | OrderItemScalarWhereWithAggregatesInput[]; ... 15 more ...; updatedAt?: string | ... 1 more ... | DateTimeWithAggregatesFilter<...>; }]: Or<...> extends 1 ? { ...; }[K] extends infer TK ? GetHavingFields<...> : never : {} extends FieldPaths<...> ? never...'.
+
+194     const vendorSales = await this.prisma.orderItem.groupBy({
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+195       by: ['vendorId'],
+    ~~~~~~~~~~~~~~~~~~~~~~~
+... 
+216       take: limit,
+    ~~~~~~~~~~~~~~~~~~
+217     });
+    ~~~~~~
+src/admin/reports/reporting.service.ts:194:31 - error TS2615: Type of property 'NOT' circularly references itself in mapped type '{ [K in keyof { AND?: OrderItemScalarWhereWithAggregatesInput | OrderItemScalarWhereWithAggregatesInput[]; ... 15 more ...; updatedAt?: string | ... 1 more ... | DateTimeWithAggregatesFilter<...>; }]: Or<...> extends 1 ? { ...; }[K] extends infer TK ? GetHavingFields<...> : never : {} extends FieldPaths<...> ? never...'.
+
+194     const vendorSales = await this.prisma.orderItem.groupBy({
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+195       by: ['vendorId'],
+    ~~~~~~~~~~~~~~~~~~~~~~~
+... 
+216       take: limit,
+    ~~~~~~~~~~~~~~~~~~
+217     });
+    ~~~~~~
+src/admin/reports/reporting.service.ts:194:31 - error TS2615: Type of property 'OR' circularly references itself in mapped type '{ [K in keyof { AND?: OrderItemScalarWhereWithAggregatesInput | OrderItemScalarWhereWithAggregatesInput[]; ... 15 more ...; updatedAt?: string | ... 1 more ... | DateTimeWithAggregatesFilter<...>; }]: Or<...> extends 1 ? { ...; }[K] extends infer TK ? GetHavingFields<...> : never : {} extends FieldPaths<...> ? never...'.
+
+194     const vendorSales = await this.prisma.orderItem.groupBy({
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+195       by: ['vendorId'],
+    ~~~~~~~~~~~~~~~~~~~~~~~
+... 
+216       take: limit,
+    ~~~~~~~~~~~~~~~~~~
+217     });
+    ~~~~~~
+src/admin/reports/reporting.service.ts:249:9 - error TS2561: Object literal may only specify known properties, but 'order' does not exist in type 'OrderItemWhereInput'. Did you mean to write 'orderId'?
+
+249         order: {
+            ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:20738:5
+    20738     where?: OrderItemWhereInput
+              ~~~~~
+    The expected type comes from property 'where' which is declared here on type '{ select?: OrderItemSelect<DefaultArgs>; where?: OrderItemWhereInput; orderBy?: OrderItemOrderByWithRelationInput | OrderItemOrderByWithRelationInput[]; cursor?: OrderItemWhereUniqueInput; take?: number; skip?: number; distinct?: OrderItemScalarFieldEnum | OrderItemScalarFieldEnum[]; }'
+src/admin/reports/reporting.service.ts:269:31 - error TS2551: Property 'product' does not exist on type '{ id: string; createdAt: Date; status: string; updatedAt: Date; total: number; productId: string; vendorId: string; price: number; offerPrice: number; orderId: string; discount: number; quantity: number; subtotal: number; tax: number; }'. Did you mean 'productId'?
+
+269       const categoryId = item.product?.categoryId || 'uncategorized';
+                                  ~~~~~~~
+src/admin/reports/reporting.service.ts:270:33 - error TS2551: Property 'product' does not exist on type '{ id: string; createdAt: Date; status: string; updatedAt: Date; total: number; productId: string; vendorId: string; price: number; offerPrice: number; orderId: string; discount: number; quantity: number; subtotal: number; tax: number; }'. Did you mean 'productId'?
+
+270       const categoryName = item.product?.category?.name || 'Uncategorized';
+                                    ~~~~~~~
+src/admin/reports/reporting.service.ts:417:13 - error TS2561: Object literal may only specify known properties, but 'products' does not exist in type 'VendorCountOutputTypeSelect<DefaultArgs>'. Did you mean to write 'Product'?
+
+417             products: true,
+                ~~~~~~~~
+src/admin/reports/reporting.service.ts:436:13 - error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'OrderWhereInput'.
+
+436             vendorId: vendor.id,
+                ~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:66733:5
+    66733     where?: OrderWhereInput
+              ~~~~~
+    The expected type comes from property 'where' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; where?: OrderWhereInput; orderBy?: OrderOrderByWithRelationInput | OrderOrderByWithRelationInput[]; cursor?: OrderWhereUniqueInput; take?: number; skip?: number; distinct?: OrderScalarFieldEnum | OrderScalarFieldEnum[]; }'
+src/admin/reports/reporting.service.ts:458:13 - error TS2561: Object literal may only specify known properties, but 'product' does not exist in type 'ReviewWhereInput'. Did you mean to write 'Product'?
+
+458             product: { vendorId: vendor.id },
+                ~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:96038:5
+    96038     where?: ReviewWhereInput
+              ~~~~~
+    The expected type comes from property 'where' which is declared here on type 'Subset<ReviewAggregateArgs<DefaultArgs>, ReviewAggregateArgs<DefaultArgs>>'
+src/admin/reports/reporting.service.ts:472:32 - error TS2339: Property '_count' does not exist on type '{ id: string; createdAt: Date; mobile: string; email: string; name: string; role: VendorRole; coinsBalance: number; kycDocuments: JsonValue; kycStatus: string; updatedAt: Date; ... 25 more ...; storeStatus: string; }'.
+
+472           productCount: vendor._count.products,
+                                   ~~~~~~
+src/admin/reports/reporting.service.ts:479:39 - error TS2339: Property 'id' does not exist on type 'true | { id?: number; userId?: number; productId?: number; vendorId?: number; rating?: number; comment?: number; images?: number; createdAt?: number; updatedAt?: number; helpfulCount?: number; isVerified?: number; status?: number; _all?: number; }'.
+  Property 'id' does not exist on type 'true'.
+
+479           reviewCount: reviews._count.id,
+                                          ~~
+src/admin/reports/reporting.service.ts:529:15 - error TS2353: Object literal may only specify known properties, and 'spent' does not exist in type 'BannerMetricSumAggregateInputType'.
+
+529       _sum: { spent: true },
+                  ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:23080:5
+    23080     _sum?: BannerMetricSumAggregateInputType
+              ~~~~
+    The expected type comes from property '_sum' which is declared here on type 'Subset<BannerMetricAggregateArgs<DefaultArgs>, BannerMetricAggregateArgs<DefaultArgs>>'
+src/admin/reports/reporting.service.ts:536:41 - error TS2339: Property 'spent' does not exist on type '{ impressions?: number; clicks?: number; conversions?: number; revenue?: number; cost?: number; clickThroughRate?: number; conversionRate?: number; returnOnAdSpend?: number; }'.
+
+536       bannerRevenue: bannerRevenue._sum.spent || 0,
+                                            ~~~~~
+src/admin/reports/reporting.service.ts:538:48 - error TS2339: Property 'spent' does not exist on type '{ impressions?: number; clicks?: number; conversions?: number; revenue?: number; cost?: number; clickThroughRate?: number; conversionRate?: number; returnOnAdSpend?: number; }'.
+
+538         (totalCommission + (bannerRevenue._sum.spent || 0) - (refunds._sum.totalAmount || 0)) * 100,
+                                                   ~~~~~
+src/admin/reports/reporting.service.ts:578:15 - error TS2561: Object literal may only specify known properties, but 'coinBalance' does not exist in type 'UserSumAggregateInputType'. Did you mean to write 'coinsBalance'?
+
+578       _sum: { coinBalance: true },
+                  ~~~~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:111142:5
+    111142     _sum?: UserSumAggregateInputType
+               ~~~~
+    The expected type comes from property '_sum' which is declared here on type 'Subset<UserAggregateArgs<DefaultArgs>, UserAggregateArgs<DefaultArgs>>'
+src/admin/reports/reporting.service.ts:583:49 - error TS2551: Property 'coinBalance' does not exist on type '{ coinsBalance?: number; footwearSize?: number; }'. Did you mean 'coinsBalance'?
+
+583         totalCirculation: totalCirculation._sum.coinBalance || 0,
+                                                    ~~~~~~~~~~~
+src/admin/reports/reporting.service.ts:661:9 - error TS2561: Object literal may only specify known properties, but 'vendor' does not exist in type 'ProductSelect<DefaultArgs>'. Did you mean to write 'Vendor'?
+
+661         vendor: { select: { id: true, storeName: true } },
+            ~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:78842:5
+    78842     select?: ProductSelect<ExtArgs> | null
+              ~~~~~~
+    The expected type comes from property 'select' which is declared here on type '{ select?: ProductSelect<DefaultArgs>; include?: ProductInclude<DefaultArgs>; where?: ProductWhereInput; ... 4 more ...; distinct?: ProductScalarFieldEnum | ProductScalarFieldEnum[]; }'
+src/admin/strikes/vendor-strike.service.ts:29:7 - error TS2740: Type '{ WARNING: number; PRODUCT_VIOLATION: number; QUALITY_ISSUE: number; DELIVERY_FAILURE: number; POLICY_VIOLATION: number; FRAUD: number; REPEATED_OFFENSE: number; }' is missing the following properties from type 'Record<StrikeType, number>': FAILED_DELIVERY, SHOP_CLOSED, LATE_PREPARATION, CUSTOMER_COMPLAINT, and 2 more.
+
+29 const STRIKE_POINTS: Record<StrikeType, number> = {
+         ~~~~~~~~~~~~~
+src/admin/strikes/vendor-strike.service.ts:86:9 - error TS2353: Object literal may only specify known properties, and 'strikes' does not exist in type 'VendorInclude<DefaultArgs>'.
+
+86         strikes: {
+           ~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:117430:5
+    117430     include?: VendorInclude<ExtArgs> | null
+               ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ select?: VendorSelect<DefaultArgs>; include?: VendorInclude<DefaultArgs>; where: VendorWhereUniqueInput; }'
+src/admin/strikes/vendor-strike.service.ts:108:7 - error TS2322: Type '{ vendorId: string; type: $Enums.StrikeType; reason: string; evidence: string[]; orderId: string; productId: string; issuedBy: string; points: number; }' is not assignable to type '(Without<VendorStrikeCreateInput, VendorStrikeUncheckedCreateInput> & VendorStrikeUncheckedCreateInput) | (Without<...> & VendorStrikeCreateInput)'.
+  Type '{ vendorId: string; type: $Enums.StrikeType; reason: string; evidence: string[]; orderId: string; productId: string; issuedBy: string; points: number; }' is not assignable to type 'Without<VendorStrikeUncheckedCreateInput, VendorStrikeCreateInput> & VendorStrikeCreateInput'.
+    Type '{ vendorId: string; type: $Enums.StrikeType; reason: string; evidence: string[]; orderId: string; productId: string; issuedBy: string; points: number; }' is not assignable to type 'Without<VendorStrikeUncheckedCreateInput, VendorStrikeCreateInput>'.
+      Types of property 'vendorId' are incompatible.
+        Type 'string' is not assignable to type 'never'.
+
+108       data: {
+          ~~~~
+
+  node_modules/.prisma/client/index.d.ts:123214:5
+    123214     data: XOR<VendorStrikeCreateInput, VendorStrikeUncheckedCreateInput>
+               ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: VendorStrikeSelect<DefaultArgs>; include?: VendorStrikeInclude<DefaultArgs>; data: (Without<VendorStrikeCreateInput, VendorStrikeUncheckedCreateInput> & VendorStrikeUncheckedCreateInput) | (Without<...> & VendorStrikeCreateInput); }'
+src/admin/strikes/vendor-strike.service.ts:136:39 - error TS2339: Property 'strikes' does not exist on type '{ id: string; createdAt: Date; mobile: string; email: string; name: string; role: VendorRole; coinsBalance: number; kycDocuments: JsonValue; kycStatus: string; updatedAt: Date; ... 25 more ...; storeStatus: string; }'.
+
+136     const totalActiveStrikes = vendor.strikes.length + 1;
+                                          ~~~~~~~
+src/admin/strikes/vendor-strike.service.ts:137:32 - error TS2339: Property 'strikes' does not exist on type '{ id: string; createdAt: Date; mobile: string; email: string; name: string; role: VendorRole; coinsBalance: number; kycDocuments: JsonValue; kycStatus: string; updatedAt: Date; ... 25 more ...; storeStatus: string; }'.
+
+137     const totalPoints = vendor.strikes.reduce((sum, s) => sum + s.points, 0) + points;
+                                   ~~~~~~~
+src/admin/strikes/vendor-strike.service.ts:150:18 - error TS2561: Object literal may only specify known properties, but 'vendor' does not exist in type 'VendorStrikeInclude<DefaultArgs>'. Did you mean to write 'Vendor'?
+
+150       include: { vendor: true },
+                     ~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:123035:5
+    123035     include?: VendorStrikeInclude<ExtArgs> | null
+               ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ select?: VendorStrikeSelect<DefaultArgs>; include?: VendorStrikeInclude<DefaultArgs>; where: VendorStrikeWhereUniqueInput; }'
+src/admin/strikes/vendor-strike.service.ts:257:11 - error TS2561: Object literal may only specify known properties, but 'order' does not exist in type 'VendorStrikeInclude<DefaultArgs>'. Did you mean to write 'Order'?
+
+257           order: { select: { id: true, orderNumber: true } },
+              ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:123167:5
+    123167     include?: VendorStrikeInclude<ExtArgs> | null
+               ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ select?: VendorStrikeSelect<DefaultArgs>; include?: VendorStrikeInclude<DefaultArgs>; where?: VendorStrikeWhereInput; ... 4 more ...; distinct?: VendorStrikeScalarFieldEnum | VendorStrikeScalarFieldEnum[]; }'
+src/admin/strikes/vendor-strike.service.ts:290:11 - error TS2561: Object literal may only specify known properties, but 'vendor' does not exist in type 'VendorStrikeInclude<DefaultArgs>'. Did you mean to write 'Vendor'?
+
+290           vendor: { select: { id: true, storeName: true } },
+              ~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:123167:5
+    123167     include?: VendorStrikeInclude<ExtArgs> | null
+               ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ select?: VendorStrikeSelect<DefaultArgs>; include?: VendorStrikeInclude<DefaultArgs>; where?: VendorStrikeWhereInput; ... 4 more ...; distinct?: VendorStrikeScalarFieldEnum | VendorStrikeScalarFieldEnum[]; }'
+src/admin/strikes/vendor-strike.service.ts:365:7 - error TS2322: Type '{ vendorId: string; status: $Enums.DisciplineStatus; reason: string; startedAt: Date; endsAt: Date; appliedBy: string; }' is not assignable to type '(Without<VendorDisciplineCreateInput, VendorDisciplineUncheckedCreateInput> & VendorDisciplineUncheckedCreateInput) | (Without<...> & VendorDisciplineCreateInput)'.
+  Type '{ vendorId: string; status: $Enums.DisciplineStatus; reason: string; startedAt: Date; endsAt: Date; appliedBy: string; }' is not assignable to type 'Without<VendorDisciplineUncheckedCreateInput, VendorDisciplineCreateInput> & VendorDisciplineCreateInput'.
+    Type '{ vendorId: string; status: $Enums.DisciplineStatus; reason: string; startedAt: Date; endsAt: Date; appliedBy: string; }' is not assignable to type 'Without<VendorDisciplineUncheckedCreateInput, VendorDisciplineCreateInput>'.
+      Types of property 'vendorId' are incompatible.
+        Type 'string' is not assignable to type 'never'.
+
+365       data: {
+          ~~~~
+
+  node_modules/.prisma/client/index.d.ts:124246:5
+    124246     data: XOR<VendorDisciplineCreateInput, VendorDisciplineUncheckedCreateInput>
+               ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: VendorDisciplineSelect<DefaultArgs>; include?: VendorDisciplineInclude<DefaultArgs>; data: (Without<...> & VendorDisciplineUncheckedCreateInput) | (Without<...> & VendorDisciplineCreateInput); }'
+src/vendors/vendor-coupons.service.ts:24:16 - error TS2353: Object literal may only specify known properties, and 'userId' does not exist in type 'VendorWhereInput'.
+
+24       where: { userId },
+                  ~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:117470:5
+    117470     where?: VendorWhereInput
+               ~~~~~
+    The expected type comes from property 'where' which is declared here on type '{ select?: VendorSelect<DefaultArgs>; include?: VendorInclude<DefaultArgs>; where?: VendorWhereInput; ... 4 more ...; distinct?: VendorScalarFieldEnum | VendorScalarFieldEnum[]; }'
+src/vendors/vendor-inventory.service.ts:42:9 - error TS2561: Object literal may only specify known properties, but 'category' does not exist in type 'ProductInclude<DefaultArgs>'. Did you mean to write 'Category'?
+
+42         category: { select: { name: true } },
+           ~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:78846:5
+    78846     include?: ProductInclude<ExtArgs> | null
+              ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ select?: ProductSelect<DefaultArgs>; include?: ProductInclude<DefaultArgs>; where?: ProductWhereInput; ... 4 more ...; distinct?: ProductScalarFieldEnum | ProductScalarFieldEnum[]; }'
+src/vendors/vendor-inventory.service.ts:56:25 - error TS2551: Property 'category' does not exist on type '{ length: number; id: string; createdAt: Date; name: string; updatedAt: Date; description: string; title: string; tags: string[]; isReturnable: boolean; vendorId: string; price: number; ... 39 more ...; expiryDate: Date; }'. Did you mean 'categoryId'?
+
+56         categoryName: p.category?.name,
+                           ~~~~~~~~
+src/vendors/vendor-inventory.service.ts:82:9 - error TS2561: Object literal may only specify known properties, but 'category' does not exist in type 'ProductInclude<DefaultArgs>'. Did you mean to write 'Category'?
+
+82         category: { select: { name: true } },
+           ~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:78846:5
+    78846     include?: ProductInclude<ExtArgs> | null
+              ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ select?: ProductSelect<DefaultArgs>; include?: ProductInclude<DefaultArgs>; where?: ProductWhereInput; ... 4 more ...; distinct?: ProductScalarFieldEnum | ProductScalarFieldEnum[]; }'
+src/vendors/vendor-inventory.service.ts:96:25 - error TS2551: Property 'category' does not exist on type '{ length: number; id: string; createdAt: Date; name: string; updatedAt: Date; description: string; title: string; tags: string[]; isReturnable: boolean; vendorId: string; price: number; ... 39 more ...; expiryDate: Date; }'. Did you mean 'categoryId'?
+
+96         categoryName: p.category?.name,
+                           ~~~~~~~~
+src/vendors/vendor-inventory.service.ts:151:18 - error TS2561: Object literal may only specify known properties, but 'category' does not exist in type 'ProductInclude<DefaultArgs>'. Did you mean to write 'Category'?
+
+151       include: { category: { select: { name: true } } },
+                     ~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:78750:5
+    78750     include?: ProductInclude<ExtArgs> | null
+              ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ select?: ProductSelect<DefaultArgs>; include?: ProductInclude<DefaultArgs>; where?: ProductWhereInput; ... 4 more ...; distinct?: ProductScalarFieldEnum | ProductScalarFieldEnum[]; }'
+src/vendors/vendor-inventory.service.ts:167:18 - error TS2561: Object literal may only specify known properties, but 'category' does not exist in type 'ProductInclude<DefaultArgs>'. Did you mean to write 'Category'?
+
+167       include: { category: { select: { name: true } } },
+                     ~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:78937:5
+    78937     include?: ProductInclude<ExtArgs> | null
+              ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ select?: ProductSelect<DefaultArgs>; include?: ProductInclude<DefaultArgs>; data: (Without<ProductUpdateInput, ProductUncheckedUpdateInput> & ProductUncheckedUpdateInput) | (Without<...> & ProductUpdateInput); where: ProductWhereUniqueInput; }'
+src/vendors/vendor-inventory.service.ts:181:31 - error TS2551: Property 'category' does not exist on type '{ length: number; id: string; createdAt: Date; name: string; updatedAt: Date; description: string; title: string; tags: string[]; isReturnable: boolean; vendorId: string; price: number; ... 39 more ...; expiryDate: Date; }'. Did you mean 'categoryId'?
+
+181         categoryName: updated.category?.name,
+                                  ~~~~~~~~
+src/vendors/vendor-inventory.service.ts:216:9 - error TS2561: Object literal may only specify known properties, but 'category' does not exist in type 'ProductInclude<DefaultArgs>'. Did you mean to write 'Category'?
+
+216         category: { select: { id: true, name: true } },
+            ~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:78846:5
+    78846     include?: ProductInclude<ExtArgs> | null
+              ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ select?: ProductSelect<DefaultArgs>; include?: ProductInclude<DefaultArgs>; where?: ProductWhereInput; ... 4 more ...; distinct?: ProductScalarFieldEnum | ProductScalarFieldEnum[]; }'
+src/vendors/vendor-inventory.service.ts:231:36 - error TS2551: Property 'category' does not exist on type '{ length: number; id: string; createdAt: Date; name: string; updatedAt: Date; description: string; title: string; tags: string[]; isReturnable: boolean; vendorId: string; price: number; ... 39 more ...; expiryDate: Date; }'. Did you mean 'categoryId'?
+
+231       const categoryName = product.category?.name || 'Unknown';
+                                       ~~~~~~~~
+src/vendors/vendor-inventory.service.ts:265:9 - error TS2561: Object literal may only specify known properties, but 'category' does not exist in type 'ProductInclude<DefaultArgs>'. Did you mean to write 'Category'?
+
+265         category: { select: { name: true } },
+            ~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:78846:5
+    78846     include?: ProductInclude<ExtArgs> | null
+              ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ select?: ProductSelect<DefaultArgs>; include?: ProductInclude<DefaultArgs>; where?: ProductWhereInput; ... 4 more ...; distinct?: ProductScalarFieldEnum | ProductScalarFieldEnum[]; }'
+src/vendors/vendor-inventory.service.ts:278:25 - error TS2551: Property 'category' does not exist on type '{ length: number; id: string; createdAt: Date; name: string; updatedAt: Date; description: string; title: string; tags: string[]; isReturnable: boolean; vendorId: string; price: number; ... 39 more ...; expiryDate: Date; }'. Did you mean 'categoryId'?
+
+278         categoryName: p.category?.name,
+                            ~~~~~~~~
+src/vendors/vendor-orders.service.ts:223:35 - error TS2339: Property 'method' does not exist on type '{ id: string; createdAt: Date; status: PaymentStatus; updatedAt: Date; orderId: string; amount: number; currency: string; provider: string; providerOrderId: string; paymentId: string; }'.
+
+223             method: order.payment.method,
+                                      ~~~~~~
+src/vendors/vendor-orders.service.ts:346:39 - error TS2345: Argument of type 'OrderStatus' is not assignable to parameter of type '"PENDING" | "CONFIRMED" | "PACKED"'.
+  Type '"SHIPPED"' is not assignable to type '"PENDING" | "CONFIRMED" | "PACKED"'.
+
+346     if (!cancellableStatuses.includes(order.status as OrderStatus)) {
+                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+src/vendors/vendor-orders.service.ts:358:16 - error TS2339: Property 'productId' does not exist on type 'JsonValue'.
+  Property 'productId' does not exist on type 'string'.
+
+358       if (item.productId && item.quantity) {
+                   ~~~~~~~~~
+src/vendors/vendor-orders.service.ts:358:34 - error TS2339: Property 'quantity' does not exist on type 'JsonValue'.
+  Property 'quantity' does not exist on type 'string'.
+
+358       if (item.productId && item.quantity) {
+                                     ~~~~~~~~
+src/vendors/vendor-orders.service.ts:360:29 - error TS2339: Property 'productId' does not exist on type 'JsonValue'.
+  Property 'productId' does not exist on type 'string'.
+
+360           where: { id: item.productId },
+                                ~~~~~~~~~
+src/vendors/vendor-orders.service.ts:362:38 - error TS2339: Property 'quantity' does not exist on type 'JsonValue'.
+  Property 'quantity' does not exist on type 'string'.
+
+362             stock: { increment: item.quantity },
+                                         ~~~~~~~~
+src/vendors/vendor-payouts.service.ts:179:17 - error TS2322: Type '{ id: `${string}-${string}-${string}-${string}-${string}`; vendorId: string; amount: number; period: string; status: "PENDING"; bankDetails: object; }' is not assignable to type '(Without<VendorPayoutCreateInput, VendorPayoutUncheckedCreateInput> & VendorPayoutUncheckedCreateInput) | (Without<...> & VendorPayoutCreateInput)'.
+  Type '{ id: `${string}-${string}-${string}-${string}-${string}`; vendorId: string; amount: number; period: string; status: "PENDING"; bankDetails: object; }' is not assignable to type 'Without<VendorPayoutUncheckedCreateInput, VendorPayoutCreateInput> & VendorPayoutCreateInput'.
+    Type '{ id: `${string}-${string}-${string}-${string}-${string}`; vendorId: string; amount: number; period: string; status: "PENDING"; bankDetails: object; }' is not assignable to type 'Without<VendorPayoutUncheckedCreateInput, VendorPayoutCreateInput>'.
+      Types of property 'vendorId' are incompatible.
+        Type 'string' is not assignable to type 'never'.
+
+179                 data: {
+                    ~~~~
+
+  node_modules/.prisma/client/index.d.ts:129311:5
+    129311     data: XOR<VendorPayoutCreateInput, VendorPayoutUncheckedCreateInput>
+               ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: VendorPayoutSelect<DefaultArgs>; include?: VendorPayoutInclude<DefaultArgs>; data: (Without<VendorPayoutCreateInput, VendorPayoutUncheckedCreateInput> & VendorPayoutUncheckedCreateInput) | (Without<...> & VendorPayoutCreateInput); }'
+src/vendors/vendor-profile.service.ts:180:17 - error TS2322: Type 'WeeklyTimingsDto' is not assignable to type 'NullableJsonNullValueInput | InputJsonValue'.
+  Type 'WeeklyTimingsDto' is not assignable to type 'InputJsonObject'.
+    Index signature for type 'string' is missing in type 'WeeklyTimingsDto'.
+
+180                 pickupTimings: dto.pickupTimings || null,
+                    ~~~~~~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:159308:5
+    159308     pickupTimings?: NullableJsonNullValueInput | InputJsonValue
+               ~~~~~~~~~~~~~
+    The expected type comes from property 'pickupTimings' which is declared here on type '(Without<VendorUpdateInput, VendorUncheckedUpdateInput> & VendorUncheckedUpdateInput) | (Without<...> & VendorUpdateInput)'
+
+Found 98 error(s).
+

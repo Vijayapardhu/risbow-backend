@@ -1,2 +1,2 @@
-// Re-export AdminRole from permissions service for consistency
-export { AdminRole } from '../rbac/admin-permissions.service';
+// Re-export AdminRole from Prisma for consistency
+export { AdminRole } from '@prisma/client';

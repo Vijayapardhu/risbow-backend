@@ -220,7 +220,7 @@ export class VendorOrdersService {
       payment: order.payment
         ? {
             status: order.payment.status,
-            method: order.payment.method,
+            method: order.payment.provider, // Payment model doesn't have 'method' field, using provider
           }
         : null,
     };
@@ -337,13 +337,13 @@ export class VendorOrdersService {
     const order = await this.verifyOrderOwnership(vendorId, orderId);
 
     // Validate cancellation is allowed
-    const cancellableStatuses = [
+    const cancellableStatuses: OrderStatus[] = [
       OrderStatus.PENDING,
       OrderStatus.CONFIRMED,
       OrderStatus.PACKED,
     ];
 
-    if (!cancellableStatuses.includes(order.status as OrderStatus)) {
+    if (!cancellableStatuses.includes(order.status)) {
       throw new BadRequestException(
         `Cannot cancel order in ${order.status} status`,
       );
@@ -354,7 +354,7 @@ export class VendorOrdersService {
     const vendorItems = items.filter((item: any) => item.vendorId === vendorId);
 
     // Restore stock for vendor items
-    for (const item of vendorItems) {
+    for (const item of vendorItems as any[]) {
       if (item.productId && item.quantity) {
         await this.prisma.product.update({
           where: { id: item.productId },
@@ -470,3 +470,4 @@ export class VendorOrdersService {
     });
   }
 }
+

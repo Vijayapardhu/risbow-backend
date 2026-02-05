@@ -39,7 +39,7 @@ export class VendorInventoryService {
     const products = await this.prisma.product.findMany({
       where: { vendorId },
       include: {
-        category: { select: { name: true } },
+        Category: { select: { name: true } },
       },
       orderBy: { stock: filters.sortOrder || 'asc' },
     });
@@ -53,7 +53,7 @@ export class VendorInventoryService {
         lowStockThreshold: threshold,
         status: this.getStockStatus(p.stock, threshold),
         sku: p.sku || undefined,
-        categoryName: p.category?.name,
+        categoryName: p.Category?.name,
       };
     });
 
@@ -79,7 +79,7 @@ export class VendorInventoryService {
         stock: { lte: DEFAULT_LOW_STOCK_THRESHOLD },
       },
       include: {
-        category: { select: { name: true } },
+        Category: { select: { name: true } },
       },
       orderBy: { stock: 'asc' },
     });
@@ -93,7 +93,7 @@ export class VendorInventoryService {
         lowStockThreshold: threshold,
         status: this.getStockStatus(p.stock, threshold),
         sku: p.sku || undefined,
-        categoryName: p.category?.name,
+        categoryName: p.Category?.name,
       };
     });
 
@@ -148,7 +148,7 @@ export class VendorInventoryService {
   ): Promise<{ success: boolean; product: InventoryProductDto }> {
     const product = await this.prisma.product.findFirst({
       where: { id: productId, vendorId },
-      include: { category: { select: { name: true } } },
+      include: { Category: { select: { name: true } } },
     });
 
     if (!product) {
@@ -164,7 +164,7 @@ export class VendorInventoryService {
     const updated = await this.prisma.product.update({
       where: { id: productId },
       data: updateData,
-      include: { category: { select: { name: true } } },
+      include: { Category: { select: { name: true } } },
     });
 
     const threshold = DEFAULT_LOW_STOCK_THRESHOLD;
@@ -178,7 +178,7 @@ export class VendorInventoryService {
         lowStockThreshold: threshold,
         status: this.getStockStatus(updated.stock, threshold),
         sku: updated.sku || undefined,
-        categoryName: updated.category?.name,
+        categoryName: updated.Category?.name,
       },
     };
   }
@@ -213,7 +213,7 @@ export class VendorInventoryService {
     const products = await this.prisma.product.findMany({
       where: { vendorId },
       include: {
-        category: { select: { id: true, name: true } },
+        Category: { select: { id: true, name: true } },
       },
     });
 
@@ -228,7 +228,7 @@ export class VendorInventoryService {
       totalValue += productValue;
 
       const categoryId = product.categoryId;
-      const categoryName = product.category?.name || 'Unknown';
+      const categoryName = product.Category?.name || 'Unknown';
 
       if (categoryMap.has(categoryId)) {
         const cat = categoryMap.get(categoryId)!;
@@ -262,7 +262,7 @@ export class VendorInventoryService {
         stock: { lte: DEFAULT_LOW_STOCK_THRESHOLD },
       },
       include: {
-        category: { select: { name: true } },
+        Category: { select: { name: true } },
       },
     });
 
@@ -275,7 +275,7 @@ export class VendorInventoryService {
         lowStockThreshold: threshold,
         status: this.getStockStatus(p.stock, threshold),
         sku: p.sku || undefined,
-        categoryName: p.category?.name,
+        categoryName: p.Category?.name,
       };
     });
   }
@@ -334,3 +334,4 @@ export class VendorInventoryService {
     };
   }
 }
+

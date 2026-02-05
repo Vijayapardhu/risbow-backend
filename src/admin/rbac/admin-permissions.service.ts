@@ -196,7 +196,8 @@ export const PermissionGroups = {
 const RolePermissions: Record<AdminRole, Permission[]> = {
   [AdminRole.SUPER_ADMIN]: Object.values(Permission), // All permissions
   
-  [AdminRole.ADMIN]: [
+  // OPERATIONS_ADMIN has full operational permissions (similar to old ADMIN role)
+  [AdminRole.OPERATIONS_ADMIN]: [
     ...PermissionGroups.VIEWER,
     ...PermissionGroups.USER_MANAGER,
     ...PermissionGroups.VENDOR_MANAGER,
@@ -216,7 +217,8 @@ const RolePermissions: Record<AdminRole, Permission[]> = {
     Permission.REPORT_EXPORT,
   ],
 
-  [AdminRole.MODERATOR]: [
+  // CONTENT_MODERATOR has moderation permissions (similar to old MODERATOR role)
+  [AdminRole.CONTENT_MODERATOR]: [
     ...PermissionGroups.VIEWER,
     ...PermissionGroups.MODERATOR,
     Permission.USER_UPDATE,
@@ -226,15 +228,21 @@ const RolePermissions: Record<AdminRole, Permission[]> = {
     Permission.PRODUCT_APPROVE,
   ],
 
-  [AdminRole.SUPPORT]: [
+  // FINANCE_ADMIN has financial and support permissions (similar to old SUPPORT role)
+  [AdminRole.FINANCE_ADMIN]: [
     ...PermissionGroups.VIEWER,
     Permission.USER_UPDATE,
     Permission.ORDER_UPDATE,
     Permission.ORDER_CANCEL,
     Permission.COIN_GRANT, // Limited amounts
+    Permission.PAYMENT_READ,
+    Permission.PAYMENT_EXPORT,
+    Permission.INVOICE_READ,
+    Permission.INVOICE_EXPORT,
   ],
 
-  [AdminRole.ANALYST]: [
+  // ANALYTICS_VIEWER has read and export permissions (similar to old ANALYST role)
+  [AdminRole.ANALYTICS_VIEWER]: [
     ...PermissionGroups.VIEWER,
     Permission.DASHBOARD_ANALYTICS,
     Permission.REPORT_CREATE,
@@ -312,10 +320,10 @@ export class AdminPermissionsService {
    */
   getRoleHierarchy(): AdminRole[] {
     return [
-      AdminRole.ANALYST,
-      AdminRole.SUPPORT,
-      AdminRole.MODERATOR,
-      AdminRole.ADMIN,
+      AdminRole.ANALYTICS_VIEWER,
+      AdminRole.FINANCE_ADMIN,
+      AdminRole.CONTENT_MODERATOR,
+      AdminRole.OPERATIONS_ADMIN,
       AdminRole.SUPER_ADMIN,
     ];
   }
@@ -338,11 +346,12 @@ export class AdminPermissionsService {
     }
 
     // ADMIN can manage all except SUPER_ADMIN and other ADMINs
-    if (managerRole === AdminRole.ADMIN) {
-      return targetRole !== AdminRole.SUPER_ADMIN && targetRole !== AdminRole.ADMIN;
+    if (managerRole === AdminRole.OPERATIONS_ADMIN) {
+      return targetRole !== AdminRole.SUPER_ADMIN && targetRole !== AdminRole.OPERATIONS_ADMIN;
     }
 
     // Other roles cannot manage roles
     return false;
   }
 }
+

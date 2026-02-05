@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ReturnStatus, RefundStatus, RefundMethod } from '@prisma/client';
+import { Prisma, ReturnStatus, RefundStatus, RefundMethod } from '@prisma/client';
 import {
   VendorReturnQueryDto,
   AcceptReturnDto,
@@ -23,6 +23,17 @@ const RETURN_STATUS_TRANSITIONS: Record<string, ReturnStatus[]> = {
   QC_PASSED: [ReturnStatus.REFUND_INITIATED, ReturnStatus.REPLACEMENT_INITIATED],
   REFUND_INITIATED: [ReturnStatus.REFUND_COMPLETED],
 };
+
+// Type for ReturnRequest with includes
+type ReturnRequestWithIncludes = Prisma.ReturnRequestGetPayload<{
+  include: {
+    Order: { select: { id: true; orderNumber: true; status: true; items: true; createdAt: true } };
+    User: { select: { id: true; name: true; email: true; phone: true } };
+    ReturnItem: true;
+    Refund: true;
+    ReturnTimeline: true;
+  };
+}>;
 
 @Injectable()
 export class VendorReturnsService {
@@ -160,10 +171,10 @@ export class VendorReturnsService {
         ReturnItem: true,
         Refund: true,
         ReturnTimeline: {
-          orderBy: { createdAt: 'desc' },
+          orderBy: { timestamp: 'desc' },
         },
       },
-    });
+    }) as ReturnRequestWithIncludes | null;
 
     if (!returnRequest) {
       throw new NotFoundException('Return request not found');
@@ -326,7 +337,7 @@ export class VendorReturnsService {
     const returnRequest = await this.verifyReturnOwnership(vendorId, returnId);
 
     // Validate return is in approved/refundable state
-    const refundableStatuses = [
+    const refundableStatuses: ReturnStatus[] = [
       ReturnStatus.APPROVED,
       ReturnStatus.QC_PASSED,
       ReturnStatus.REFUND_INITIATED,

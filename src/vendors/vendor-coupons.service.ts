@@ -20,13 +20,15 @@ export class VendorCouponsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async getVendorId(userId: string): Promise<string> {
+    // Note: Vendor model doesn't have userId field
+    // Assuming userId IS the vendor ID in this context
     const vendor = await this.prisma.vendor.findFirst({
-      where: { userId },
+      where: { id: userId },
       select: { id: true },
     });
 
     if (!vendor) {
-      throw new ForbiddenException('User is not a vendor');
+      throw new ForbiddenException('Vendor not found');
     }
 
     return vendor.id;

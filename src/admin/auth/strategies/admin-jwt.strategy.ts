@@ -44,10 +44,10 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
     const session = await this.prisma.adminSession.findFirst({
       where: {
         id: payload.sessionId,
-        isRevoked: false,
+        isActive: true,
         expiresAt: { gt: new Date() },
       },
-      include: { admin: true },
+      include: { AdminUser: true },
     });
 
     if (!session) {
@@ -55,7 +55,7 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
     }
 
     // Verify admin is still active
-    if (!session.admin.isActive) {
+    if (!session.AdminUser.isActive) {
       throw new UnauthorizedException('Account deactivated');
     }
 
@@ -64,13 +64,13 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
     const SESSION_IDLE_TIMEOUT = 8 * 60 * 60 * 1000; // 8 hours
 
     const sessionAge = Date.now() - session.createdAt.getTime();
-    const idleTime = Date.now() - session.lastActiveAt.getTime();
+    const idleTime = Date.now() - session.lastActive.getTime();
 
     if (sessionAge > SESSION_ABSOLUTE_TIMEOUT || idleTime > SESSION_IDLE_TIMEOUT) {
       // Revoke expired session
       await this.prisma.adminSession.update({
         where: { id: session.id },
-        data: { isRevoked: true },
+        data: { isActive: false },
       });
       throw new UnauthorizedException('Session expired');
     }
@@ -78,7 +78,7 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
     // Update session activity
     await this.prisma.adminSession.update({
       where: { id: session.id },
-      data: { lastActiveAt: new Date() },
+      data: { lastActive: new Date() },
     });
 
     return {

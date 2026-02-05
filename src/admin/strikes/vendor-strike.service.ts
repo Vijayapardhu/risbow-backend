@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   StrikeType,
@@ -27,11 +28,17 @@ const STRIKE_THRESHOLDS = {
  * Strike point values by type
  */
 const STRIKE_POINTS: Record<StrikeType, number> = {
+  FAILED_DELIVERY: 2,
+  SHOP_CLOSED: 1,
+  LATE_PREPARATION: 1,
+  CUSTOMER_COMPLAINT: 2,
+  QUALITY_ISSUE: 2,
+  REPEATED_CANCELLATION: 3,
+  POLICY_VIOLATION: 3,
+  CONTENT_VIOLATION: 2,
   WARNING: 1,
   PRODUCT_VIOLATION: 2,
-  QUALITY_ISSUE: 2,
   DELIVERY_FAILURE: 2,
-  POLICY_VIOLATION: 3,
   FRAUD: 5,
   REPEATED_OFFENSE: 3,
 };
@@ -83,12 +90,12 @@ export class VendorStrikeService {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: dto.vendorId },
       include: {
-        strikes: {
+        VendorStrike: {
           where: {
             resolution: null, // Only active strikes
           },
         },
-        discipline: {
+        VendorDiscipline: {
           where: {
             status: { in: [DisciplineStatus.ACTIVE, DisciplineStatus.SUSPENDED] },
           },
@@ -106,11 +113,12 @@ export class VendorStrikeService {
     // Create strike
     const strike = await this.prisma.vendorStrike.create({
       data: {
-        vendorId: dto.vendorId,
+        id: randomUUID(),
+        Vendor: { connect: { id: dto.vendorId } },
         type: dto.type,
         reason: dto.reason,
         evidence: dto.evidence || [],
-        orderId: dto.orderId,
+        Order: dto.orderId ? { connect: { id: dto.orderId } } : undefined,
         productId: dto.productId,
         issuedBy: dto.issuedBy,
         points,
@@ -133,8 +141,8 @@ export class VendorStrikeService {
     });
 
     // Check if automatic discipline is needed
-    const totalActiveStrikes = vendor.strikes.length + 1;
-    const totalPoints = vendor.strikes.reduce((sum, s) => sum + s.points, 0) + points;
+    const totalActiveStrikes = (vendor.VendorStrike?.length || 0) + 1;
+    const totalPoints = (vendor.VendorStrike?.reduce((sum, s) => sum + s.points, 0) || 0) + points;
 
     await this.checkAndApplyDiscipline(vendor.id, totalActiveStrikes, totalPoints, dto.issuedBy);
 
@@ -147,7 +155,7 @@ export class VendorStrikeService {
   async resolveStrike(strikeId: string, dto: ResolveStrikeDto) {
     const strike = await this.prisma.vendorStrike.findUnique({
       where: { id: strikeId },
-      include: { vendor: true },
+      include: { Vendor: true },
     });
 
     if (!strike) {
@@ -254,7 +262,7 @@ export class VendorStrikeService {
       this.prisma.vendorStrike.findMany({
         where,
         include: {
-          order: { select: { id: true, orderNumber: true } },
+          Order: { select: { id: true, orderNumber: true } },
         },
         orderBy: { issuedAt: 'desc' },
         skip: (page - 1) * limit,
@@ -287,8 +295,8 @@ export class VendorStrikeService {
       this.prisma.vendorStrike.findMany({
         where,
         include: {
-          vendor: { select: { id: true, storeName: true } },
-          order: { select: { id: true, orderNumber: true } },
+          Vendor: { select: { id: true, storeName: true } },
+          Order: { select: { id: true, orderNumber: true } },
         },
         orderBy: { appealedAt: 'asc' },
         skip: (page - 1) * limit,
@@ -363,7 +371,8 @@ export class VendorStrikeService {
     // Create new discipline record
     const discipline = await this.prisma.vendorDiscipline.create({
       data: {
-        vendorId,
+        id: randomUUID(),
+        Vendor: { connect: { id: vendorId } },
         status: action,
         reason,
         startedAt: new Date(),
@@ -510,3 +519,4 @@ export class VendorStrikeService {
     }
   }
 }
+

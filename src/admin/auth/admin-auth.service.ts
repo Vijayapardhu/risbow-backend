@@ -64,7 +64,7 @@ export class AdminAuthService {
       );
     }
 
-    const isPasswordValid = await bcrypt.compare(password, admin.passwordHash);
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
 
     if (!isPasswordValid) {
       // Increment failed attempts
@@ -109,7 +109,7 @@ export class AdminAuthService {
     }
 
     // Check if MFA is required
-    if (admin.mfaEnabled) {
+    if (admin.isMfaEnabled) {
       if (!dto.mfaCode) {
         // Return temp token for MFA step
         const tempToken = await this.createTempToken(admin);
@@ -164,7 +164,7 @@ export class AdminAuthService {
       where: { id: payload.sub },
     });
 
-    if (!admin || !admin.isActive || !admin.mfaEnabled) {
+    if (!admin || !admin.isActive || !admin.isMfaEnabled) {
       throw new UnauthorizedException('Invalid admin account');
     }
 
@@ -214,10 +214,10 @@ export class AdminAuthService {
     const session = await this.prisma.adminSession.findFirst({
       where: {
         id: payload.sessionId,
-        refreshToken,
-        isRevoked: false,
+        token: refreshToken,
+        isActive: true,
       },
-      include: { admin: true },
+      include: { AdminUser: true },
     });
 
     if (!session) {
@@ -226,7 +226,7 @@ export class AdminAuthService {
 
     // Check session timeout
     const sessionAge = Date.now() - session.createdAt.getTime();
-    const idleTime = Date.now() - session.lastActiveAt.getTime();
+    const idleTime = Date.now() - session.lastActive.getTime();
 
     if (sessionAge > SESSION_ABSOLUTE_TIMEOUT || idleTime > SESSION_IDLE_TIMEOUT) {
       await this.revokeSession(session.id);
@@ -234,21 +234,21 @@ export class AdminAuthService {
     }
 
     // Check if admin is still active
-    if (!session.admin.isActive) {
+    if (!session.AdminUser.isActive) {
       await this.revokeSession(session.id);
       throw new UnauthorizedException('Account deactivated');
     }
 
     // Generate new access token
     const accessToken = this.generateAccessToken(
-      session.admin,
+      session.AdminUser,
       session.id,
     );
 
     // Update session activity
     await this.prisma.adminSession.update({
       where: { id: session.id },
-      data: { lastActiveAt: new Date() },
+      data: { lastActive: new Date() },
     });
 
     return {
@@ -269,8 +269,8 @@ export class AdminAuthService {
    */
   async logoutAll(adminId: string): Promise<void> {
     await this.prisma.adminSession.updateMany({
-      where: { adminId, isRevoked: false },
-      data: { isRevoked: true },
+      where: { adminUserId: adminId, isActive: true },
+      data: { isActive: false },
     });
   }
 
@@ -279,15 +279,15 @@ export class AdminAuthService {
    */
   async getSessions(adminId: string) {
     return this.prisma.adminSession.findMany({
-      where: { adminId, isRevoked: false },
+      where: { adminUserId: adminId, isActive: true },
       select: {
         id: true,
         ipAddress: true,
         userAgent: true,
         createdAt: true,
-        lastActiveAt: true,
+        lastActive: true,
       },
-      orderBy: { lastActiveAt: 'desc' },
+      orderBy: { lastActive: 'desc' },
     });
   }
 
@@ -297,7 +297,7 @@ export class AdminAuthService {
   async revokeSession(sessionId: string): Promise<void> {
     await this.prisma.adminSession.update({
       where: { id: sessionId },
-      data: { isRevoked: true },
+      data: { isActive: false },
     });
   }
 
@@ -313,7 +313,7 @@ export class AdminAuthService {
       throw new BadRequestException('Admin not found');
     }
 
-    if (admin.mfaEnabled) {
+    if (admin.isMfaEnabled) {
       throw new ConflictException('MFA is already enabled');
     }
 
@@ -358,7 +358,7 @@ export class AdminAuthService {
       throw new BadRequestException('MFA setup not initiated');
     }
 
-    if (admin.mfaEnabled) {
+    if (admin.isMfaEnabled) {
       throw new ConflictException('MFA is already enabled');
     }
 
@@ -377,7 +377,7 @@ export class AdminAuthService {
     // Enable MFA
     await this.prisma.adminUser.update({
       where: { id: adminId },
-      data: { mfaEnabled: true },
+      data: { isMfaEnabled: true },
     });
 
     return { success: true };
@@ -395,12 +395,12 @@ export class AdminAuthService {
       where: { id: adminId },
     });
 
-    if (!admin || !admin.mfaEnabled) {
+    if (!admin || !admin.isMfaEnabled) {
       throw new BadRequestException('MFA is not enabled');
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, admin.passwordHash);
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid password');
     }
@@ -415,7 +415,7 @@ export class AdminAuthService {
     await this.prisma.adminUser.update({
       where: { id: adminId },
       data: {
-        mfaEnabled: false,
+        isMfaEnabled: false,
         mfaSecret: null,
         backupCodes: [],
       },
@@ -435,7 +435,7 @@ export class AdminAuthService {
         email: true,
         name: true,
         role: true,
-        mfaEnabled: true,
+        isMfaEnabled: true,
         lastLoginAt: true,
         createdAt: true,
       },
@@ -465,7 +465,7 @@ export class AdminAuthService {
     }
 
     // Verify current password
-    const isPasswordValid = await bcrypt.compare(currentPassword, admin.passwordHash);
+    const isPasswordValid = await bcrypt.compare(currentPassword, admin.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Current password is incorrect');
     }
@@ -477,11 +477,11 @@ export class AdminAuthService {
     await this.prisma.$transaction([
       this.prisma.adminUser.update({
         where: { id: adminId },
-        data: { passwordHash },
+        data: { password: passwordHash },
       }),
       this.prisma.adminSession.updateMany({
-        where: { adminId },
-        data: { isRevoked: true },
+        where: { adminUserId: adminId },
+        data: { isActive: false },
       }),
     ]);
 
@@ -498,9 +498,8 @@ export class AdminAuthService {
     // Create session
     const session = await this.prisma.adminSession.create({
       data: {
-        adminId: admin.id,
+        adminUserId: admin.id,
         token: crypto.randomBytes(32).toString('hex'),
-        refreshToken: crypto.randomBytes(32).toString('hex'),
         ipAddress,
         userAgent,
         expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY * 1000),
@@ -516,14 +515,7 @@ export class AdminAuthService {
       where: { id: admin.id },
       data: {
         lastLoginAt: new Date(),
-        lastLoginIp: ipAddress,
       },
-    });
-
-    // Update session with JWT refresh token
-    await this.prisma.adminSession.update({
-      where: { id: session.id },
-      data: { refreshToken: refreshTokenJwt },
     });
 
     return {
@@ -534,7 +526,7 @@ export class AdminAuthService {
         email: admin.email,
         name: admin.name,
         role: admin.role,
-        mfaEnabled: admin.mfaEnabled,
+        mfaEnabled: admin.isMfaEnabled,
       },
     };
   }

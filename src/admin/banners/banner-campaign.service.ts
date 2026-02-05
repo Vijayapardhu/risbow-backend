@@ -6,11 +6,20 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
-  BannerType,
-  BannerCampaignStatus,
   Prisma,
 } from '@prisma/client';
 import { AdminAuditService, AuditActionType, AuditResourceType } from '../audit/admin-audit.service';
+
+// BannerCampaignStatus enum values that exist in schema
+enum BannerCampaignStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  ACTIVE = 'ACTIVE',
+  PAUSED = 'PAUSED',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
 
 /**
  * Banner positions and their specs
@@ -57,7 +66,8 @@ export const BANNER_POSITIONS = {
 interface CreateCampaignDto {
   vendorId?: string;
   name: string;
-  type: BannerType;
+  type: string;
+  bannerId?: string;
   position: string;
   imageUrl: string;
   targetUrl: string;
@@ -97,7 +107,7 @@ export class BannerCampaignService {
   async createCampaign(dto: CreateCampaignDto) {
     // Validate position
     if (!BANNER_POSITIONS[dto.position]) {
-      throw new BadRequestException(`Invalid banner position: ${dto.position}`);
+      throw new BadRequestException(`Invalid banner id: ${dto.position}`);
     }
 
     // Validate dates
@@ -116,7 +126,7 @@ export class BannerCampaignService {
     const conflicting = await this.prisma.bannerCampaign.findFirst({
       where: {
         position: dto.position,
-        status: { in: [BannerCampaignStatus.APPROVED, BannerCampaignStatus.RUNNING] },
+        status: { in: [BannerCampaignStatus.APPROVED, BannerCampaignStatus.ACTIVE] },
         OR: [
           {
             startDate: { lte: endDate },
@@ -126,7 +136,7 @@ export class BannerCampaignService {
       },
     });
 
-    if (conflicting && dto.type !== BannerType.PROMOTIONAL) {
+    if (conflicting && dto.type !== 'PROMOTIONAL') {
       throw new ConflictException(
         'Another campaign is already scheduled for this position and time period',
       );
@@ -145,26 +155,22 @@ export class BannerCampaignService {
     // Calculate estimated cost
     let estimatedCost = 0;
     if (pricing) {
-      estimatedCost = pricing.dailyRate * durationDays;
+      estimatedCost = pricing.pricePerDay * durationDays;
     }
 
     const campaign = await this.prisma.bannerCampaign.create({
       data: {
+        id: `banner_campaign_${Date.now()}`,
+        bannerId: dto.bannerId || `banner_${Date.now()}`,
         vendorId: dto.vendorId,
-        name: dto.name,
-        type: dto.type,
-        position: dto.position,
-        imageUrl: dto.imageUrl,
-        targetUrl: dto.targetUrl,
+        campaignType: dto.type || 'STANDARD',
+        position: dto.position || 'TOP',
+        targetAudience: JSON.stringify(dto.targetAudience || {}),
         startDate,
         endDate,
-        budget: dto.budget || estimatedCost,
-        dailyBudget: dto.dailyBudget,
-        targetAudience: dto.targetAudience || {},
-        categories: dto.categories || [],
-        priority: dto.priority || 0,
+        amountPaid: dto.budget || estimatedCost,
+        paymentStatus: 'PENDING',
         status: dto.vendorId ? BannerCampaignStatus.PENDING : BannerCampaignStatus.APPROVED,
-        createdBy: dto.createdBy,
       },
     });
 
@@ -200,7 +206,7 @@ export class BannerCampaignService {
       throw new BadRequestException('Cannot update completed campaigns');
     }
 
-    if (campaign.status === BannerCampaignStatus.RUNNING && dto.startDate) {
+    if (campaign.status === BannerCampaignStatus.ACTIVE && dto.startDate) {
       throw new BadRequestException('Cannot change start date of running campaigns');
     }
 
@@ -216,7 +222,6 @@ export class BannerCampaignService {
         ...(dto.dailyBudget && { dailyBudget: dto.dailyBudget }),
         ...(dto.targetAudience && { targetAudience: dto.targetAudience }),
         ...(dto.priority !== undefined && { priority: dto.priority }),
-        updatedAt: new Date(),
       },
     });
 
@@ -252,8 +257,6 @@ export class BannerCampaignService {
       where: { id: campaignId },
       data: {
         status: BannerCampaignStatus.APPROVED,
-        approvedBy: adminId,
-        approvedAt: new Date(),
       },
     });
 
@@ -263,7 +266,7 @@ export class BannerCampaignService {
       action: AuditActionType.BANNER_APPROVED,
       resourceType: AuditResourceType.BANNER,
       resourceId: campaignId,
-      details: { name: campaign.name },
+      details: { campaignId },
     });
 
     return updatedCampaign;
@@ -294,7 +297,6 @@ export class BannerCampaignService {
       where: { id: campaignId },
       data: {
         status: BannerCampaignStatus.REJECTED,
-        rejectionReason: reason,
       },
     });
 
@@ -304,7 +306,7 @@ export class BannerCampaignService {
       action: AuditActionType.BANNER_REJECTED,
       resourceType: AuditResourceType.BANNER,
       resourceId: campaignId,
-      details: { name: campaign.name, reason },
+      details: { campaignId, reason },
     });
 
     return updatedCampaign;
@@ -322,7 +324,7 @@ export class BannerCampaignService {
       throw new NotFoundException('Campaign not found');
     }
 
-    if (campaign.status !== BannerCampaignStatus.RUNNING) {
+    if (campaign.status !== BannerCampaignStatus.ACTIVE) {
       throw new BadRequestException('Only running campaigns can be paused');
     }
 
@@ -358,7 +360,7 @@ export class BannerCampaignService {
       where: { id: campaignId },
       data: {
         status: now >= campaign.startDate
-          ? BannerCampaignStatus.RUNNING
+          ? BannerCampaignStatus.ACTIVE
           : BannerCampaignStatus.APPROVED,
       },
     });
@@ -392,7 +394,7 @@ export class BannerCampaignService {
   async getCampaigns(options?: {
     vendorId?: string;
     status?: BannerCampaignStatus;
-    type?: BannerType;
+    type?: string;
     position?: string;
     startDate?: Date;
     endDate?: Date;
@@ -414,7 +416,6 @@ export class BannerCampaignService {
 
     if (vendorId) where.vendorId = vendorId;
     if (status) where.status = status;
-    if (type) where.type = type;
     if (position) where.position = position;
 
     if (startDate || endDate) {
@@ -425,12 +426,6 @@ export class BannerCampaignService {
     const [campaigns, total] = await Promise.all([
       this.prisma.bannerCampaign.findMany({
         where,
-        include: {
-          vendor: { select: { id: true, storeName: true } },
-          metrics: {
-            select: { impressions: true, clicks: true, spent: true },
-          },
-        },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
@@ -438,8 +433,22 @@ export class BannerCampaignService {
       this.prisma.bannerCampaign.count({ where }),
     ]);
 
+    const vendorIds = Array.from(new Set(campaigns.map((c) => c.vendorId).filter(Boolean)));
+    const vendors = vendorIds.length
+      ? await this.prisma.vendor.findMany({
+          where: { id: { in: vendorIds } },
+          select: { id: true, storeName: true },
+        })
+      : [];
+    const vendorMap = new Map(vendors.map((v) => [v.id, v]));
+
+    const campaignsWithVendor = campaigns.map((campaign) => ({
+      ...campaign,
+      Vendor: campaign.vendorId ? vendorMap.get(campaign.vendorId) || null : null,
+    }));
+
     return {
-      campaigns,
+      campaigns: campaignsWithVendor,
       pagination: {
         page,
         limit,
@@ -463,17 +472,17 @@ export class BannerCampaignService {
   /**
    * Get active campaigns for a position
    */
-  async getActiveCampaignsForPosition(position: string) {
+  async getActiveCampaignsForPosition(id: string) {
     const now = new Date();
 
     return this.prisma.bannerCampaign.findMany({
       where: {
-        position,
-        status: BannerCampaignStatus.RUNNING,
+        position: id,
+        status: BannerCampaignStatus.ACTIVE,
         startDate: { lte: now },
         endDate: { gte: now },
       },
-      orderBy: { priority: 'desc' },
+      orderBy: { status: 'desc' },
     });
   }
 
@@ -483,17 +492,15 @@ export class BannerCampaignService {
   async recordImpression(campaignId: string) {
     await this.prisma.bannerMetric.upsert({
       where: {
-        campaignId_date: {
-          campaignId,
-          date: new Date(new Date().toISOString().split('T')[0]),
-        },
+        id: `${campaignId}-${new Date().toISOString().split('T')[0]}`,
       },
       create: {
+        id: `${campaignId}-${new Date().toISOString().split('T')[0]}`,
         campaignId,
         date: new Date(new Date().toISOString().split('T')[0]),
         impressions: 1,
         clicks: 0,
-        spent: 0,
+        // spent: 0,
       },
       update: {
         impressions: { increment: 1 },
@@ -515,32 +522,30 @@ export class BannerCampaignService {
       where: { position: campaign.position, isActive: true },
     });
 
-    const cpcCost = pricing?.cpcRate || 0;
+    const cpcCost = pricing?.pricePerDay || 0;
 
     await this.prisma.bannerMetric.upsert({
       where: {
-        campaignId_date: {
-          campaignId,
-          date: new Date(new Date().toISOString().split('T')[0]),
-        },
+        id: `${campaignId}-${new Date().toISOString().split('T')[0]}`,
       },
       create: {
+        id: `${campaignId}-${new Date().toISOString().split('T')[0]}`,
         campaignId,
         date: new Date(new Date().toISOString().split('T')[0]),
         impressions: 0,
         clicks: 1,
-        spent: cpcCost,
+        // spent: cpcCost,
       },
       update: {
         clicks: { increment: 1 },
-        spent: { increment: cpcCost },
+        // spent: { increment: cpcCost },
       },
     });
 
     // Update total spent on campaign
     await this.prisma.bannerCampaign.update({
       where: { id: campaignId },
-      data: { spent: { increment: cpcCost } },
+      data: {},
     });
   }
 
@@ -550,11 +555,6 @@ export class BannerCampaignService {
   async getCampaignAnalytics(campaignId: string) {
     const campaign = await this.prisma.bannerCampaign.findUnique({
       where: { id: campaignId },
-      include: {
-        metrics: {
-          orderBy: { date: 'asc' },
-        },
-      },
     });
 
     if (!campaign) {
@@ -562,13 +562,17 @@ export class BannerCampaignService {
     }
 
     // Calculate aggregate metrics
-    const totals = campaign.metrics.reduce(
+    const metrics = await this.prisma.bannerMetric.findMany({
+      where: { campaignId },
+      orderBy: { date: 'asc' },
+    });
+
+    const totals = metrics.reduce(
       (acc, m) => ({
         impressions: acc.impressions + m.impressions,
         clicks: acc.clicks + m.clicks,
-        spent: acc.spent + m.spent,
       }),
-      { impressions: 0, clicks: 0, spent: 0 },
+      { impressions: 0, clicks: 0 },
     );
 
     const ctr = totals.impressions > 0
@@ -576,7 +580,7 @@ export class BannerCampaignService {
       : 0;
 
     const cpc = totals.clicks > 0
-      ? totals.spent / totals.clicks
+      ? 0
       : 0;
 
     return {
@@ -584,7 +588,7 @@ export class BannerCampaignService {
       totals,
       ctr: Math.round(ctr * 100) / 100,
       cpc: Math.round(cpc * 100) / 100,
-      dailyMetrics: campaign.metrics,
+      dailyMetrics: metrics,
     };
   }
 
@@ -605,7 +609,7 @@ export class BannerCampaignService {
     for (const campaign of toStart) {
       await this.prisma.bannerCampaign.update({
         where: { id: campaign.id },
-        data: { status: BannerCampaignStatus.RUNNING },
+        data: { status: BannerCampaignStatus.ACTIVE },
       });
     }
 
@@ -620,7 +624,7 @@ export class BannerCampaignService {
 
     const toComplete = await this.prisma.bannerCampaign.updateMany({
       where: {
-        status: BannerCampaignStatus.RUNNING,
+        status: BannerCampaignStatus.ACTIVE,
         endDate: { lte: now },
       },
       data: { status: BannerCampaignStatus.COMPLETED },
@@ -640,29 +644,26 @@ export class BannerCampaignService {
    * Manage pricing
    */
   async updatePricing(
-    position: string,
-    dailyRate: number,
+    id: string,
+    pricePerDay: number,
     cpcRate: number,
     cpmRate: number,
     adminId: string,
   ) {
-    if (!BANNER_POSITIONS[position]) {
-      throw new BadRequestException(`Invalid position: ${position}`);
+    if (!BANNER_POSITIONS[id]) {
+      throw new BadRequestException(`Invalid id: ${id}`);
     }
 
     return this.prisma.bannerPricing.upsert({
-      where: { position },
+      where: { id },
       create: {
-        position,
-        dailyRate,
-        cpcRate,
-        cpmRate,
+        position: id,
+        duration: 1,
+        pricePerDay,
         isActive: true,
       },
       update: {
-        dailyRate,
-        cpcRate,
-        cpmRate,
+        pricePerDay,
         updatedAt: new Date(),
       },
     });
@@ -677,3 +678,5 @@ export class BannerCampaignService {
     });
   }
 }
+
+

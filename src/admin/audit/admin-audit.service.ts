@@ -161,8 +161,8 @@ export class AdminAuditService {
           adminId: params.adminId,
           action: params.action,
           resourceType: params.resourceType,
-          resourceId: params.resourceId,
-          details: {
+          entityId: params.resourceId,
+          changes: {
             ...sanitizedDetails,
             adminEmail: params.adminEmail,
             adminRole: params.adminRole,
@@ -243,7 +243,7 @@ export class AdminAuditService {
       this.prisma.adminAction.findMany({
         where,
         include: {
-          admin: {
+          AdminUser: {
             select: {
               id: true,
               email: true,
@@ -281,10 +281,10 @@ export class AdminAuditService {
     return this.prisma.adminAction.findMany({
       where: {
         resourceType,
-        resourceId,
+        entityId: resourceId,
       },
       include: {
-        admin: {
+        AdminUser: {
           select: {
             id: true,
             email: true,
@@ -311,7 +311,7 @@ export class AdminAuditService {
   async getRecentActions(limit = 20) {
     return this.prisma.adminAction.findMany({
       include: {
-        admin: {
+        AdminUser: {
           select: {
             id: true,
             email: true,
@@ -385,7 +385,7 @@ export class AdminAuditService {
 
     const sensitiveKeys = [
       'password',
-      'passwordHash',
+      'password',
       'secret',
       'mfaSecret',
       'token',

@@ -162,6 +162,9 @@ model OrderItem {
   status      String   @default("PENDING")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  Order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  Product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  Vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
   @@index([productId])
@@ -1069,6 +1072,7 @@ model Order {
   user                                                     User                       @relation(fields: [userId], references: [id])
   OrderDeliverySlotSnapshot                                OrderDeliverySlotSnapshot?
   OrderFinancialSnapshot                                   OrderFinancialSnapshot?
+  OrderItem                                                OrderItem[]
   OrderPackingProof                                        OrderPackingProof?
   OrderSettlement                                          OrderSettlement?
   payment                                                  Payment?
@@ -1339,6 +1343,7 @@ model Product {
   LocalPromotion       LocalPromotion[]
   Category             Category           @relation(fields: [categoryId], references: [id])
   Vendor               Vendor             @relation(fields: [vendorId], references: [id])
+  OrderItem            OrderItem[]
   ProductSpecValue     ProductSpecValue[]
   ProductVariant       ProductVariant[]
   Reel                 Reel[]
@@ -2133,6 +2138,7 @@ model Vendor {
   Coupon                          Coupon[]
   LocalPromotion                  LocalPromotion[]
   OrderDeliverySlotSnapshot       OrderDeliverySlotSnapshot[]
+  OrderItem                       OrderItem[]
   OrderPackingProof               OrderPackingProof[]
   OrderSettlement                 OrderSettlement[]
   PickupPoint                     PickupPoint[]
