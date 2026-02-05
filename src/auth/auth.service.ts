@@ -494,8 +494,10 @@ export class AuthService {
             });
 
             // Create Vendor
+            const vendorId = `vnd_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
             const vendor = await (prisma.vendor.create as any)({
                 data: {
+                    id: vendorId,
                     name: registerDto.name,
                     mobile: registerDto.mobile,
                     email: registerDto.email,
