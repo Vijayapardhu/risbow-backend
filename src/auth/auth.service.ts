@@ -470,9 +470,13 @@ export class AuthService {
             // 3. Create User and Vendor in a transaction
             console.log('Creating user and vendor...');
             const result = await this.prisma.$transaction(async (prisma) => {
+            // Generate User ID
+            const userId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+            
             // Create User
             const user = await (prisma.user.create as any)({
                 data: {
+                    id: userId,
                     name: registerDto.name,
                     email: registerDto.email,
                     mobile: registerDto.mobile,
