@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-local';
 import { AdminAuthService } from '../admin-auth.service';
-import { Admin } from '@prisma/client';
+import { AdminUser } from '@prisma/client';
 
 @Injectable()
 export class AdminLocalStrategy extends PassportStrategy(Strategy, 'admin-local') {
@@ -13,7 +13,7 @@ export class AdminLocalStrategy extends PassportStrategy(Strategy, 'admin-local'
     });
   }
 
-  async validate(email: string, password: string): Promise<Admin> {
+  async validate(email: string, password: string): Promise<AdminUser> {
     const admin = await this.authService.validateAdmin(email, password);
     
     if (!admin) {

@@ -35,25 +35,16 @@ export class AdminMfaGuard implements CanActivate {
     }
 
     // Check if admin has MFA enabled
-    // TODO: Add mfaEnabled field to Admin model
-    const admin = await this.prisma.admin.findUnique({
+    const admin = await this.prisma.adminUser.findUnique({
       where: { id: user.id },
-      select: { id: true, isActive: true },
+      select: { mfaEnabled: true },
     });
 
-    if (!admin) {
+    if (!admin || !admin.mfaEnabled) {
       throw new ForbiddenException(
-        'Admin not found.',
+        'This action requires MFA to be enabled. Please enable MFA in your account settings.',
       );
     }
-
-    // TODO: Enable MFA check when mfaEnabled field is added to Admin model
-    // For now, just verify the admin exists and is active
-    // if (!admin.mfaEnabled) {
-    //   throw new ForbiddenException(
-    //     'This action requires MFA to be enabled. Please enable MFA in your account settings.',
-    //   );
-    // }
 
     return true;
   }

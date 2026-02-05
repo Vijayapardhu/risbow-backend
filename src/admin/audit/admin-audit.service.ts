@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { randomUUID } from 'crypto';
+import { AdminRole } from '@prisma/client';
 
 /**
  * Audit action types for categorizing admin actions
@@ -117,7 +117,7 @@ export enum AuditResourceType {
 interface AuditLogParams {
   adminId: string;
   adminEmail?: string;
-  adminRole?: string;
+  adminRole?: AdminRole;
   action: AuditActionType;
   resourceType: AuditResourceType;
   resourceId?: string;
@@ -156,13 +156,12 @@ export class AdminAuditService {
       const sanitizedOldValues = this.sanitizeDetails(params.oldValues);
       const sanitizedNewValues = this.sanitizeDetails(params.newValues);
 
-      await this.prisma.auditLog.create({
+      await this.prisma.adminAction.create({
         data: {
-          id: randomUUID(),
           adminId: params.adminId,
           action: params.action,
-          entity: params.resourceType,
-          entityId: params.resourceId ?? '',
+          resourceType: params.resourceType,
+          resourceId: params.resourceId,
           details: {
             ...sanitizedDetails,
             adminEmail: params.adminEmail,
@@ -230,8 +229,8 @@ export class AdminAuditService {
 
     if (adminId) where.adminId = adminId;
     if (action) where.action = action;
-    if (resourceType) where.entity = resourceType;
-    if (resourceId) where.entityId = resourceId;
+    if (resourceType) where.resourceType = resourceType;
+    if (resourceId) where.resourceId = resourceId;
     if (ipAddress) where.ipAddress = ipAddress;
 
     if (startDate || endDate) {
@@ -241,10 +240,10 @@ export class AdminAuditService {
     }
 
     const [logs, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
+      this.prisma.adminAction.findMany({
         where,
         include: {
-          User: {
+          admin: {
             select: {
               id: true,
               email: true,
@@ -257,7 +256,7 @@ export class AdminAuditService {
         skip: (page - 1) * limit,
         take: limit,
       }),
-      this.prisma.auditLog.count({ where }),
+      this.prisma.adminAction.count({ where }),
     ]);
 
     return {
@@ -279,13 +278,13 @@ export class AdminAuditService {
     resourceId: string,
     limit = 100,
   ) {
-    return this.prisma.auditLog.findMany({
+    return this.prisma.adminAction.findMany({
       where: {
-        entity: resourceType,
-        entityId: resourceId,
+        resourceType,
+        resourceId,
       },
       include: {
-        User: {
+        admin: {
           select: {
             id: true,
             email: true,
@@ -310,9 +309,9 @@ export class AdminAuditService {
    * Get recent admin actions for dashboard
    */
   async getRecentActions(limit = 20) {
-    return this.prisma.auditLog.findMany({
+    return this.prisma.adminAction.findMany({
       include: {
-        User: {
+        admin: {
           select: {
             id: true,
             email: true,
@@ -330,7 +329,7 @@ export class AdminAuditService {
    * Get action statistics for a time period
    */
   async getActionStats(startDate: Date, endDate: Date) {
-    const logs = await this.prisma.auditLog.findMany({
+    const logs = await this.prisma.adminAction.findMany({
       where: {
         createdAt: {
           gte: startDate,
@@ -339,7 +338,7 @@ export class AdminAuditService {
       },
       select: {
         action: true,
-        entity: true,
+        resourceType: true,
         createdAt: true,
       },
     });
@@ -354,7 +353,7 @@ export class AdminAuditService {
       byAction[log.action] = (byAction[log.action] || 0) + 1;
 
       // Count by resource
-      byResource[log.entity] = (byResource[log.entity] || 0) + 1;
+      byResource[log.resourceType] = (byResource[log.resourceType] || 0) + 1;
 
       // Count by date
       const dateKey = log.createdAt.toISOString().split('T')[0];

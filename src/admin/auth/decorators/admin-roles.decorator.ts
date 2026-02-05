@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import { AdminRole } from '../types';
+import { AdminRole } from '@prisma/client';
 
 export const ADMIN_ROLES_KEY = 'admin_roles';
 
@@ -8,7 +8,7 @@ export const ADMIN_ROLES_KEY = 'admin_roles';
  * SUPER_ADMIN always has access regardless of this decorator.
  * 
  * Usage:
- * @AdminRoles('SUPER_ADMIN', 'OPERATIONS_ADMIN')
+ * @AdminRoles(AdminRole.ADMIN, AdminRole.MODERATOR)
  */
 export const AdminRoles = (...roles: AdminRole[]) =>
   SetMetadata(ADMIN_ROLES_KEY, roles);

@@ -3,11 +3,12 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { AdminRole } from '@prisma/client';
 
 export interface AdminJwtPayload {
   sub: string;
   email: string;
-  role: string;
+  role: AdminRole;
   sessionId: string;
   type: 'access' | 'refresh' | 'temp';
 }
@@ -15,14 +16,10 @@ export interface AdminJwtPayload {
 export interface AdminRequestUser {
   id: string;
   email: string;
-  role: string;
+  role: AdminRole;
   sessionId: string;
   permissions?: string[];
 }
-
-// In-memory session validation (TODO: Replace with AdminSession model)
-// This is imported from the service but we need a simple check here
-// For now, we'll just validate the admin exists and is active
 
 @Injectable()
 export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
@@ -43,19 +40,46 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
       throw new UnauthorizedException('Invalid token type');
     }
 
-    // Verify admin exists and is active
-    // TODO: Add session validation when AdminSession model is added to schema
-    const admin = await this.prisma.admin.findUnique({
-      where: { id: payload.sub },
+    // Verify session is still valid
+    const session = await this.prisma.adminSession.findFirst({
+      where: {
+        id: payload.sessionId,
+        isRevoked: false,
+        expiresAt: { gt: new Date() },
+      },
+      include: { admin: true },
     });
 
-    if (!admin) {
-      throw new UnauthorizedException('Admin not found');
+    if (!session) {
+      throw new UnauthorizedException('Session not found or expired');
     }
 
-    if (!admin.isActive) {
+    // Verify admin is still active
+    if (!session.admin.isActive) {
       throw new UnauthorizedException('Account deactivated');
     }
+
+    // Check session timeouts
+    const SESSION_ABSOLUTE_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
+    const SESSION_IDLE_TIMEOUT = 8 * 60 * 60 * 1000; // 8 hours
+
+    const sessionAge = Date.now() - session.createdAt.getTime();
+    const idleTime = Date.now() - session.lastActiveAt.getTime();
+
+    if (sessionAge > SESSION_ABSOLUTE_TIMEOUT || idleTime > SESSION_IDLE_TIMEOUT) {
+      // Revoke expired session
+      await this.prisma.adminSession.update({
+        where: { id: session.id },
+        data: { isRevoked: true },
+      });
+      throw new UnauthorizedException('Session expired');
+    }
+
+    // Update session activity
+    await this.prisma.adminSession.update({
+      where: { id: session.id },
+      data: { lastActiveAt: new Date() },
+    });
 
     return {
       id: payload.sub,

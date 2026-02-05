@@ -8,7 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Admin } from '@prisma/client';
+import { AdminRole, AdminUser } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as speakeasy from 'speakeasy';
 import * as QRCode from 'qrcode';
@@ -17,41 +17,6 @@ import { AdminLoginDto, AdminLoginResponseDto } from './dto/admin-login.dto';
 import { AdminRefreshResponseDto } from './dto/admin-refresh.dto';
 import { SetupMfaResponseDto } from './dto/setup-mfa.dto';
 import { VerifyMfaResponseDto } from './dto/verify-mfa.dto';
-import { AdminRole } from './types';
-
-// Extended Admin type with optional fields that may not exist in schema yet
-// TODO: Add these fields to the Admin model in schema.prisma when ready:
-// - passwordHash: String (rename password to passwordHash)
-// - mfaEnabled: Boolean @default(false)
-// - mfaSecret: String?
-// - backupCodes: String[]
-// - failedAttempts: Int @default(0)
-// - lockedUntil: DateTime?
-// - lastLoginIp: String?
-interface AdminWithMfa extends Admin {
-  passwordHash?: string;
-  mfaEnabled?: boolean;
-  mfaSecret?: string | null;
-  backupCodes?: string[];
-  failedAttempts?: number;
-  lockedUntil?: Date | null;
-  lastLoginIp?: string | null;
-}
-
-// In-memory session store (TODO: Replace with AdminSession model in database)
-interface InMemorySession {
-  id: string;
-  adminId: string;
-  refreshToken: string;
-  ipAddress: string;
-  userAgent: string;
-  createdAt: Date;
-  lastActiveAt: Date;
-  expiresAt: Date;
-  isRevoked: boolean;
-  admin: Admin;
-}
-const sessionStore = new Map<string, InMemorySession>();
 
 // Constants
 const ACCESS_TOKEN_EXPIRY = 15 * 60; // 15 minutes in seconds
@@ -64,7 +29,7 @@ const SESSION_IDLE_TIMEOUT = 8 * 60 * 60 * 1000; // 8 hours
 interface JwtPayload {
   sub: string;
   email: string;
-  role: string;
+  role: AdminRole;
   sessionId: string;
   type: 'access' | 'refresh' | 'temp';
 }
@@ -80,16 +45,16 @@ export class AdminAuthService {
   /**
    * Validate admin credentials
    */
-  async validateAdmin(email: string, password: string): Promise<Admin | null> {
-    const admin = await this.prisma.admin.findUnique({
+  async validateAdmin(email: string, password: string): Promise<AdminUser | null> {
+    const admin = await this.prisma.adminUser.findUnique({
       where: { email: email.toLowerCase() },
-    }) as AdminWithMfa | null;
+    });
 
     if (!admin || !admin.isActive) {
       return null;
     }
 
-    // Check if account is locked (if lockedUntil field exists)
+    // Check if account is locked
     if (admin.lockedUntil && admin.lockedUntil > new Date()) {
       const remainingMinutes = Math.ceil(
         (admin.lockedUntil.getTime() - Date.now()) / 60000,
@@ -99,33 +64,32 @@ export class AdminAuthService {
       );
     }
 
-    // Use passwordHash if exists, otherwise fall back to password field
-    const passwordField = admin.passwordHash || admin.password;
-    const isPasswordValid = await bcrypt.compare(password, passwordField);
+    const isPasswordValid = await bcrypt.compare(password, admin.passwordHash);
 
     if (!isPasswordValid) {
-      // Increment failed attempts if field exists
-      // TODO: Enable when failedAttempts field is added to Admin model
-      // const failedAttempts = (admin.failedAttempts || 0) + 1;
-      // const updateData: any = { failedAttempts };
-      // if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
-      //   updateData.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION);
-      // }
-      // await this.prisma.admin.update({
-      //   where: { id: admin.id },
-      //   data: updateData,
-      // });
+      // Increment failed attempts
+      const failedAttempts = admin.failedAttempts + 1;
+      const updateData: any = { failedAttempts };
+
+      if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
+        updateData.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION);
+      }
+
+      await this.prisma.adminUser.update({
+        where: { id: admin.id },
+        data: updateData,
+      });
+
       return null;
     }
 
     // Reset failed attempts on successful validation
-    // TODO: Enable when failedAttempts field is added to Admin model
-    // if ((admin.failedAttempts || 0) > 0) {
-    //   await this.prisma.admin.update({
-    //     where: { id: admin.id },
-    //     data: { failedAttempts: 0, lockedUntil: null },
-    //   });
-    // }
+    if (admin.failedAttempts > 0) {
+      await this.prisma.adminUser.update({
+        where: { id: admin.id },
+        data: { failedAttempts: 0, lockedUntil: null },
+      });
+    }
 
     return admin;
   }
@@ -138,13 +102,13 @@ export class AdminAuthService {
     ipAddress: string,
     userAgent: string,
   ): Promise<AdminLoginResponseDto | { requiresMfa: true; tempToken: string }> {
-    const admin = await this.validateAdmin(dto.email, dto.password) as AdminWithMfa | null;
+    const admin = await this.validateAdmin(dto.email, dto.password);
 
     if (!admin) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    // Check if MFA is required (if mfaEnabled field exists)
+    // Check if MFA is required
     if (admin.mfaEnabled) {
       if (!dto.mfaCode) {
         // Return temp token for MFA step
@@ -153,21 +117,20 @@ export class AdminAuthService {
       }
 
       // Verify MFA code
-      const isValidMfa = this.verifyMfaCode(admin.mfaSecret!, dto.mfaCode, admin.backupCodes || []);
+      const isValidMfa = this.verifyMfaCode(admin.mfaSecret!, dto.mfaCode, admin.backupCodes);
       if (!isValidMfa.valid) {
         throw new UnauthorizedException('Invalid MFA code');
       }
 
       // If backup code was used, remove it
-      // TODO: Enable when backupCodes field is added to Admin model
-      // if (isValidMfa.usedBackupCode) {
-      //   await this.prisma.admin.update({
-      //     where: { id: admin.id },
-      //     data: {
-      //       backupCodes: (admin.backupCodes || []).filter((c) => c !== dto.mfaCode),
-      //     },
-      //   });
-      // }
+      if (isValidMfa.usedBackupCode) {
+        await this.prisma.adminUser.update({
+          where: { id: admin.id },
+          data: {
+            backupCodes: admin.backupCodes.filter((c) => c !== dto.mfaCode),
+          },
+        });
+      }
     }
 
     // Create session and tokens
@@ -197,30 +160,29 @@ export class AdminAuthService {
       throw new UnauthorizedException('Invalid token type');
     }
 
-    const admin = await this.prisma.admin.findUnique({
+    const admin = await this.prisma.adminUser.findUnique({
       where: { id: payload.sub },
-    }) as AdminWithMfa | null;
+    });
 
     if (!admin || !admin.isActive || !admin.mfaEnabled) {
       throw new UnauthorizedException('Invalid admin account');
     }
 
     // Verify MFA code
-    const isValidMfa = this.verifyMfaCode(admin.mfaSecret!, code, admin.backupCodes || []);
+    const isValidMfa = this.verifyMfaCode(admin.mfaSecret!, code, admin.backupCodes);
     if (!isValidMfa.valid) {
       throw new UnauthorizedException('Invalid MFA code');
     }
 
     // If backup code was used, remove it
-    // TODO: Enable when backupCodes field is added to Admin model
-    // if (isValidMfa.usedBackupCode) {
-    //   await this.prisma.admin.update({
-    //     where: { id: admin.id },
-    //     data: {
-    //       backupCodes: (admin.backupCodes || []).filter((c) => c !== code),
-    //     },
-    //   });
-    // }
+    if (isValidMfa.usedBackupCode) {
+      await this.prisma.adminUser.update({
+        where: { id: admin.id },
+        data: {
+          backupCodes: admin.backupCodes.filter((c) => c !== code),
+        },
+      });
+    }
 
     // Create full session
     return this.createSession(admin, ipAddress, userAgent);
@@ -248,11 +210,17 @@ export class AdminAuthService {
       throw new UnauthorizedException('Invalid token type');
     }
 
-    // Find session from in-memory store
-    // TODO: Replace with prisma.adminSession when model is added to schema
-    const session = sessionStore.get(payload.sessionId);
+    // Find session
+    const session = await this.prisma.adminSession.findFirst({
+      where: {
+        id: payload.sessionId,
+        refreshToken,
+        isRevoked: false,
+      },
+      include: { admin: true },
+    });
 
-    if (!session || session.refreshToken !== refreshToken || session.isRevoked) {
+    if (!session) {
       throw new UnauthorizedException('Session not found or revoked');
     }
 
@@ -266,20 +234,22 @@ export class AdminAuthService {
     }
 
     // Check if admin is still active
-    const admin = await this.prisma.admin.findUnique({
-      where: { id: session.adminId },
-    });
-    if (!admin || !admin.isActive) {
+    if (!session.admin.isActive) {
       await this.revokeSession(session.id);
       throw new UnauthorizedException('Account deactivated');
     }
 
     // Generate new access token
-    const accessToken = this.generateAccessToken(admin, session.id);
+    const accessToken = this.generateAccessToken(
+      session.admin,
+      session.id,
+    );
 
     // Update session activity
-    session.lastActiveAt = new Date();
-    sessionStore.set(session.id, session);
+    await this.prisma.adminSession.update({
+      where: { id: session.id },
+      data: { lastActiveAt: new Date() },
+    });
 
     return {
       accessToken,
@@ -298,62 +268,46 @@ export class AdminAuthService {
    * Logout from all sessions
    */
   async logoutAll(adminId: string): Promise<void> {
-    // TODO: Replace with prisma.adminSession.updateMany when model is added to schema
-    for (const [id, session] of sessionStore) {
-      if (session.adminId === adminId && !session.isRevoked) {
-        session.isRevoked = true;
-        sessionStore.set(id, session);
-      }
-    }
+    await this.prisma.adminSession.updateMany({
+      where: { adminId, isRevoked: false },
+      data: { isRevoked: true },
+    });
   }
 
   /**
    * Get active sessions for admin
    */
   async getSessions(adminId: string) {
-    // TODO: Replace with prisma.adminSession.findMany when model is added to schema
-    const sessions: Array<{
-      id: string;
-      ipAddress: string;
-      userAgent: string;
-      createdAt: Date;
-      lastActiveAt: Date;
-    }> = [];
-    
-    for (const session of sessionStore.values()) {
-      if (session.adminId === adminId && !session.isRevoked) {
-        sessions.push({
-          id: session.id,
-          ipAddress: session.ipAddress,
-          userAgent: session.userAgent,
-          createdAt: session.createdAt,
-          lastActiveAt: session.lastActiveAt,
-        });
-      }
-    }
-    
-    return sessions.sort((a, b) => b.lastActiveAt.getTime() - a.lastActiveAt.getTime());
+    return this.prisma.adminSession.findMany({
+      where: { adminId, isRevoked: false },
+      select: {
+        id: true,
+        ipAddress: true,
+        userAgent: true,
+        createdAt: true,
+        lastActiveAt: true,
+      },
+      orderBy: { lastActiveAt: 'desc' },
+    });
   }
 
   /**
    * Revoke specific session
    */
   async revokeSession(sessionId: string): Promise<void> {
-    // TODO: Replace with prisma.adminSession.update when model is added to schema
-    const session = sessionStore.get(sessionId);
-    if (session) {
-      session.isRevoked = true;
-      sessionStore.set(sessionId, session);
-    }
+    await this.prisma.adminSession.update({
+      where: { id: sessionId },
+      data: { isRevoked: true },
+    });
   }
 
   /**
    * Setup MFA for admin
    */
   async setupMfa(adminId: string): Promise<SetupMfaResponseDto> {
-    const admin = await this.prisma.admin.findUnique({
+    const admin = await this.prisma.adminUser.findUnique({
       where: { id: adminId },
-    }) as AdminWithMfa | null;
+    });
 
     if (!admin) {
       throw new BadRequestException('Admin not found');
@@ -377,14 +331,13 @@ export class AdminAuthService {
     const backupCodes = this.generateBackupCodes(10);
 
     // Store secret temporarily (not enabled yet)
-    // TODO: Enable when mfaSecret and backupCodes fields are added to Admin model
-    // await this.prisma.admin.update({
-    //   where: { id: adminId },
-    //   data: {
-    //     mfaSecret: secret.base32,
-    //     backupCodes,
-    //   },
-    // });
+    await this.prisma.adminUser.update({
+      where: { id: adminId },
+      data: {
+        mfaSecret: secret.base32,
+        backupCodes,
+      },
+    });
 
     return {
       secret: secret.base32,
@@ -397,9 +350,9 @@ export class AdminAuthService {
    * Verify and enable MFA
    */
   async verifyMfaSetup(adminId: string, code: string): Promise<{ success: boolean }> {
-    const admin = await this.prisma.admin.findUnique({
+    const admin = await this.prisma.adminUser.findUnique({
       where: { id: adminId },
-    }) as AdminWithMfa | null;
+    });
 
     if (!admin || !admin.mfaSecret) {
       throw new BadRequestException('MFA setup not initiated');
@@ -422,11 +375,10 @@ export class AdminAuthService {
     }
 
     // Enable MFA
-    // TODO: Enable when mfaEnabled field is added to Admin model
-    // await this.prisma.admin.update({
-    //   where: { id: adminId },
-    //   data: { mfaEnabled: true },
-    // });
+    await this.prisma.adminUser.update({
+      where: { id: adminId },
+      data: { mfaEnabled: true },
+    });
 
     return { success: true };
   }
@@ -439,37 +391,35 @@ export class AdminAuthService {
     code: string,
     password: string,
   ): Promise<{ success: boolean }> {
-    const admin = await this.prisma.admin.findUnique({
+    const admin = await this.prisma.adminUser.findUnique({
       where: { id: adminId },
-    }) as AdminWithMfa | null;
+    });
 
     if (!admin || !admin.mfaEnabled) {
       throw new BadRequestException('MFA is not enabled');
     }
 
-    // Verify password (use passwordHash if exists, otherwise password field)
-    const passwordField = admin.passwordHash || admin.password;
-    const isPasswordValid = await bcrypt.compare(password, passwordField);
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, admin.passwordHash);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid password');
     }
 
     // Verify MFA code
-    const isValidMfa = this.verifyMfaCode(admin.mfaSecret!, code, admin.backupCodes || []);
+    const isValidMfa = this.verifyMfaCode(admin.mfaSecret!, code, admin.backupCodes);
     if (!isValidMfa.valid) {
       throw new UnauthorizedException('Invalid MFA code');
     }
 
     // Disable MFA
-    // TODO: Enable when mfaEnabled, mfaSecret, backupCodes fields are added to Admin model
-    // await this.prisma.admin.update({
-    //   where: { id: adminId },
-    //   data: {
-    //     mfaEnabled: false,
-    //     mfaSecret: null,
-    //     backupCodes: [],
-    //   },
-    // });
+    await this.prisma.adminUser.update({
+      where: { id: adminId },
+      data: {
+        mfaEnabled: false,
+        mfaSecret: null,
+        backupCodes: [],
+      },
+    });
 
     return { success: true };
   }
@@ -478,13 +428,14 @@ export class AdminAuthService {
    * Get current admin profile
    */
   async getProfile(adminId: string) {
-    const admin = await this.prisma.admin.findUnique({
+    const admin = await this.prisma.adminUser.findUnique({
       where: { id: adminId },
       select: {
         id: true,
         email: true,
         name: true,
         role: true,
+        mfaEnabled: true,
         lastLoginAt: true,
         createdAt: true,
       },
@@ -494,10 +445,7 @@ export class AdminAuthService {
       throw new UnauthorizedException('Admin not found');
     }
 
-    return {
-      ...admin,
-      mfaEnabled: false, // TODO: Add mfaEnabled field to Admin model
-    };
+    return admin;
   }
 
   /**
@@ -508,32 +456,34 @@ export class AdminAuthService {
     currentPassword: string,
     newPassword: string,
   ): Promise<{ success: boolean }> {
-    const admin = await this.prisma.admin.findUnique({
+    const admin = await this.prisma.adminUser.findUnique({
       where: { id: adminId },
-    }) as AdminWithMfa | null;
+    });
 
     if (!admin) {
       throw new UnauthorizedException('Admin not found');
     }
 
-    // Verify current password (use passwordHash if exists, otherwise password field)
-    const passwordField = admin.passwordHash || admin.password;
-    const isPasswordValid = await bcrypt.compare(currentPassword, passwordField);
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, admin.passwordHash);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Current password is incorrect');
     }
 
     // Hash new password
-    const newPasswordHash = await bcrypt.hash(newPassword, 12);
+    const passwordHash = await bcrypt.hash(newPassword, 12);
 
     // Update password and invalidate all sessions
-    await this.prisma.admin.update({
-      where: { id: adminId },
-      data: { password: newPasswordHash },
-    });
-    
-    // Revoke all sessions for this admin
-    await this.logoutAll(adminId);
+    await this.prisma.$transaction([
+      this.prisma.adminUser.update({
+        where: { id: adminId },
+        data: { passwordHash },
+      }),
+      this.prisma.adminSession.updateMany({
+        where: { adminId },
+        data: { isRevoked: true },
+      }),
+    ]);
 
     return { success: true };
   }
@@ -541,45 +491,39 @@ export class AdminAuthService {
   // ============== Private Helper Methods ==============
 
   private async createSession(
-    admin: Admin,
+    admin: AdminUser,
     ipAddress: string,
     userAgent: string,
   ): Promise<AdminLoginResponseDto> {
-    // Create session in memory store
-    // TODO: Replace with prisma.adminSession.create when model is added to schema
-    const sessionId = crypto.randomBytes(16).toString('hex');
-    const refreshTokenValue = crypto.randomBytes(32).toString('hex');
-    const now = new Date();
-    
-    const session: InMemorySession = {
-      id: sessionId,
-      adminId: admin.id,
-      refreshToken: refreshTokenValue,
-      ipAddress,
-      userAgent,
-      createdAt: now,
-      lastActiveAt: now,
-      expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY * 1000),
-      isRevoked: false,
-      admin,
-    };
+    // Create session
+    const session = await this.prisma.adminSession.create({
+      data: {
+        adminId: admin.id,
+        token: crypto.randomBytes(32).toString('hex'),
+        refreshToken: crypto.randomBytes(32).toString('hex'),
+        ipAddress,
+        userAgent,
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY * 1000),
+      },
+    });
 
     // Generate tokens
-    const accessToken = this.generateAccessToken(admin, sessionId);
-    const refreshTokenJwt = this.generateRefreshToken(admin, sessionId);
-
-    // Update session with JWT refresh token
-    session.refreshToken = refreshTokenJwt;
-    sessionStore.set(sessionId, session);
+    const accessToken = this.generateAccessToken(admin, session.id);
+    const refreshTokenJwt = this.generateRefreshToken(admin, session.id);
 
     // Update last login
-    await this.prisma.admin.update({
+    await this.prisma.adminUser.update({
       where: { id: admin.id },
       data: {
         lastLoginAt: new Date(),
-        // TODO: Add lastLoginIp field to Admin model
-        // lastLoginIp: ipAddress,
+        lastLoginIp: ipAddress,
       },
+    });
+
+    // Update session with JWT refresh token
+    await this.prisma.adminSession.update({
+      where: { id: session.id },
+      data: { refreshToken: refreshTokenJwt },
     });
 
     return {
@@ -588,14 +532,14 @@ export class AdminAuthService {
       admin: {
         id: admin.id,
         email: admin.email,
-        name: admin.name || '',
+        name: admin.name,
         role: admin.role,
-        mfaEnabled: false, // TODO: Add mfaEnabled field to Admin model
+        mfaEnabled: admin.mfaEnabled,
       },
     };
   }
 
-  private async createTempToken(admin: Admin): Promise<string> {
+  private async createTempToken(admin: AdminUser): Promise<string> {
     const payload: JwtPayload = {
       sub: admin.id,
       email: admin.email,
@@ -609,7 +553,7 @@ export class AdminAuthService {
     });
   }
 
-  private generateAccessToken(admin: Admin, sessionId: string): string {
+  private generateAccessToken(admin: AdminUser, sessionId: string): string {
     const payload: JwtPayload = {
       sub: admin.id,
       email: admin.email,
@@ -623,7 +567,7 @@ export class AdminAuthService {
     });
   }
 
-  private generateRefreshToken(admin: Admin, sessionId: string): string {
+  private generateRefreshToken(admin: AdminUser, sessionId: string): string {
     const payload: JwtPayload = {
       sub: admin.id,
       email: admin.email,

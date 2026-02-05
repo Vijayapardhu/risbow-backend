@@ -4,7 +4,6 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   StrikeType,
@@ -35,12 +34,6 @@ const STRIKE_POINTS: Record<StrikeType, number> = {
   POLICY_VIOLATION: 3,
   FRAUD: 5,
   REPEATED_OFFENSE: 3,
-  FAILED_DELIVERY: 2,
-  SHOP_CLOSED: 2,
-  LATE_PREPARATION: 1,
-  CUSTOMER_COMPLAINT: 2,
-  REPEATED_CANCELLATION: 3,
-  CONTENT_VIOLATION: 2,
 };
 
 /**
@@ -90,12 +83,12 @@ export class VendorStrikeService {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: dto.vendorId },
       include: {
-        VendorStrike: {
+        strikes: {
           where: {
             resolution: null, // Only active strikes
           },
         },
-        VendorDiscipline: {
+        discipline: {
           where: {
             status: { in: [DisciplineStatus.ACTIVE, DisciplineStatus.SUSPENDED] },
           },
@@ -113,7 +106,6 @@ export class VendorStrikeService {
     // Create strike
     const strike = await this.prisma.vendorStrike.create({
       data: {
-        id: randomUUID(),
         vendorId: dto.vendorId,
         type: dto.type,
         reason: dto.reason,
@@ -141,8 +133,8 @@ export class VendorStrikeService {
     });
 
     // Check if automatic discipline is needed
-    const totalActiveStrikes = vendor.VendorStrike.length + 1;
-    const totalPoints = vendor.VendorStrike.reduce((sum, s) => sum + s.points, 0) + points;
+    const totalActiveStrikes = vendor.strikes.length + 1;
+    const totalPoints = vendor.strikes.reduce((sum, s) => sum + s.points, 0) + points;
 
     await this.checkAndApplyDiscipline(vendor.id, totalActiveStrikes, totalPoints, dto.issuedBy);
 
@@ -155,7 +147,7 @@ export class VendorStrikeService {
   async resolveStrike(strikeId: string, dto: ResolveStrikeDto) {
     const strike = await this.prisma.vendorStrike.findUnique({
       where: { id: strikeId },
-      include: { Vendor: true },
+      include: { vendor: true },
     });
 
     if (!strike) {
@@ -262,7 +254,7 @@ export class VendorStrikeService {
       this.prisma.vendorStrike.findMany({
         where,
         include: {
-          Order: { select: { id: true, orderNumber: true } },
+          order: { select: { id: true, orderNumber: true } },
         },
         orderBy: { issuedAt: 'desc' },
         skip: (page - 1) * limit,
@@ -295,8 +287,8 @@ export class VendorStrikeService {
       this.prisma.vendorStrike.findMany({
         where,
         include: {
-          Vendor: { select: { id: true, storeName: true } },
-          Order: { select: { id: true, orderNumber: true } },
+          vendor: { select: { id: true, storeName: true } },
+          order: { select: { id: true, orderNumber: true } },
         },
         orderBy: { appealedAt: 'asc' },
         skip: (page - 1) * limit,
@@ -371,7 +363,6 @@ export class VendorStrikeService {
     // Create new discipline record
     const discipline = await this.prisma.vendorDiscipline.create({
       data: {
-        id: randomUUID(),
         vendorId,
         status: action,
         reason,
@@ -387,7 +378,7 @@ export class VendorStrikeService {
     if (action === DisciplineStatus.SUSPENDED || action === DisciplineStatus.BANNED) {
       await this.prisma.vendor.update({
         where: { id: vendorId },
-        data: { storeStatus: 'SUSPENDED' },
+        data: { isActive: false },
       });
     }
 
@@ -424,7 +415,7 @@ export class VendorStrikeService {
     // Reactivate vendor
     await this.prisma.vendor.update({
       where: { id: discipline.vendorId },
-      data: { storeStatus: 'ACTIVE' },
+      data: { isActive: true },
     });
 
     return { success: true };
@@ -452,7 +443,7 @@ export class VendorStrikeService {
         }),
         this.prisma.vendor.update({
           where: { id: discipline.vendorId },
-          data: { storeStatus: 'ACTIVE' },
+          data: { isActive: true },
         }),
       ]);
     }
