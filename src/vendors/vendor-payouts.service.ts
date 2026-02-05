@@ -4,6 +4,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CommissionService } from '../common/commission.service';
 import { PayoutStatus } from '@prisma/client';
 import {
     RequestPayoutDto,
@@ -20,6 +21,7 @@ export class VendorPayoutsService {
 
     constructor(
         private prisma: PrismaService,
+        private commissionService: CommissionService,
     ) {}
 
     async getBalance(vendorId: string): Promise<PayoutBalanceResponseDto> {
@@ -49,12 +51,14 @@ export class VendorPayoutsService {
         const pendingEarnings = vendor.pendingEarnings;
         const availableBalance = pendingEarnings;
 
+        const commissionRate = await this.commissionService.resolveCommissionRate({ vendorId });
+
         return {
             pendingEarnings,
             availableBalance,
             totalPaidOut: totalPaidOutResult._sum.amount ?? 0,
             lastPayoutDate: vendor.lastPayoutDate,
-            commissionRate: 0,
+            commissionRate,
         };
     }
 
@@ -180,7 +184,7 @@ export class VendorPayoutsService {
                 },
             });
 
-            // Deduct from pending earnings
+            // Deduct from pending earnings (already net of commission)
             const actualDeduction = Math.min(
                 amount,
                 vendor.pendingEarnings,

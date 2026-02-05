@@ -7,6 +7,7 @@ import { RecommendationsController } from './recommendations.controller';
 import { DeliveryModule } from '../delivery/delivery.module';
 import { VendorsModule } from '../vendors/vendors.module';
 import { SharedModule } from '../shared/shared.module';
+import { BowModule } from '../bow/bow.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { SharedModule } from '../shared/shared.module';
     SharedModule,
     DeliveryModule,
     forwardRef(() => VendorsModule),
+    forwardRef(() => BowModule),
   ],
   controllers: [RecommendationsController],
   providers: [EcommerceEventsService, ProductSuggestionsService, RecommendationsService],
