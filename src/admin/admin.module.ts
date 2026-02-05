@@ -24,6 +24,8 @@ import { OrdersModule } from '../orders/orders.module';
 import { TelecallerModule } from '../telecaller/telecaller.module';
 import { AdminRecoveryController } from './admin-recovery.controller';
 import { QueuesProviderModule } from '../queues/queues-provider.module';
+import { AdminCampaignsController } from './admin-campaigns.controller';
+import { CampaignsService } from './campaigns.service';
 
 // New Admin Modules (Opus 4.5 Implementation)
 import { AdminAuthModule } from './auth/admin-auth.module';
@@ -88,6 +90,7 @@ import { ReportingModule } from './reports/reporting.module';
         ReferralRewardRulesController,
         AdminRoomsController,
         AdminSubscriptionsController,
+        AdminCampaignsController,
     ],
     providers: [
         AdminService,
@@ -95,6 +98,7 @@ import { ReportingModule } from './reports/reporting.module';
         AdminProductService,
         CategorySpecService,
         BowAdminService,
+        CampaignsService,
     ],
     exports: [
         // Export new modules for use in other parts of the application

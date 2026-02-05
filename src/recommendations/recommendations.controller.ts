@@ -1,11 +1,13 @@
-import { Controller, Get, Post, Body, UseGuards, Req, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, UseGuards, Req, Query, Param } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { EcommerceEventsService } from './ecommerce-events.service';
 import { TrackProductEventDto } from './dto/events.dto';
 import { BowRecommendationEngine } from '../bow/bow-recommendation.service';
 import { CartIntelligenceService } from '../bow/cart-intelligence.service';
 import { ProductSuggestionsService } from './product-suggestions.service';
+import { RecommendationsService } from './recommendations.service';
+import { TrackInteractionDto } from './dto/track-interaction.dto';
 
 @ApiTags('Recommendations')
 @Controller('recommendations')
@@ -15,6 +17,7 @@ export class RecommendationsController {
     private engine: BowRecommendationEngine,
     private cartIntel: CartIntelligenceService,
     private suggestions: ProductSuggestionsService,
+    private recommendationsService: RecommendationsService,
   ) {}
 
   @Get('me')
@@ -103,6 +106,82 @@ export class RecommendationsController {
       variantId: dto.variantId,
       quantity: dto.quantity,
     });
+    return { success: true };
+  }
+
+  // ===== NEW INTELLIGENT RECOMMENDATION ENDPOINTS =====
+
+  @Get('for-you')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ 
+    summary: 'Get personalized recommendations for logged-in user',
+    description: 'Uses collaborative filtering, content-based recommendations, and user history to provide personalized product suggestions',
+  })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of recommendations (max 20)', example: 10 })
+  async getPersonalizedRecommendations(
+    @Req() req,
+    @Query('limit') limit?: string,
+  ) {
+    const n = limit ? Math.min(parseInt(limit, 10), 20) : 10;
+    return this.recommendationsService.getPersonalizedRecommendations(req.user.id, { limit: n });
+  }
+
+  @Get('similar/:productId')
+  @ApiOperation({ 
+    summary: 'Get similar products based on product attributes and user behavior',
+    description: 'Returns products similar to the specified product using content-based and collaborative filtering',
+  })
+  @ApiParam({ name: 'productId', description: 'Product ID', example: 'prod_123abc' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of recommendations (max 20)', example: 10 })
+  async getSimilarProductsById(
+    @Param('productId') productId: string,
+    @Query('limit') limit?: string,
+  ) {
+    const n = limit ? Math.min(parseInt(limit, 10), 20) : 10;
+    return this.recommendationsService.getSimilarProducts(productId, { limit: n });
+  }
+
+  @Get('trending')
+  @ApiOperation({ 
+    summary: 'Get trending products based on recent user interactions',
+    description: 'Returns products with high engagement in the last 7 days, weighted by recency and interaction type',
+  })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of recommendations (max 20)', example: 10 })
+  async getTrendingProducts(@Query('limit') limit?: string) {
+    const n = limit ? Math.min(parseInt(limit, 10), 20) : 10;
+    return this.recommendationsService.getTrendingProducts({ limit: n });
+  }
+
+  @Get('frequently-bought-together/:productId')
+  @ApiOperation({ 
+    summary: 'Get products frequently bought together with the specified product',
+    description: 'Analyzes order history to find products commonly purchased alongside the given product',
+  })
+  @ApiParam({ name: 'productId', description: 'Product ID', example: 'prod_123abc' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of recommendations (max 20)', example: 5 })
+  async getFrequentlyBoughtTogether(
+    @Param('productId') productId: string,
+    @Query('limit') limit?: string,
+  ) {
+    const n = limit ? Math.min(parseInt(limit, 10), 20) : 5;
+    return this.recommendationsService.getFrequentlyBoughtTogether(productId, { limit: n });
+  }
+
+  @Post('track-interaction')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ 
+    summary: 'Track user interaction with a product',
+    description: 'Records user interactions (view, add to cart, purchase, wishlist) for improving recommendations',
+  })
+  async trackInteraction(@Req() req, @Body() dto: TrackInteractionDto) {
+    await this.recommendationsService.trackInteraction(
+      req.user.id,
+      dto.productId,
+      dto.interactionType,
+      dto.metadata,
+    );
     return { success: true };
   }
 }

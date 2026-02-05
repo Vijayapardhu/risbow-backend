@@ -1,5 +1,6 @@
 import { Controller, Post, Body, Get, UseGuards, Request, Query, Patch } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { VendorsService } from './vendors.service';
 import { RegisterVendorDto } from './dto/vendor.dto';
 import { PurchaseBannerDto } from './dto/purchase-banner.dto';
@@ -127,6 +128,7 @@ export class VendorsController {
 
     @Post('kyc')
     @UseGuards(JwtAuthGuard)
+    @Throttle({ default: { limit: 2, ttl: 60000 } })
     @ApiOperation({ summary: 'Update Vendor KYC details' })
     @ApiResponse({ status: 200, description: 'KYC updated successfully' })
     async updateKyc(@Body() dto: any, @Request() req) {

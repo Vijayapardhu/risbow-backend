@@ -4,6 +4,7 @@ import { VendorsController } from './vendors.controller';
 import { VendorDisciplineController } from './vendor-discipline.controller';
 import { VendorBowCoinLedgerController } from './vendor-bow-coin-ledger.controller';
 import { VendorProductsController } from './vendor-products.controller';
+import { VendorProductVariantsController } from './vendor-product-variants.controller';
 import { VendorOrdersController } from './vendor-orders.controller';
 import { VendorPayoutsController, VendorBankDetailsController } from './vendor-payouts.controller';
 import { VendorInventoryController } from './vendor-inventory.controller';
@@ -20,6 +21,7 @@ import { VendorAvailabilityService } from './vendor-availability.service';
 import { VendorDisciplineService } from './vendor-discipline.service';
 import { VendorBowCoinLedgerService } from './vendor-bow-coin-ledger.service';
 import { VendorProductsService } from './vendor-products.service';
+import { VendorProductVariantsService } from './vendor-product-variants.service';
 import { VendorOrdersService } from './vendor-orders.service';
 import { VendorPayoutsService } from './vendor-payouts.service';
 import { VendorInventoryService } from './vendor-inventory.service';
@@ -37,6 +39,7 @@ import { VendorReportsService } from './vendor-reports.service';
         VendorDisciplineController,
         VendorBowCoinLedgerController,
         VendorProductsController,
+        VendorProductVariantsController,
         VendorOrdersController,
         VendorPayoutsController,
         VendorBankDetailsController,
@@ -56,6 +59,7 @@ import { VendorReportsService } from './vendor-reports.service';
         VendorDisciplineService,
         VendorBowCoinLedgerService,
         VendorProductsService,
+        VendorProductVariantsService,
         VendorOrdersService,
         VendorPayoutsService,
         VendorInventoryService,

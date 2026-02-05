@@ -191,6 +191,7 @@ export class AdminController {
 
     @Post('users/:id/kyc')
     @Roles('ADMIN', 'SUPER_ADMIN')
+    @Throttle({ default: { limit: 3, ttl: 60000 } })
     updateKyc(
         @Request() req,
         @Param('id') userId: string,
@@ -396,6 +397,7 @@ export class AdminController {
 
     @Post('vendors/:id/kyc-verify')
     @Roles('ADMIN', 'SUPER_ADMIN')
+    @Throttle({ default: { limit: 3, ttl: 60000 } })
     @ApiOperation({ summary: 'Verify vendor KYC documents' })
     verifyVendorKyc(
         @Request() req,
@@ -584,4 +586,3 @@ export class AdminController {
     }
     */
 }
-

@@ -1360,6 +1360,7 @@ model Product {
   embedding            Json?
   disableAutoClearance Boolean            @default(false)
   expiryDate           DateTime?
+  hasVariants          Boolean            @default(false)
   BowActionLog         BowActionLog[]
   BuyLater             BuyLater[]
   CartItem             CartItem[]
@@ -1379,6 +1380,10 @@ model Product {
   UserProductEvent     UserProductEvent[]
   VendorInquiry        VendorInquiry[]
   Wishlist             Wishlist[]
+  CampaignProduct      CampaignProduct[]
+  UserProductInteraction UserProductInteraction[]
+  ProductSimilarity_ProductSimilarity_productIdToProduct        ProductSimilarity[] @relation("ProductSimilarity_productIdToProduct")
+  ProductSimilarity_ProductSimilarity_similarProductIdToProduct ProductSimilarity[] @relation("ProductSimilarity_similarProductIdToProduct")
 
   @@index([categoryId])
   @@index([categoryId, isActive, createdAt])
@@ -1441,14 +1446,21 @@ model ProductVariant {
   id         String          @id
   productId  String
   sku        String?         @unique
+  name       String?
   attributes Json
   price      Int?
+  offerPrice Int?
   stock      Int             @default(0)
+  images     String[]        @default([])
+  isActive   Boolean         @default(true)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
   status     VariationStatus @default(ACTIVE)
-  Product    Product         @relation(fields: [productId], references: [id])
+  Product    Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
   @@index([stock])
+  @@index([isActive])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -2056,6 +2068,7 @@ model User {
   UserDevice                                                  UserDevice[]
   UserPreferenceProfile                                       UserPreferenceProfile?
   UserProductEvent                                            UserProductEvent[]
+  UserProductInteraction                                      UserProductInteraction[]
   VendorFollower                                              VendorFollower[]
   VendorInquiry                                               VendorInquiry[]
   Wallet                                                      Wallet?
@@ -2189,6 +2202,7 @@ model Vendor {
   VendorDiscipline                VendorDiscipline[]
   CommissionRule                 CommissionRule[]
   ContentFlag                     ContentFlag[]
+  InvoiceTemplate                 InvoiceTemplate[]
 
   @@index([kycStatus])
   @@index([pincode])
@@ -2990,6 +3004,65 @@ enum SpecType {
   MULTISELECT
 }
 
+/// Campaign model for flash sales and promotional campaigns
+model Campaign {
+  id               String           @id @default(uuid())
+  name             String
+  description      String?
+  type             CampaignType     @default(FLASH_SALE)
+  startDate        DateTime
+  endDate          DateTime
+  discountType     DiscountType     @default(PERCENTAGE)
+  discountValue    Int              // Percentage (0-100) or fixed amount in paise
+  maxDiscount      Int?             // Maximum discount in paise (for PERCENTAGE type)
+  minOrderValue    Int?             // Minimum order value in paise to qualify
+  limitedStock     Boolean          @default(false)
+  totalStock       Int?             // Total stock allocated for campaign
+  usedStock        Int              @default(0) // Stock consumed by orders
+  status           CampaignStatus   @default(SCHEDULED)
+  priority         Int              @default(0) // Higher priority campaigns applied first
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  createdBy        String?          // Admin user who created the campaign
+  targetAudience   String?          // ALL, NEW_USERS, PREMIUM, etc.
+  bannerImage      String?
+  termsConditions  String?
+  impressions      Int              @default(0)
+  clicks           Int              @default(0)
+  conversions      Int              @default(0)
+  revenue          Int              @default(0)
+  
+  CampaignProduct  CampaignProduct[]
+
+  @@index([status])
+  @@index([startDate, endDate])
+  @@index([isActive])
+  @@index([type])
+  @@index([status, startDate, endDate])
+}
+
+/// CampaignProduct model for many-to-many relation between Campaign and Product
+model CampaignProduct {
+  id              String   @id @default(uuid())
+  campaignId      String
+  productId       String
+  customDiscount  Int?     // Override campaign discount for specific product
+  stockAllocated  Int?     // Stock allocated for this product in campaign
+  stockUsed       Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  Campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  Product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, productId])
+  @@index([campaignId])
+  @@index([productId])
+  @@index([isActive])
+}
+
 enum StockMovementType {
   IN
   OUT
@@ -3103,4 +3176,107 @@ enum VendorRole {
 enum VendorStatus {
   ACTIVE
   SUSPENDED
+}
+
+enum CampaignType {
+  FLASH_SALE
+  DISCOUNT
+  BUNDLE
+  SEASONAL
+}
+
+enum CampaignStatus {
+  SCHEDULED
+  ACTIVE
+  ENDED
+  PAUSED
+  CANCELLED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+/// UserProductInteraction model for tracking user interactions for recommendations
+model UserProductInteraction {
+  id              String                    @id @default(uuid())
+  userId          String
+  productId       String
+  interactionType UserInteractionType
+  createdAt       DateTime                  @default(now())
+  metadata        Json?                     // Store additional context like session, source, etc.
+  User            User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Product         Product                   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([userId, productId, interactionType])
+  @@index([userId, createdAt])
+  @@index([productId, interactionType])
+  @@index([interactionType, createdAt])
+}
+
+/// ProductSimilarity model for pre-calculated product similarities
+model ProductSimilarity {
+  id               String   @id @default(uuid())
+  productId        String
+  similarProductId String
+  score            Float    // Similarity score (0-1)
+  calculatedAt     DateTime @default(now())
+  algorithm        String   @default("content_based") // Algorithm used: content_based, collaborative, hybrid
+  Product_ProductSimilarity_productIdToProduct        Product @relation("ProductSimilarity_productIdToProduct", fields: [productId], references: [id], onDelete: Cascade)
+  Product_ProductSimilarity_similarProductIdToProduct Product @relation("ProductSimilarity_similarProductIdToProduct", fields: [similarProductId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, similarProductId, algorithm])
+  @@index([productId, score])
+  @@index([similarProductId])
+}
+
+enum UserInteractionType {
+  VIEW
+  ADD_TO_CART
+  PURCHASE
+  WISHLIST
+  REMOVE_FROM_CART
+}
+
+/// InvoiceTemplate model for vendor invoice customization
+model InvoiceTemplate {
+  id                 String                @id @default(uuid())
+  vendorId           String
+  templateName       String
+  logoUrl            String?
+  companyName        String
+  address            String?
+  phone              String?
+  email              String?
+  gstin              String?                // GST Identification Number
+  taxFields          Json?                  // Custom tax fields configuration: {fields: [{name, rate, type}]}
+  headerText         String?                // Custom header/banner text
+  footerText         String?                // Terms, signature, custom footer
+  showQrCode         Boolean                @default(true)
+  currency           String                 @default("INR")
+  locale             String                 @default("en-IN")
+  isDefault          Boolean                @default(false)
+  isActive           Boolean                @default(true)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  Vendor             Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  InvoiceCustomField InvoiceCustomField[]
+
+  @@index([vendorId, isDefault])
+  @@index([vendorId, isActive])
+}
+
+/// InvoiceCustomField model for additional fields in invoice templates
+model InvoiceCustomField {
+  id          String          @id @default(uuid())
+  templateId  String
+  fieldName   String          // e.g., "PAN", "CIN", "Bank Details"
+  fieldValue  String
+  displayOrder Int            @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  Template    InvoiceTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, displayOrder])
 }

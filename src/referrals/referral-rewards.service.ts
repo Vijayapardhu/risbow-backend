@@ -35,6 +35,88 @@ export class ReferralRewardsService {
     return 0;
   }
 
+  /**
+   * Find the best matching reward rule for an order
+   * Supports multi-tier rewards based on order value slabs
+   */
+  async findMatchingRule(orderValuePaise: number, orderDate: Date = new Date()) {
+    return this.prisma.referralRewardRule.findFirst({
+      where: {
+        isActive: true,
+        effectiveFrom: { lte: orderDate },
+        AND: [
+          { OR: [{ effectiveTo: null }, { effectiveTo: { gt: orderDate } }] },
+          { minOrderPaise: { lte: orderValuePaise } },
+          { OR: [{ maxOrderPaise: null }, { maxOrderPaise: { gt: orderValuePaise } }] },
+        ],
+      } as any,
+      orderBy: { minOrderPaise: 'desc' }, // Pick the highest slab that matches
+    });
+  }
+
+  /**
+   * Calculate referral tier based on successful referrals count
+   * Tier 1: 1-5 referrals
+   * Tier 2: 6-20 referrals
+   * Tier 3: 21+ referrals
+   */
+  async calculateReferrerTier(userId: string): Promise<number> {
+    const completedReferrals = await this.prisma.referralTracking.count({
+      where: {
+        referrerId: userId,
+        status: 'COMPLETED',
+      },
+    });
+
+    if (completedReferrals >= 21) return 3;
+    if (completedReferrals >= 6) return 2;
+    return 1;
+  }
+
+  /**
+   * Get referral statistics for a user
+   */
+  async getUserReferralStats(userId: string) {
+    const [total, completed, pending, rewards] = await Promise.all([
+      this.prisma.referralTracking.count({ where: { referrerId: userId } }),
+      this.prisma.referralTracking.count({ where: { referrerId: userId, status: 'COMPLETED' } }),
+      this.prisma.referralTracking.count({ where: { referrerId: userId, status: 'PENDING' } }),
+      this.prisma.referralRewardGrant.findMany({
+        where: { inviterUserId: userId },
+        select: { coinsInviterAtAward: true },
+      }),
+    ]);
+
+    const totalCoinsEarned = rewards.reduce((sum, r) => sum + r.coinsInviterAtAward, 0);
+
+    return {
+      totalReferrals: total,
+      completedReferrals: completed,
+      pendingReferrals: pending,
+      totalCoinsEarned,
+      tier: await this.calculateReferrerTier(userId),
+      conversionRate: total > 0 ? (completed / total) * 100 : 0,
+    };
+  }
+
+  /**
+   * Generate unique referral code for a user
+   */
+  async generateReferralCode(): Promise<string> {
+    let code: string;
+    let exists = true;
+
+    while (exists) {
+      code = `REF${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      const user = await this.prisma.user.findUnique({
+        where: { referralCode: code },
+      });
+      exists = !!user;
+    }
+
+    return code!;
+  }
+
   async awardForOrderIfEligible(orderId: string): Promise<{ awarded: boolean; reason?: string }> {
     const paidStatuses = this.getPaidStatuses();
     const now = new Date();

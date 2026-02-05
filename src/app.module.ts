@@ -49,6 +49,7 @@ import { VendorDocumentsModule } from './vendor-documents/vendor-documents.modul
 import { ContentModerationModule } from './moderation/content-moderation.module';
 import { BannerCampaignsModule } from './banner-campaigns/banner-campaigns.module';
 import { InvoicesModule } from './invoices/invoices.module';
+import { CampaignsModule } from './campaigns/campaigns.module';
 
 // New Modules
 import { RefundsModule } from './refunds/refunds.module';
@@ -131,6 +132,7 @@ import { HealthController } from './common/health.controller';
         VendorDocumentsModule,
         ContentModerationModule,
         BannerCampaignsModule,
+        CampaignsModule,
         // New Modules - Week 1-2
         RefundsModule,
         SupportModule,

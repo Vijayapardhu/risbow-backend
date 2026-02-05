@@ -10,6 +10,7 @@ import {
   UploadedFile,
   Request,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { VendorDocumentsService } from './vendor-documents.service';
 import { RejectDocumentDto, UploadDocumentDto } from './dto/upload-document.dto';
@@ -25,6 +26,7 @@ export class VendorDocumentsController {
   @Post()
   @Roles(UserRole.VENDOR)
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseInterceptors(FileInterceptor('file'))
   async uploadDocument(
     @Request() req: any,
@@ -52,6 +54,7 @@ export class VendorDocumentsController {
   @Post(':id/approve')
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async approveDocument(@Param('id') id: string, @Request() req: any) {
     return this.vendorDocumentsService.approveDocument(id, req.user.id);
   }
@@ -59,6 +62,7 @@ export class VendorDocumentsController {
   @Post(':id/reject')
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async rejectDocument(
     @Param('id') id: string,
     @Request() req: any,
