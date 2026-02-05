@@ -4,7 +4,6 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CommissionService } from '../common/commission.service';
 import { PayoutStatus } from '@prisma/client';
 import {
     RequestPayoutDto,
@@ -21,7 +20,6 @@ export class VendorPayoutsService {
 
     constructor(
         private prisma: PrismaService,
-        private commissionService: CommissionService,
     ) {}
 
     async getBalance(vendorId: string): Promise<PayoutBalanceResponseDto> {
@@ -49,16 +47,14 @@ export class VendorPayoutsService {
         });
 
         const pendingEarnings = vendor.pendingEarnings;
-        const commissionRate = await this.commissionService.resolveCommissionRate({ vendorId });
-        const commissionAmount = Math.floor(pendingEarnings * commissionRate);
-        const availableBalance = pendingEarnings - commissionAmount;
+        const availableBalance = pendingEarnings;
 
         return {
             pendingEarnings,
             availableBalance,
             totalPaidOut: totalPaidOutResult._sum.amount ?? 0,
             lastPayoutDate: vendor.lastPayoutDate,
-            commissionRate,
+            commissionRate: 0,
         };
     }
 
@@ -158,12 +154,8 @@ export class VendorPayoutsService {
             );
         }
 
-        // Calculate available balance
-        const commissionRate = await this.commissionService.resolveCommissionRate({ vendorId });
-        const commissionAmount = Math.floor(
-            vendor.pendingEarnings * commissionRate,
-        );
-        const availableBalance = vendor.pendingEarnings - commissionAmount;
+        // Calculate available balance (pendingEarnings already net of commission)
+        const availableBalance = vendor.pendingEarnings;
 
         if (amount > availableBalance) {
             throw new BadRequestException(
@@ -188,11 +180,9 @@ export class VendorPayoutsService {
                 },
             });
 
-            // Deduct from pending earnings (including commission portion)
-            // We deduct the gross amount that covers requested + commission
-        const grossDeduction = Math.ceil(amount / (1 - commissionRate));
+            // Deduct from pending earnings
             const actualDeduction = Math.min(
-                grossDeduction,
+                amount,
                 vendor.pendingEarnings,
             );
 

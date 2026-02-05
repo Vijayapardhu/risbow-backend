@@ -1,6 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CommissionService } from '../common/commission.service';
 import { AuditLogService } from '../audit/audit.service';
 import { PayoutStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -9,8 +8,7 @@ import { randomUUID } from 'crypto';
 export class VendorPayoutsService {
     constructor(
         private prisma: PrismaService,
-        private audit: AuditLogService,
-        private commissionService: CommissionService
+        private audit: AuditLogService
     ) { }
 
     async getPayoutHistory(vendorId: string) {
@@ -207,9 +205,7 @@ export class VendorPayoutsService {
         });
 
         const totalPaidOut = payouts.reduce((sum, p) => sum + p.amount, 0);
-        const commissionRate = await this.commissionService.resolveCommissionRate({ vendorId });
-        const commissionAmount = Math.floor(vendor.pendingEarnings * commissionRate);
-        const availableBalance = vendor.pendingEarnings - commissionAmount;
+        const availableBalance = vendor.pendingEarnings;
 
         return {
             pendingEarnings: vendor.pendingEarnings,
@@ -218,7 +214,7 @@ export class VendorPayoutsService {
             totalPaidOut,
             lastPayoutDate: vendor.lastPayoutDate,
             payoutCycle: vendor.VendorMembership?.payoutCycle || 'MONTHLY',
-            commissionRate
+            commissionRate: 0
         };
     }
 
