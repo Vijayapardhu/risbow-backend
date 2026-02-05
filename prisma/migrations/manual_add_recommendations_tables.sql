@@ -55,41 +55,78 @@ CREATE INDEX IF NOT EXISTS "ProductSimilarity_productId_score_idx"
 CREATE INDEX IF NOT EXISTS "ProductSimilarity_similarProductId_idx" 
     ON "ProductSimilarity"("similarProductId");
 
--- Add foreign key constraints
-ALTER TABLE "UserProductInteraction" 
-    ADD CONSTRAINT "UserProductInteraction_userId_fkey" 
-    FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- Add foreign key constraints (only if they don't exist)
+DO $$ BEGIN
+    ALTER TABLE "UserProductInteraction" 
+        ADD CONSTRAINT "UserProductInteraction_userId_fkey" 
+        FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-ALTER TABLE "UserProductInteraction" 
-    ADD CONSTRAINT "UserProductInteraction_productId_fkey" 
-    FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "UserProductInteraction" 
+        ADD CONSTRAINT "UserProductInteraction_productId_fkey" 
+        FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-ALTER TABLE "ProductSimilarity" 
-    ADD CONSTRAINT "ProductSimilarity_productId_fkey" 
-    FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "ProductSimilarity" 
+        ADD CONSTRAINT "ProductSimilarity_productId_fkey" 
+        FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-ALTER TABLE "ProductSimilarity" 
-    ADD CONSTRAINT "ProductSimilarity_similarProductId_fkey" 
-    FOREIGN KEY ("similarProductId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "ProductSimilarity" 
+        ADD CONSTRAINT "ProductSimilarity_similarProductId_fkey" 
+        FOREIGN KEY ("similarProductId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- If using Supabase with RLS, enable RLS on new tables
-ALTER TABLE "UserProductInteraction" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ProductSimilarity" ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+    ALTER TABLE "UserProductInteraction" ENABLE ROW LEVEL SECURITY;
+EXCEPTION
+    WHEN OTHERS THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "ProductSimilarity" ENABLE ROW LEVEL SECURITY;
+EXCEPTION
+    WHEN OTHERS THEN null;
+END $$;
 
 -- Basic RLS policies (adjust based on your security requirements)
-CREATE POLICY "Users can read their own interactions" 
-    ON "UserProductInteraction" 
-    FOR SELECT 
-    USING (auth.uid()::text = "userId");
+DO $$ BEGIN
+    CREATE POLICY "Users can read their own interactions" 
+        ON "UserProductInteraction" 
+        FOR SELECT 
+        USING (auth.uid()::text = "userId");
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE POLICY "Users can insert their own interactions" 
-    ON "UserProductInteraction" 
-    FOR INSERT 
-    WITH CHECK (auth.uid()::text = "userId");
+DO $$ BEGIN
+    CREATE POLICY "Users can insert their own interactions" 
+        ON "UserProductInteraction" 
+        FOR INSERT 
+        WITH CHECK (auth.uid()::text = "userId");
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-CREATE POLICY "Anyone can read product similarities" 
-    ON "ProductSimilarity" 
-    FOR SELECT 
-    USING (true);
+DO $$ BEGIN
+    CREATE POLICY "Anyone can read product similarities" 
+        ON "ProductSimilarity" 
+        FOR SELECT 
+        USING (true);
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- For admin/system operations, you'll need additional policies or use service role
