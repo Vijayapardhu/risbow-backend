@@ -584,6 +584,7 @@ model Category {
   Category           Category?           @relation("CategoryToCategory", fields: [parentId], references: [id])
   other_Category     Category[]          @relation("CategoryToCategory")
   CategoryCommission CategoryCommission?
+  CommissionRule     CommissionRule[]
   CategorySpec       CategorySpec[]
   LocalPromotion     LocalPromotion[]
   Product            Product[]
@@ -601,6 +602,30 @@ model CategoryCommission {
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   Category       Category @relation(fields: [categoryId], references: [id])
+}
+
+/// CommissionRule - rule-based commission overrides for product/vendor/category/global
+model CommissionRule {
+  id             String          @id
+  scope          CommissionScope
+  commissionRate Float
+  isActive       Boolean         @default(true)
+  effectiveFrom  DateTime        @default(now())
+  effectiveTo    DateTime?
+  vendorId       String?
+  categoryId     String?
+  productId      String?
+  reason         String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  Vendor         Vendor?         @relation(fields: [vendorId], references: [id])
+  Category       Category?       @relation(fields: [categoryId], references: [id])
+  Product        Product?        @relation(fields: [productId], references: [id])
+
+  @@index([scope, isActive])
+  @@index([vendorId])
+  @@index([categoryId])
+  @@index([productId])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -1341,6 +1366,7 @@ model Product {
   ClearanceProduct     ClearanceProduct[]
   Inventory            Inventory[]
   LocalPromotion       LocalPromotion[]
+  CommissionRule       CommissionRule[]
   Category             Category           @relation(fields: [categoryId], references: [id])
   Vendor               Vendor             @relation(fields: [vendorId], references: [id])
   OrderItem            OrderItem[]
@@ -2161,6 +2187,7 @@ model Vendor {
   VendorServiceArea               VendorServiceArea[]
   VendorStrike                    VendorStrike[]
   VendorDiscipline                VendorDiscipline[]
+  CommissionRule                 CommissionRule[]
   ContentFlag                     ContentFlag[]
 
   @@index([kycStatus])
@@ -2946,6 +2973,13 @@ enum SettlementStatus {
   ELIGIBLE
   SETTLED
   REVERSED
+}
+
+enum CommissionScope {
+  PRODUCT
+  VENDOR
+  CATEGORY
+  GLOBAL
 }
 
 enum SpecType {

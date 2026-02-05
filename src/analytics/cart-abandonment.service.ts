@@ -170,7 +170,8 @@ export class CartAbandonmentService {
                 const commissionAmount = await this.commissionService.calculateCommission(
                     itemPrice,
                     item.product.categoryId,
-                    item.product.vendorId
+                    item.product.vendorId,
+                    item.productId
                 );
                 totalCommissionAmount += commissionAmount;
             }

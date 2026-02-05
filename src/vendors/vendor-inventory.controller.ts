@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Param,
   Body,
@@ -126,5 +127,46 @@ export class VendorInventoryController {
   })
   async getInventorySummary(@Request() req) {
     return this.inventoryService.getInventorySummary(req.user.id);
+  }
+
+  @Get('movements')
+  @ApiOperation({ summary: 'Get stock movement history' })
+  @ApiResponse({
+    status: 200,
+    description: 'Stock adjustment history with audit trail',
+  })
+  async getMovements(@Request() req, @Query() filters: any) {
+    const vendorId = req.user.vendorId || req.user.id;
+    return this.inventoryService.getStockMovements(vendorId, filters);
+  }
+
+  @Post('adjust')
+  @ApiOperation({ summary: 'Adjust stock for a product' })
+  @ApiResponse({
+    status: 200,
+    description: 'Stock adjusted successfully with audit log',
+  })
+  async adjustStock(
+    @Request() req,
+    @Body() dto: { productId: string; quantity: number; reason?: string },
+  ) {
+    const vendorId = req.user.vendorId || req.user.id;
+    return this.inventoryService.adjustStock(
+      vendorId,
+      dto.productId,
+      dto.quantity,
+      dto.reason,
+    );
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Get inventory statistics' })
+  @ApiResponse({
+    status: 200,
+    description: 'Inventory stats including total products, low stock, etc.',
+  })
+  async getStats(@Request() req) {
+    const vendorId = req.user.vendorId || req.user.id;
+    return this.inventoryService.getInventoryStats(vendorId);
   }
 }

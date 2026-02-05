@@ -333,5 +333,121 @@ export class VendorInventoryService {
       outOfStockCount,
     };
   }
-}
 
+  async getStockMovements(vendorId: string, filters?: any) {
+    const movements = await this.prisma.auditLog.findMany({
+      where: {
+        action: { contains: 'stock' },
+        entity: 'Product',
+      },
+      orderBy: { createdAt: 'desc' },
+      take: filters?.limit || 50,
+    });
+
+    return movements.filter(m => {
+      const details = m.details as any;
+      return details?.vendorId === vendorId;
+    }).map((m) => {
+      const details = m.details as any;
+      return {
+        id: m.id,
+        productId: details?.productId || m.entityId,
+        productName: details?.productName || 'Unknown Product',
+        quantity: details?.quantity || 0,
+        previousStock: details?.previousStock || 0,
+        newStock: details?.newStock || 0,
+        reason: details?.reason || 'Manual adjustment',
+        createdAt: m.createdAt,
+        updatedBy: m.adminId,
+      };
+    });
+  }
+
+  async adjustStock(
+    vendorId: string,
+    productId: string,
+    quantity: number,
+    reason?: string,
+  ) {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    if (product.vendorId !== vendorId) {
+      throw new ForbiddenException('Not authorized to modify this product');
+    }
+
+    const previousStock = product.stock;
+    const newStock = product.stock + quantity;
+    if (newStock < 0) {
+      throw new BadRequestException('Stock cannot be negative');
+    }
+
+    const updated = await this.prisma.product.update({
+      where: { id: productId },
+      data: { stock: newStock },
+    });
+
+    const id = `al_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    await this.prisma.auditLog.create({
+      data: {
+        id,
+        adminId: vendorId,
+        action: 'stock_adjusted',
+        entity: 'Product',
+        entityId: productId,
+        details: {
+          previousStock,
+          newStock,
+          quantity,
+          reason,
+          productId,
+          productName: product.name || product.title,
+          vendorId,
+        },
+        ipAddress: 'system',
+        userAgent: 'vendor-portal',
+      },
+    });
+
+    return {
+      success: true,
+      product: updated,
+      previousStock,
+      newStock,
+      adjustment: quantity,
+    };
+  }
+
+  async getInventoryStats(vendorId: string) {
+    const products = await this.prisma.product.findMany({
+      where: { vendorId },
+      select: {
+        stock: true,
+        price: true,
+        offerPrice: true,
+      },
+    });
+
+    const totalProducts = products.length;
+    const outOfStock = products.filter((p) => p.stock === 0).length;
+    const lowStock = products.filter(
+      (p) => p.stock > 0 && p.stock <= DEFAULT_LOW_STOCK_THRESHOLD,
+    ).length;
+    const totalValue = products.reduce(
+      (sum, p) => sum + p.stock * Number(p.offerPrice || p.price),
+      0,
+    );
+
+    return {
+      totalProducts,
+      outOfStock,
+      lowStock,
+      totalValue,
+    };
+  }
+}

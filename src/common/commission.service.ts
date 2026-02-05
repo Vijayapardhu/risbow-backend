@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { CommissionScope } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -10,53 +11,171 @@ export class CommissionService {
 
     /**
      * Calculate commission amount based on priority logic:
-     * 1. Vendor override commission rate
-     * 2. Category commission rate  
-     * 3. Platform default rate (15%)
-     * 
+     * 1. Product rule
+     * 2. Vendor rule
+     * 3. Category rule
+     * 4. Global rule
+     * 5. Vendor override (legacy)
+     * 6. Category commission (legacy)
+     * 7. Platform default rate (15%)
+     *
      * @param price - Price in paise (1 INR = 100 paise)
      * @param categoryId - Category ID
      * @param vendorId - Vendor ID
+     * @param productId - Product ID (optional)
      * @returns Commission amount in paise
      */
-    async calculateCommission(price: number, categoryId: string, vendorId: string): Promise<number> {
+    async calculateCommission(
+        price: number,
+        categoryId: string,
+        vendorId: string,
+        productId?: string,
+    ): Promise<number> {
         try {
-            // Priority 1: Fetch seller commission override from Vendor table
-            const vendor = await this.prisma.vendor.findUnique({
-                where: { id: vendorId },
-                select: { commissionRate: true }
+            const commissionRate = await this.resolveCommissionRate({
+                categoryId,
+                vendorId,
+                productId,
             });
 
-            let commissionRate = vendor?.commissionRate;
-
-            // Priority 2: If no vendor override, fetch commission rate from Category table
-            if (commissionRate === null || commissionRate === 0.0) {
-                const categoryComm = await this.prisma.categoryCommission.findUnique({
-                    where: { categoryId },
-                    select: { commissionRate: true, isActive: true }
-                });
-
-                if (categoryComm && categoryComm.isActive) {
-                    commissionRate = categoryComm.commissionRate;
-                }
-            }
-
-            // Priority 3: Use platform default if rates are not set or are 0
-            if (commissionRate === null || commissionRate === 0.0) {
-                commissionRate = this.PLATFORM_DEFAULT_RATE;
-            }
-
-            // Calculate commission in paise and round to nearest integer
             const commissionInPaise = Math.round(price * commissionRate);
-
             this.logger.debug(`Commission calculated: ${price} paise * ${commissionRate} = ${commissionInPaise} paise`);
-
             return commissionInPaise;
         } catch (error) {
             this.logger.error(`Error calculating commission: ${error.message}`);
-            // Fallback to platform default rate in case of error
             return Math.round(price * this.PLATFORM_DEFAULT_RATE);
         }
+    }
+
+    async resolveCommissionRate(args: {
+        categoryId?: string;
+        vendorId?: string;
+        productId?: string;
+        when?: Date;
+    }): Promise<number> {
+        const now = args.when || new Date();
+        const { vendorId, categoryId, productId } = args;
+
+        const ruleWhereBase = {
+            isActive: true,
+            effectiveFrom: { lte: now },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }],
+        } as any;
+
+        const ruleOrder = [
+            { scope: CommissionScope.PRODUCT, productId },
+            { scope: CommissionScope.VENDOR, vendorId },
+            { scope: CommissionScope.CATEGORY, categoryId },
+            { scope: CommissionScope.GLOBAL },
+        ];
+
+        for (const entry of ruleOrder) {
+            if ('productId' in entry && !entry.productId) continue;
+            if ('vendorId' in entry && !entry.vendorId) continue;
+            if ('categoryId' in entry && !entry.categoryId) continue;
+
+            const rule = await this.prisma.commissionRule.findFirst({
+                where: {
+                    ...ruleWhereBase,
+                    scope: entry.scope,
+                    ...(entry.productId ? { productId: entry.productId } : {}),
+                    ...(entry.vendorId ? { vendorId: entry.vendorId } : {}),
+                    ...(entry.categoryId ? { categoryId: entry.categoryId } : {}),
+                },
+                orderBy: { createdAt: 'desc' },
+                select: { commissionRate: true },
+            });
+
+            if (rule?.commissionRate != null) {
+                return rule.commissionRate;
+            }
+        }
+
+        // Legacy vendor override
+        if (vendorId) {
+            const vendor = await this.prisma.vendor.findUnique({
+                where: { id: vendorId },
+                select: { commissionRate: true },
+            });
+            if (vendor?.commissionRate != null && vendor.commissionRate > 0) {
+                return vendor.commissionRate;
+            }
+        }
+
+        // Legacy category commission
+        if (categoryId) {
+            const categoryComm = await this.prisma.categoryCommission.findUnique({
+                where: { categoryId },
+                select: { commissionRate: true, isActive: true },
+            });
+            if (categoryComm && categoryComm.isActive && categoryComm.commissionRate > 0) {
+                return categoryComm.commissionRate;
+            }
+        }
+
+        return this.PLATFORM_DEFAULT_RATE;
+    }
+
+    async getCommissionPreview(args: {
+        price: number;
+        categoryId?: string;
+        vendorId?: string;
+        productId?: string;
+    }): Promise<{
+        commissionRate: number;
+        commissionAmount: number;
+        scope: CommissionScope | 'DEFAULT';
+        ruleId?: string;
+    }> {
+        const now = new Date();
+        const { price, categoryId, vendorId, productId } = args;
+
+        const ruleWhereBase = {
+            isActive: true,
+            effectiveFrom: { lte: now },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }],
+        } as any;
+
+        const ruleOrder = [
+            { scope: CommissionScope.PRODUCT, productId },
+            { scope: CommissionScope.VENDOR, vendorId },
+            { scope: CommissionScope.CATEGORY, categoryId },
+            { scope: CommissionScope.GLOBAL },
+        ];
+
+        for (const entry of ruleOrder) {
+            if ('productId' in entry && !entry.productId) continue;
+            if ('vendorId' in entry && !entry.vendorId) continue;
+            if ('categoryId' in entry && !entry.categoryId) continue;
+
+            const rule = await this.prisma.commissionRule.findFirst({
+                where: {
+                    ...ruleWhereBase,
+                    scope: entry.scope,
+                    ...(entry.productId ? { productId: entry.productId } : {}),
+                    ...(entry.vendorId ? { vendorId: entry.vendorId } : {}),
+                    ...(entry.categoryId ? { categoryId: entry.categoryId } : {}),
+                },
+                orderBy: { createdAt: 'desc' },
+                select: { id: true, commissionRate: true },
+            });
+
+            if (rule?.commissionRate != null) {
+                return {
+                    commissionRate: rule.commissionRate,
+                    commissionAmount: Math.round(price * rule.commissionRate),
+                    scope: entry.scope,
+                    ruleId: rule.id,
+                };
+            }
+        }
+
+        const rate = await this.resolveCommissionRate({ categoryId, vendorId, productId, when: now });
+        return {
+            commissionRate: rate,
+            commissionAmount: Math.round(price * rate),
+            scope: 'DEFAULT',
+        };
     }
 
     /**

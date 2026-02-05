@@ -4,6 +4,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CommissionService } from '../common/commission.service';
 import { PayoutStatus } from '@prisma/client';
 import {
     RequestPayoutDto,
@@ -18,14 +19,16 @@ import { randomUUID } from 'crypto';
 export class VendorPayoutsService {
     private readonly MINIMUM_PAYOUT_AMOUNT = 10000; // ₹100 in paise
 
-    constructor(private prisma: PrismaService) {}
+    constructor(
+        private prisma: PrismaService,
+        private commissionService: CommissionService,
+    ) {}
 
     async getBalance(vendorId: string): Promise<PayoutBalanceResponseDto> {
         const vendor = await this.prisma.vendor.findUnique({
             where: { id: vendorId },
             select: {
                 pendingEarnings: true,
-                commissionRate: true,
                 lastPayoutDate: true,
             },
         });
@@ -46,8 +49,7 @@ export class VendorPayoutsService {
         });
 
         const pendingEarnings = vendor.pendingEarnings;
-        const commissionRate = vendor.commissionRate ?? 0;
-        // Available balance = pending earnings minus commission
+        const commissionRate = await this.commissionService.resolveCommissionRate({ vendorId });
         const commissionAmount = Math.floor(pendingEarnings * commissionRate);
         const availableBalance = pendingEarnings - commissionAmount;
 
@@ -130,7 +132,6 @@ export class VendorPayoutsService {
             where: { id: vendorId },
             select: {
                 pendingEarnings: true,
-                commissionRate: true,
                 bankDetails: true,
             },
         });
@@ -158,7 +159,7 @@ export class VendorPayoutsService {
         }
 
         // Calculate available balance
-        const commissionRate = vendor.commissionRate ?? 0;
+        const commissionRate = await this.commissionService.resolveCommissionRate({ vendorId });
         const commissionAmount = Math.floor(
             vendor.pendingEarnings * commissionRate,
         );
@@ -189,7 +190,7 @@ export class VendorPayoutsService {
 
             // Deduct from pending earnings (including commission portion)
             // We deduct the gross amount that covers requested + commission
-            const grossDeduction = Math.ceil(amount / (1 - commissionRate));
+        const grossDeduction = Math.ceil(amount / (1 - commissionRate));
             const actualDeduction = Math.min(
                 grossDeduction,
                 vendor.pendingEarnings,

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CommissionService } from '../common/commission.service';
 import { OrderStatus } from '@prisma/client';
 import {
   SalesReportQueryDto,
@@ -19,7 +20,10 @@ import {
 
 @Injectable()
 export class VendorReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly commissionService: CommissionService,
+  ) {}
 
   /**
    * Get sales report grouped by day/week/month
@@ -173,14 +177,6 @@ export class VendorReportsService {
     const { dateFrom, dateTo } = query;
     const orders = await this.getVendorOrders(vendorId, dateFrom, dateTo);
 
-    // Get category commission rates
-    const categoryCommissions = await this.prisma.categoryCommission.findMany({
-      where: { isActive: true },
-    });
-    const commissionMap = new Map(
-      categoryCommissions.map((cc) => [cc.categoryId, cc.commissionRate]),
-    );
-
     let grossSales = 0;
     let totalCommission = 0;
     let itemsSold = 0;
@@ -189,10 +185,14 @@ export class VendorReportsService {
       grossSales += order.vendorTotal;
       itemsSold += order.itemCount;
 
-      // Estimate commission based on category
+      // Estimate commission using rule resolution
       for (const item of order.items) {
         const itemTotal = (item.price || item.unitPrice || 0) * (item.quantity || 1);
-        const commissionRate = commissionMap.get(item.categoryId) || 0.1; // Default 10%
+        const commissionRate = await this.commissionService.resolveCommissionRate({
+          categoryId: item.categoryId,
+          vendorId,
+          productId: item.productId,
+        });
         totalCommission += Math.round(itemTotal * commissionRate);
       }
     }

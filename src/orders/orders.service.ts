@@ -82,7 +82,8 @@ export class OrdersService {
                 const commissionAmount = await this.commissionService.calculateCommission(
                     itemPrice,
                     product.categoryId,
-                    product.vendorId
+                    product.vendorId,
+                    item.productId
                 );
                 totalCommissionAmount += commissionAmount;
             }

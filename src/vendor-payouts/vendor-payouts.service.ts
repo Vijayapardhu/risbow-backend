@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CommissionService } from '../common/commission.service';
 import { AuditLogService } from '../audit/audit.service';
 import { PayoutStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -8,7 +9,8 @@ import { randomUUID } from 'crypto';
 export class VendorPayoutsService {
     constructor(
         private prisma: PrismaService,
-        private audit: AuditLogService
+        private audit: AuditLogService,
+        private commissionService: CommissionService
     ) { }
 
     async getPayoutHistory(vendorId: string) {
@@ -30,9 +32,9 @@ export class VendorPayoutsService {
             select: {
                 id: true,
                 name: true,
+                email: true,
                 pendingEarnings: true,
                 lastPayoutDate: true,
-                bankDetails: true,
                 VendorMembership: {
                     select: {
                         payoutCycle: true
@@ -41,13 +43,96 @@ export class VendorPayoutsService {
             }
         });
 
+        if (vendors.length === 0) {
+            return [];
+        }
+
+        const vendorIds = vendors.map(v => v.id);
+        const settlementCounts = await this.prisma.orderSettlement.groupBy({
+            by: ['vendorId', 'status'],
+            where: { vendorId: { in: vendorIds } },
+            _count: true
+        });
+
+        const statsMap = new Map<string, { totalOrders: number; completedOrders: number }>();
+        for (const vendorId of vendorIds) {
+            statsMap.set(vendorId, { totalOrders: 0, completedOrders: 0 });
+        }
+
+        for (const row of settlementCounts) {
+            const current = statsMap.get(row.vendorId) || { totalOrders: 0, completedOrders: 0 };
+            current.totalOrders += row._count;
+            if (row.status === 'SETTLED' || row.status === 'ELIGIBLE') {
+                current.completedOrders += row._count;
+            }
+            statsMap.set(row.vendorId, current);
+        }
+
         return vendors.map(v => ({
             vendorId: v.id,
             vendorName: v.name,
-            amount: v.pendingEarnings,
+            vendorEmail: v.email || '',
+            pendingAmount: v.pendingEarnings,
             lastPayout: v.lastPayoutDate,
-            bankDetails: v.bankDetails
+            totalOrders: statsMap.get(v.id)?.totalOrders || 0,
+            completedOrders: statsMap.get(v.id)?.completedOrders || 0
         }));
+    }
+
+    async getAdminPayoutHistory(query: { page?: number; limit?: number; status?: PayoutStatus | string }) {
+        const page = query.page && query.page > 0 ? query.page : 1;
+        const limit = query.limit && query.limit > 0 ? query.limit : 20;
+        const skip = (page - 1) * limit;
+
+        const where: any = {};
+        if (query.status && query.status !== 'ALL') {
+            where.status = query.status;
+        }
+
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const [payouts, total, processedThisMonth] = await Promise.all([
+            this.prisma.vendorPayout.findMany({
+                where,
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    Vendor: { select: { name: true, email: true } }
+                }
+            }),
+            this.prisma.vendorPayout.count({ where }),
+            this.prisma.vendorPayout.count({
+                where: {
+                    status: PayoutStatus.COMPLETED,
+                    processedAt: { gte: startOfMonth }
+                }
+            })
+        ]);
+
+        return {
+            data: payouts.map(payout => ({
+                id: payout.id,
+                vendorId: payout.vendorId,
+                vendorName: payout.Vendor?.name || 'Vendor',
+                vendorEmail: payout.Vendor?.email || '',
+                amount: payout.amount,
+                status: payout.status,
+                transactionId: payout.transactionId,
+                bankDetails: payout.bankDetails,
+                processedAt: payout.processedAt,
+                createdAt: payout.createdAt
+            })),
+            meta: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+                processedThisMonth
+            }
+        };
     }
 
     async processPayout(adminId: string, vendorId: string, amount: number, transactionId: string) {
@@ -122,13 +207,18 @@ export class VendorPayoutsService {
         });
 
         const totalPaidOut = payouts.reduce((sum, p) => sum + p.amount, 0);
+        const commissionRate = await this.commissionService.resolveCommissionRate({ vendorId });
+        const commissionAmount = Math.floor(vendor.pendingEarnings * commissionRate);
+        const availableBalance = vendor.pendingEarnings - commissionAmount;
 
         return {
-            availableBalance: vendor.pendingEarnings,
+            pendingEarnings: vendor.pendingEarnings,
+            availableBalance,
             totalEarnings: vendor.pendingEarnings + totalPaidOut,
             totalPaidOut,
             lastPayoutDate: vendor.lastPayoutDate,
-            payoutCycle: vendor.VendorMembership?.payoutCycle || 'MONTHLY'
+            payoutCycle: vendor.VendorMembership?.payoutCycle || 'MONTHLY',
+            commissionRate
         };
     }
 
