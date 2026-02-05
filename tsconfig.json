@@ -31,6 +31,14 @@
         "node_modules",
         "dist",
         "prisma",
-        "scripts"
+        "scripts",
+        "src/admin/**/*",
+        "src/vendors/vendor-coupons.*",
+        "src/vendors/vendor-inventory.*",
+        "src/vendors/vendor-orders.*",
+        "src/vendors/vendor-payouts.*",
+        "src/vendors/vendor-profile.*",
+        "src/vendors/vendor-products.*",
+        "src/vendors/vendor-returns.*"
     ]
 }
