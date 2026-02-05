@@ -484,13 +484,24 @@ export class AuthService {
             });
 
             // Create wallet for user
+            const walletId = `wal_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
             await (prisma.wallet.create as any)({
-                data: { userId: user.id, balance: 0 },
+                data: { 
+                    id: walletId,
+                    userId: user.id, 
+                    balance: 0,
+                    updatedAt: new Date()
+                },
             });
 
             // Create cart for user
+            const cartId = `crt_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
             await (prisma.cart.create as any)({
-                data: { userId: user.id },
+                data: { 
+                    id: cartId,
+                    userId: user.id,
+                    updatedAt: new Date()
+                },
             });
 
             // Create Vendor
