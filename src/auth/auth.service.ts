@@ -484,6 +484,7 @@ export class AuthService {
                     role: 'VENDOR',
                     status: 'ACTIVE',
                     referralCode: Math.random().toString(36).substring(7).toUpperCase(),
+                    updatedAt: new Date(),
                 },
             });
 
