@@ -26,30 +26,42 @@ async function bootstrap() {
     // Global Config
     app.setGlobalPrefix('api/v1');
 
-    // CORS configuration - allow localhost for Flutter web development (dev only)
-    const isDevelopment = process.env.NODE_ENV === 'development';
+    // CORS configuration - allow localhost for development and production URLs
+    const isDevelopment = process.env.NODE_ENV !== 'production';
     app.enableCors({
         origin: (origin, callback) => {
             const allowedOrigins = [
                 'https://risbow.com',
                 'https://www.risbow.com',
                 'https://admin.risbow.com',
+                'https://vendor.risbow.com',
                 process.env.FRONTEND_URL,
+                process.env.ADMIN_URL,
+                process.env.VENDOR_URL,
             ].filter(Boolean);
 
             // Allow requests with no origin (mobile apps, Postman, etc.)
-            if (!origin || allowedOrigins.includes(origin)) {
+            if (!origin) {
                 callback(null, true);
-            } else if (isDevelopment && origin.startsWith('http://localhost')) {
-                // Only allow localhost in development mode
+            } else if (allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+                // Allow all localhost ports for development
+                callback(null, true);
+            } else if (isDevelopment) {
+                // In development mode, allow all origins
                 callback(null, true);
             } else {
+                console.warn(`CORS blocked origin: ${origin}`);
                 callback(null, false);
             }
         },
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+        exposedHeaders: ['Content-Range', 'X-Total-Count'],
+        preflightContinue: false,
+        optionsSuccessStatus: 204,
     });
 
     app.useGlobalPipes(new ValidationPipe({
