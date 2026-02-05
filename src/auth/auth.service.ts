@@ -496,11 +496,18 @@ export class AuthService {
                     email: registerDto.email,
                     storeName: registerDto.storeName,
                     storeStatus: 'ACTIVE',
-                    gstNumber: registerDto.gstNumber,
+                    gstNumber: registerDto.gstNumber || null,
                     isGstVerified: false, // Pending verification
                     kycStatus: 'PENDING',
                     bankDetails: registerDto.bankDetails,
                     role: 'RETAILER', // Default role
+                    updatedAt: new Date(), // Required field
+                    // Store pickup address in bankDetails or vendor profile
+                    kycDocuments: {
+                        panNumber: registerDto.panNumber,
+                        pickupAddress: registerDto.pickupAddress,
+                        isGstRegistered: registerDto.isGstRegistered
+                    }
                 },
             });
 
@@ -511,28 +518,35 @@ export class AuthService {
                     state: 'ACTIVE',
                     activeStrikes: 0,
                     consecutiveSuccesses: 0,
+                    updatedAt: new Date(),
                 },
             });
 
             // Add compliance fee if Non-GST (optional logic, can be handled via ledger later)
             if (!registerDto.isGstRegistered) {
                 // Record compliance fee deduction as audit log for future ledger integration
-                await (prisma.auditLog.create as any)({
-                    data: {
-                        adminId: user.id,
-                        action: 'COMPLIANCE_FEE_PENDING',
-                        entity: 'VENDOR',
-                        entityId: vendor.id,
-                        details: {
-                            vendorId: vendor.id,
-                            userId: user.id,
-                            feeType: 'NON_GST_COMPLIANCE',
-                            amount: 500, // Standard compliance fee
-                            status: 'PENDING',
-                            createdAt: new Date().toISOString()
-                        }
-                    },
-                });
+                // Note: Using user.id as adminId since this is a system-generated action
+                try {
+                    await (prisma.auditLog.create as any)({
+                        data: {
+                            adminId: user.id,
+                            action: 'COMPLIANCE_FEE_PENDING',
+                            entity: 'VENDOR',
+                            entityId: vendor.id,
+                            details: {
+                                vendorId: vendor.id,
+                                userId: user.id,
+                                feeType: 'NON_GST_COMPLIANCE',
+                                amount: 500, // Standard compliance fee
+                                status: 'PENDING',
+                                createdAt: new Date().toISOString()
+                            }
+                        },
+                    });
+                } catch (auditError) {
+                    // Log but don't fail registration if audit log creation fails
+                    console.error('Failed to create audit log for compliance fee:', auditError);
+                }
             }
 
             return { user, vendor };
