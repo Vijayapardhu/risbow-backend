@@ -550,8 +550,10 @@ export class AuthService {
                 // Record compliance fee deduction as audit log for future ledger integration
                 // Note: Using user.id as adminId since this is a system-generated action
                 try {
+                    const auditLogId = `aud_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
                     await (prisma.auditLog.create as any)({
                         data: {
+                            id: auditLogId,
                             adminId: user.id,
                             action: 'COMPLIANCE_FEE_PENDING',
                             entity: 'VENDOR',
