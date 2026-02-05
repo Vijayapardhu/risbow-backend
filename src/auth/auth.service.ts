@@ -446,25 +446,30 @@ export class AuthService {
         }
     }
     async registerVendor(registerDto: any) {
-        // 1. Check if user already exists (by email or mobile)
-        const existingUser = await this.prisma.user.findFirst({
-            where: {
-                OR: [
-                    { email: registerDto.email },
-                    { mobile: registerDto.mobile }
-                ]
+        try {
+            console.log('=== Vendor Registration Started ===');
+            console.log('Registration Data:', JSON.stringify(registerDto, null, 2));
+
+            // 1. Check if user already exists (by email or mobile)
+            const existingUser = await this.prisma.user.findFirst({
+                where: {
+                    OR: [
+                        { email: registerDto.email },
+                        { mobile: registerDto.mobile }
+                    ]
+                }
+            });
+
+            if (existingUser) {
+                throw new ConflictException('User with this email or mobile already exists');
             }
-        });
 
-        if (existingUser) {
-            throw new ConflictException('User with this email or mobile already exists');
-        }
+            // 2. Hash password
+            const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
-        // 2. Hash password
-        const hashedPassword = await bcrypt.hash(registerDto.password, 10);
-
-        // 3. Create User and Vendor in a transaction
-        const result = await this.prisma.$transaction(async (prisma) => {
+            // 3. Create User and Vendor in a transaction
+            console.log('Creating user and vendor...');
+            const result = await this.prisma.$transaction(async (prisma) => {
             // Create User
             const user = await (prisma.user.create as any)({
                 data: {
@@ -561,19 +566,29 @@ export class AuthService {
         );
 
         // Store refresh token
-        await this.redisService.set(
-            `refresh_token:${result.user.id}`,
-            refreshToken,
-            7 * 24 * 60 * 60
-        );
+        try {
+            await this.redisService.set(
+                `refresh_token:${result.user.id}`,
+                refreshToken,
+                7 * 24 * 60 * 60
+            );
+        } catch (redisError) {
+            console.warn('Redis not available, skipping refresh token storage:', redisError.message);
+        }
 
         const { password, ...userWithoutPassword } = result.user;
 
+        console.log('=== Vendor Registration Successful ===');
         return {
             access_token: accessToken,
             refresh_token: refreshToken,
             user: userWithoutPassword,
-            vendor: result.vendor
+            vendor: result.vendor,
         };
+        } catch (error) {
+            console.error('=== Vendor Registration Error ===');
+            console.error('Error details:', error);
+            throw error;
+        }
     }
 }
