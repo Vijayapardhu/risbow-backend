@@ -82,6 +82,152 @@ model Admin {
   @@index([role])
 }
 
+/// AdminUser model for admin authentication system
+model AdminUser {
+  id             String         @id @default(uuid())
+  email          String         @unique
+  password       String         // Also serves as passwordHash
+  name           String
+  role           AdminRole      @default(OPERATIONS_ADMIN)
+  isActive       Boolean        @default(true)
+  isMfaEnabled   Boolean        @default(false)
+  mfaSecret      String?
+  backupCodes    String[]       @default([]) // MFA backup codes
+  avatar         String?
+  lastLoginAt    DateTime?
+  failedAttempts Int            @default(0)
+  lockedUntil    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  AdminSession   AdminSession[]
+  AdminAction    AdminAction[]
+
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+}
+
+/// AdminSession model for session management
+model AdminSession {
+  id          String     @id @default(uuid())
+  adminUserId String
+  token       String     @unique
+  ipAddress   String?
+  userAgent   String?
+  isActive    Boolean    @default(true)
+  expiresAt   DateTime
+  lastActive  DateTime   @default(now())
+  createdAt   DateTime   @default(now())
+  AdminUser   AdminUser  @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+  @@index([token])
+  @@index([expiresAt])
+}
+
+/// AdminAction model for audit logging
+model AdminAction {
+  id           String    @id @default(uuid())
+  adminId      String    // Match the field name code expects
+  action       String
+  entity       String?
+  entityId     String?
+  resourceType String?   // For filtering by resource type
+  changes      Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime  @default(now()) // Code expects createdAt not timestamp
+  AdminUser    AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([action])
+  @@index([entity])
+  @@index([resourceType])
+  @@index([createdAt])
+}
+
+/// OrderItem model for individual order line items
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String
+  productId   String
+  vendorId    String
+  quantity    Int
+  price       Int
+  offerPrice  Int?
+  subtotal    Int
+  tax         Int      @default(0)
+  discount    Int      @default(0)
+  total       Int
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([vendorId])
+  @@index([status])
+}
+
+/// CoinTransaction model for coin transaction tracking
+model CoinTransaction {
+  id            String   @id @default(uuid())
+  userId        String
+  amount        Int
+  type          String // EARNED, SPENT, EXPIRED, REFUNDED
+  reason        String?
+  referenceId   String?
+  referenceType String?
+  balanceBefore Int
+  balanceAfter  Int
+  expiresAt     DateTime?
+  status        String   @default("COMPLETED")
+  createdAt     DateTime @default(now())
+  metadata      Json?
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([expiresAt])
+  @@index([status])
+}
+
+/// BannerPricing model for banner campaign pricing
+model BannerPricing {
+  id           String   @id @default(uuid())
+  position     String
+  duration     Int // in days
+  pricePerDay  Int
+  minDuration  Int      @default(1)
+  maxDuration  Int      @default(30)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([position])
+  @@index([isActive])
+}
+
+/// BannerMetric model for banner performance tracking
+model BannerMetric {
+  id                String   @id @default(uuid())
+  campaignId        String
+  date              DateTime
+  impressions       Int      @default(0)
+  clicks            Int      @default(0)
+  conversions       Int      @default(0)
+  revenue           Int      @default(0)
+  cost              Int      @default(0)
+  clickThroughRate  Float    @default(0)
+  conversionRate    Float    @default(0)
+  returnOnAdSpend   Float    @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([campaignId])
+  @@index([date])
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model AdminNote {
   id                           String   @id
@@ -139,6 +285,8 @@ model BannerCampaign {
   bannerId       String
   vendorId       String
   campaignType   String
+  position       String?  // Position for filtering
+  status         String   @default("PENDING") // Status field for campaign state
   targetAudience String
   startDate      DateTime
   endDate        DateTime
@@ -148,6 +296,8 @@ model BannerCampaign {
 
   @@index([startDate, endDate])
   @@index([vendorId])
+  @@index([position])
+  @@index([status])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -1133,6 +1283,7 @@ model Product {
   id                   String             @id
   vendorId             String
   title                String
+  name                 String?            // Alias for title for compatibility
   description          String?
   price                Int
   offerPrice           Int?
@@ -1804,6 +1955,7 @@ model TicketTemplate {
 model User {
   id                                                          String                   @id
   mobile                                                      String                   @unique
+  phone                                                       String?                  // Alias for compatibility
   name                                                        String?
   email                                                       String?                  @unique
   password                                                    String?
@@ -1945,6 +2097,7 @@ model Vendor {
   name                            String
   mobile                          String                      @unique
   email                           String?
+  isActive                        Boolean                     @default(true) // Alias for storeStatus compatibility
   kycStatus                       String                      @default("PENDING")
   tier                            String                      @default("BASIC")
   gstNumber                       String?

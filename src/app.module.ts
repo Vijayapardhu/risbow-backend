@@ -12,17 +12,17 @@ import { CatalogModule } from './catalog/catalog.module';
 import { OrdersModule } from './orders/orders.module';
 import { VendorsModule } from './vendors/vendors.module';
 import { PaymentsModule } from './payments/payments.module';
-// import { AdminModule } from './admin/admin.module'; // TEMPORARILY DISABLED - Schema mismatch
+import { AdminModule } from './admin/admin.module';
 import { BowModule } from './bow/bow.module';
 import { CheckoutModule } from './checkout/checkout.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { BullModule } from '@nestjs/bullmq';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { TelecallerModule } from './telecaller/telecaller.module';
-// import { ReturnsModule } from './returns/returns.module'; // TEMPORARILY DISABLED - Schema mismatch
+import { ReturnsModule } from './returns/returns.module';
 import { CartModule } from './cart/cart.module';
-// import { VendorOrdersModule } from './vendor-orders/vendor-orders.module'; // TEMPORARILY DISABLED - Schema mismatch
-// import { InventoryModule } from './inventory/inventory.module'; // TEMPORARILY DISABLED - Schema mismatch
+import { VendorOrdersModule } from './vendor-orders/vendor-orders.module';
+import { InventoryModule } from './inventory/inventory.module';
 
 import { UploadModule } from './upload/upload.module';
 import { ReviewsModule } from './reviews/reviews.module';
@@ -33,7 +33,7 @@ import { QueuesProviderModule } from './queues/queues-provider.module';
 import { VendorMembershipsModule } from './vendor-memberships/vendor-memberships.module';
 import { VendorStoreModule } from './vendor-store/vendor-store.module';
 import { VendorProductsModule } from './vendor-products/vendor-products.module';
-// import { VendorPayoutsModule } from './vendor-payouts/vendor-payouts.module'; // TEMPORARILY DISABLED - Schema mismatch
+import { VendorPayoutsModule } from './vendor-payouts/vendor-payouts.module';
 import { VendorFollowersModule } from './vendor-followers/vendor-followers.module';
 import { SearchModule } from './search/search.module';
 import { WalletModule } from './wallet/wallet.module';
@@ -46,8 +46,8 @@ import { ReelsModule } from './reels/reels.module';
 import { CreatorsModule } from './creators/creators.module';
 import { ClearanceModule } from './clearance/clearance.module';
 import { VendorDocumentsModule } from './vendor-documents/vendor-documents.module';
-// import { ContentModerationModule } from './moderation/content-moderation.module'; // TEMPORARILY DISABLED - Schema mismatch
-// import { BannerCampaignsModule } from './banner-campaigns/banner-campaigns.module'; // TEMPORARILY DISABLED - Schema mismatch
+import { ContentModerationModule } from './moderation/content-moderation.module';
+import { BannerCampaignsModule } from './banner-campaigns/banner-campaigns.module';
 import { InvoicesModule } from './invoices/invoices.module';
 
 // New Modules
@@ -102,11 +102,11 @@ import { HealthController } from './common/health.controller';
         OrdersModule,
         VendorsModule,
         PaymentsModule,
-        // AdminModule, // TEMPORARILY DISABLED - Schema mismatch
+        AdminModule,
         CheckoutModule,
         BowModule,
         TelecallerModule,
-        // ReturnsModule, // TEMPORARILY DISABLED - Schema mismatch
+        ReturnsModule,
         CartModule,
         UploadModule,
         ReviewsModule,
@@ -116,9 +116,9 @@ import { HealthController } from './common/health.controller';
         VendorMembershipsModule,
         VendorStoreModule,
         VendorProductsModule,
-        // VendorOrdersModule, // TEMPORARILY DISABLED - Schema mismatch
-        // InventoryModule, // TEMPORARILY DISABLED - Schema mismatch
-        // VendorPayoutsModule, // TEMPORARILY DISABLED - Schema mismatch
+        VendorOrdersModule,
+        InventoryModule,
+        VendorPayoutsModule,
         VendorFollowersModule,
         SearchModule,
         WalletModule,
@@ -129,8 +129,8 @@ import { HealthController } from './common/health.controller';
         CreatorsModule,
         ClearanceModule,
         VendorDocumentsModule,
-        // ContentModerationModule, // TEMPORARILY DISABLED - Schema mismatch
-        // BannerCampaignsModule, // TEMPORARILY DISABLED - Schema mismatch
+        ContentModerationModule,
+        BannerCampaignsModule,
         // New Modules - Week 1-2
         RefundsModule,
         SupportModule,
