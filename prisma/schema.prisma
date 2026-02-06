@@ -2172,7 +2172,7 @@ model Vendor {
   storeClosedUntil                DateTime?
   autoClearanceThresholdDays      Int?                        @default(7)
   defaultClearanceDiscountPercent Int?                        @default(20)
-  storeStatus                     String?                     @default("ACTIVE")
+  storeStatus                     VendorStatus?               @default(ACTIVE)
   ClearanceProduct                ClearanceProduct[]
   Coupon                          Coupon[]
   LocalPromotion                  LocalPromotion[]
