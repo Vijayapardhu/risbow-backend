@@ -599,8 +599,15 @@ export class PaymentsService {
                 keyId: this.configService.get<string>('RAZORPAY_KEY_ID'),
             };
         } catch (error) {
-            this.logger.error(`Failed to create vendor onboarding order: ${error.message}`);
-            throw new InternalServerErrorException('Failed to create payment order');
+            this.logger.error(`Failed to create vendor onboarding order: ${error?.message || JSON.stringify(error)}`);
+            this.logger.error('Razorpay error details:', error);
+            
+            // Check if it's a Razorpay configuration issue
+            if (!this.razorpay) {
+                throw new InternalServerErrorException('Payment gateway not initialized. Check Razorpay credentials.');
+            }
+            
+            throw new InternalServerErrorException(`Failed to create payment order: ${error?.message || 'Unknown error'}`);
         }
     }
 
