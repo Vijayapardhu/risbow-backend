@@ -300,6 +300,22 @@ export class AuthService {
             throw new UnauthorizedException('Invalid email or password');
         }
 
+        // Fetch vendor data if user is a vendor
+        let vendor = null;
+        if (user.role === 'VENDOR') {
+            vendor = await (this.prisma.vendor.findUnique as any)({
+                where: { id: user.id },
+                select: {
+                    id: true,
+                    storeName: true,
+                    kycStatus: true,
+                    isGstVerified: true,
+                    gstNumber: true,
+                    storeStatus: true,
+                },
+            });
+        }
+
         // Generate JWT token
         const payload = { sub: user.id, email: user.email, role: user.role };
 
@@ -326,6 +342,7 @@ export class AuthService {
             access_token: accessToken,
             refresh_token: refreshToken,
             user: userWithoutPassword,
+            vendor,
         };
     }
 
