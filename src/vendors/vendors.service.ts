@@ -742,6 +742,62 @@ export class VendorsService {
         return intent;
     }
 
+    async uploadDocument(vendorId: string, documentType: string, file: Express.Multer.File) {
+        if (!file) {
+            throw new BadRequestException('No file provided');
+        }
+
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+        if (!allowedTypes.includes(file.mimetype)) {
+            throw new BadRequestException('Only JPG, PNG, and PDF files are allowed');
+        }
+
+        // Validate file size (5MB)
+        const maxSize = 5 * 1024 * 1024;
+        if (file.size > maxSize) {
+            throw new BadRequestException('File size must be less than 5MB');
+        }
+
+        // For now, store file info without actual upload (you can implement S3/Cloudinary later)
+        const documentUrl = `/uploads/vendor-documents/${vendorId}/${Date.now()}_${file.originalname}`;
+
+        // Create or update document record
+        const existingDoc = await this.prisma.vendorDocument.findFirst({
+            where: { vendorId, documentType }
+        });
+
+        if (existingDoc) {
+            // Update existing document
+            return this.prisma.vendorDocument.update({
+                where: { id: existingDoc.id },
+                data: {
+                    documentUrl,
+                    status: 'PENDING',
+                    uploadedAt: new Date(),
+                },
+            });
+        } else {
+            // Create new document
+            return this.prisma.vendorDocument.create({
+                data: {
+                    id: `doc_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
+                    vendorId,
+                    documentType,
+                    documentUrl,
+                    status: 'PENDING',
+                },
+            });
+        }
+    }
+
+    async getVendorDocuments(vendorId: string) {
+        return this.prisma.vendorDocument.findMany({
+            where: { vendorId },
+            orderBy: { uploadedAt: 'desc' },
+        });
+    }
+
     async getVendorAnalytics(vendorId: string) {
         const CACHE_KEY = `vendor:analytics:${vendorId}`;
         const cached = await this.redis.get(CACHE_KEY);

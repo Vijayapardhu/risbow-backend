@@ -1,6 +1,7 @@
-import { Controller, Post, Body, Get, UseGuards, Request, Query, Patch } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Post, Body, Get, UseGuards, Request, Query, Patch, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { VendorsService } from './vendors.service';
 import { RegisterVendorDto } from './dto/vendor.dto';
 import { PurchaseBannerDto } from './dto/purchase-banner.dto';
@@ -143,5 +144,29 @@ export class VendorsController {
     @ApiResponse({ status: 201, description: 'Compliance fee payment intent created' })
     async createComplianceFee(@Request() req) {
         return this.vendorsService.createNonGstCompliancePayment(req.user.id);
+    }
+
+    @Post('documents/upload')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('VENDOR')
+    @UseInterceptors(FileInterceptor('file'))
+    @ApiOperation({ summary: 'Upload vendor KYC document' })
+    @ApiConsumes('multipart/form-data')
+    @ApiResponse({ status: 201, description: 'Document uploaded successfully' })
+    async uploadDocument(
+        @Request() req,
+        @UploadedFile() file: Express.Multer.File,
+        @Body('documentType') documentType: string,
+    ) {
+        return this.vendorsService.uploadDocument(req.user.id, documentType, file);
+    }
+
+    @Get('documents')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('VENDOR')
+    @ApiOperation({ summary: 'Get vendor uploaded documents' })
+    @ApiResponse({ status: 200, description: 'Documents retrieved successfully' })
+    async getDocuments(@Request() req) {
+        return this.vendorsService.getVendorDocuments(req.user.id);
     }
 }
