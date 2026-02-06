@@ -228,13 +228,45 @@ export class PaymentsService {
             include: { Order: true }
         });
 
-        if (!payments || payments.length === 0) {
+        const paymentIntent = (!payments || payments.length === 0)
+            ? await (this.prisma as any).paymentIntent.findFirst({
+                where: { providerOrderId: razorpay_order_id },
+            }).catch(() => null)
+            : null;
+
+        if ((!payments || payments.length === 0) && !paymentIntent) {
             throw new BadRequestException('Payment record not found for this order');
         }
 
-        // 3. Security Check: Ensure user owns all orders
-        if (payments.some((p) => p.Order.userId !== userId)) {
+        // 3. Security Check: Ensure user owns all orders or the payment intent
+        if (payments && payments.length > 0 && payments.some((p) => p.Order.userId !== userId)) {
             throw new BadRequestException('Unauthorized access to this payment');
+        }
+        if (paymentIntent && paymentIntent.createdByUserId && paymentIntent.createdByUserId !== userId) {
+            throw new BadRequestException('Unauthorized access to this payment intent');
+        }
+
+        if (paymentIntent) {
+            if (paymentIntent.status === 'SUCCESS') {
+                return { status: 'SUCCESS', paymentId: paymentIntent.id, message: 'Payment already verified' };
+            }
+
+            const updatedIntent = await (this.prisma as any).paymentIntent.update({
+                where: { id: paymentIntent.id },
+                data: { status: 'SUCCESS', paymentId: razorpay_payment_id },
+            });
+
+            await this.activateServiceOnPaymentSuccess(updatedIntent).catch(err => {
+                this.logger.error(`Failed to activate service for PaymentIntent ${updatedIntent.id}: ${err.message}`, err.stack);
+            });
+
+            this.logger.log(`PaymentIntent verified successfully for provider order ${razorpay_order_id}`);
+
+            return {
+                status: 'SUCCESS',
+                paymentId: paymentIntent.id,
+                transactionId: razorpay_payment_id,
+            };
         }
 
         if (payments.every((p) => p.status === 'SUCCESS')) {
@@ -336,7 +368,7 @@ export class PaymentsService {
                 });
                 this.logger.log(`Payments updated to SUCCESS via webhook for provider order ${razorpayOrderId}`);
             } else if (paymentIntent) {
-                await (this.prisma as any).paymentIntent.update({
+                const updatedIntent = await (this.prisma as any).paymentIntent.update({
                     where: { id: paymentIntent.id },
                     data: {
                         status: 'SUCCESS',
@@ -346,8 +378,8 @@ export class PaymentsService {
                 this.logger.log(`PaymentIntent ${paymentIntent.id} updated to SUCCESS via webhook`);
 
                 // Activate the associated service based on purpose
-                await this.activateServiceOnPaymentSuccess(paymentIntent).catch(err => {
-                    this.logger.error(`Failed to activate service for PaymentIntent ${paymentIntent.id}: ${err.message}`, err.stack);
+                await this.activateServiceOnPaymentSuccess(updatedIntent).catch(err => {
+                    this.logger.error(`Failed to activate service for PaymentIntent ${updatedIntent.id}: ${err.message}`, err.stack);
                 });
             }
         } else if (event === 'payment.failed') {
@@ -417,6 +449,58 @@ export class PaymentsService {
                     where: { id: referenceId },
                     data: { status: 'ACTIVE' },
                 }).catch(() => null);
+                return;
+            }
+            case PaymentIntentPurpose.VENDOR_GST_COMPLIANCE: {
+                const vendor = await this.prisma.vendor.findUnique({
+                    where: { id: referenceId },
+                    select: { id: true, kycStatus: true, kycDocuments: true },
+                });
+
+                if (!vendor) {
+                    this.logger.warn(`Vendor not found for compliance payment, referenceId=${referenceId}`);
+                    return;
+                }
+
+                const kycDocuments = (vendor.kycDocuments as any) || {};
+                const nextDocuments = {
+                    ...kycDocuments,
+                    gstCompliance: {
+                        status: 'PAID',
+                        intentId: paymentIntent.id,
+                        providerOrderId: paymentIntent.providerOrderId,
+                        paymentId: paymentIntent.paymentId,
+                        paidAt: new Date().toISOString(),
+                    },
+                };
+
+                const nextStatus = vendor.kycStatus === 'PENDING_PAYMENT' ? 'PENDING' : vendor.kycStatus;
+                await this.prisma.vendor.update({
+                    where: { id: referenceId },
+                    data: { kycDocuments: nextDocuments, kycStatus: nextStatus },
+                });
+
+                // If required documents are already approved, verify KYC immediately.
+                const requiredTypes = ['AADHAAR', 'PAN', 'BANK', 'UPI', 'LICENSE'];
+                const approvedDocs = await this.prisma.vendorDocument.findMany({
+                    where: {
+                        vendorId: referenceId,
+                        documentType: { in: requiredTypes },
+                        status: 'APPROVED',
+                    },
+                    select: { documentType: true },
+                });
+
+                const approvedTypes = approvedDocs.map(doc => doc.documentType);
+                const allApproved = requiredTypes.every(type => approvedTypes.includes(type));
+
+                if (allApproved) {
+                    await this.prisma.vendor.update({
+                        where: { id: referenceId },
+                        data: { kycStatus: 'VERIFIED' },
+                    });
+                }
+
                 return;
             }
             default:

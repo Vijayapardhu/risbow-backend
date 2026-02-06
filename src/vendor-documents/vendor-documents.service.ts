@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseStorageService } from '../shared/supabase-storage.service';
 import { DocumentType } from './dto/upload-document.dto';
+import { PaymentIntentPurpose } from '@prisma/client';
 import { NotificationsService } from '../shared/notifications.service';
 
 @Injectable()
@@ -153,6 +154,15 @@ export class VendorDocumentsService {
   }
 
   private async checkVendorKYCStatus(vendorId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: { id: true, gstNumber: true, kycDocuments: true },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException('Vendor not found.');
+    }
+
     // Check if all required documents (AADHAAR, PAN, BANK, UPI, LICENSE) are approved
     const requiredTypes: DocumentType[] = [
       DocumentType.AADHAAR,
@@ -173,20 +183,44 @@ export class VendorDocumentsService {
     const approvedTypes = approvedDocs.map(doc => doc.documentType);
     const allApproved = requiredTypes.every(type => approvedTypes.includes(type));
 
-    if (allApproved) {
-      // Update vendor KYC status
-      await this.prisma.vendor.update({
-        where: { id: vendorId },
-        data: { kycStatus: 'VERIFIED' },
-      });
-
-      await this.notificationsService.createNotification(
-        vendorId,
-        'KYC verified',
-        'All required documents have been approved. Your KYC is verified.',
-        'KYC_VERIFIED',
-        'INDIVIDUAL',
-      );
+    if (!allApproved) {
+      return;
     }
+
+    const kycDocuments = (vendor.kycDocuments as any) || {};
+    const isGstRegistered = Boolean(vendor.gstNumber) || Boolean(kycDocuments?.isGstRegistered);
+
+    if (!isGstRegistered) {
+      const complianceIntent = await (this.prisma as any).paymentIntent.findUnique({
+        where: {
+          purpose_referenceId: {
+            purpose: PaymentIntentPurpose.VENDOR_GST_COMPLIANCE,
+            referenceId: vendorId,
+          },
+        },
+      }).catch(() => null);
+
+      if (!complianceIntent || complianceIntent.status !== 'SUCCESS') {
+        await this.prisma.vendor.update({
+          where: { id: vendorId },
+          data: { kycStatus: 'PENDING_PAYMENT' },
+        });
+        return;
+      }
+    }
+
+    // Update vendor KYC status
+    await this.prisma.vendor.update({
+      where: { id: vendorId },
+      data: { kycStatus: 'VERIFIED' },
+    });
+
+    await this.notificationsService.createNotification(
+      vendorId,
+      'KYC verified',
+      'All required documents have been approved. Your KYC is verified.',
+      'KYC_VERIFIED',
+      'INDIVIDUAL',
+    );
   }
 }

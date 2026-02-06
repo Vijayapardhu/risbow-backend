@@ -4,10 +4,11 @@ import { RegisterVendorDto } from './dto/vendor.dto';
 import { CoinsService } from '../coins/coins.service';
 import { AuditLogService } from '../audit/audit.service';
 import { CoinSource } from '../coins/dto/coin.dto';
-import { VendorRole, MembershipTier, UserProductEventType } from '@prisma/client';
+import { VendorRole, MembershipTier, UserProductEventType, PaymentIntentPurpose } from '@prisma/client';
 import { RedisService } from '../shared/redis.service';
 import { VendorAvailabilityService } from './vendor-availability.service';
 import { randomUUID } from 'crypto';
+import { PaymentsService } from '../payments/payments.service';
 
 @Injectable()
 export class VendorsService {
@@ -17,6 +18,7 @@ export class VendorsService {
         private audit: AuditLogService,
         private redis: RedisService,
         private availability: VendorAvailabilityService,
+        private paymentsService: PaymentsService,
     ) { }
 
     async updateAutoClearanceSettings(vendorId: string, dto: { autoClearanceThresholdDays?: number; defaultClearanceDiscountPercent?: number }) {
@@ -646,8 +648,9 @@ export class VendorsService {
 
             // 1. State Machine Validation
             const validTransitions = {
+                PENDING_PAYMENT: ['PENDING', 'REJECTED'],
                 PENDING: ['VERIFIED', 'REJECTED'],
-                REJECTED: ['PENDING'],
+                REJECTED: ['PENDING', 'PENDING_PAYMENT'],
                 VERIFIED: [], // Cannot change once verified
             };
 
@@ -683,6 +686,60 @@ export class VendorsService {
 
             return updated;
         });
+    }
+
+    async createNonGstCompliancePayment(vendorId: string) {
+        const vendor = await this.prisma.vendor.findUnique({
+            where: { id: vendorId },
+            select: { id: true, gstNumber: true, kycStatus: true, kycDocuments: true },
+        });
+
+        if (!vendor) throw new NotFoundException('Vendor not found');
+
+        const kycDocuments = (vendor.kycDocuments as any) || {};
+        const isGstRegistered = Boolean(vendor.gstNumber) || Boolean(kycDocuments?.isGstRegistered);
+        if (isGstRegistered) {
+            throw new BadRequestException('GST registered vendors do not require compliance payment');
+        }
+
+        if (vendor.kycStatus === 'VERIFIED') {
+            return { status: 'SUCCESS', message: 'Vendor already verified' } as any;
+        }
+
+        const feePaise = Number(process.env.NON_GST_COMPLIANCE_FEE_PAISE || 100000);
+        if (!Number.isFinite(feePaise) || feePaise < 100) {
+            throw new BadRequestException('Invalid compliance fee configuration');
+        }
+
+        const intent = await this.paymentsService.createPaymentIntent({
+            userId: vendorId,
+            purpose: PaymentIntentPurpose.VENDOR_GST_COMPLIANCE,
+            referenceId: vendorId,
+            amount: feePaise,
+            metadata: {
+                vendorId,
+                type: 'NON_GST_COMPLIANCE',
+            },
+        });
+
+        const nextDocuments = {
+            ...kycDocuments,
+            gstCompliance: {
+                status: 'PENDING_PAYMENT',
+                intentId: intent.intentId,
+                orderId: intent.orderId,
+            },
+        };
+
+        await this.prisma.vendor.update({
+            where: { id: vendorId },
+            data: {
+                kycStatus: 'PENDING_PAYMENT',
+                kycDocuments: nextDocuments,
+            },
+        });
+
+        return intent;
     }
 
     async getVendorAnalytics(vendorId: string) {

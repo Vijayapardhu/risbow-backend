@@ -509,8 +509,9 @@ export class AuthService {
                 },
             });
 
-            // Create Vendor
-            const vendorId = `vnd_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+            // Create Vendor (use userId for vendorId to keep auth/vendor mapping consistent)
+            const vendorId = user.id;
+            const kycStatus = registerDto.isGstRegistered ? 'PENDING' : 'PENDING_PAYMENT';
             const vendor = await (prisma.vendor.create as any)({
                 data: {
                     id: vendorId,
@@ -518,10 +519,10 @@ export class AuthService {
                     mobile: registerDto.mobile,
                     email: registerDto.email,
                     storeName: registerDto.storeName,
-                    storeStatus: 'ACTIVE',
-                    gstNumber: registerDto.gstNumber || null,
+                    storeStatus: 'PENDING',
+                    gstNumber: registerDto.isGstRegistered ? (registerDto.gstNumber || null) : null,
                     isGstVerified: false, // Pending verification
-                    kycStatus: 'PENDING',
+                    kycStatus,
                     bankDetails: registerDto.bankDetails,
                     role: 'RETAILER', // Default role
                     updatedAt: new Date(), // Required field
@@ -529,7 +530,10 @@ export class AuthService {
                     kycDocuments: {
                         panNumber: registerDto.panNumber,
                         pickupAddress: registerDto.pickupAddress,
-                        isGstRegistered: registerDto.isGstRegistered
+                        isGstRegistered: registerDto.isGstRegistered,
+                        gstCompliance: registerDto.isGstRegistered
+                            ? { status: 'NOT_REQUIRED' }
+                            : { status: 'PENDING_PAYMENT' },
                     }
                 },
             });
@@ -544,35 +548,6 @@ export class AuthService {
                     updatedAt: new Date(),
                 },
             });
-
-            // Add compliance fee if Non-GST (optional logic, can be handled via ledger later)
-            if (!registerDto.isGstRegistered) {
-                // Record compliance fee deduction as audit log for future ledger integration
-                // Note: Using user.id as adminId since this is a system-generated action
-                try {
-                    const auditLogId = `aud_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-                    await (prisma.auditLog.create as any)({
-                        data: {
-                            id: auditLogId,
-                            adminId: user.id,
-                            action: 'COMPLIANCE_FEE_PENDING',
-                            entity: 'VENDOR',
-                            entityId: vendor.id,
-                            details: {
-                                vendorId: vendor.id,
-                                userId: user.id,
-                                feeType: 'NON_GST_COMPLIANCE',
-                                amount: 500, // Standard compliance fee
-                                status: 'PENDING',
-                                createdAt: new Date().toISOString()
-                            }
-                        },
-                    });
-                } catch (auditError) {
-                    // Log but don't fail registration if audit log creation fails
-                    console.error('Failed to create audit log for compliance fee:', auditError);
-                }
-            }
 
             return { user, vendor };
         });

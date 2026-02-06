@@ -134,4 +134,14 @@ export class VendorsController {
     async updateKyc(@Body() dto: any, @Request() req) {
         return this.vendorsService.updateKycStatus(req.user.id, req.user.id, dto);
     }
+
+    @Post('compliance-fee')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('VENDOR')
+    @Throttle({ default: { limit: 3, ttl: 60000 } })
+    @ApiOperation({ summary: 'Create a non-GST compliance fee payment intent' })
+    @ApiResponse({ status: 201, description: 'Compliance fee payment intent created' })
+    async createComplianceFee(@Request() req) {
+        return this.vendorsService.createNonGstCompliancePayment(req.user.id);
+    }
 }
