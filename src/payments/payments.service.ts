@@ -579,10 +579,15 @@ export class PaymentsService {
         const currency = 'INR';
 
         try {
+            // Generate a short receipt ID (max 40 chars)
+            const shortVendorId = vendorId.substring(0, 10);
+            const timestamp = Date.now().toString().substring(5); // Last 8 digits
+            const receipt = `vo_${shortVendorId}_${timestamp}`; // Format: vo_xxxxxxxxxx_xxxxxxxx
+            
             const order = await this.razorpay.orders.create({
                 amount,
                 currency,
-                receipt: `vendor_onboard_${vendorId}_${Date.now()}`,
+                receipt,
                 notes: {
                     vendorId,
                     purpose: 'vendor_onboarding',
