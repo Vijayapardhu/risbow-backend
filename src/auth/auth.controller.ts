@@ -1,16 +1,23 @@
-import { Controller, Post, Body, UseGuards, Request, Headers } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, Headers, UploadedFiles, UseInterceptors, Get } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { AuthService } from './auth.service';
+import { VendorOnboardingService } from './vendor-onboarding.service';
 import { SendOtpDto, VerifyOtpDto, RegisterDto, LoginDto } from './dto/auth.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RegisterVendorDto } from './dto/register-vendor.dto';
+import { RegisterVendorWithDocsDto, VerifyRegistrationPaymentDto } from './dto/register-vendor-with-docs.dto';
+import { GetUser } from './decorators/get-user.decorator';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-    constructor(private readonly authService: AuthService) { }
+    constructor(
+        private readonly authService: AuthService,
+        private readonly vendorOnboardingService: VendorOnboardingService
+    ) { }
 
     @Post('otp-send')
     @ApiOperation({ summary: 'Send OTP to mobile number' })
@@ -83,5 +90,57 @@ export class AuthController {
     @ApiResponse({ status: 409, description: 'Vendor already exists' })
     async registerVendor(@Body() registerVendorDto: RegisterVendorDto) {
         return this.authService.registerVendor(registerVendorDto);
+    }
+
+    @Post('register-vendor-with-docs')
+    @UseInterceptors(FileFieldsInterceptor([
+        { name: 'panCard', maxCount: 1 },
+        { name: 'gstCertificate', maxCount: 1 },
+        { name: 'addressProof', maxCount: 1 },
+        { name: 'bankProof', maxCount: 1 },
+        { name: 'storePhoto', maxCount: 1 },
+    ]))
+    @ApiOperation({ summary: 'Register vendor with KYC documents' })
+    @ApiConsumes('multipart/form-data')
+    @ApiResponse({ status: 201, description: 'Vendor registered with documents' })
+    @ApiResponse({ status: 400, description: 'Missing required documents' })
+    @ApiResponse({ status: 409, description: 'Vendor already exists' })
+    async registerVendorWithDocuments(
+        @Body() registerDto: RegisterVendorWithDocsDto,
+        @UploadedFiles() files: { [key: string]: Express.Multer.File[] }
+    ) {
+        return this.authService.registerVendorWithDocuments(registerDto, files);
+    }
+
+    @Post('vendor/create-payment-order')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Create payment order for vendor registration' })
+    @ApiResponse({ status: 200, description: 'Payment order created' })
+    @ApiResponse({ status: 404, description: 'Vendor not found' })
+    async createVendorPaymentOrder(@GetUser('sub') vendorId: string) {
+        return this.vendorOnboardingService.createRegistrationPaymentOrder(vendorId);
+    }
+
+    @Post('vendor/verify-payment')
+    @ApiOperation({ summary: 'Verify vendor registration payment' })
+    @ApiResponse({ status: 200, description: 'Payment verified and account activated' })
+    @ApiResponse({ status: 400, description: 'Invalid payment signature' })
+    async verifyVendorPayment(@Body() dto: VerifyRegistrationPaymentDto) {
+        return this.vendorOnboardingService.verifyRegistrationPayment(
+            dto.vendorId,
+            dto.razorpayOrderId,
+            dto.razorpayPaymentId,
+            dto.razorpaySignature
+        );
+    }
+
+    @Get('vendor/onboarding-status')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Get vendor onboarding status' })
+    @ApiResponse({ status: 200, description: 'Onboarding status retrieved' })
+    async getVendorOnboardingStatus(@GetUser('sub') vendorId: string) {
+        return this.vendorOnboardingService.getOnboardingStatus(vendorId);
     }
 }

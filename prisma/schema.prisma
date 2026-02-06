@@ -2203,6 +2203,7 @@ model Vendor {
   CommissionRule                 CommissionRule[]
   ContentFlag                     ContentFlag[]
   InvoiceTemplate                 InvoiceTemplate[]
+  VendorRegistrationPayment       VendorRegistrationPayment?
 
   @@index([kycStatus])
   @@index([pincode])
@@ -2238,6 +2239,27 @@ model VendorDeliveryWindow {
 
   @@index([vendorId, isActive])
   @@index([vendorId, weekday, isActive])
+}
+
+/// Vendor registration payment tracking
+model VendorRegistrationPayment {
+  id                String   @id @default(uuid())
+  vendorId          String   @unique
+  razorpayOrderId   String   @unique
+  razorpayPaymentId String?  @unique
+  amount            Int      // Amount in paise (e.g., 50000 for ₹500)
+  currency          String   @default("INR")
+  status            PaymentStatus @default(PENDING)
+  paymentMethod     String?
+  paidAt            DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  metadata          Json?    // Additional payment metadata
+  Vendor            Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([razorpayOrderId])
+  @@index([createdAt])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -3177,6 +3199,18 @@ enum VendorRole {
 enum VendorStatus {
   ACTIVE
   SUSPENDED
+}
+
+enum VendorDocumentType {
+  PAN_CARD
+  GST_CERTIFICATE
+  AADHAAR_CARD
+  DRIVING_LICENSE
+  PASSPORT
+  BANK_STATEMENT
+  CANCELLED_CHEQUE
+  STORE_PHOTO
+  OTHER
 }
 
 enum CampaignType {

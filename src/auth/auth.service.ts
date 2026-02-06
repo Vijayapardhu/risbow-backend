@@ -602,4 +602,162 @@ export class AuthService {
             throw error;
         }
     }
+
+    /**
+     * New vendor registration with document uploads and payment
+     * Step 1: Register vendor with documents (no payment yet for non-GST)
+     */
+    async registerVendorWithDocuments(
+        registerDto: any,
+        files: { [fieldname: string]: Express.Multer.File[] }
+    ) {
+        try {
+            console.log('=== Vendor Registration with Documents Started ===');
+            
+            // 1. Validate required documents
+            const requiredDocs = ['panCard', 'addressProof', 'bankProof', 'storePhoto'];
+            if (registerDto.isGstRegistered) {
+                requiredDocs.push('gstCertificate');
+            }
+
+            for (const docType of requiredDocs) {
+                if (!files[docType] || files[docType].length === 0) {
+                    throw new BadRequestException(`Missing required document: ${docType}`);
+                }
+            }
+
+            // 2. Check if user already exists
+            const existingUser = await this.prisma.user.findFirst({
+                where: {
+                    OR: [
+                        { email: registerDto.email },
+                        { mobile: registerDto.mobile }
+                    ]
+                }
+            });
+
+            if (existingUser) {
+                throw new ConflictException('User with this email or mobile already exists');
+            }
+
+            // 3. Hash password
+            const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+
+            // 4. Create user and vendor in transaction
+            const result = await this.prisma.$transaction(async (prisma) => {
+                // Create user
+                const userId = `v_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+                const referralCode = `REF_${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+                
+                const user = await prisma.user.create({
+                    data: {
+                        id: userId,
+                        name: registerDto.name,
+                        email: registerDto.email,
+                        mobile: registerDto.mobile,
+                        password: hashedPassword,
+                        role: 'VENDOR',
+                        status: 'PENDING', // Pending until documents verified or payment done
+                        referralCode,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                    },
+                });
+
+                // Create vendor
+                const vendorId = user.id;
+                const kycStatus = registerDto.isGstRegistered ? 'PENDING' : 'PENDING_PAYMENT';
+                
+                const vendor = await prisma.vendor.create({
+                    data: {
+                        id: vendorId,
+                        name: registerDto.name,
+                        mobile: registerDto.mobile,
+                        email: registerDto.email,
+                        storeName: registerDto.storeName,
+                        gstNumber: registerDto.isGstRegistered ? registerDto.gstNumber : null,
+                        isGstVerified: false,
+                        kycStatus,
+                        bankDetails: registerDto.bankDetails,
+                        role: 'RETAILER',
+                        updatedAt: new Date(),
+                        kycDocuments: {
+                            panNumber: registerDto.panNumber,
+                            pickupAddress: registerDto.pickupAddress,
+                            isGstRegistered: registerDto.isGstRegistered,
+                        }
+                    },
+                });
+
+                // Create vendor discipline state
+                await prisma.vendorDisciplineState.create({
+                    data: {
+                        vendorId: vendor.id,
+                        state: 'ACTIVE',
+                        activeStrikes: 0,
+                        consecutiveSuccesses: 0,
+                        updatedAt: new Date(),
+                    },
+                });
+
+                // Save uploaded documents (will be implemented by FileUploadService)
+                const documentRecords = [];
+                const docTypeMap = {
+                    panCard: 'PAN_CARD',
+                    gstCertificate: 'GST_CERTIFICATE',
+                    addressProof: 'AADHAAR_CARD',
+                    bankProof: 'CANCELLED_CHEQUE',
+                    storePhoto: 'STORE_PHOTO'
+                };
+
+                for (const [fieldName, docType] of Object.entries(docTypeMap)) {
+                    if (files[fieldName] && files[fieldName][0]) {
+                        const file = files[fieldName][0];
+                        // Store file path temporarily - FileUploadService will handle actual storage
+                        const docId = `doc_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+                        
+                        documentRecords.push({
+                            id: docId,
+                            vendorId: vendor.id,
+                            documentType: docType,
+                            documentUrl: `/uploads/vendor-documents/${vendorId}/${file.filename}`,
+                            status: 'PENDING',
+                            uploadedAt: new Date(),
+                        });
+                    }
+                }
+
+                // Bulk create document records
+                if (documentRecords.length > 0) {
+                    await prisma.vendorDocument.createMany({
+                        data: documentRecords
+                    });
+                }
+
+                return { user, vendor };
+            });
+
+            console.log('=== Vendor and Documents Created ===');
+            
+            // 5. Handle payment for non-GST vendors
+            // (Payment order creation will be handled separately)
+            
+            const { password, ...userWithoutPassword } = result.user;
+
+            return {
+                success: true,
+                message: registerDto.isGstRegistered 
+                    ? 'Registration successful. Your documents are under review.' 
+                    : 'Registration successful. Please complete payment to activate your account.',
+                vendorId: result.vendor.id,
+                requiresPayment: !registerDto.isGstRegistered,
+                user: userWithoutPassword,
+                vendor: result.vendor,
+            };
+        } catch (error) {
+            console.error('=== Vendor Registration with Documents Error ===');
+            console.error('Error details:', error);
+            throw error;
+        }
+    }
 }

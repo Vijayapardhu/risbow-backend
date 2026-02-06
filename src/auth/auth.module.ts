@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { VendorOnboardingService } from './vendor-onboarding.service';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
+import { RazorpayService } from '../shared/razorpay.service';
+import { FileUploadService } from '../shared/file-upload.service';
 
 @Module({
     imports: [
@@ -44,7 +47,13 @@ import { PassportModule } from '@nestjs/passport';
         }),
     ],
     controllers: [AuthController],
-    providers: [AuthService, JwtStrategy],
-    exports: [AuthService],
+    providers: [
+        AuthService, 
+        VendorOnboardingService,
+        JwtStrategy,
+        RazorpayService,
+        FileUploadService
+    ],
+    exports: [AuthService, VendorOnboardingService],
 })
 export class AuthModule { }
