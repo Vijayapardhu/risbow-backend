@@ -2143,6 +2143,7 @@ model Vendor {
   email                           String?
   isActive                        Boolean                     @default(true) // Alias for storeStatus compatibility
   kycStatus                       String                      @default("PENDING")
+  rejectionReason                 String?
   tier                            String                      @default("BASIC")
   gstNumber                       String?
   isGstVerified                   Boolean                     @default(false)

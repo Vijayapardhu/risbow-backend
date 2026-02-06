@@ -169,4 +169,13 @@ export class VendorsController {
     async getDocuments(@Request() req) {
         return this.vendorsService.getVendorDocuments(req.user.id);
     }
+
+    @Post('reapply')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('VENDOR')
+    @ApiOperation({ summary: 'Reapply for KYC verification after rejection' })
+    @ApiResponse({ status: 200, description: 'Reapplication submitted successfully' })
+    async reapplyForVerification(@Request() req) {
+        return this.vendorsService.reapplyForVerification(req.user.id);
+    }
 }

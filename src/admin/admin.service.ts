@@ -1539,13 +1539,58 @@ export class AdminService {
     }
 
     async verifyVendorKyc(adminId: string, vendorId: string, status: string, notes?: string) {
-        const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+        const vendor = await this.prisma.vendor.findUnique({ 
+            where: { id: vendorId }
+        });
         if (!vendor) throw new NotFoundException('Vendor not found');
+
+        // Validate status
+        const validStatuses = ['VERIFIED', 'PENDING', 'REJECTED', 'PENDING_PAYMENT'];
+        if (!validStatuses.includes(status)) {
+            throw new BadRequestException(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+        }
+
+        // If rejecting, reason is required
+        if (status === 'REJECTED' && !notes) {
+            throw new BadRequestException('Rejection reason is required');
+        }
 
         const updated = await this.prisma.vendor.update({
             where: { id: vendorId },
-            data: { kycStatus: status }
+            data: { 
+                kycStatus: status,
+                rejectionReason: status === 'REJECTED' ? notes : null,
+            }
         });
+
+        // Update vendor documents status if rejecting
+        if (status === 'REJECTED') {
+            await this.prisma.vendorDocument.updateMany({
+                where: { 
+                    vendorId,
+                    status: 'PENDING'
+                },
+                data: { 
+                    status: 'REJECTED',
+                    rejectionReason: notes,
+                    reviewedAt: new Date(),
+                    reviewedBy: adminId
+                }
+            });
+        } else if (status === 'VERIFIED') {
+            // Approve all pending documents
+            await this.prisma.vendorDocument.updateMany({
+                where: { 
+                    vendorId,
+                    status: 'PENDING'
+                },
+                data: { 
+                    status: 'APPROVED',
+                    reviewedAt: new Date(),
+                    reviewedBy: adminId
+                }
+            });
+        }
 
         await this.prisma.auditLog.create({
             data: {
@@ -1553,7 +1598,7 @@ export class AdminService {
                 adminId,
                 entity: 'VENDOR',
                 entityId: vendorId,
-                action: 'VERIFY_KYC',
+                action: status === 'REJECTED' ? 'REJECT_KYC' : 'VERIFY_KYC',
                 details: { status, notes, previousStatus: vendor.kycStatus }
             }
         });

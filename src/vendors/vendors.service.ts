@@ -798,6 +798,64 @@ export class VendorsService {
         });
     }
 
+    async reapplyForVerification(vendorId: string) {
+        const vendor = await this.prisma.vendor.findUnique({
+            where: { id: vendorId }
+        });
+
+        if (!vendor) {
+            throw new NotFoundException('Vendor not found');
+        }
+
+        // Only allow reapplication if currently rejected
+        if (vendor.kycStatus !== 'REJECTED') {
+            throw new BadRequestException('Reapplication is only allowed for rejected vendors');
+        }
+
+        // Check if vendor has uploaded required documents
+        const requiredDocTypes = ['PAN_CARD', 'AADHAAR_CARD', 'CANCELLED_CHEQUE', 'STORE_PHOTO'];
+        if (vendor.gstNumber && vendor.isGstVerified) {
+            requiredDocTypes.push('GST_CERTIFICATE');
+        }
+
+        const uploadedDocs = await this.prisma.vendorDocument.findMany({
+            where: { vendorId, status: 'PENDING' }
+        });
+
+        const uploadedDocTypes = uploadedDocs.map(doc => doc.documentType);
+        const missingDocs = requiredDocTypes.filter(type => !uploadedDocTypes.includes(type));
+        
+        if (missingDocs.length > 0) {
+            throw new BadRequestException(`Please upload all required documents: ${missingDocs.join(', ')}`);
+        }
+
+        // Check payment for non-GST vendors
+        const needsPayment = !vendor.gstNumber || !vendor.isGstVerified;
+        if (needsPayment) {
+            const payment = await this.prisma.vendorRegistrationPayment.findUnique({
+                where: { vendorId }
+            });
+            if (!payment || payment.status !== 'SUCCESS') {
+                throw new BadRequestException('Please complete the registration payment before reapplying');
+            }
+        }
+
+        // Update vendor status to PENDING
+        const updated = await this.prisma.vendor.update({
+            where: { id: vendorId },
+            data: {
+                kycStatus: 'PENDING',
+                rejectionReason: null,
+            }
+        });
+
+        return {
+            success: true,
+            message: 'Reapplication submitted successfully. Your documents will be reviewed within 24-48 hours.',
+            vendor: updated
+        };
+    }
+
     async getVendorAnalytics(vendorId: string) {
         const CACHE_KEY = `vendor:analytics:${vendorId}`;
         const cached = await this.redis.get(CACHE_KEY);
