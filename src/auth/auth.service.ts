@@ -519,7 +519,6 @@ export class AuthService {
                     mobile: registerDto.mobile,
                     email: registerDto.email,
                     storeName: registerDto.storeName,
-                    storeStatus: 'ACTIVE',
                     gstNumber: registerDto.isGstRegistered ? (registerDto.gstNumber || null) : null,
                     isGstVerified: false, // Pending verification
                     kycStatus,
