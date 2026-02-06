@@ -69,15 +69,11 @@ export class NotificationsService {
             userId = user?.id;
         }
 
-        if (!userId) {
-            this.logger.warn(`[EMAIL SKIPPED] No userId found for email: ${email}`);
-            return { queued: false };
-        }
-
-        // Queue email notification
+        // Queue email notification (allow direct email without userId)
         await this.queues.addNotification({
             type: 'email',
             userId,
+            email,
             title: subject,
             body: content,
         });

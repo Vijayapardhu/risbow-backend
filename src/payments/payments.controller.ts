@@ -43,4 +43,36 @@ export class PaymentsController {
         // NestJS with rawBody: true puts raw buffer in req.rawBody
         return this.paymentsService.handleWebhook(signature, req.rawBody);
     }
+
+    // === Vendor Onboarding Payment Endpoints ===
+
+    @Post('vendor-onboarding/create')
+    @ApiBearerAuth()
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Create Razorpay order for ₹1000 vendor onboarding fee' })
+    @ApiResponse({ status: 201, description: 'Vendor onboarding order created successfully' })
+    @ApiResponse({ status: 400, description: 'Payment not required or vendor not found' })
+    async createVendorOnboardingOrder(@Request() req) {
+        const vendorId = req.user.vendor?.id || req.user.id;
+        return this.paymentsService.createVendorOnboardingOrder(vendorId);
+    }
+
+    @Post('vendor-onboarding/verify')
+    @ApiBearerAuth()
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Verify vendor onboarding payment and update KYC status' })
+    @ApiResponse({ status: 200, description: 'Payment verified and vendor status updated to PENDING' })
+    @ApiResponse({ status: 400, description: 'Invalid signature or payment failed' })
+    async verifyVendorOnboardingPayment(
+        @Request() req,
+        @Body() body: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
+    ) {
+        const vendorId = req.user.vendor?.id || req.user.id;
+        return this.paymentsService.verifyVendorOnboardingPayment(
+            body.razorpay_order_id,
+            body.razorpay_payment_id,
+            body.razorpay_signature,
+            vendorId
+        );
+    }
 }

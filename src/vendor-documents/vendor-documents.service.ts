@@ -36,16 +36,16 @@ export class VendorDocumentsService {
     // Upload to Supabase Storage
     const ext = file.originalname.split('.').pop() || 'pdf';
     const path = `documents/${vendorId}/${documentType}/${Date.now()}-${randomUUID()}.${ext}`;
-    const bucket = 'users';
+    const bucket = 'vendorDocuments';
 
-    const url = await this.supabaseStorage.uploadFile(bucket, path, file.buffer, file.mimetype);
+    await this.supabaseStorage.uploadFile(bucket, path, file.buffer, file.mimetype);
 
     // Create document record
     const document = await this.prisma.vendorDocument.create({
       data: {
         id: randomUUID(),
         documentType,
-        documentUrl: url,
+        documentUrl: path,
         status: 'PENDING',
         Vendor: { connect: { id: vendorId } },
       },
@@ -59,14 +59,20 @@ export class VendorDocumentsService {
       'INDIVIDUAL',
     );
 
-    return document;
+    const signedUrl = await this.getSignedDocumentUrl(document.documentUrl);
+    return {
+      ...document,
+      documentUrl: signedUrl,
+    };
   }
 
   async getVendorDocuments(vendorId: string) {
-    return this.prisma.vendorDocument.findMany({
+    const documents = await this.prisma.vendorDocument.findMany({
       where: { vendorId },
       orderBy: { uploadedAt: 'desc' },
     });
+
+    return this.mapDocumentUrls(documents);
   }
 
   async getAllDocuments(status?: string) {
@@ -75,7 +81,7 @@ export class VendorDocumentsService {
       where.status = status;
     }
 
-    return this.prisma.vendorDocument.findMany({
+    const documents = await this.prisma.vendorDocument.findMany({
       where,
       orderBy: { uploadedAt: 'desc' },
       include: {
@@ -89,6 +95,60 @@ export class VendorDocumentsService {
         },
       },
     });
+
+    return this.mapDocumentUrls(documents);
+  }
+
+  private async mapDocumentUrls(documents: any[]) {
+    if (!this.supabaseStorage.isEnabled()) {
+      return documents;
+    }
+
+    return Promise.all(
+      documents.map(async (doc) => {
+        const signedUrl = await this.getSignedDocumentUrl(doc.documentUrl);
+        return {
+          ...doc,
+          documentUrl: signedUrl,
+        };
+      })
+    );
+  }
+
+  private async getSignedDocumentUrl(documentUrl: string) {
+    if (!documentUrl) {
+      return documentUrl;
+    }
+
+    if (!this.supabaseStorage.isEnabled()) {
+      return documentUrl;
+    }
+
+    const { bucket, path } = this.parseStorageReference(documentUrl);
+    if (!path) {
+      return documentUrl;
+    }
+
+    return this.supabaseStorage.getSignedUrl(bucket, path, 3600);
+  }
+
+  private parseStorageReference(documentUrl: string) {
+    const defaultBucket = 'vendorDocuments';
+
+    if (documentUrl.startsWith('http')) {
+      const match = documentUrl.match(/\/storage\/v1\/object\/(?:public\/)?([^/]+)\/(.+)$/);
+      if (match) {
+        return { bucket: match[1], path: match[2] };
+      }
+    }
+
+    const trimmed = documentUrl.replace(/^\/+/, '');
+    const parts = trimmed.split('/');
+    if (parts[0] === defaultBucket) {
+      return { bucket: defaultBucket, path: parts.slice(1).join('/') };
+    }
+
+    return { bucket: defaultBucket, path: trimmed };
   }
 
   async approveDocument(documentId: string, adminId: string) {

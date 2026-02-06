@@ -550,4 +550,108 @@ export class PaymentsService {
             throw new InternalServerErrorException('Failed to process refund with gateway');
         }
     }
+
+    // === Vendor Onboarding Payment Methods ===
+
+    async createVendorOnboardingOrder(vendorId: string) {
+        // Check if vendor exists and needs payment
+        const vendor = await (this.prisma.vendor.findUnique as any)({
+            where: { id: vendorId },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                kycStatus: true,
+                isGstVerified: true,
+            },
+        });
+
+        if (!vendor) {
+            throw new NotFoundException('Vendor not found');
+        }
+
+        if (vendor.kycStatus !== 'PENDING_PAYMENT') {
+            throw new BadRequestException('Payment not required for this vendor');
+        }
+
+        // Create Razorpay order for ₹1000 onboarding fee
+        const amount = 100000; // ₹1000 in paise
+        const currency = 'INR';
+
+        try {
+            const order = await this.razorpay.orders.create({
+                amount,
+                currency,
+                receipt: `vendor_onboard_${vendorId}_${Date.now()}`,
+                notes: {
+                    vendorId,
+                    purpose: 'vendor_onboarding',
+                    vendorName: vendor.name,
+                },
+            });
+
+            this.logger.log(`Created vendor onboarding order ${order.id} for vendor ${vendorId}`);
+
+            return {
+                orderId: order.id,
+                amount,
+                currency,
+                keyId: this.configService.get<string>('RAZORPAY_KEY_ID'),
+            };
+        } catch (error) {
+            this.logger.error(`Failed to create vendor onboarding order: ${error.message}`);
+            throw new InternalServerErrorException('Failed to create payment order');
+        }
+    }
+
+    async verifyVendorOnboardingPayment(
+        razorpayOrderId: string,
+        razorpayPaymentId: string,
+        razorpaySignature: string,
+        vendorId: string,
+    ) {
+        // Verify signature
+        const text = `${razorpayOrderId}|${razorpayPaymentId}`;
+        const secret = this.configService.get<string>('RAZORPAY_KEY_SECRET');
+        const generatedSignature = crypto
+            .createHmac('sha256', secret)
+            .update(text)
+            .digest('hex');
+
+        if (generatedSignature !== razorpaySignature) {
+            this.logger.error('Vendor onboarding payment signature verification failed');
+            throw new BadRequestException('Invalid payment signature');
+        }
+
+        // Fetch payment details from Razorpay
+        try {
+            const payment = await this.razorpay.payments.fetch(razorpayPaymentId);
+
+            if (payment.status !== 'captured' && payment.status !== 'authorized') {
+                throw new BadRequestException('Payment not successful');
+            }
+
+            // Update vendor kycStatus from PENDING_PAYMENT to PENDING
+            await (this.prisma.vendor.update as any)({
+                where: { id: vendorId },
+                data: {
+                    kycStatus: 'PENDING',
+                    updatedAt: new Date(),
+                },
+            });
+
+            this.logger.log(`Vendor onboarding payment verified for ${vendorId}. Status updated to PENDING`);
+
+            // TODO: Send email notification
+
+            return {
+                success: true,
+                message: 'Payment verified successfully. Your documents are now under review.',
+                kycStatus: 'PENDING',
+            };
+        } catch (error) {
+            this.logger.error(`Vendor onboarding payment verification failed: ${error.message}`);
+            throw new BadRequestException('Payment verification failed');
+        }
+    }
 }

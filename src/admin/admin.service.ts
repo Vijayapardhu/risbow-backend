@@ -6,6 +6,7 @@ import { OrderStateValidatorService } from '../orders/order-state-validator.serv
 import { RedisService } from '../shared/redis.service';
 import { PlatformConfigHelper } from '../common/platform-config.helper';
 import { NotificationsService } from '../shared/notifications.service';
+import { SupabaseStorageService } from '../shared/supabase-storage.service';
 
 @Injectable()
 export class AdminService {
@@ -16,6 +17,7 @@ export class AdminService {
         private orderStateValidator: OrderStateValidatorService,
         private redisService: RedisService,
         private notificationsService: NotificationsService,
+        private supabaseStorage: SupabaseStorageService,
     ) { }
 
     async getDashboardKPIs(period: string = 'Last 7 Days') {
@@ -1716,11 +1718,57 @@ export class AdminService {
             orderBy: { uploadedAt: 'desc' },
         });
 
+        const mappedDocuments = await this.mapVendorDocumentUrls(documents);
+
         return {
             vendorId,
             kycDocuments: vendor.kycDocuments,
-            uploadedDocuments: documents,
+            uploadedDocuments: mappedDocuments,
         };
+    }
+
+    private async mapVendorDocumentUrls(documents: any[]) {
+        if (!this.supabaseStorage.isEnabled()) {
+            return documents;
+        }
+
+        return Promise.all(
+            documents.map(async (doc) => {
+                const { bucket, path } = this.parseStorageReference(doc.documentUrl);
+                if (!path) {
+                    return doc;
+                }
+
+                const signedUrl = await this.supabaseStorage.getSignedUrl(bucket, path, 3600);
+                return {
+                    ...doc,
+                    documentUrl: signedUrl,
+                };
+            })
+        );
+    }
+
+    private parseStorageReference(documentUrl: string) {
+        const defaultBucket = 'vendorDocuments';
+
+        if (!documentUrl) {
+            return { bucket: defaultBucket, path: '' };
+        }
+
+        if (documentUrl.startsWith('http')) {
+            const match = documentUrl.match(/\/storage\/v1\/object\/(?:public\/)?([^/]+)\/(.+)$/);
+            if (match) {
+                return { bucket: match[1], path: match[2] };
+            }
+        }
+
+        const trimmed = documentUrl.replace(/^\/+/, '');
+        const parts = trimmed.split('/');
+        if (parts[0] === defaultBucket) {
+            return { bucket: defaultBucket, path: parts.slice(1).join('/') };
+        }
+
+        return { bucket: defaultBucket, path: trimmed };
     }
 
     async getVendorPayouts(vendorId: string, page: number = 1, limit: number = 20) {

@@ -7,6 +7,7 @@ import axios from 'axios';
 import { CommunicationService } from '../../shared/communication.service';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { randomUUID } from 'crypto';
+import nodemailer from 'nodemailer';
 
 @Processor('notifications', {
     concurrency: 10,
@@ -29,12 +30,12 @@ export class NotificationProcessor extends WorkerHost {
         this.logger.debug(`Processing notification job: ${job.id}`);
 
         try {
-            const { type, userId, mobile, title, body, targetAudience } = job.data as any;
+            const { type, userId, email, name, mobile, title, body, targetAudience } = job.data as any;
 
             if (type === 'push') {
                 await this.sendPushNotification(userId, title, body, targetAudience);
             } else if (type === 'email') {
-                await this.sendEmailNotification(userId, title, body);
+                await this.sendEmailNotification(userId, title, body, email, name);
             } else if (type === 'sms') {
                 await this.sendSMS(userId, mobile, body);
             } else if (type === 'whatsapp') {
@@ -150,28 +151,72 @@ export class NotificationProcessor extends WorkerHost {
         }
     }
 
-    private async sendEmailNotification(userId: string | undefined, title: string, body: string) {
-        if (!userId) {
-            this.logger.warn('Email notification requires userId');
+    private async sendEmailNotification(
+        userId: string | undefined,
+        title: string,
+        body: string,
+        email?: string,
+        name?: string,
+    ) {
+        let recipientEmail = email;
+        let recipientName = name;
+
+        if (!recipientEmail && userId) {
+            // Get user email
+            const user = await this.prisma.user.findUnique({
+                where: { id: userId },
+                select: { email: true, name: true },
+            });
+
+            recipientEmail = user?.email || recipientEmail;
+            recipientName = user?.name || recipientName;
+        }
+
+        if (!recipientEmail) {
+            this.logger.warn('Email notification requires an email address');
             return;
         }
 
-        // Get user email
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId },
-            select: { email: true, name: true },
-        });
+        const smtpHost = process.env.SMTP_HOST;
+        const smtpUser = process.env.SMTP_USER;
+        const smtpPass = process.env.SMTP_PASS;
+        const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+        const smtpSecure = process.env.SMTP_SECURE === 'true' || smtpPort === 465;
+        const smtpFrom = process.env.SMTP_FROM || smtpUser;
+        const smtpFromName = process.env.SMTP_FROM_NAME || 'RISBOW';
 
-        if (!user?.email) {
-            this.logger.warn(`User ${userId} has no email address`);
-            return;
+        if (smtpHost && smtpUser && smtpPass) {
+            try {
+                const transporter = nodemailer.createTransport({
+                    host: smtpHost,
+                    port: smtpPort,
+                    secure: smtpSecure,
+                    auth: {
+                        user: smtpUser,
+                        pass: smtpPass,
+                    },
+                });
+
+                await transporter.sendMail({
+                    from: smtpFromName ? `${smtpFromName} <${smtpFrom}>` : smtpFrom,
+                    to: recipientName ? `${recipientName} <${recipientEmail}>` : recipientEmail,
+                    subject: title,
+                    text: body,
+                    html: this.formatEmailHTML(title, body),
+                });
+
+                this.logger.log(`Email delivered via SMTP to ${recipientEmail}: ${title}`);
+                return;
+            } catch (error: any) {
+                this.logger.error(`SMTP email failed: ${error.message}`);
+            }
         }
 
         const sendgridKey = process.env.SENDGRID_API_KEY;
         const fromEmail = process.env.SENDGRID_FROM_EMAIL;
         if (!sendgridKey || !fromEmail) {
             this.logger.debug('SENDGRID_API_KEY/SENDGRID_FROM_EMAIL not configured; skipping external email send');
-            this.logger.log(`Email queued for ${user.email}: ${title}`);
+            this.logger.log(`Email queued for ${recipientEmail}: ${title}`);
             return;
         }
 
@@ -186,7 +231,7 @@ export class NotificationProcessor extends WorkerHost {
                 await axios.post(
                     'https://api.sendgrid.com/v3/mail/send',
                     {
-                        personalizations: [{ to: [{ email: user.email, name: user.name || undefined }] }],
+                        personalizations: [{ to: [{ email: recipientEmail, name: recipientName || undefined }] }],
                         from: { email: fromEmail, name: 'RISBOW' },
                         subject: title,
                         content: [
@@ -202,7 +247,7 @@ export class NotificationProcessor extends WorkerHost {
                         timeout: 10000,
                     },
                 );
-                this.logger.log(`Email delivered via SendGrid to ${user.email}: ${title}`);
+                this.logger.log(`Email delivered via SendGrid to ${recipientEmail}: ${title}`);
                 return;
             } catch (error: any) {
                 this.logger.error(`SendGrid email failed: ${error.message}`);
@@ -226,7 +271,7 @@ export class NotificationProcessor extends WorkerHost {
                 const command = new SendEmailCommand({
                     Source: fromEmail,
                     Destination: {
-                        ToAddresses: [user.email],
+                        ToAddresses: [recipientEmail],
                     },
                     Message: {
                         Subject: {
@@ -247,14 +292,14 @@ export class NotificationProcessor extends WorkerHost {
                 });
 
                 const result = await sesClient.send(command);
-                this.logger.log(`Email delivered via AWS SES to ${user.email}: ${title} (MessageId: ${result.MessageId})`);
+                this.logger.log(`Email delivered via AWS SES to ${recipientEmail}: ${title} (MessageId: ${result.MessageId})`);
                 return;
             } catch (error: any) {
                 this.logger.error(`AWS SES email failed: ${error.message}`);
             }
         }
 
-        this.logger.warn(`No email provider configured. Email not sent to ${user.email}: ${title}`);
+        this.logger.warn(`No email provider configured. Email not sent to ${recipientEmail}: ${title}`);
     }
 
     private formatEmailHTML(title: string, body: string) {

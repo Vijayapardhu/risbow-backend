@@ -14,6 +14,7 @@ import { LocalPromotionsController } from './local-promotions.controller';
 import { ReferralRewardRulesController } from './referral-reward-rules.controller';
 import { AdminRoomsController } from './admin-rooms.controller';
 import { AdminSubscriptionsController } from './admin-subscriptions.controller';
+import { AdminVendorsController } from './admin-vendors.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { VendorsModule } from '../vendors/vendors.module';
 import { BowModule } from '../bow/bow.module';
@@ -91,6 +92,7 @@ import { ReportingModule } from './reports/reporting.module';
         AdminRoomsController,
         AdminSubscriptionsController,
         AdminCampaignsController,
+        AdminVendorsController,
     ],
     providers: [
         AdminService,

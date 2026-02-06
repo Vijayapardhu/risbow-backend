@@ -7,6 +7,7 @@ export class SupabaseStorageService {
     private readonly logger = new Logger(SupabaseStorageService.name);
     private supabase: SupabaseClient | null = null;
     private enabled: boolean = false;
+    private readonly privateBuckets = new Set(['vendorDocuments']);
 
     constructor(private configService: ConfigService) {
         const supabaseUrl = this.configService.get<string>('SUPABASE_URL') || process.env.SUPABASE_URL;
@@ -39,7 +40,7 @@ export class SupabaseStorageService {
             'products': 'products',
             'users': 'users',
             'videos': 'videos',
-            'documents': 'users',
+            'documents': 'vendorDocuments',
             'general': 'products',
         };
         return bucketMap[context] || 'products';
@@ -58,7 +59,7 @@ export class SupabaseStorageService {
                 if (!bucketExists) {
                     // Create bucket if it doesn't exist
                     const { error: createError } = await this.supabase.storage.createBucket(bucket, {
-                        public: true,
+                        public: !this.privateBuckets.has(bucket),
                         fileSizeLimit: 52428800, // 50MB
                         allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'video/mp4', 'video/webm']
                     });
@@ -124,13 +125,17 @@ export class SupabaseStorageService {
         }
 
         try {
-            // For public buckets, return public URL directly
-            const { data: urlData } = this.supabase.storage
-                .from(bucket)
-                .getPublicUrl(path);
+            const isPrivate = this.privateBuckets.has(bucket);
 
-            if (urlData?.publicUrl) {
-                return urlData.publicUrl;
+            if (!isPrivate) {
+                // For public buckets, return public URL directly
+                const { data: urlData } = this.supabase.storage
+                    .from(bucket)
+                    .getPublicUrl(path);
+
+                if (urlData?.publicUrl) {
+                    return urlData.publicUrl;
+                }
             }
 
             // For private buckets, generate signed URL

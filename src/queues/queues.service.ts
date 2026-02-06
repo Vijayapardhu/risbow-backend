@@ -12,6 +12,8 @@ export interface BannerAnalyticsJob {
 export interface NotificationJob {
     type: 'push' | 'email' | 'sms' | 'whatsapp';
     userId?: string;
+    email?: string;
+    name?: string;
     mobile?: string;
     title: string;
     body: string;
