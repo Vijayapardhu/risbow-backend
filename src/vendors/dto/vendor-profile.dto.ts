@@ -13,6 +13,7 @@ import {
     Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { VendorStatus } from '@prisma/client';
 
 // Day timing DTO for weekly schedule
 export class DayTimingDto {
@@ -153,19 +154,11 @@ export class UpdateVendorPickupDto {
     pickupTimings?: WeeklyTimingsDto;
 }
 
-// Store status enum
-export enum StoreStatusEnum {
-    OPEN = 'OPEN',
-    CLOSED = 'CLOSED',
-    TEMPORARILY_CLOSED = 'TEMPORARILY_CLOSED',
-    ACTIVE = 'ACTIVE',
-}
-
 // Update store status DTO
 export class UpdateVendorStatusDto {
-    @ApiProperty({ enum: StoreStatusEnum, example: 'OPEN' })
-    @IsEnum(StoreStatusEnum)
-    storeStatus: StoreStatusEnum;
+    @ApiProperty({ enum: VendorStatus, example: VendorStatus.ACTIVE })
+    @IsEnum(VendorStatus)
+    storeStatus: VendorStatus;
 
     @ApiPropertyOptional({ example: '2024-12-31T23:59:59Z', description: 'Reopening date for temporary closure' })
     @IsOptional()
@@ -199,8 +192,8 @@ export class VendorProfileResponseDto {
     @ApiPropertyOptional()
     storeTimings?: object;
 
-    @ApiPropertyOptional()
-    storeStatus?: string;
+    @ApiPropertyOptional({ enum: VendorStatus })
+    storeStatus?: VendorStatus;
 
     @ApiPropertyOptional()
     latitude?: number;
@@ -255,8 +248,8 @@ export class PublicVendorProfileResponseDto {
     @ApiPropertyOptional()
     storeTimings?: object;
 
-    @ApiProperty()
-    storeStatus: string;
+    @ApiProperty({ enum: VendorStatus })
+    storeStatus: VendorStatus;
 
     @ApiProperty()
     pickupEnabled: boolean;

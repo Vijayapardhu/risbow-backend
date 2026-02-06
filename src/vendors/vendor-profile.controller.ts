@@ -101,7 +101,7 @@ export class VendorProfileController {
     @Patch('status')
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
-    @ApiOperation({ summary: 'Update store status (OPEN/CLOSED/TEMPORARILY_CLOSED)' })
+    @ApiOperation({ summary: 'Update store status (ACTIVE/SUSPENDED)' })
     @ApiResponse({ status: 200, description: 'Store status updated successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 404, description: 'Vendor not found' })
