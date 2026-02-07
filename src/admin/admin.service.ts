@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { RoomStatus, RiskTag, ValueTag, UserRole, UserStatus, OrderStatus } from '@prisma/client';
+import { RoomStatus, RiskTag, ValueTag, UserRole, UserStatus, OrderStatus, KycStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { OrderStateValidatorService } from '../orders/order-state-validator.service';
 import { RedisService } from '../shared/redis.service';
@@ -97,7 +97,7 @@ export class AdminService {
             this.prisma.room.count(),
             this.prisma.room.count({ where: { status: RoomStatus.UNLOCKED } }),
             this.prisma.user.count(),
-            this.prisma.vendor.count({ where: { kycStatus: 'APPROVED' } }),
+            this.prisma.vendor.count({ where: { kycStatus: KycStatus.VERIFIED } }),
             this.prisma.order.aggregate({ _sum: { totalAmount: true } }),
             this.prisma.product.count({ where: { stock: { lte: 10 } } }),
             this.prisma.order.findMany({
@@ -1428,7 +1428,7 @@ export class AdminService {
     }
 
     async approveVendor(adminId: string, id: string, approved: boolean, reason?: string) {
-        const newStatus = approved ? 'APPROVED' : 'REJECTED';
+        const newStatus = approved ? KycStatus.VERIFIED : KycStatus.REJECTED;
 
         const vendor = await this.prisma.vendor.findUnique({ where: { id } });
         if (!vendor) throw new NotFoundException('Vendor not found');
@@ -1545,26 +1545,26 @@ export class AdminService {
         if (!vendor) throw new NotFoundException('Vendor not found');
 
         // Validate status
-        const validStatuses = ['VERIFIED', 'PENDING', 'REJECTED', 'PENDING_PAYMENT'];
-        if (!validStatuses.includes(status)) {
+        const validStatuses = [KycStatus.VERIFIED, KycStatus.PENDING, KycStatus.REJECTED, KycStatus.PENDING_PAYMENT];
+        if (!validStatuses.includes(status as KycStatus)) {
             throw new BadRequestException(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
         }
 
         // If rejecting, reason is required
-        if (status === 'REJECTED' && !notes) {
+        if (status === KycStatus.REJECTED && !notes) {
             throw new BadRequestException('Rejection reason is required');
         }
 
         const updated = await this.prisma.vendor.update({
             where: { id: vendorId },
             data: { 
-                kycStatus: status,
-                rejectionReason: status === 'REJECTED' ? notes : null,
+                kycStatus: status as KycStatus,
+                rejectionReason: status === KycStatus.REJECTED ? notes : null,
             }
         });
 
         // Update vendor documents status if rejecting
-        if (status === 'REJECTED') {
+        if (status === KycStatus.REJECTED) {
             await this.prisma.vendorDocument.updateMany({
                 where: { 
                     vendorId,

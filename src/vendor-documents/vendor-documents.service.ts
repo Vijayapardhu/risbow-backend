@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseStorageService } from '../shared/supabase-storage.service';
 import { DocumentType } from './dto/upload-document.dto';
-import { PaymentIntentPurpose } from '@prisma/client';
+import { PaymentIntentPurpose, VendorDocumentType } from '@prisma/client';
 import { NotificationsService } from '../shared/notifications.service';
 
 @Injectable()
@@ -44,7 +44,7 @@ export class VendorDocumentsService {
     const document = await this.prisma.vendorDocument.create({
       data: {
         id: randomUUID(),
-        documentType,
+        documentType: documentType as VendorDocumentType,
         documentUrl: path,
         status: 'PENDING',
         Vendor: { connect: { id: vendorId } },
@@ -224,12 +224,12 @@ export class VendorDocumentsService {
     }
 
     // Check if all required documents (AADHAAR, PAN, BANK, UPI, LICENSE) are approved
-    const requiredTypes: DocumentType[] = [
-      DocumentType.AADHAAR,
-      DocumentType.PAN,
-      DocumentType.BANK,
-      DocumentType.UPI,
-      DocumentType.LICENSE,
+    const requiredTypes: VendorDocumentType[] = [
+      VendorDocumentType.AADHAAR_CARD,
+      VendorDocumentType.PAN_CARD,
+      VendorDocumentType.BANK_STATEMENT,
+      VendorDocumentType.CANCELLED_CHEQUE,
+      VendorDocumentType.DRIVING_LICENSE,
     ];
     const approvedDocs = await this.prisma.vendorDocument.findMany({
       where: {

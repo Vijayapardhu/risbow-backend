@@ -2142,7 +2142,7 @@ model Vendor {
   mobile                          String                      @unique
   email                           String?
   isActive                        Boolean                     @default(true) // Alias for storeStatus compatibility
-  kycStatus                       String                      @default("PENDING")
+  kycStatus                       KycStatus                   @default(PENDING)
   rejectionReason                 String?
   tier                            String                      @default("BASIC")
   gstNumber                       String?
@@ -2244,19 +2244,21 @@ model VendorDeliveryWindow {
 
 /// Vendor registration payment tracking
 model VendorRegistrationPayment {
-  id                String   @id @default(uuid())
-  vendorId          String   @unique
-  razorpayOrderId   String   @unique
-  razorpayPaymentId String?  @unique
-  amount            Int      // Amount in paise (e.g., 50000 for ₹500)
-  currency          String   @default("INR")
+  id                String        @id @default(uuid())
+  vendorId          String        @unique
+  razorpayOrderId   String        @unique
+  razorpayPaymentId String?       @unique
+  amount            Int           // Amount in paise (e.g., 50000 for ₹500)
+  currency          String        @default("INR")
   status            PaymentStatus @default(PENDING)
   paymentMethod     String?
+  failureReason     String?       // Payment failure reason
+  failureCode       String?       // Razorpay failure code
   paidAt            DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  metadata          Json?    // Additional payment metadata
-  Vendor            Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  metadata          Json?         // Additional payment metadata
+  Vendor            Vendor        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([razorpayOrderId])
@@ -2343,19 +2345,21 @@ model VendorDiscipline {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model VendorDocument {
-  id              String    @id
+  id              String             @id
   vendorId        String
-  documentType    String
+  documentType    VendorDocumentType
   documentUrl     String
-  status          String    @default("PENDING")
-  uploadedAt      DateTime  @default(now())
+  status          DocumentStatus     @default(PENDING)
+  uploadedAt      DateTime           @default(now())
   reviewedAt      DateTime?
   reviewedBy      String?
   rejectionReason String?
-  Vendor          Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  Vendor          Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([vendorId, status])
+  @@index([vendorId, documentType])
+  @@index([documentType])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -2875,6 +2879,13 @@ enum PaymentStatus {
   SUCCESS
   FAILED
   REFUNDED
+}
+
+enum KycStatus {
+  PENDING
+  PENDING_PAYMENT
+  VERIFIED
+  REJECTED
 }
 
 enum PayoutCycle {

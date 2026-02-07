@@ -565,6 +565,20 @@ export class AuthService {
                 },
             });
 
+            // Create payment record for non-GST vendors
+            if (!registerDto.isGstRegistered) {
+                await (prisma.vendorRegistrationPayment.create as any)({
+                    data: {
+                        vendorId: vendor.id,
+                        razorpayOrderId: `temp_${vendor.id}`, // Temporary, will be updated when payment initiates
+                        amount: 50000, // ₹500 in paise
+                        currency: 'INR',
+                        status: 'PENDING',
+                    },
+                });
+                this.logger.log(`Payment record initialized for non-GST vendor ${vendor.id}`);
+            }
+
             return { user, vendor };
         });
 

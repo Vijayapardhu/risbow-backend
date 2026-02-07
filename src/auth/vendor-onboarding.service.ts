@@ -9,7 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RazorpayService } from '../shared/razorpay.service';
 import { FileUploadService } from '../shared/file-upload.service';
 import { JwtService } from '@nestjs/jwt';
-import { PaymentStatus } from '@prisma/client';
+import { PaymentStatus, KycStatus, VendorDocumentType } from '@prisma/client';
 
 @Injectable()
 export class VendorOnboardingService {
@@ -126,7 +126,7 @@ export class VendorOnboardingService {
             const vendor = await prisma.vendor.update({
                 where: { id: vendorId },
                 data: {
-                    kycStatus: 'APPROVED', // Auto-approve for paid registrations
+                    kycStatus: KycStatus.VERIFIED, // Auto-approve for paid registrations
                     isActive: true
                 }
             });
@@ -191,7 +191,7 @@ export class VendorOnboardingService {
             data: {
                 id: `doc_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
                 vendorId,
-                documentType,
+                documentType: documentType as VendorDocumentType,
                 documentUrl: uploadedFile.url,
                 status: 'PENDING'
             }
@@ -222,13 +222,18 @@ export class VendorOnboardingService {
             throw new NotFoundException('Vendor not found');
         }
 
-        const requiredDocs = ['PAN_CARD', 'AADHAAR_CARD', 'CANCELLED_CHEQUE', 'STORE_PHOTO'];
+        const requiredDocs: VendorDocumentType[] = [
+            VendorDocumentType.PAN_CARD, 
+            VendorDocumentType.AADHAAR_CARD, 
+            VendorDocumentType.CANCELLED_CHEQUE, 
+            VendorDocumentType.STORE_PHOTO
+        ];
         if (vendor.isGstVerified || vendor.gstNumber) {
-            requiredDocs.push('GST_CERTIFICATE');
+            requiredDocs.push(VendorDocumentType.GST_CERTIFICATE);
         }
 
         const uploadedDocs = vendor.VendorDocument.map(doc => doc.documentType);
-        const missingDocs = requiredDocs.filter(doc => !uploadedDocs.includes(doc));
+        const missingDocs = requiredDocs.filter(doc => !uploadedDocs.includes(doc as VendorDocumentType));
 
         const needsPayment = !vendor.isGstVerified && 
             (!vendor.VendorRegistrationPayment || vendor.VendorRegistrationPayment.status !== 'SUCCESS');

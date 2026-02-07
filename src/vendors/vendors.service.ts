@@ -4,7 +4,7 @@ import { RegisterVendorDto } from './dto/vendor.dto';
 import { CoinsService } from '../coins/coins.service';
 import { AuditLogService } from '../audit/audit.service';
 import { CoinSource } from '../coins/dto/coin.dto';
-import { VendorRole, MembershipTier, UserProductEventType, PaymentIntentPurpose } from '@prisma/client';
+import { VendorRole, MembershipTier, UserProductEventType, PaymentIntentPurpose, KycStatus, VendorDocumentType } from '@prisma/client';
 import { RedisService } from '../shared/redis.service';
 import { VendorAvailabilityService } from './vendor-availability.service';
 import { randomUUID } from 'crypto';
@@ -665,7 +665,7 @@ export class VendorsService {
             const updated = await tx.vendor.update({
                 where: { id: vendorId },
                 data: {
-                    kycStatus: dto.status,
+                    kycStatus: dto.status as KycStatus,
                     kycDocuments: dto.documents || vendor.kycDocuments,
                 },
             });
@@ -764,43 +764,48 @@ export class VendorsService {
         // For now, store file info without actual upload (you can implement S3/Cloudinary later)
         const documentUrl = `/uploads/vendor-documents/${vendorId}/${Date.now()}_${file.originalname}`;
 
-        // Create or update document record
-        const existingDoc = await this.prisma.vendorDocument.findFirst({
-            where: { vendorId, documentType }
+        // Use transaction for atomicity
+        return await this.prisma.$transaction(async (tx) => {
+            // Create or update document record
+            const existingDoc = await tx.vendorDocument.findFirst({
+                where: { vendorId, documentType: documentType as any }
+            });
+
+            let document;
+            if (existingDoc) {
+                // Update existing document
+                document = await tx.vendorDocument.update({
+                    where: { id: existingDoc.id },
+                    data: {
+                        documentUrl,
+                        status: 'PENDING' as any,
+                        uploadedAt: new Date(),
+                    },
+                });
+            } else {
+                // Create new document
+                document = await tx.vendorDocument.create({
+                    data: {
+                        id: `doc_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
+                        vendorId,
+                        documentType: documentType as any,
+                        documentUrl,
+                        status: 'PENDING' as any,
+                    },
+                });
+            }
+
+            // Check if all required documents are uploaded and update status
+            await this.updateVendorKycStatusAfterDocUpload(vendorId, tx);
+
+            return document;
         });
-
-        let document;
-        if (existingDoc) {
-            // Update existing document
-            document = await this.prisma.vendorDocument.update({
-                where: { id: existingDoc.id },
-                data: {
-                    documentUrl,
-                    status: 'PENDING',
-                    uploadedAt: new Date(),
-                },
-            });
-        } else {
-            // Create new document
-            document = await this.prisma.vendorDocument.create({
-                data: {
-                    id: `doc_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
-                    vendorId,
-                    documentType,
-                    documentUrl,
-                    status: 'PENDING',
-                },
-            });
-        }
-
-        // Check if all required documents are uploaded
-        await this.updateVendorKycStatusAfterDocUpload(vendorId);
-
-        return document;
     }
 
-    private async updateVendorKycStatusAfterDocUpload(vendorId: string) {
-        const vendor = await this.prisma.vendor.findUnique({
+    private async updateVendorKycStatusAfterDocUpload(vendorId: string, tx?: any) {
+        const prisma = tx || this.prisma;
+        
+        const vendor = await prisma.vendor.findUnique({
             where: { id: vendorId }
         });
 
@@ -812,13 +817,15 @@ export class VendorsService {
         }
 
         // Get all uploaded documents
-        const documents = await this.prisma.vendorDocument.findMany({
+        const documents = await prisma.vendorDocument.findMany({
             where: { vendorId }
         });
 
         // Required document types
         const requiredDocs = ['PAN_CARD', 'AADHAAR_CARD', 'CANCELLED_CHEQUE', 'STORE_PHOTO'];
-        if (vendor.gstNumber) {
+        
+        // Fix: Check if GST number is valid (not empty string)
+        if (vendor.gstNumber && vendor.gstNumber.trim() !== '') {
             requiredDocs.push('GST_CERTIFICATE');
         }
 
@@ -827,12 +834,14 @@ export class VendorsService {
         const hasAllRequiredDocs = requiredDocs.every(type => uploadedTypes.includes(type));
 
         if (hasAllRequiredDocs) {
-            // Update vendor status to PENDING_PAYMENT for non-GST vendors
-            const newStatus = vendor.gstNumber ? 'PENDING' : 'PENDING_PAYMENT';
+            // Fix: Update vendor status with proper GST check
+            const newStatus = (vendor.gstNumber && vendor.gstNumber.trim() !== '') 
+                ? 'PENDING' 
+                : 'PENDING_PAYMENT';
             
-            await this.prisma.vendor.update({
+            await prisma.vendor.update({
                 where: { id: vendorId },
-                data: { kycStatus: newStatus }
+                data: { kycStatus: newStatus as any }
             });
 
             this.logger.log(`Vendor ${vendorId} kycStatus updated to ${newStatus} after uploading all required documents`);
@@ -856,14 +865,19 @@ export class VendorsService {
         }
 
         // Only allow reapplication if currently rejected
-        if (vendor.kycStatus !== 'REJECTED') {
+        if (vendor.kycStatus !== KycStatus.REJECTED) {
             throw new BadRequestException('Reapplication is only allowed for rejected vendors');
         }
 
         // Check if vendor has uploaded required documents
-        const requiredDocTypes = ['PAN_CARD', 'AADHAAR_CARD', 'CANCELLED_CHEQUE', 'STORE_PHOTO'];
+        const requiredDocTypes: VendorDocumentType[] = [
+            VendorDocumentType.PAN_CARD, 
+            VendorDocumentType.AADHAAR_CARD, 
+            VendorDocumentType.CANCELLED_CHEQUE, 
+            VendorDocumentType.STORE_PHOTO
+        ];
         if (vendor.gstNumber && vendor.isGstVerified) {
-            requiredDocTypes.push('GST_CERTIFICATE');
+            requiredDocTypes.push(VendorDocumentType.GST_CERTIFICATE);
         }
 
         const uploadedDocs = await this.prisma.vendorDocument.findMany({
@@ -1059,7 +1073,7 @@ export class VendorsService {
     async suspendVendor(adminId: string, vendorId: string, reason?: string) {
         const vendor = await this.prisma.vendor.update({
             where: { id: vendorId },
-            data: { kycStatus: 'SUSPENDED' },
+            data: { kycStatus: 'REJECTED', isActive: false },
         });
         await this.audit.logAdminAction(adminId, 'SUSPEND_VENDOR', 'Vendor', vendorId, { reason });
         return vendor;

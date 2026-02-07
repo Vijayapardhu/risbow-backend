@@ -7,7 +7,7 @@ import Razorpay from 'razorpay';
 import * as crypto from 'crypto';
 import { randomUUID } from 'crypto';
 import { BowService } from '../bow/bow.service';
-import { PaymentIntentPurpose } from '@prisma/client';
+import { PaymentIntentPurpose, VendorDocumentType, KycStatus } from '@prisma/client';
 
 @Injectable()
 export class PaymentsService {
@@ -481,7 +481,13 @@ export class PaymentsService {
                 });
 
                 // If required documents are already approved, verify KYC immediately.
-                const requiredTypes = ['AADHAAR', 'PAN', 'BANK', 'UPI', 'LICENSE'];
+                const requiredTypes: VendorDocumentType[] = [
+                    VendorDocumentType.AADHAAR_CARD, 
+                    VendorDocumentType.PAN_CARD, 
+                    VendorDocumentType.BANK_STATEMENT, 
+                    VendorDocumentType.CANCELLED_CHEQUE, 
+                    VendorDocumentType.DRIVING_LICENSE
+                ];
                 const approvedDocs = await this.prisma.vendorDocument.findMany({
                     where: {
                         vendorId: referenceId,
@@ -497,7 +503,7 @@ export class PaymentsService {
                 if (allApproved) {
                     await this.prisma.vendor.update({
                         where: { id: referenceId },
-                        data: { kycStatus: 'VERIFIED' },
+                        data: { kycStatus: KycStatus.VERIFIED },
                     });
                 }
 
