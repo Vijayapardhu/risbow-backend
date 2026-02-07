@@ -767,9 +767,10 @@ export class VendorsService {
             where: { vendorId, documentType }
         });
 
+        let document;
         if (existingDoc) {
             // Update existing document
-            return this.prisma.vendorDocument.update({
+            document = await this.prisma.vendorDocument.update({
                 where: { id: existingDoc.id },
                 data: {
                     documentUrl,
@@ -779,7 +780,7 @@ export class VendorsService {
             });
         } else {
             // Create new document
-            return this.prisma.vendorDocument.create({
+            document = await this.prisma.vendorDocument.create({
                 data: {
                     id: `doc_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
                     vendorId,
@@ -788,6 +789,51 @@ export class VendorsService {
                     status: 'PENDING',
                 },
             });
+        }
+
+        // Check if all required documents are uploaded
+        await this.updateVendorKycStatusAfterDocUpload(vendorId);
+
+        return document;
+    }
+
+    private async updateVendorKycStatusAfterDocUpload(vendorId: string) {
+        const vendor = await this.prisma.vendor.findUnique({
+            where: { id: vendorId }
+        });
+
+        if (!vendor) return;
+
+        // Only update if vendor is not already verified or pending
+        if (vendor.kycStatus === 'VERIFIED' || vendor.kycStatus === 'PENDING') {
+            return;
+        }
+
+        // Get all uploaded documents
+        const documents = await this.prisma.vendorDocument.findMany({
+            where: { vendorId }
+        });
+
+        // Required document types
+        const requiredDocs = ['PAN_CARD', 'AADHAAR_CARD', 'CANCELLED_CHEQUE', 'STORE_PHOTO'];
+        if (vendor.gstNumber) {
+            requiredDocs.push('GST_CERTIFICATE');
+        }
+
+        // Check if all required docs are uploaded
+        const uploadedTypes = documents.map(d => d.documentType);
+        const hasAllRequiredDocs = requiredDocs.every(type => uploadedTypes.includes(type));
+
+        if (hasAllRequiredDocs) {
+            // Update vendor status to PENDING_PAYMENT for non-GST vendors
+            const newStatus = vendor.gstNumber ? 'PENDING' : 'PENDING_PAYMENT';
+            
+            await this.prisma.vendor.update({
+                where: { id: vendorId },
+                data: { kycStatus: newStatus }
+            });
+
+            this.logger.log(`Vendor ${vendorId} kycStatus updated to ${newStatus} after uploading all required documents`);
         }
     }
 
