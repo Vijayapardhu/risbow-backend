@@ -52,7 +52,7 @@ export class VendorOrdersService {
 
         // Filter items in response to ONLY show this Vendor's items
         const sanitizedOrders = fullOrders.map(order => {
-            const allItems = (order.items as any[]) || [];
+            const allItems = (order.itemsSnapshot as any[]) || [];
             const vendorItems = allItems.filter(i => i.vendorId === vendorId);
             return {
                 ...order,
@@ -83,7 +83,7 @@ export class VendorOrdersService {
 
         if (!order) throw new NotFoundException('Order not found');
 
-        const items = (order.items as any[]) || [];
+        const items = (order.itemsSnapshot as any[]) || [];
         const vendorItems = items.filter(i => i.vendorId === vendorId);
 
         if (vendorItems.length === 0) {
@@ -109,7 +109,7 @@ export class VendorOrdersService {
         const order = await this.prisma.order.findUnique({ where: { id: orderId } });
         if (!order) throw new NotFoundException('Order not found');
 
-        const items = (order.items as any[]) || [];
+        const items = (order.itemsSnapshot as any[]) || [];
         const hasVendorItems = items.some(i => i.vendorId === vendorId);
         if (!hasVendorItems) throw new ForbiddenException('Order does not belong to you');
 

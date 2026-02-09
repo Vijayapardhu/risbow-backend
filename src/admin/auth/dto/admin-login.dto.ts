@@ -25,6 +25,9 @@ export class AdminLoginResponseDto {
   accessToken: string;
 
   @ApiProperty()
+  refreshToken: string;
+
+  @ApiProperty()
   expiresIn: number;
 
   @ApiProperty()

@@ -1,0 +1,2105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Global settings/configuration table
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g., "maintenance_mode", "feature_x_enabled"
+  value       Json     // Flexible value storage
+  description String?
+  category    String   // e.g., "features", "payments", "delivery"
+  isPublic    Boolean  @default(false) // Whether accessible to frontend
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime? // Soft delete field
+  updatedById String?
+  updatedBy   User?    @relation("SystemSettingUpdatedBy", fields: [updatedById], references: [id])
+  
+  @@index([category])
+  @@index([isPublic])
+  @@index([deletedAt])
+}
+
+// User notification preferences
+model NotificationPreference {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  emailNotifications Boolean  @default(true)
+  smsNotifications  Boolean  @default(true)
+  pushNotifications Boolean  @default(true)
+  marketingEmails   Boolean  @default(true)
+  orderUpdates      Boolean  @default(true)
+  productAlerts     Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime? // Soft delete field
+  
+  User User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([deletedAt])
+}
+
+// API key management for integrations
+model ApiKey {
+  id          String   @id @default(cuid())
+  name        String   // Description of the key
+  apiKey      String   @unique // Hashed API key
+  userId      String?  // Owner of the key (nullable for system keys)
+  vendorId    String?  // Vendor-specific key
+  permissions String[] @default(["read"]) // e.g., ["read", "write", "admin"]
+  isActive    Boolean  @default(true)
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  lastUsedAt  DateTime?
+  deletedAt   DateTime? // Soft delete field
+  
+  User?  User?  @relation("ApiKeyUser", fields: [userId], references: [id])
+  Vendor? Vendor? @relation("ApiKeyVendor", fields: [vendorId], references: [id])
+  
+  @@index([apiKey])
+  @@index([userId])
+  @@index([vendorId])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AbandonedCheckout {
+  id                                   String                 @id
+  userId                               String?
+  guestInfo                            Json?
+  cartSnapshot                         Json
+  financeSnapshot                      Json
+  metadata                             Json?
+  status                               CheckoutRecoveryStatus @default(NEW)
+  agentId                              String?
+  lockedUntil                          DateTime?
+  createdAt                            DateTime               @default(now())
+  abandonedAt                          DateTime               @default(now())
+  updatedAt                            DateTime
+  abandonReason                        String?
+  lastErrorCode                        String?
+  paymentMethod                        String?
+  deletedAt                            DateTime?              // Soft delete field
+  createdById                          String?                // Audit field
+  updatedById                          String?                // Audit field
+  version                              Int                    @default(1) // For optimistic locking
+  User_AbandonedCheckout_agentIdToUser User?                  @relation("AbandonedCheckout_agentIdToUser", fields: [agentId], references: [id])
+  User_AbandonedCheckout_userIdToUser  User?                  @relation("AbandonedCheckout_userIdToUser", fields: [userId], references: [id])
+  CheckoutFollowup                     CheckoutFollowup[]
+  Order                                Order[]
+  CreatedBy                            User?                  @relation("AbandonedCheckoutCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy                            User?                  @relation("AbandonedCheckoutUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([abandonedAt])
+  @@index([agentId])
+  @@index([status, agentId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Address {
+  id           String     @id
+  userId       String
+  title        String?
+  name         String
+  mobile       String?
+  street       String?
+  city         String
+  state        String
+  pincode      String
+  isDefault    Boolean    @default(false)
+  addressLine1 String     @default("")
+  addressLine2 String?
+  createdAt    DateTime   @default(now())
+  label        String     @default("Home")
+  phone        String
+  updatedAt    DateTime
+  deletedAt    DateTime?  // Soft delete field
+  createdById  String?    // Audit field
+  updatedById  String?    // Audit field
+  version      Int        @default(1) // For optimistic locking
+  latitude     Float?
+  longitude    Float?
+  geoSource    GeoSource?
+  geoUpdatedAt DateTime?
+  User         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Order        Order[]
+  CreatedBy    User?      @relation("AddressCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy    User?      @relation("AddressUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+model Admin {
+  id            String          @id
+  email         String          @unique
+  password      String
+  role          String
+  createdAt     DateTime        @default(now())
+  avatar        String?
+  isActive      Boolean         @default(true)
+  lastLoginAt   DateTime?
+  name          String?
+  updatedAt     DateTime
+  deletedAt     DateTime?       // Soft delete field
+  createdById   String?         // Audit field
+  updatedById   String?         // Audit field
+  version       Int             @default(1) // For optimistic locking
+  BlogPost      BlogPost[]
+  SupportTicket SupportTicket[]
+  CreatedBy     User?           @relation("AdminCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy     User?           @relation("AdminUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([isActive])
+  @@index([role])
+  @@index([deletedAt])
+}
+
+/// AdminUser model for admin authentication system
+model AdminUser {
+  id             String         @id @default(uuid())
+  email          String         @unique
+  password       String         // Also serves as passwordHash
+  name           String
+  role           AdminRole      @default(OPERATIONS_ADMIN)
+  isActive       Boolean        @default(true)
+  isMfaEnabled   Boolean        @default(false)
+  mfaSecret      String?
+  backupCodes    String[]       @default([]) // MFA backup codes
+  avatar         String?
+  lastLoginAt    DateTime?
+  failedAttempts Int            @default(0)
+  lockedUntil    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?      // Soft delete field
+  createdById    String?        // Audit field
+  updatedById    String?        // Audit field
+  version        Int            @default(1) // For optimistic locking
+  AdminSession   AdminSession[]
+  AdminAction    AdminAction[]
+  CreatedBy      User?          @relation("AdminUserCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy      User?          @relation("AdminUserUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+/// AdminSession model for session management
+model AdminSession {
+  id          String     @id @default(uuid())
+  adminUserId String
+  token       String     @unique
+  ipAddress   String?
+  userAgent   String?
+  isActive    Boolean    @default(true)
+  expiresAt   DateTime
+  lastActive  DateTime   @default(now())
+  createdAt   DateTime   @default(now())
+  deletedAt   DateTime?  // Soft delete field
+  createdById String?    // Audit field
+  updatedById String?    // Audit field
+  version     Int        @default(1) // For optimistic locking
+  AdminUser   AdminUser  @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  CreatedBy   User?      @relation("AdminSessionCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy   User?      @relation("AdminSessionUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([adminUserId])
+  @@index([token])
+  @@index([expiresAt])
+  @@index([deletedAt])
+}
+
+/// AdminAction model for audit logging
+model AdminAction {
+  id           String    @id @default(uuid())
+  adminId      String    // Match the field name code expects
+  action       String
+  entity       String?
+  entityId     String?
+  resourceType String?   // For filtering by resource type
+  changes      Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime  @default(now()) // Code expects createdAt not timestamp
+  deletedAt    DateTime? // Soft delete field
+  createdById  String?   // Audit field
+  updatedById  String?   // Audit field
+  version      Int       @default(1) // For optimistic locking
+  AdminUser    AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  CreatedBy    User?     @relation("AdminActionCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy    User?     @relation("AdminActionUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([adminId])
+  @@index([action])
+  @@index([entity])
+  @@index([resourceType])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+/// OrderItem model for individual order line items
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String
+  productId   String
+  vendorId    String
+  quantity    Int
+  price       Int
+  offerPrice  Int?
+  subtotal    Int
+  tax         Int      @default(0)
+  discount    Int      @default(0)
+  total       Int
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime? // Soft delete field
+  createdById String?   // Audit field
+  updatedById String?   // Audit field
+  version     Int       @default(1) // For optimistic locking
+  Order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  Product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  Vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  CreatedBy   User?    @relation("OrderItemCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy   User?    @relation("OrderItemUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+/// CoinTransaction model for coin transaction tracking
+model CoinTransaction {
+  id            String   @id @default(uuid())
+  userId        String
+  amount        Int
+  type          String // EARNED, SPENT, EXPIRED, REFUNDED
+  reason        String?
+  referenceId   String?
+  referenceType String?
+  balanceBefore Int
+  balanceAfter  Int
+  expiresAt     DateTime?
+  status        String   @default("COMPLETED")
+  createdAt     DateTime @default(now())
+  deletedAt     DateTime? // Soft delete field
+  createdById   String?   // Audit field
+  updatedById   String?   // Audit field
+  version       Int       @default(1) // For optimistic locking
+  metadata      Json?
+  CreatedBy     User?     @relation("CoinTransactionCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy     User?     @relation("CoinTransactionUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([expiresAt])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+/// BannerPricing model for banner campaign pricing
+model BannerPricing {
+  id           String   @id @default(uuid())
+  position     String
+  duration     Int // in days
+  pricePerDay  Int
+  minDuration  Int      @default(1)
+  maxDuration  Int      @default(30)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime? // Soft delete field
+  createdById  String?   // Audit field
+  updatedById  String?   // Audit field
+  version      Int       @default(1) // For optimistic locking
+  CreatedBy    User?     @relation("BannerPricingCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy    User?     @relation("BannerPricingUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([position])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+/// BannerMetric model for banner performance tracking
+model BannerMetric {
+  id                String   @id @default(uuid())
+  campaignId        String
+  date              DateTime
+  impressions       Int      @default(0)
+  clicks            Int      @default(0)
+  conversions       Int      @default(0)
+  revenue           Int      @default(0)
+  cost              Int      @default(0)
+  clickThroughRate  Float    @default(0)
+  conversionRate    Float    @default(0)
+  returnOnAdSpend   Float    @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime? // Soft delete field
+  createdById       String?   // Audit field
+  updatedById       String?   // Audit field
+  version           Int       @default(1) // For optimistic locking
+  CreatedBy         User?     @relation("BannerMetricCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy         User?     @relation("BannerMetricUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([campaignId])
+  @@index([date])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AdminNote {
+  id                           String   @id
+  userId                       String
+  adminId                      String
+  note                         String
+  createdAt                    DateTime @default(now())
+  deletedAt                    DateTime? // Soft delete field
+  createdById                  String?   // Audit field
+  updatedById                  String?   // Audit field
+  version                      Int       @default(1) // For optimistic locking
+  User_AdminNote_adminIdToUser User     @relation("AdminNote_adminIdToUser", fields: [adminId], references: [id])
+  User_AdminNote_userIdToUser  User     @relation("AdminNote_userIdToUser", fields: [userId], references: [id])
+  CreatedBy                    User?    @relation("AdminNoteCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy                    User?    @relation("AdminNoteUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AuditLog {
+  id        String   @id
+  adminId   String
+  entity    String
+  action    String
+  details   Json?
+  createdAt DateTime @default(now())
+  entityId  String
+  ipAddress String?
+  userAgent String?
+  deletedAt DateTime? // Soft delete field
+  createdById String? // Audit field
+  updatedById String? // Audit field
+  version   Int       @default(1) // For optimistic locking
+  User      User     @relation(fields: [adminId], references: [id])
+  CreatedBy User?    @relation("AuditLogCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy User?    @relation("AuditLogUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([action])
+  @@index([adminId])
+  @@index([createdAt])
+  @@index([entity])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Banner {
+  id                     String                   @id
+  vendorId               String?
+  imageUrl               String
+  redirectUrl            String?
+  slotType               String
+  startDate              DateTime
+  endDate                DateTime
+  isActive               Boolean                  @default(true)
+  createdAt              DateTime                 @default(now())
+  deletedAt              DateTime?                // Soft delete field
+  createdById            String?                  // Audit field
+  updatedById            String?                  // Audit field
+  version                Int                      @default(1) // For optimistic locking
+  metadata               Json?
+  bannerCampaignId       String?
+  BannerImpressionLedger BannerImpressionLedger[]
+  CreatedBy              User?                    @relation("BannerCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy              User?                    @relation("BannerUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([slotType, isActive])
+  @@index([slotType, startDate, endDate, isActive])
+  @@index([startDate, endDate])
+  @@index([vendorId])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model BannerCampaign {
+  id             String   @id
+  bannerId       String
+  vendorId       String
+  campaignType   String
+  position       String?  // Position for filtering
+  status         String   @default("PENDING") // Status field for campaign state
+  targetAudience String
+  startDate      DateTime
+  endDate        DateTime
+  amountPaid     Int
+  paymentStatus  String   @default("PENDING")
+  createdAt      DateTime @default(now())
+  deletedAt      DateTime? // Soft delete field
+  createdById    String?   // Audit field
+  updatedById    String?   // Audit field
+  version        Int       @default(1) // For optimistic locking
+  CreatedBy      User?     @relation("BannerCampaignCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy      User?     @relation("BannerCampaignUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([startDate, endDate])
+  @@index([vendorId])
+  @@index([position])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model BannerImpressionLedger {
+  id        String    @id
+  bannerId  String
+  userId    String?
+  viewedAt  DateTime  @default(now())
+  clickedAt DateTime?
+  deletedAt DateTime? // Soft delete field
+  createdById String? // Audit field
+  updatedById String? // Audit field
+  version   Int       @default(1) // For optimistic locking
+  Banner    Banner    @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+  User      User?     @relation(fields: [userId], references: [id])
+  CreatedBy User?     @relation("BannerImpressionLedgerCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy User?     @relation("BannerImpressionLedgerUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([bannerId, viewedAt])
+  @@index([userId, viewedAt])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Bet {
+  id             String        @id
+  userId         String
+  idempotencyKey String        @unique
+  type           BetType       @default(SINGLE)
+  selections     Json
+  stake          Int
+  odds           Float
+  potentialWin   Int
+  status         BetStatus     @default(PENDING)
+  placedAt       DateTime      @default(now())
+  settledAt      DateTime?
+  result         String?
+  payout         Int?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime
+  deletedAt      DateTime?     // Soft delete field
+  createdById    String?       // Audit field
+  updatedById    String?       // Audit field
+  version        Int           @default(1) // For optimistic locking
+  User           User          @relation(fields: [userId], references: [id])
+  LedgerEntry    LedgerEntry[]
+  CreatedBy      User?         @relation("BetCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy      User?         @relation("BetUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([idempotencyKey])
+  @@index([status])
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+model BlogCategory {
+  id                 String         @id
+  slug               String         @unique
+  name               String
+  description        String?
+  image              String?
+  parentId           String?
+  sortOrder          Int            @default(0)
+  isActive           Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  deletedAt          DateTime?      // Soft delete field
+  createdById        String?        // Audit field
+  updatedById        String?        // Audit field
+  version            Int            @default(1) // For optimistic locking
+  BlogCategory       BlogCategory?  @relation("BlogCategoryToBlogCategory", fields: [parentId], references: [id])
+  other_BlogCategory BlogCategory[] @relation("BlogCategoryToBlogCategory")
+  BlogPost           BlogPost[]
+  CreatedBy          User?          @relation("BlogCategoryCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy          User?          @relation("BlogCategoryUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([isActive])
+  @@index([parentId])
+  @@index([slug])
+  @@index([deletedAt])
+}
+
+model BlogPost {
+  id           String        @id
+  slug         String        @unique
+  title        String
+  excerpt      String?
+  content      String
+  coverImage   String?
+  categoryId   String?
+  authorId     String
+  tags         String[]
+  status       PostStatus    @default(DRAFT)
+  isFeatured   Boolean       @default(false)
+  publishedAt  DateTime?
+  viewCount    Int           @default(0)
+  readTime     Int?
+  seoTitle     String?
+  seoDesc      String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime
+  deletedAt    DateTime?     // Soft delete field
+  createdById  String?       // Audit field
+  updatedById  String?       // Audit field
+  version      Int           @default(1) // For optimistic locking
+  Admin        Admin         @relation(fields: [authorId], references: [id])
+  BlogCategory BlogCategory? @relation(fields: [categoryId], references: [id])
+  CreatedBy    User?         @relation("BlogPostCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy    User?         @relation("BlogPostUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([authorId])
+  @@index([categoryId])
+  @@index([isFeatured])
+  @@index([publishedAt])
+  @@index([slug])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model BowActionLog {
+  id                String        @id
+  userId            String
+  actionType        BowActionType
+  productId         String?
+  variantId         String?
+  quantity          Int?
+  price             Int?
+  reason            String
+  guardrailCheck    Json?
+  autoReversed      Boolean       @default(false)
+  reverseReason     String?
+  attributedRevenue Int?
+  createdAt         DateTime      @default(now())
+  deletedAt         DateTime?     // Soft delete field
+  createdById       String?       // Audit field
+  updatedById       String?       // Audit field
+  version           Int           @default(1) // For optimistic locking
+  reversedAt        DateTime?
+  Product           Product?      @relation(fields: [productId], references: [id])
+  User              User          @relation(fields: [userId], references: [id])
+  CreatedBy         User?         @relation("BowActionLogCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy         User?         @relation("BowActionLogUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([actionType])
+  @@index([autoReversed])
+  @@index([createdAt])
+  @@index([productId])
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model BowInteraction {
+  id              String          @id
+  userId          String
+  sessionId       String
+  type            InteractionType
+  query           String?
+  response        String?
+  intent          String?
+  confidence      Float?
+  actionType      BowActionType?
+  actionPayload   Json?
+  metadata        Json?
+  context         Json?
+  sentiment       String?
+  escalated       Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  deletedAt       DateTime?       // Soft delete field
+  createdById     String?         // Audit field
+  updatedById     String?         // Audit field
+  version         Int             @default(1) // For optimistic locking
+  conversionEvent String?
+  conversionValue Int?
+  User            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  CreatedBy       User?           @relation("BowInteractionCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy       User?           @relation("BowInteractionUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([escalated])
+  @@index([sessionId, createdAt])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model BuyLater {
+  id               String   @id
+  userId           String
+  productId        String
+  variantId        String?
+  targetPrice      Int
+  currentPrice     Int
+  quantity         Int      @default(1)
+  isActive         Boolean  @default(true)
+  isNotified       Boolean  @default(false)
+  isAddedToCart    Boolean  @default(false)
+  priceDropPercent Float?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+  deletedAt        DateTime? // Soft delete field
+  createdById      String?   // Audit field
+  updatedById      String?   // Audit field
+  version          Int       @default(1) // For optimistic locking
+  Product          Product  @relation(fields: [productId], references: [id])
+  User             User     @relation(fields: [userId], references: [id])
+  CreatedBy        User?    @relation("BuyLaterCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy        User?    @relation("BuyLaterUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([createdAt])
+  @@index([isActive])
+  @@index([isNotified])
+  @@index([productId])
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+model CMSMenu {
+  id          String        @id
+  name        String        @unique
+  location    MenuLocation
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime
+  deletedAt   DateTime?     // Soft delete field
+  createdById String?       // Audit field
+  updatedById String?       // Audit field
+  version     Int           @default(1) // For optimistic locking
+  CMSMenuItem CMSMenuItem[]
+  CreatedBy   User?         @relation("CMSMenuCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy   User?         @relation("CMSMenuUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([isActive])
+  @@index([location])
+  @@index([deletedAt])
+}
+
+model CMSMenuItem {
+  id                String        @id
+  menuId            String
+  label             String
+  url               String
+  icon              String?
+  target            String        @default("_self")
+  parentId          String?
+  sortOrder         Int           @default(0)
+  isActive          Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime
+  deletedAt         DateTime?     // Soft delete field
+  createdById       String?       // Audit field
+  updatedById       String?       // Audit field
+  version           Int           @default(1) // For optimistic locking
+  CMSMenu           CMSMenu       @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  CMSMenuItem       CMSMenuItem?  @relation("CMSMenuItemToCMSMenuItem", fields: [parentId], references: [id])
+  other_CMSMenuItem CMSMenuItem[] @relation("CMSMenuItemToCMSMenuItem")
+  CreatedBy         User?         @relation("CMSMenuItemCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy         User?         @relation("CMSMenuItemUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([menuId])
+  @@index([parentId])
+  @@index([sortOrder])
+  @@index([deletedAt])
+}
+
+model CMSPage {
+  id            String   @id
+  slug          String   @unique
+  title         String
+  content       String
+  excerpt       String?
+  metaTitle     String?
+  metaDesc      String?
+  featuredImage String?
+  template      String   @default("default")
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+  deletedAt     DateTime? // Soft delete field
+  createdById   String?   // Audit field
+  updatedById   String?   // Audit field
+  version       Int       @default(1) // For optimistic locking
+  CreatedBy     User?     @relation("CMSPageCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy     User?     @relation("CMSPageUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([isActive])
+  @@index([slug])
+  @@index([sortOrder])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Cart {
+  id        String     @id
+  userId    String     @unique
+  updatedAt DateTime
+  deletedAt DateTime?  // Soft delete field
+  createdById String?  // Audit field
+  updatedById String?  // Audit field
+  version   Int        @default(1) // For optimistic locking
+  User      User       @relation(fields: [userId], references: [id])
+  CartItem  CartItem[]
+  CreatedBy User?      @relation("CartCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy User?      @relation("CartUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CartInsight {
+  id              String          @id
+  userId          String
+  cartValue       Int
+  itemCount       Int
+  categories      String[]
+  cartPattern     String
+  hesitationScore Float
+  abandonRisk     Float
+  resolvedAt      DateTime?
+  severity        InsightSeverity
+  triggeredAt     DateTime        @default(now())
+  type            CartInsightType
+  deletedAt       DateTime?       // Soft delete field
+  createdById     String?         // Audit field
+  updatedById     String?         // Audit field
+  version         Int             @default(1) // For optimistic locking
+  User            User            @relation(fields: [userId], references: [id])
+  CreatedBy       User?           @relation("CartInsightCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy       User?           @relation("CartInsightUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([cartPattern])
+  @@index([severity])
+  @@index([triggeredAt])
+  @@index([type])
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CartItem {
+  id        String  @id
+  cartId    String
+  productId String
+  variantId String?
+  quantity  Int
+  deletedAt DateTime? // Soft delete field
+  createdById String? // Audit field
+  updatedById String? // Audit field
+  version   Int       @default(1) // For optimistic locking
+  Cart      Cart    @relation(fields: [cartId], references: [id])
+  Product   Product @relation(fields: [productId], references: [id])
+  CreatedBy User?   @relation("CartItemCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy User?   @relation("CartItemUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([cartId])
+  @@index([productId])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Category {
+  id                 String              @id
+  name               String
+  image              String?
+  nameTE             String?
+  parentId           String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime
+  deletedAt          DateTime?           // Soft delete field
+  createdById        String?             // Audit field
+  updatedById        String?             // Audit field
+  version            Int                 @default(1) // For optimistic locking
+  attributeSchema    Json?
+  isActive           Boolean             @default(true)
+  Category           Category?           @relation("CategoryToCategory", fields: [parentId], references: [id])
+  other_Category     Category[]          @relation("CategoryToCategory")
+  CategoryCommission CategoryCommission?
+  CommissionRule     CommissionRule[]
+  CategorySpec       CategorySpec[]
+  LocalPromotion     LocalPromotion[]
+  Product            Product[]
+  ProductSearchMiss  ProductSearchMiss[]
+  CreatedBy          User?               @relation("CategoryCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy          User?               @relation("CategoryUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([isActive])
+  @@index([parentId])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CategoryCommission {
+  id             String   @id
+  categoryId     String   @unique
+  /// Commission rate in basis points (bp). Example: 15% => 1500
+  commissionRate Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  deletedAt      DateTime? // Soft delete field
+  createdById    String?   // Audit field
+  updatedById    String?   // Audit field
+  version        Int       @default(1) // For optimistic locking
+  Category       Category @relation(fields: [categoryId], references: [id])
+  CreatedBy      User?    @relation("CategoryCommissionCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy      User?    @relation("CategoryCommissionUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([deletedAt])
+}
+
+/// CommissionRule - rule-based commission overrides for product/vendor/category/global
+model CommissionRule {
+  id             String          @id
+  scope          CommissionScope
+  /// Commission rate in basis points (bp). Example: 15% => 1500
+  commissionRate Int            @default(0)
+  isActive       Boolean         @default(true)
+  effectiveFrom  DateTime        @default(now())
+  effectiveTo    DateTime?
+  vendorId       String?
+  categoryId     String?
+  productId      String?
+  reason         String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?       // Soft delete field
+  createdById    String?         // Audit field
+  updatedById    String?         // Audit field
+  version        Int             @default(1) // For optimistic locking
+  Vendor         Vendor?         @relation(fields: [vendorId], references: [id])
+  Category       Category?       @relation(fields: [categoryId], references: [id])
+  Product        Product?        @relation(fields: [productId], references: [id])
+  CreatedBy      User?           @relation("CommissionRuleCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy      User?           @relation("CommissionRuleUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([scope, isActive])
+  @@index([vendorId])
+  @@index([categoryId])
+  @@index([productId])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CategorySpec {
+  id               String             @id
+  categoryId       String
+  key              String
+  label            String
+  labelTE          String?
+  type             SpecType
+  unit             String?
+  required         Boolean            @default(false)
+  options          Json?
+  sortOrder        Int                @default(0)
+  isActive         Boolean            @default(true)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  deletedAt        DateTime?          // Soft delete field
+  createdById      String?            // Audit field
+  updatedById      String?            // Audit field
+  version          Int                @default(1) // For optimistic locking
+  Category         Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  ProductSpecValue ProductSpecValue[]
+  CreatedBy        User?              @relation("CategorySpecCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy        User?              @relation("CategorySpecUpdatedBy", fields: [updatedById], references: [id])
+
+  @@unique([categoryId, key])
+  @@index([categoryId, isActive])
+  @@index([categoryId, sortOrder])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CheckoutFollowup {
+  id                String            @id
+  checkoutId        String
+  agentId           String
+  note              String
+  outcome           CallOutcome?
+  createdAt         DateTime          @default(now())
+  deletedAt         DateTime?         // Soft delete field
+  createdById       String?           // Audit field
+  updatedById       String?           // Audit field
+  version           Int               @default(1) // For optimistic locking
+  User              User              @relation(fields: [agentId], references: [id])
+  AbandonedCheckout AbandonedCheckout @relation(fields: [checkoutId], references: [id])
+  CreatedBy         User?             @relation("CheckoutFollowupCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy         User?             @relation("CheckoutFollowupUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CheckoutGroup {
+  id               String              @id
+  userId           String
+  provider         String              @default("RAZORPAY")
+  providerOrderId  String?
+  totalAmountPaise Int
+  currency         String              @default("INR")
+  status           CheckoutGroupStatus @default(PENDING_PAYMENT)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime
+  deletedAt        DateTime?           // Soft delete field
+  createdById      String?             // Audit field
+  updatedById      String?             // Audit field
+  version          Int                 @default(1) // For optimistic locking
+  User             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Order            Order[]
+  CreatedBy        User?               @relation("CheckoutGroupCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy        User?               @relation("CheckoutGroupUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([providerOrderId])
+  @@index([userId, createdAt])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ClearanceProduct {
+  id             String   @id
+  productId      String
+  vendorId       String
+  clearancePrice Int
+  originalPrice  Int
+  expiryDate     DateTime
+  quantity       Int
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  deletedAt      DateTime? // Soft delete field
+  createdById    String?   // Audit field
+  updatedById    String?   // Audit field
+  version        Int       @default(1) // For optimistic locking
+  Product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  Vendor         Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  CreatedBy      User?    @relation("ClearanceProductCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy      User?    @relation("ClearanceProductUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([expiryDate, isActive])
+  @@index([vendorId, isActive])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CoinLedger {
+  id                String    @id
+  userId            String
+  amount            Int
+  source            String
+  referenceId       String?
+  expiresAt         DateTime?
+  createdAt         DateTime  @default(now())
+  deletedAt         DateTime? // Soft delete field
+  createdById       String?   // Audit field
+  updatedById       String?   // Audit field
+  version           Int       @default(1) // For optimistic locking
+  isExpired         Boolean   @default(false)
+  paisePerCoinAtTxn Int       @default(100)
+  roleAtTxn         UserRole  @default(CUSTOMER)
+  User              User      @relation(fields: [userId], references: [id])
+  CreatedBy         User?     @relation("CoinLedgerCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy         User?     @relation("CoinLedgerUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([createdAt])
+  @@index([expiresAt])
+  @@index([isExpired])
+  @@index([roleAtTxn, createdAt])
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CoinValuation {
+  id            String    @id
+  role          UserRole
+  paisePerCoin  Int
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  setByUserId   String?
+  createdAt     DateTime  @default(now())
+  deletedAt     DateTime? // Soft delete field
+  createdById   String?   // Audit field
+  updatedById   String?   // Audit field
+  version       Int       @default(1) // For optimistic locking
+  User          User?     @relation(fields: [setByUserId], references: [id])
+  CreatedBy     User?     @relation("CoinValuationCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy     User?     @relation("CoinValuationUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([role, effectiveFrom])
+  @@index([role, effectiveTo])
+  @@index([deletedAt])
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  OPERATIONS_ADMIN
+  FINANCE_ADMIN
+  CONTENT_MODERATOR
+  ANALYTICS_VIEWER
+}
+
+enum AttributeScope {
+  PRODUCT
+  VARIATION
+}
+
+enum BannerCampaignStatus {
+  DRAFT
+  PENDING_PAYMENT
+  PAYMENT_RECEIVED
+  PENDING_APPROVAL
+  APPROVED
+  ACTIVE
+  PAUSED
+  EXPIRED
+  REJECTED
+  DEACTIVATED
+}
+
+enum BannerType {
+  HOMEPAGE_HERO
+  CATEGORY_SPOTLIGHT
+  SEARCH_RESULT
+  STORY_PROMOTION
+  WEEKLY_STANDARD
+  MONTHLY_PREMIUM
+}
+
+enum BetStatus {
+  PENDING
+  PLACED
+  SETTLED_WIN
+  SETTLED_LOSE
+  CANCELLED
+  VOIDED
+}
+
+enum BetType {
+  SINGLE
+  MULTIPLE
+  SYSTEM
+}
+
+enum BowActionType {
+  ADD_TO_CART
+  REMOVE_FROM_CART
+  UPDATE_QUANTITY
+  APPLY_COUPON
+  SELECT_GIFT
+  NAVIGATE
+  VIEW_CART
+  GET_RECOMMENDATIONS
+  CLIENT_CONTROL
+  ROOM_NUDGE
+  SUGGEST_BUNDLE
+  SUGGEST_GIFT
+  SUGGEST_UPSELL
+  REMOVE_SUGGESTION
+}
+
+enum CallOutcome {
+  NOT_REACHABLE
+  FOLLOW_UP_SCHEDULED
+  CONVERTED
+  DROPPED
+  WRONG_NUMBER
+}
+
+enum CartInsightType {
+  HESITATION
+  THRESHOLD_NEAR
+  BUNDLE_OPPORTUNITY
+  PRICE_SENSITIVITY
+  REPEAT_REMOVAL
+  GIFT_ELIGIBLE
+}
+
+enum CheckoutGroupStatus {
+  PENDING_PAYMENT
+  PAID
+  FAILED
+}
+
+enum CheckoutRecoveryStatus {
+  NEW
+  ASSIGNED
+  FOLLOW_UP
+  CONVERTED
+  DROPPED
+}
+
+enum ContentFlagType {
+  STORY
+  REEL
+  PRODUCT_IMAGE
+  REVIEW
+  VENDOR_PROFILE
+  PRODUCT
+  BANNER
+}
+
+enum CostBearer {
+  PLATFORM
+  VENDOR
+  CUSTOMER
+  SHARED
+}
+
+enum DeliverySlotSource {
+  AUTO
+  CUSTOMER
+}
+
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  ACCEPTED
+  PICKING_UP
+  PICKED_UP
+  IN_TRANSIT
+  ARRIVED
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum DisciplineStatus {
+  GOOD_STANDING
+  WARNING
+  PROBATION
+  SUSPENDED
+  FINAL_WARNING
+  BLOCKED
+  ACTIVE
+  BANNED
+  LIFTED
+  EXPIRED
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DocumentType {
+  AADHAAR
+  PAN
+  LICENSE
+  RC_BOOK
+  INSURANCE
+}
+
+enum DriverStatus {
+  PENDING
+  DOCUMENTS_SUBMITTED
+  VERIFIED
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+}
+
+enum EmployeeRole {
+  TELECALLER
+  SUPPORT_AGENT
+  CONTENT_MODERATOR
+  WAREHOUSE_STAFF
+  FINANCE_STAFF
+  OPERATIONS_MANAGER
+}
+
+enum FlagPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FlagReason {
+  NUDITY
+  VIOLENCE
+  HATE_SPEECH
+  COUNTERFEIT
+  PROHIBITED_ITEM
+  MISLEADING
+  SPAM
+  COPYRIGHT
+  TRADEMARK
+  HARASSMENT
+  MISINFORMATION
+  OTHER
+  INAPPROPRIATE
+  PROHIBITED
+  OFFENSIVE
+  LOW_QUALITY
+  DUPLICATE
+}
+
+enum FlagStatus {
+  PENDING
+  IN_REVIEW
+  UNDER_REVIEW
+  RESOLVED
+  ESCALATED
+}
+
+enum GeoSource {
+  PINCODE_DB
+  NOMINATIM
+  MANUAL
+}
+
+enum InquiryStatus {
+  PENDING
+  RESPONDED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum InsightSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum InteractionType {
+  CHAT
+  VOICE
+  RECOMMENDATION
+  ACTION
+}
+
+enum InvoiceStatus {
+  DRAFT
+  GENERATED
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum InvoiceType {
+  BANNER_CAMPAIGN
+  SUBSCRIPTION
+  COMMISSION
+  REFUND
+  ORDER
+}
+
+enum ItemCondition {
+  UNOPENED
+  OPENED_UNUSED
+  USED_LIKE_NEW
+  USED_GOOD
+  USED_FAIR
+  DAMAGED
+  DEFECTIVE
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  GIF
+}
+
+enum MemberStatus {
+  PENDING
+  ORDERED
+  CONFIRMED
+  CANCELLED
+}
+
+enum MembershipTier {
+  FREE
+  BASIC
+  PRO
+  PREMIUM
+  ELITE
+}
+
+enum MenuLocation {
+  HEADER
+  FOOTER
+  MOBILE_NAV
+  SIDEBAR
+}
+
+enum MessageSender {
+  CUSTOMER
+  VENDOR
+  ADMIN
+  SYSTEM
+}
+
+enum ModerationAction {
+  APPROVED
+  REMOVED
+  REMOVED_WITH_WARNING
+  REMOVED_WITH_STRIKE
+  ESCALATED
+  APPROVE
+  REMOVE
+  HIDE
+  EDIT
+  WARN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PACKED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  CREATED
+  PENDING_PAYMENT
+  PAID
+  OUT_FOR_INSPECTION
+  RETURN_REQUESTED
+  QC_IN_PROGRESS
+  RETURN_PICKED_UP
+  RETURN_RECEIVED
+  RETURNED
+  REFUNDED
+}
+
+enum PaymentIntentPurpose {
+  BANNER_SLOT
+  ROOM_PROMOTION
+  VENDOR_MEMBERSHIP
+  VENDOR_GST_COMPLIANCE
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum KycStatus {
+  PENDING
+  PENDING_PAYMENT
+  VERIFIED
+  REJECTED
+}
+
+enum PayoutCycle {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  INSTANT
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum PostStatus {
+  DRAFT
+  REVIEW
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ProductVisibility {
+  DRAFT
+  PUBLISHED
+  BLOCKED
+}
+
+enum PromotionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum PromotionType {
+  BANNER
+  ROOM_PACKAGE
+  FEATURED
+}
+
+enum ReferralStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+}
+
+enum RefundMethod {
+  ORIGINAL_PAYMENT
+  WALLET
+  BANK_TRANSFER
+  UPI
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSED
+  FAILED
+}
+
+enum ReturnReason {
+  DAMAGED_PRODUCT
+  WRONG_ITEM
+  MISSING_PARTS
+  QUALITY_ISSUE
+  SIZE_FIT_ISSUE
+  OTHER
+  NOT_AS_DESCRIBED
+  DEFECTIVE
+  CHANGED_MIND
+}
+
+enum ReturnStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PICKUP_SCHEDULED
+  PICKUP_COMPLETED
+  IN_TRANSIT
+  RECEIVED_AT_WAREHOUSE
+  QC_IN_PROGRESS
+  QC_PASSED
+  QC_FAILED
+  REFUND_INITIATED
+  REFUND_COMPLETED
+  REPLACEMENT_INITIATED
+  REPLACEMENT_SHIPPED
+  REPLACEMENT_COMPLETED
+  CANCELLED
+}
+
+enum ReviewStatus {
+  ACTIVE
+  REPORTED
+  HIDDEN
+  DELETED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RiskTag {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum RoomBoostType {
+  PRIORITY_VISIBILITY
+  UNLOCK_ACCELERATOR
+  SPONSORED_PRODUCT
+}
+
+enum RoomStatus {
+  LOCKED
+  ACTIVE
+  UNLOCKED
+  EXPIRED
+  OPEN
+  COMPLETED
+}
+
+enum RoomType {
+  GOAL_BASED
+  LINEAR_DISCOUNT
+}
+
+enum SettlementStatus {
+  PENDING
+  ELIGIBLE
+  SETTLED
+  REVERSED
+}
+
+enum CommissionScope {
+  PRODUCT
+  VENDOR
+  CATEGORY
+  GLOBAL
+}
+
+enum SpecType {
+  TEXT
+  NUMBER
+  SELECT
+  BOOLEAN
+  MULTISELECT
+}
+
+/// Campaign model for flash sales and promotional campaigns
+model Campaign {
+  id               String           @id @default(uuid())
+  name             String
+  description      String?
+  type             CampaignType     @default(FLASH_SALE)
+  startDate        DateTime
+  endDate          DateTime
+  discountType     DiscountType     @default(PERCENTAGE)
+  discountValue    Int              // Percentage (0-100) or fixed amount in paise
+  maxDiscount      Int?             // Maximum discount in paise (for PERCENTAGE type)
+  minOrderValue    Int?             // Minimum order value in paise to qualify
+  limitedStock     Boolean          @default(false)
+  totalStock       Int?             // Total stock allocated for campaign
+  usedStock        Int              @default(0) // Stock consumed by orders
+  status           CampaignStatus   @default(SCHEDULED)
+  priority         Int              @default(0) // Higher priority campaigns applied first
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?        // Soft delete field
+  createdById      String?          // Audit field
+  updatedById      String?          // Audit field
+  version          Int              @default(1) // For optimistic locking
+  createdBy        String?          // Admin user who created the campaign
+  targetAudience   String?          // ALL, NEW_USERS, PREMIUM, etc.
+  bannerImage      String?
+  termsConditions  String?
+  impressions      Int              @default(0)
+  clicks           Int              @default(0)
+  conversions      Int              @default(0)
+  revenue          Int              @default(0)
+  CreatedBy        User?            @relation("CampaignCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy        User?            @relation("CampaignUpdatedBy", fields: [updatedById], references: [id])
+
+  CampaignProduct  CampaignProduct[]
+
+  @@index([status])
+  @@index([startDate, endDate])
+  @@index([isActive])
+  @@index([type])
+  @@index([status, startDate, endDate])
+  @@index([deletedAt])
+}
+
+/// CampaignProduct model for many-to-many relation between Campaign and Product
+model CampaignProduct {
+  id              String   @id @default(uuid())
+  campaignId      String
+  productId       String
+  customDiscount  Int?     // Override campaign discount for specific product
+  stockAllocated  Int?     // Stock allocated for this product in campaign
+  stockUsed       Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime? // Soft delete field
+  createdById     String?   // Audit field
+  updatedById     String?   // Audit field
+  version         Int       @default(1) // For optimistic locking
+  Campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  Product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  CreatedBy       User?    @relation("CampaignProductCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy       User?    @relation("CampaignProductUpdatedBy", fields: [updatedById], references: [id])
+
+  @@unique([campaignId, productId])
+  @@index([campaignId])
+  @@index([productId])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model OrderFinancialSnapshot {
+  id               String   @id
+  orderId          String   @unique
+  subtotal         Decimal  // Changed from Int to Decimal for precision
+  taxAmount        Decimal  // Changed from Int to Decimal for precision
+  shippingAmount   Decimal  // Changed from Int to Decimal for precision
+  discountAmount   Decimal  // Changed from Int to Decimal for precision
+  giftCost         Decimal  // Changed from Int to Decimal for precision
+  /// Commission rate in basis points (bp). Example: 15% => 1500
+  commissionRate   Int
+  commissionAmount Decimal  // Changed from Int to Decimal for precision
+  vendorEarnings   Decimal  // Changed from Int to Decimal for precision
+  platformEarnings Decimal  // Changed from Int to Decimal for precision
+  currency         String   @default("INR")
+  calculatedAt     DateTime @default(now())
+  deletedAt        DateTime? // Soft delete field
+  createdById      String?   // Audit field
+  updatedById      String?   // Audit field
+  version          Int       @default(1) // For optimistic locking
+  Order            Order    @relation(fields: [orderId], references: [id])
+  CreatedBy        User?    @relation("OrderFinancialSnapshotCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy        User?    @relation("OrderFinancialSnapshotUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([orderId])
+  @@index([deletedAt])
+  @@index([calculatedAt]) // Added for time-based queries
+}
+
+/// Enhanced Product model with additional indexes
+model Product {
+  id                   String             @id
+  vendorId             String
+  title                String
+  name                 String?            // Alias for title for compatibility
+  description          String?
+  price                Decimal            // Changed from Int to Decimal for precision
+  offerPrice           Decimal?           // Changed from Int to Decimal for precision
+  stock                Int                @default(0)
+  categoryId           String
+  images               String[]
+  isWholesale          Boolean            @default(false)
+  wholesalePrice       Decimal?           // Changed from Int to Decimal for precision
+  moq                  Int                @default(1)
+  isActive             Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime
+  deletedAt            DateTime?          // Soft delete field
+  createdById          String?            // Audit field
+  updatedById          String?            // Audit field
+  version              Int                @default(1) // For optimistic locking
+  brandName            String?
+  dimensionUnit        String?            @default("cm")
+  height               Float?
+  length               Float?
+  metaDescription      String?
+  metaKeywords         String[]
+  metaTitle            String?
+  shippingClass        String?
+  sku                  String?            @unique
+  tags                 String[]
+  weight               Float?
+  weightUnit           String?            @default("kg")
+  width                Float?
+  allergenInformation  String?
+  attributes           Json?
+  basePreparationTime  Int                @default(0)
+  costPrice            Decimal?           // Changed from Int to Decimal for precision
+  isAttachmentRequired Boolean            @default(false)
+  isCancelable         Boolean            @default(false)
+  isInclusiveTax       Boolean            @default(false)
+  isReturnable         Boolean            @default(false)
+  mediaGallery         Json?
+  minOrderQuantity     Int                @default(1)
+  quantityStepSize     Int                @default(1)
+  requiresOTP          Boolean            @default(false)
+  rulesSnapshot        Json?
+  shippingDetails      Json?
+  storageInstructions  String?
+  totalAllowedQuantity Int                @default(10)
+  freeListingExpiresAt DateTime?
+  visibility           ProductVisibility  @default(DRAFT)
+  popularityScore      Float              @default(0)
+  embedding            Json?
+  disableAutoClearance Boolean            @default(false)
+  expiryDate           DateTime?
+  hasVariants          Boolean            @default(false)
+  BowActionLog         BowActionLog[]
+  BuyLater             BuyLater[]
+  CartItem             CartItem[]
+  ClearanceProduct     ClearanceProduct[]
+  Inventory            Inventory[]
+  LocalPromotion       LocalPromotion[]
+  CommissionRule       CommissionRule[]
+  Category             Category           @relation(fields: [categoryId], references: [id])
+  Vendor               Vendor             @relation(fields: [vendorId], references: [id])
+  OrderItem            OrderItem[]
+  ProductSpecValue     ProductSpecValue[]
+  ProductVariant       ProductVariant[]
+  Reel                 Reel[]
+  ReturnItem           ReturnItem[]
+  Review               Review[]
+  Room                 Room[]
+  UserProductEvent     UserProductEvent[]
+  VendorInquiry        VendorInquiry[]
+  Wishlist             Wishlist[]
+  CampaignProduct      CampaignProduct[]
+  UserProductInteraction UserProductInteraction[]
+  ProductSimilarity_ProductSimilarity_productIdToProduct        ProductSimilarity[] @relation("ProductSimilarity_productIdToProduct")
+  ProductSimilarity_ProductSimilarity_similarProductIdToProduct ProductSimilarity[] @relation("ProductSimilarity_similarProductIdToProduct")
+  CreatedBy            User?              @relation("ProductCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy            User?              @relation("ProductUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([categoryId])
+  @@index([categoryId, isActive, createdAt])
+  @@index([categoryId, isActive])
+  @@index([categoryId, isActive, price])
+  @@index([createdAt])
+  @@index([isActive, createdAt])
+  @@index([isActive])
+  @@index([isActive, price])
+  @@index([price])
+  @@index([sku])
+  @@index([vendorId])
+  @@index([vendorId, isActive])
+  @@index([vendorId, stock])
+  @@index([deletedAt])
+  @@fulltext([title, description, tags]) // Added full-text search index
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  TRANSFER
+}
+
+/// Enhanced Order model with additional indexes and audit fields
+model Order {
+  id                                                       String                     @id
+  userId                                                   String
+  roomId                                                   String?
+  addressId                                                String?
+  itemsSnapshot                                            Json                       @map("items")
+  totalAmount                                              Decimal                    // Changed from Int to Decimal for precision
+  coinsUsed                                                Int                        @default(0)
+  coinsUsedDebited                                         Boolean                    @default(false)
+  status                                                   OrderStatus                @default(PENDING)
+  razorpayOrderId                                          String?
+  awbNumber                                                String?
+  courierPartner                                           String?
+  createdAt                                                DateTime                   @default(now())
+  updatedAt                                                DateTime                   @default(now()) @updatedAt
+  deletedAt                                                DateTime?                  // Soft delete field
+  createdById                                              String?                    // Audit field
+  updatedById                                              String?                    // Audit field
+  version                                                  Int                        @default(1) // For optimistic locking
+  abandonedCheckoutId                                      String?
+  agentId                                                  String?
+  shippingCharges                                          Decimal                    // Changed from Int to Decimal for precision
+  couponCode                                               String?
+  discountAmount                                           Decimal                    // Changed from Int to Decimal for precision
+  giftId                                                   String?
+  deliveredAt                                              DateTime?
+  isReturnable                                             Boolean                    @default(true)
+  returnWindow                                             Int                        @default(7)
+  obdOtp                                                   String?
+  obdVerifiedAt                                            DateTime?
+  obdFailedAt                                              DateTime?
+  obdNotes                                                 String?
+  checkoutGroupId                                          String?
+  orderNumber                                              String?                    @unique
+  invoiceNumber                                            String?                    @unique
+  confirmedAt                                              DateTime?
+  isThirdPartyDelivery                                     Boolean                    @default(false)
+  trackingId                                               String?
+  Delivery                                                 Delivery[]
+  abandonedCheckout                                        AbandonedCheckout?         @relation(fields: [abandonedCheckoutId], references: [id])
+  address                                                  Address?                   @relation(fields: [addressId], references: [id])
+  checkoutGroup                                            CheckoutGroup?             @relation(fields: [checkoutGroupId], references: [id])
+  giftSKU                                                  GiftSKU?                   @relation(fields: [giftId], references: [id])
+  user                                                     User                       @relation(fields: [userId], references: [id])
+  OrderDeliverySlotSnapshot                                OrderDeliverySlotSnapshot?
+  OrderFinancialSnapshot                                   OrderFinancialSnapshot?
+  OrderItem                                                OrderItem[]
+  OrderPackingProof                                        OrderPackingProof?
+  OrderSettlement                                          OrderSettlement?
+  payment                                                  Payment?
+  ReferralRewardGrant                                      ReferralRewardGrant?
+  Refund                                                   Refund[]
+  ReplacementOrder_ReplacementOrder_newOrderIdToOrder      ReplacementOrder?          @relation("ReplacementOrder_newOrderIdToOrder")
+  ReplacementOrder_ReplacementOrder_originalOrderIdToOrder ReplacementOrder[]         @relation("ReplacementOrder_originalOrderIdToOrder")
+  ReturnQCChecklist                                        ReturnQCChecklist?
+  ReturnRequest                                            ReturnRequest[]
+  Shipment                                                 Shipment?
+  SupportTicket                                            SupportTicket[]
+  VendorStrike                                             VendorStrike[]
+  VendorOrder                                              VendorOrder[]
+  CouponUsage                                              CouponUsage[]
+  CreatedBy                                                User?                      @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy                                                User?                      @relation("OrderUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([awbNumber])
+  @@index([checkoutGroupId])
+  @@index([createdAt])
+  @@index([invoiceNumber])
+  @@index([orderNumber])
+  @@index([razorpayOrderId])
+  @@index([roomId, userId])
+  @@index([status, createdAt])
+  @@index([status])
+  @@index([userId])
+  @@index([userId, status])
+  @@index([userId, createdAt])
+  @@index([deletedAt])
+  @@index([totalAmount]) // Added for financial queries
+  @@index([status, createdAt, userId]) // Added for common dashboard queries
+}
+
+enum StrikeResolution {
+  REMOVED
+  UPHELD
+  REDUCED
+  APPEALED
+  DECAYED
+  OVERTURNED
+}
+
+enum StrikeType {
+  FAILED_DELIVERY
+  SHOP_CLOSED
+  LATE_PREPARATION
+  CUSTOMER_COMPLAINT
+  QUALITY_ISSUE
+  REPEATED_CANCELLATION
+  POLICY_VIOLATION
+  CONTENT_VIOLATION
+  WARNING
+  PRODUCT_VIOLATION
+  DELIVERY_FAILURE
+  FRAUD
+  REPEATED_OFFENSE
+}
+
+enum TicketCategory {
+  ORDER_ISSUE
+  PAYMENT_ISSUE
+  RETURN_REFUND
+  PRODUCT_INQUIRY
+  DELIVERY_ISSUE
+  VENDOR_COMPLAINT
+  TECHNICAL_ISSUE
+  ACCOUNT_ISSUE
+  OTHER
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  WAITING_VENDOR
+  ESCALATED
+  RESOLVED
+  CLOSED
+}
+
+enum UserProductEventType {
+  PRODUCT_VIEW
+  PRODUCT_CLICK
+  ADD_TO_CART
+  REMOVE_FROM_CART
+  WISHLIST_ADD
+  PURCHASE
+}
+
+enum UserRole {
+  CUSTOMER
+  VENDOR
+  WHOLESALER
+  ADMIN
+  SUPER_ADMIN
+  TELECALLER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+  BANNED
+}
+
+enum ValueTag {
+  NORMAL
+  VIP
+}
+
+enum VariationStatus {
+  ACTIVE
+  OUT_OF_STOCK
+  ARCHIVED
+}
+
+enum VehicleType {
+  BIKE
+  SCOOTER
+  CAR
+  VAN
+  TRUCK
+}
+
+enum VendorRole {
+  RETAILER
+  WHOLESALER
+}
+
+enum VendorStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum VendorDocumentType {
+  PAN_CARD
+  GST_CERTIFICATE
+  AADHAAR_CARD
+  DRIVING_LICENSE
+  PASSPORT
+  BANK_STATEMENT
+  CANCELLED_CHEQUE
+  STORE_PHOTO
+  OTHER
+}
+
+enum CampaignType {
+  FLASH_SALE
+  DISCOUNT
+  BUNDLE
+  SEASONAL
+}
+
+enum CampaignStatus {
+  SCHEDULED
+  ACTIVE
+  ENDED
+  PAUSED
+  CANCELLED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+/// UserProductInteraction model for tracking user interactions for recommendations
+model UserProductInteraction {
+  id              String                    @id @default(uuid())
+  userId          String
+  productId       String
+  interactionType UserInteractionType
+  createdAt       DateTime                  @default(now())
+  deletedAt       DateTime?                 // Soft delete field
+  createdById     String?                   // Audit field
+  updatedById     String?                   // Audit field
+  version         Int                       @default(1) // For optimistic locking
+  metadata        Json?                     // Store additional context like session, source, etc.
+  User            User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Product         Product                   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  CreatedBy       User?                     @relation("UserProductInteractionCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy       User?                     @relation("UserProductInteractionUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([userId, productId, interactionType])
+  @@index([userId, createdAt])
+  @@index([productId, interactionType])
+  @@index([interactionType, createdAt])
+  @@index([deletedAt])
+}
+
+/// ProductSimilarity model for pre-calculated product similarities
+model ProductSimilarity {
+  id               String   @id @default(uuid())
+  productId        String
+  similarProductId String
+  score            Float    // Similarity score (0-1)
+  calculatedAt     DateTime @default(now())
+  algorithm        String   @default("content_based") // Algorithm used: content_based, collaborative, hybrid
+  deletedAt        DateTime? // Soft delete field
+  createdById      String?   // Audit field
+  updatedById      String?   // Audit field
+  version          Int       @default(1) // For optimistic locking
+  Product_ProductSimilarity_productIdToProduct        Product @relation("ProductSimilarity_productIdToProduct", fields: [productId], references: [id], onDelete: Cascade)
+  Product_ProductSimilarity_similarProductIdToProduct Product @relation("ProductSimilarity_similarProductIdToProduct", fields: [similarProductId], references: [id], onDelete: Cascade)
+  CreatedBy        User?    @relation("ProductSimilarityCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy        User?    @relation("ProductSimilarityUpdatedBy", fields: [updatedById], references: [id])
+
+  @@unique([productId, similarProductId, algorithm])
+  @@index([productId, score])
+  @@index([similarProductId])
+  @@index([deletedAt])
+}
+
+enum UserInteractionType {
+  VIEW
+  ADD_TO_CART
+  PURCHASE
+  WISHLIST
+  REMOVE_FROM_CART
+}
+
+/// InvoiceTemplate model for vendor invoice customization
+model InvoiceTemplate {
+  id                 String                @id @default(uuid())
+  vendorId           String
+  templateName       String
+  logoUrl            String?
+  companyName        String
+  address            String?
+  phone              String?
+  email              String?
+  gstin              String?                // GST Identification Number
+  taxFields          Json?                  // Custom tax fields configuration: {fields: [{name, rate, type}]}
+  headerText         String?                // Custom header/banner text
+  footerText         String?                // Terms, signature, custom footer
+  showQrCode         Boolean                @default(true)
+  currency           String                 @default("INR")
+  locale             String                 @default("en-IN")
+  isDefault          Boolean                @default(false)
+  isActive           Boolean                @default(true)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  deletedAt          DateTime?              // Soft delete field
+  createdById        String?                // Audit field
+  updatedById        String?                // Audit field
+  version            Int                    @default(1) // For optimistic locking
+  Vendor             Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  InvoiceCustomField InvoiceCustomField[]
+  CreatedBy          User?                  @relation("InvoiceTemplateCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy          User?                  @relation("InvoiceTemplateUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([vendorId, isDefault])
+  @@index([vendorId, isActive])
+  @@index([deletedAt])
+}
+
+/// InvoiceCustomField model for additional fields in invoice templates
+model InvoiceCustomField {
+  id          String          @id @default(uuid())
+  templateId  String
+  fieldName   String          // e.g., "PAN", "CIN", "Bank Details"
+  fieldValue  String
+  displayOrder Int            @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?       // Soft delete field
+  createdById String?         // Audit field
+  updatedById String?         // Audit field
+  version     Int             @default(1) // For optimistic locking
+  Template    InvoiceTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  CreatedBy   User?           @relation("InvoiceCustomFieldCreatedBy", fields: [createdById], references: [id])
+  UpdatedBy   User?           @relation("InvoiceCustomFieldUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([templateId, displayOrder])
+  @@index([deletedAt])
+}

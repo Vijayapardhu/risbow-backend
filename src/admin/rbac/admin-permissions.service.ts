@@ -73,6 +73,12 @@ export enum Permission {
   CONTENT_MODERATE = 'content:moderate',
   CONTENT_DELETE = 'content:delete',
 
+  // CMS Management
+  CMS_READ = 'cms:read',
+  CMS_CREATE = 'cms:create',
+  CMS_UPDATE = 'cms:update',
+  CMS_DELETE = 'cms:delete',
+
   // Reports & Analytics
   REPORT_VIEW = 'report:view',
   REPORT_CREATE = 'report:create',

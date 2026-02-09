@@ -30,7 +30,7 @@ export class AdminCampaignsController {
   @AdminRoles(AdminRole.OPERATIONS_ADMIN)
   @ApiOperation({ summary: 'Create a new campaign' })
   @ApiResponse({ status: 201, description: 'Campaign created successfully' })
-  async createCampaign(@Body() dto: CreateCampaignDto, @Request() req) {
+  async createCampaign(@Body() dto: CreateCampaignDto, @Request() req: any) {
     return this.campaignsService.createCampaign(dto, req.user?.id);
   }
 

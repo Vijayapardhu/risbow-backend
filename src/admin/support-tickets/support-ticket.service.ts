@@ -1,0 +1,167 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CreateSupportTicketDto, UpdateSupportTicketDto, AssignTicketDto, ResolveTicketDto } from './dto';
+
+@Injectable()
+export class SupportTicketService {
+  constructor(private prisma: PrismaService) {}
+
+  async getAllTickets(
+    page: number, 
+    limit: number, 
+    status?: string, 
+    priority?: string, 
+    category?: string, 
+    assignedTo?: string, 
+    search?: string
+  ) {
+    const where: any = {};
+    
+    if (status) {
+      where.status = status;
+    }
+    
+    if (priority) {
+      where.priority = priority;
+    }
+    
+    if (category) {
+      where.category = category;
+    }
+    
+    if (assignedTo) {
+      where.assignedTo = assignedTo;
+    }
+    
+    if (search) {
+      where.OR = [
+        { subject: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { ticketNumber: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [tickets, total] = await Promise.all([
+      this.prisma.supportTicket.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          User: { select: { id: true, name: true, email: true, mobile: true } },
+          Admin: { select: { id: true, name: true, email: true } },
+          Order: { select: { id: true, orderNumber: true } },
+          Product: { select: { id: true, title: true } },
+          Vendor: { select: { id: true, name: true } },
+          TicketMessage: {
+            orderBy: { createdAt: 'desc' },
+            take: 10, // Limit messages in ticket list
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.supportTicket.count({ where }),
+    ]);
+
+    return {
+      data: tickets,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getTicketById(id: string) {
+    return this.prisma.supportTicket.findUnique({
+      where: { id },
+      include: {
+        User: { select: { id: true, name: true, email: true, mobile: true } },
+        Admin: { select: { id: true, name: true, email: true } },
+        Order: { select: { id: true, orderNumber: true, totalAmount: true } },
+        Product: { select: { id: true, title: true, price: true } },
+        Vendor: { select: { id: true, name: true } },
+        TicketMessage: {
+          include: {
+            SupportTicket: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+  }
+
+  async createTicket(dto: CreateSupportTicketDto) {
+    return this.prisma.supportTicket.create({
+      data: {
+        ...dto,
+        ticketNumber: `TKT-${Date.now()}`, // Generate ticket number
+      },
+    });
+  }
+
+  async updateTicket(id: string, dto: UpdateSupportTicketDto) {
+    return this.prisma.supportTicket.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async assignTicket(id: string, assignDto: AssignTicketDto) {
+    return this.prisma.supportTicket.update({
+      where: { id },
+      data: {
+        assignedTo: assignDto.agentId,
+        status: 'IN_PROGRESS', // Automatically set to in-progress when assigned
+      },
+    });
+  }
+
+  async updateTicketStatus(id: string, status: string) {
+    return this.prisma.supportTicket.update({
+      where: { id },
+      data: { status },
+    });
+  }
+
+  async resolveTicket(id: string, resolveDto: ResolveTicketDto) {
+    return this.prisma.supportTicket.update({
+      where: { id },
+      data: {
+        status: 'RESOLVED',
+        resolvedAt: new Date(),
+        closedAt: new Date(),
+        firstResponseAt: new Date(), // Set first response time when resolved
+      },
+    });
+  }
+
+  async deleteTicket(id: string) {
+    return this.prisma.supportTicket.delete({
+      where: { id },
+    });
+  }
+
+  async getTicketMessages(ticketId: string) {
+    return this.prisma.ticketMessage.findMany({
+      where: { ticketId },
+      include: {
+        SupportTicket: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async addTicketMessage(ticketId: string, message: string) {
+    return this.prisma.ticketMessage.create({
+      data: {
+        ticketId,
+        senderId: 'system', // This would come from the authenticated user
+        senderType: 'ADMIN',
+        senderName: 'System', // This would come from the authenticated user
+        message,
+      },
+    });
+  }
+}

@@ -65,7 +65,7 @@ export class InvoicesService {
         order = { ...order, invoiceNumber };
 
         // Get vendor info from order items
-        const items = Array.isArray(order.items) ? order.items : [];
+        const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot : [];
         let vendorName = 'Risbow Store';
         let vendorAddress = 'Risbow HQ, Bangalore, Karnataka - 560001';
         let vendorGST = '29AABCU9603R1ZM';

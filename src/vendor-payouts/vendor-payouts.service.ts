@@ -137,8 +137,23 @@ export class VendorPayoutsService {
 
     async processPayout(adminId: string, vendorId: string, amount: number, transactionId: string) {
         return this.prisma.$transaction(async (tx) => {
+            // Idempotency guard: check if a payout with this transactionId already exists
+            if (transactionId) {
+                const existingPayout = await tx.vendorPayout.findFirst({
+                    where: { transactionId },
+                });
+                if (existingPayout) {
+                    this.logger.warn(`Duplicate payout attempt with transactionId: ${transactionId}, returning existing`);
+                    return existingPayout;
+                }
+            }
+
             const vendor = await tx.vendor.findUnique({ where: { id: vendorId } });
             if (!vendor) throw new NotFoundException('Vendor not found');
+
+            if (amount <= 0) {
+                throw new BadRequestException('Payout amount must be a positive integer');
+            }
 
             if (vendor.pendingEarnings < amount) {
                 throw new BadRequestException(`Insufficient pending earnings. Current: ${vendor.pendingEarnings}`);
@@ -159,7 +174,7 @@ export class VendorPayoutsService {
                 }
             });
 
-            // 2. Debit Vendor Earnings (prevent double processing)
+            // 2. Debit Vendor Earnings atomically within the same transaction
             await tx.vendor.update({
                 where: { id: vendorId },
                 data: {

@@ -138,12 +138,29 @@ export class CouponsService {
                 };
             }
 
-            // Check usage limit
+            // Check global usage limit
             if (coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit) {
                 return {
                     isValid: false,
                     message: 'This coupon has reached its usage limit',
                 };
+            }
+
+            // Check per-user usage limit (prevents same user from reusing a coupon)
+            if (dto.userId) {
+                const userUsageCount = await this.prisma.couponUsage.count({
+                    where: {
+                        couponId: coupon.id,
+                        userId: dto.userId,
+                    },
+                });
+                const perUserLimit = (coupon as any).perUserLimit ?? 1;
+                if (userUsageCount >= perUserLimit) {
+                    return {
+                        isValid: false,
+                        message: 'You have already used this coupon the maximum number of times',
+                    };
+                }
             }
 
             // Check minimum order amount
@@ -211,12 +228,23 @@ export class CouponsService {
     }
 
     /**
-     * Increment coupon usage count (called after order success)
+     * Increment coupon usage count and track per-user usage (called after order success)
+     * Must be called inside the checkout transaction for atomicity.
      */
-    async incrementUsageCount(couponCode: string): Promise<void> {
+    async incrementUsageCount(couponCode: string, userId?: string, orderId?: string): Promise<void> {
         this.logger.log(`Incrementing usage count for coupon: ${couponCode}`);
 
         try {
+            const coupon = await this.prisma.coupon.findUnique({
+                where: { code: couponCode.toUpperCase() },
+            });
+
+            if (!coupon) {
+                this.logger.error(`Coupon not found: ${couponCode}`);
+                return;
+            }
+
+            // Increment global usage count
             await this.prisma.coupon.update({
                 where: { code: couponCode.toUpperCase() },
                 data: {
@@ -224,7 +252,19 @@ export class CouponsService {
                 },
             });
 
-            this.logger.log(`Coupon usage count incremented successfully`);
+            // Track per-user usage in CouponUsage table
+            if (userId) {
+                await this.prisma.couponUsage.create({
+                    data: {
+                        couponId: coupon.id,
+                        userId,
+                        orderId: orderId || '',
+                        discount: 0, // will be updated by caller if needed
+                    } as any,
+                });
+            }
+
+            this.logger.log(`Coupon usage count incremented and per-user record created`);
         } catch (error) {
             this.logger.error(`Error incrementing coupon usage: ${error.message}`);
             // Don't throw error as order is already created

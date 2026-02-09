@@ -151,7 +151,7 @@ export class AdminVendorsController {
     @ApiResponse({ status: 404, description: 'Vendor not found' })
     async verifyVendor(
         @Param('id') id: string,
-        @Request() req,
+        @Request() req: any,
         @Body() body: { notes?: string },
     ) {
         const vendor = await this.prisma.vendor.findUnique({
@@ -211,7 +211,7 @@ export class AdminVendorsController {
     @ApiResponse({ status: 404, description: 'Vendor not found' })
     async rejectVendor(
         @Param('id') id: string,
-        @Request() req,
+        @Request() req: any,
         @Body() body: { reason: string; notes?: string },
     ) {
         if (!body.reason) {

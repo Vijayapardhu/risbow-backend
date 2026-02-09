@@ -357,9 +357,100 @@ export class AdminService {
                 details: {}
             }
         });
+
         return updated;
     }
 
+    async bulkUpdateVendors(adminId: string, vendorIds: string[], data: { kycStatus?: string; storeStatus?: string }) {
+        const results = await Promise.all(
+            vendorIds.map(async (vendorId) => {
+                try {
+                    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+                    if (!vendor) {
+                        return { vendorId, success: false, error: 'Vendor not found' };
+                    }
+
+                    const updateData: any = {};
+                    if (data.kycStatus) updateData.kycStatus = data.kycStatus;
+                    if (data.storeStatus) updateData.storeStatus = data.storeStatus;
+
+                    const updated = await this.prisma.vendor.update({
+                        where: { id: vendorId },
+                        data: updateData
+                    });
+
+                    await this.prisma.auditLog.create({
+                        data: {
+                            id: randomUUID(),
+                            adminId,
+                            entity: 'VENDOR',
+                            entityId: vendorId,
+                            action: 'BULK_UPDATE',
+                            details: { updateData, previousData: vendor }
+                        }
+                    });
+
+                    return { vendorId, success: true, data: updated };
+                } catch (error) {
+                    return { vendorId, success: false, error: error.message };
+                }
+            })
+        );
+
+        const success = results.filter(r => r.success).length;
+        const failed = results.filter(r => !r.success).length;
+
+        return {
+            total: vendorIds.length,
+            success,
+            failed,
+            results
+        };
+    }
+
+    async bulkDeleteVendors(adminId: string, vendorIds: string[]) {
+        const results = await Promise.all(
+            vendorIds.map(async (vendorId) => {
+                try {
+                    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+                    if (!vendor) {
+                        return { vendorId, success: false, error: 'Vendor not found' };
+                    }
+
+                    // Soft delete by marking as deleted
+                    await this.prisma.vendor.update({
+                        where: { id: vendorId },
+                        data: { deletedAt: new Date() }
+                    });
+
+                    await this.prisma.auditLog.create({
+                        data: {
+                            id: randomUUID(),
+                            adminId,
+                            entity: 'VENDOR',
+                            entityId: vendorId,
+                            action: 'BULK_DELETE',
+                            details: { deletedVendor: vendor }
+                        }
+                    });
+
+                    return { vendorId, success: true };
+                } catch (error) {
+                    return { vendorId, success: false, error: error.message };
+                }
+            })
+        );
+
+        const success = results.filter(r => r.success).length;
+        const failed = results.filter(r => !r.success).length;
+
+        return {
+            total: vendorIds.length,
+            success,
+            failed,
+            results
+        };
+    }
     // --- USERS MANAGEMENT: Risk & Value Tags ---
 
     async updateRiskTag(adminId: string, userId: string, tag: string) {

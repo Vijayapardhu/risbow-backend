@@ -403,7 +403,7 @@ export class CheckoutService {
                             orderNumber,
                             totalAmount: totalAmountPaise,
                             status: orderStatus,
-                            items: items as any,
+                            itemsSnapshot: items as any,
                             giftId: selectedGiftId && giftVendorId === vendorId ? selectedGiftId : null,
                             couponCode: appliedCouponCode,
                             discountAmount: allocDiscount,
@@ -502,7 +502,7 @@ export class CheckoutService {
                 if (isCod) {
                     // COD: deduct stock now (no payment confirm path). This also releases Redis reservations.
                     for (const o of createdOrders) {
-                        const items = Array.isArray((o as any).items) ? ((o as any).items as any[]) : (vendorGroups.get(o.vendorId) || []);
+                        const items = Array.isArray((o as any).itemsSnapshot) ? ((o as any).itemsSnapshot as any[]) : (vendorGroups.get(o.vendorId) || []);
                         for (const it of items) {
                             await this.inventoryService.deductStock(it.productId, it.quantity, it.variantId, tx);
                         }

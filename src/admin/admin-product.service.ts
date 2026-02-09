@@ -91,7 +91,7 @@ export class AdminProductService {
                 const vendor = (product as any).vendor || null;
 
                 const avgRating = reviews.length > 0
-                    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+                    ? reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / reviews.length
                     : 0;
 
                 const basePrice = (product as any).price ?? 0; // paise

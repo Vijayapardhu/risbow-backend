@@ -15,6 +15,8 @@ import { ReferralRewardRulesController } from './referral-reward-rules.controlle
 import { AdminRoomsController } from './admin-rooms.controller';
 import { AdminSubscriptionsController } from './admin-subscriptions.controller';
 import { AdminVendorsController } from './admin-vendors.controller';
+import { AdminUploadsController } from './admin-uploads.controller';
+import { AdminUploadsService } from './admin-uploads.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { VendorsModule } from '../vendors/vendors.module';
 import { BowModule } from '../bow/bow.module';
@@ -93,6 +95,7 @@ import { ReportingModule } from './reports/reporting.module';
         AdminSubscriptionsController,
         AdminCampaignsController,
         AdminVendorsController,
+        AdminUploadsController,
     ],
     providers: [
         AdminService,
@@ -101,6 +104,7 @@ import { ReportingModule } from './reports/reporting.module';
         CategorySpecService,
         BowAdminService,
         CampaignsService,
+        AdminUploadsService,
     ],
     exports: [
         // Export new modules for use in other parts of the application

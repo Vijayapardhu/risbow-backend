@@ -129,7 +129,7 @@ export class OrdersService {
                 userId,
                 roomId: dto.roomId,
                 orderNumber,
-                items: dto.items as any,
+                itemsSnapshot: dto.items as any,
                 // Money is stored as integer paise
                 totalAmount: payableInPaise,
                 coinsUsed: usableCoins,
@@ -252,7 +252,7 @@ export class OrdersService {
                 confirmedIds.push(order.id);
 
                 // Deduct stock
-                const items = Array.isArray(order.items) ? (order.items as any[]) : [];
+                const items = Array.isArray(order.itemsSnapshot) ? (order.itemsSnapshot as any[]) : [];
                 for (const item of items) {
                     await this.inventoryService.deductStock(item.productId, item.quantity, item.variantId, tx);
                 }
@@ -303,7 +303,7 @@ export class OrdersService {
         // 3d. Best-effort purchase event capture (after successful confirm)
         try {
             for (const order of orders) {
-                const items = Array.isArray(order.items) ? (order.items as any[]) : [];
+                const items = Array.isArray(order.itemsSnapshot) ? (order.itemsSnapshot as any[]) : [];
                 for (const item of items) {
                     const unitPrice = item.price || item.offerPrice || undefined;
                     await this.events.track({
@@ -466,7 +466,7 @@ export class OrdersService {
 
             // Restore inventory if stock was deducted
             if ((order as any).stockDeducted) {
-                const items = order.items as any[];
+                const items = order.itemsSnapshot as any[];
                 for (const item of items) {
                     await tx.product.update({
                         where: { id: item.productId },
@@ -625,7 +625,7 @@ export class OrdersService {
         const allVendorIds = new Set<string>();
 
         orders.forEach(order => {
-            const items = Array.isArray(order.items) ? order.items : [];
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot : [];
             items.forEach((item: any) => {
                 if (item.productId) allProductIds.add(item.productId);
                 if (item.vendorId) allVendorIds.add(item.vendorId);
@@ -651,7 +651,7 @@ export class OrdersService {
         // Transform orders to match frontend expectations
         const transformedOrders = orders.map(order => {
             // Parse items from JSON to calculate subtotal
-            const items = Array.isArray(order.items) ? order.items : [];
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot : [];
 
             // Get vendor info from the first item's product
             let shopId = '';
@@ -827,7 +827,7 @@ export class OrdersService {
         }
 
         // Transform single order with same logic as list
-        const items = Array.isArray(order.items) ? order.items : [];
+        const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot : [];
 
         // Collect productIds and vendorIds from items
         const productIds = new Set<string>();
@@ -1010,7 +1010,7 @@ export class OrdersService {
         if (status === OrderStatus.DELIVERED && order.status !== OrderStatus.DELIVERED) {
             try {
                 // Extract vendor ID from order items
-                const items = (order.items as any[]) || [];
+                const items = (order.itemsSnapshot as any[]) || [];
                 const vendorIds = [...new Set(items.map(item => item.vendorId).filter(Boolean))];
 
                 // Process successful delivery for each vendor
@@ -1027,7 +1027,7 @@ export class OrdersService {
         if ((status === OrderStatus.CANCELLED || status === OrderStatus.RETURNED) &&
             (order.status === OrderStatus.SHIPPED || order.status === OrderStatus.PACKED)) {
             try {
-                const items = (order.items as any[]) || [];
+                const items = (order.itemsSnapshot as any[]) || [];
                 const vendorIds = [...new Set(items.map(item => item.vendorId).filter(Boolean))];
 
                 // Add strike for missed delivery
@@ -1069,54 +1069,112 @@ export class OrdersService {
     }
 
     async updatePaymentStatus(orderId: string, paymentStatus: string, notes?: string) {
-        const order = await this.prisma.order.findUnique({
-            where: { id: orderId },
-            include: { payment: true }
-        });
-
-        if (!order) {
-            throw new NotFoundException('Order not found');
-        }
-
-        let updatedPayment = null;
-
-        // Update payment status if payment record exists
-        if (order.payment) {
-            updatedPayment = await this.prisma.payment.update({
-                where: { id: order.payment.id },
-                data: {
-                    status: paymentStatus as any,
-                    updatedAt: new Date()
+        return this.prisma.$transaction(async (tx) => {
+            const order = await tx.order.findUnique({
+                where: { id: orderId },
+                include: {
+                    payment: true,
+                    items: { include: { product: true } },
                 }
             });
-        } else {
-            // Create a payment record if it doesn't exist
-            updatedPayment = await this.prisma.payment.create({
-                data: {
-                    id: randomUUID(),
-                    orderId,
-                    amount: order.totalAmount,
-                    currency: 'INR',
-                    provider: 'MANUAL',
-                    status: paymentStatus as any,
-                } as any
-            });
-        }
 
-        // If payment is now successful and order is pending, update order status
-        if (paymentStatus === 'SUCCESS' && order.status === OrderStatus.PENDING) {
-            await this.prisma.order.update({
-                where: { id: orderId },
-                data: { status: OrderStatus.CONFIRMED, confirmedAt: new Date() }
-            });
-        }
+            if (!order) {
+                throw new NotFoundException('Order not found');
+            }
 
-        this.logger.log(`Payment status updated for order ${orderId}: ${paymentStatus}`);
+            // Idempotency guard: if payment is already in the target status, return early
+            if (order.payment?.status === paymentStatus) {
+                this.logger.log(`Payment for order ${orderId} already in status ${paymentStatus}, skipping`);
+                return {
+                    success: true,
+                    payment: order.payment,
+                    notes,
+                    skipped: true,
+                };
+            }
 
-        return {
-            success: true,
-            payment: updatedPayment,
-            notes
-        };
+            let updatedPayment = null;
+
+            // Update payment status if payment record exists
+            if (order.payment) {
+                updatedPayment = await tx.payment.update({
+                    where: { id: order.payment.id },
+                    data: {
+                        status: paymentStatus as any,
+                        updatedAt: new Date()
+                    }
+                });
+            } else {
+                // Create a payment record if it doesn't exist
+                updatedPayment = await tx.payment.create({
+                    data: {
+                        id: randomUUID(),
+                        orderId,
+                        amount: order.totalAmount,
+                        currency: 'INR',
+                        provider: 'MANUAL',
+                        status: paymentStatus as any,
+                    } as any
+                });
+            }
+
+            // If payment is now successful and order is pending, run full confirmation
+            if (paymentStatus === 'SUCCESS' && order.status === OrderStatus.PENDING) {
+                // 1. Update order status to CONFIRMED
+                await tx.order.update({
+                    where: { id: orderId },
+                    data: { status: OrderStatus.CONFIRMED, confirmedAt: new Date() }
+                });
+
+                // 2. Create financial snapshot if not exists
+                const existingSnapshot = await tx.orderFinancialSnapshot.findUnique({
+                    where: { orderId },
+                });
+                if (!existingSnapshot) {
+                    const subtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                    const taxAmount = Math.round((subtotal * 18) / 100);
+                    await tx.orderFinancialSnapshot.create({
+                        data: {
+                            id: randomUUID(),
+                            orderId,
+                            subtotal,
+                            taxAmount,
+                            shippingAmount: order.shippingCharge || 0,
+                            discountAmount: order.discountAmount || 0,
+                            totalAmount: order.totalAmount,
+                            commissionRate: 0,
+                            commissionAmount: 0,
+                            vendorEarnings: 0,
+                            platformEarnings: 0,
+                            snapshotData: {},
+                        } as any
+                    });
+                }
+
+                // 3. Create settlement record if not exists
+                const existingSettlement = await tx.orderSettlement.findFirst({
+                    where: { orderId },
+                });
+                if (!existingSettlement) {
+                    await tx.orderSettlement.create({
+                        data: {
+                            id: randomUUID(),
+                            orderId,
+                            vendorId: order.vendorId,
+                            amount: order.totalAmount,
+                            status: 'PENDING',
+                        } as any
+                    });
+                }
+            }
+
+            this.logger.log(`Payment status updated for order ${orderId}: ${paymentStatus}`);
+
+            return {
+                success: true,
+                payment: updatedPayment,
+                notes
+            };
+        });
     }
 }

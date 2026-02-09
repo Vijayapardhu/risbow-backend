@@ -21,7 +21,7 @@ model AbandonedCheckout {
   lockedUntil                          DateTime?
   createdAt                            DateTime               @default(now())
   abandonedAt                          DateTime               @default(now())
-  updatedAt                            DateTime
+  updatedAt                            DateTime               @default(now()) @updatedAt
   abandonReason                        String?
   lastErrorCode                        String?
   paymentMethod                        String?
@@ -53,7 +53,7 @@ model Address {
   createdAt    DateTime   @default(now())
   label        String     @default("Home")
   phone        String
-  updatedAt    DateTime
+  updatedAt    DateTime   @default(now()) @updatedAt
   latitude     Float?
   longitude    Float?
   geoSource    GeoSource?
@@ -74,7 +74,8 @@ model Admin {
   isActive      Boolean         @default(true)
   lastLoginAt   DateTime?
   name          String?
-  updatedAt     DateTime
+  updatedAt     DateTime        @default(now()) @updatedAt
+  deletedAt     DateTime?
   BlogPost      BlogPost[]
   SupportTicket SupportTicket[]
 
@@ -86,7 +87,7 @@ model Admin {
 model AdminUser {
   id             String         @id @default(uuid())
   email          String         @unique
-  password       String         // Also serves as passwordHash
+  password       String // Also serves as passwordHash
   name           String
   role           AdminRole      @default(OPERATIONS_ADMIN)
   isActive       Boolean        @default(true)
@@ -109,16 +110,16 @@ model AdminUser {
 
 /// AdminSession model for session management
 model AdminSession {
-  id          String     @id @default(uuid())
+  id          String    @id @default(uuid())
   adminUserId String
-  token       String     @unique
+  token       String    @unique
   ipAddress   String?
   userAgent   String?
-  isActive    Boolean    @default(true)
+  isActive    Boolean   @default(true)
   expiresAt   DateTime
-  lastActive  DateTime   @default(now())
-  createdAt   DateTime   @default(now())
-  AdminUser   AdminUser  @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  lastActive  DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  AdminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
 
   @@index([adminUserId])
   @@index([token])
@@ -128,11 +129,11 @@ model AdminSession {
 /// AdminAction model for audit logging
 model AdminAction {
   id           String    @id @default(uuid())
-  adminId      String    // Match the field name code expects
+  adminId      String // Match the field name code expects
   action       String
   entity       String?
   entityId     String?
-  resourceType String?   // For filtering by resource type
+  resourceType String? // For filtering by resource type
   changes      Json?
   ipAddress    String?
   userAgent    String?
@@ -148,33 +149,35 @@ model AdminAction {
 
 /// OrderItem model for individual order line items
 model OrderItem {
-  id          String   @id @default(uuid())
-  orderId     String
-  productId   String
-  vendorId    String
-  quantity    Int
-  price       Int
-  offerPrice  Int?
-  subtotal    Int
-  tax         Int      @default(0)
-  discount    Int      @default(0)
-  total       Int
-  status      String   @default("PENDING")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  Order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  Product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  Vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  orderId    String
+  productId  String
+  vendorId   String
+  quantity   Int
+  price      Int
+  offerPrice Int?
+  subtotal   Int
+  tax        Int      @default(0)
+  discount   Int      @default(0)
+  total      Int
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  Order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  Product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  Vendor     Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
   @@index([productId])
   @@index([vendorId])
   @@index([status])
+  @@index([vendorId, status, createdAt])
+  @@index([vendorId, orderId])
 }
 
 /// CoinTransaction model for coin transaction tracking
 model CoinTransaction {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   userId        String
   amount        Int
   type          String // EARNED, SPENT, EXPIRED, REFUNDED
@@ -184,9 +187,10 @@ model CoinTransaction {
   balanceBefore Int
   balanceAfter  Int
   expiresAt     DateTime?
-  status        String   @default("COMPLETED")
-  createdAt     DateTime @default(now())
+  status        String    @default("COMPLETED")
+  createdAt     DateTime  @default(now())
   metadata      Json?
+  User          User      @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([type])
@@ -197,15 +201,15 @@ model CoinTransaction {
 
 /// BannerPricing model for banner campaign pricing
 model BannerPricing {
-  id           String   @id @default(uuid())
-  position     String
-  duration     Int // in days
-  pricePerDay  Int
-  minDuration  Int      @default(1)
-  maxDuration  Int      @default(30)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(uuid())
+  position    String
+  duration    Int // in days
+  pricePerDay Int
+  minDuration Int      @default(1)
+  maxDuration Int      @default(30)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([position])
   @@index([isActive])
@@ -213,19 +217,19 @@ model BannerPricing {
 
 /// BannerMetric model for banner performance tracking
 model BannerMetric {
-  id                String   @id @default(uuid())
-  campaignId        String
-  date              DateTime
-  impressions       Int      @default(0)
-  clicks            Int      @default(0)
-  conversions       Int      @default(0)
-  revenue           Int      @default(0)
-  cost              Int      @default(0)
-  clickThroughRate  Float    @default(0)
-  conversionRate    Float    @default(0)
-  returnOnAdSpend   Float    @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String   @id @default(uuid())
+  campaignId       String
+  date             DateTime
+  impressions      Int      @default(0)
+  clicks           Int      @default(0)
+  conversions      Int      @default(0)
+  revenue          Int      @default(0)
+  cost             Int      @default(0)
+  clickThroughRate Float    @default(0)
+  conversionRate   Float    @default(0)
+  returnOnAdSpend  Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([campaignId])
   @@index([date])
@@ -261,25 +265,49 @@ model AuditLog {
   @@index([entity])
 }
 
+enum BannerSlot {
+  HOME_TOP
+  HOME_MIDDLE
+  CATEGORY_TOP
+  PRODUCT_SIDEBAR
+  CHECKOUT
+}
+
+enum BannerDevice {
+  ALL
+  DESKTOP
+  MOBILE
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Banner {
-  id                     String                   @id
+  id                     String                   @id @default(uuid())
   vendorId               String?
+  title                  String
   imageUrl               String
+  mobileImageUrl         String?
+  linkUrl                String?
   redirectUrl            String?
-  slotType               String
-  startDate              DateTime
-  endDate                DateTime
+  slot                   BannerSlot               @default(HOME_TOP)
+  slotType               String?
+  device                 BannerDevice             @default(ALL)
+  priority               Int                      @default(1)
+  startDate              DateTime?
+  endDate                DateTime?
   isActive               Boolean                  @default(true)
   createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @default(now()) @updatedAt
   metadata               Json?
   bannerCampaignId       String?
+  BannerCampaign         BannerCampaign[]
   BannerImpressionLedger BannerImpressionLedger[]
 
-  @@index([slotType, isActive])
-  @@index([slotType, startDate, endDate, isActive])
+  @@index([slot, isActive])
+  @@index([slot, startDate, endDate, isActive])
   @@index([startDate, endDate])
   @@index([vendorId])
+  @@index([priority])
+  @@index([device])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -288,7 +316,7 @@ model BannerCampaign {
   bannerId       String
   vendorId       String
   campaignType   String
-  position       String?  // Position for filtering
+  position       String? // Position for filtering
   status         String   @default("PENDING") // Status field for campaign state
   targetAudience String
   startDate      DateTime
@@ -296,7 +324,10 @@ model BannerCampaign {
   amountPaid     Int
   paymentStatus  String   @default("PENDING")
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+  Banner         Banner   @relation(fields: [bannerId], references: [id])
 
+  @@index([bannerId])
   @@index([startDate, endDate])
   @@index([vendorId])
   @@index([position])
@@ -475,7 +506,7 @@ model CMSMenu {
   location    MenuLocation
   isActive    Boolean       @default(true)
   createdAt   DateTime      @default(now())
-  updatedAt   DateTime
+  updatedAt   DateTime      @default(now()) @updatedAt
   CMSMenuItem CMSMenuItem[]
 
   @@index([isActive])
@@ -515,7 +546,7 @@ model CMSPage {
   sortOrder     Int      @default(0)
   createdBy     String
   createdAt     DateTime @default(now())
-  updatedAt     DateTime
+  updatedAt     DateTime @default(now()) @updatedAt
 
   @@index([isActive])
   @@index([slug])
@@ -578,7 +609,8 @@ model Category {
   nameTE             String?
   parentId           String?
   createdAt          DateTime            @default(now())
-  updatedAt          DateTime
+  updatedAt          DateTime            @default(now()) @updatedAt
+  deletedAt          DateTime?
   attributeSchema    Json?
   isActive           Boolean             @default(true)
   Category           Category?           @relation("CategoryToCategory", fields: [parentId], references: [id])
@@ -610,7 +642,7 @@ model CommissionRule {
   id             String          @id
   scope          CommissionScope
   /// Commission rate in basis points (bp). Example: 15% => 1500
-  commissionRate Int            @default(0)
+  commissionRate Int             @default(0)
   isActive       Boolean         @default(true)
   effectiveFrom  DateTime        @default(now())
   effectiveTo    DateTime?
@@ -644,7 +676,7 @@ model CategorySpec {
   sortOrder        Int                @default(0)
   isActive         Boolean            @default(true)
   createdAt        DateTime           @default(now())
-  updatedAt        DateTime
+  updatedAt        DateTime           @default(now()) @updatedAt
   Category         Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   ProductSpecValue ProductSpecValue[]
 
@@ -755,25 +787,25 @@ model ContentModeration {
 
 /// ContentFlag - Tracks flagged content for moderation
 model ContentFlag {
-  id              String          @id
+  id              String            @id
   contentType     ContentFlagType
   contentId       String
   vendorId        String?
   reason          FlagReason
   description     String?
-  priority        FlagPriority    @default(LOW)
-  status          FlagStatus      @default(PENDING)
+  priority        FlagPriority      @default(LOW)
+  status          FlagStatus        @default(PENDING)
   reportedBy      String?
-  isAutoFlagged   Boolean         @default(false)
-  reportCount     Int             @default(1)
+  isAutoFlagged   Boolean           @default(false)
+  reportCount     Int               @default(1)
   action          ModerationAction?
   moderationNotes String?
   moderatedBy     String?
   moderatedAt     DateTime?
   assignedTo      String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  Vendor          Vendor?         @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  Vendor          Vendor?           @relation(fields: [vendorId], references: [id], onDelete: SetNull)
 
   @@index([contentType, contentId])
   @@index([status])
@@ -784,25 +816,27 @@ model ContentFlag {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Coupon {
-  id             String    @id
-  code           String    @unique
+  id             String        @id
+  code           String        @unique
   description    String?
   discountType   String
   discountValue  Int
-  minOrderAmount Int?      @default(0)
+  minOrderAmount Int?          @default(0)
   maxDiscount    Int?
-  validFrom      DateTime  @default(now())
+  validFrom      DateTime      @default(now())
   validUntil     DateTime?
   usageLimit     Int?
-  usedCount      Int       @default(0)
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime
+  usedCount      Int           @default(0)
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @default(now()) @updatedAt
+  deletedAt      DateTime?
   categoryIds    String[]
   minQuantity    Int?
   productIds     String[]
   vendorId       String?
-  Vendor         Vendor?   @relation(fields: [vendorId], references: [id])
+  Vendor         Vendor?       @relation(fields: [vendorId], references: [id])
+  CouponUsage    CouponUsage[]
 
   @@index([isActive])
   @@index([vendorId])
@@ -837,7 +871,7 @@ model CreatorProfile {
   profileImageUrl String?
   isVerified      Boolean  @default(false)
   createdAt       DateTime @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime @default(now()) @updatedAt
   User            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   Reel            Reel[]
 
@@ -864,7 +898,7 @@ model Delivery {
   rating          Int?
   feedback        String?
   createdAt       DateTime       @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime       @default(now()) @updatedAt
   Driver          Driver?        @relation(fields: [driverId], references: [id])
   Order           Order          @relation(fields: [orderId], references: [id])
 
@@ -892,7 +926,7 @@ model Driver {
   rating          Float            @default(5.0)
   totalDeliveries Int              @default(0)
   createdAt       DateTime         @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime         @default(now()) @updatedAt
   Delivery        Delivery[]
   DriverDocument  DriverDocument[]
 
@@ -932,7 +966,7 @@ model Employee {
   isActive    Boolean      @default(true)
   lastLoginAt DateTime?
   createdAt   DateTime     @default(now())
-  updatedAt   DateTime
+  updatedAt   DateTime     @default(now()) @updatedAt
 
   @@index([department])
   @@index([isActive])
@@ -959,11 +993,12 @@ model Inventory {
   reorderPoint    Int             @default(10)
   reorderQuantity Int             @default(50)
   createdAt       DateTime        @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime        @default(now()) @updatedAt
   Product         Product         @relation(fields: [productId], references: [id])
   Warehouse       Warehouse?      @relation(fields: [warehouseId], references: [id])
   StockMovement   StockMovement[]
 
+  @@unique([productId, warehouseId])
   @@index([productId])
   @@index([warehouseId])
 }
@@ -1028,14 +1063,21 @@ model Notification {
   userId         String?
   title          String
   body           String
-  type           String
+  type           String   @default("PUSH")
+  imageUrl       String?
+  action         String?
+  data           Json?
   targetAudience String?
   isRead         Boolean  @default(false)
+  readAt         DateTime?
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
   User           User?    @relation(fields: [userId], references: [id])
 
   @@index([userId, createdAt])
   @@index([userId, isRead])
+  @@index([type])
+  @@index([createdAt])
 }
 
 model NotificationCampaign {
@@ -1054,7 +1096,7 @@ model NotificationCampaign {
   status         String    @default("draft")
   createdBy      String
   createdAt      DateTime  @default(now())
-  updatedAt      DateTime
+  updatedAt      DateTime  @default(now()) @updatedAt
 
   @@index([createdAt])
   @@index([scheduledAt])
@@ -1071,7 +1113,7 @@ model NotificationTemplate {
   data      Json?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
-  updatedAt DateTime
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([isActive])
 }
@@ -1082,7 +1124,7 @@ model Order {
   userId                                                   String
   roomId                                                   String?
   addressId                                                String?
-  items                                                    Json
+  itemsSnapshot                                            Json                       @map("items")
   totalAmount                                              Int
   coinsUsed                                                Int                        @default(0)
   coinsUsedDebited                                         Boolean                    @default(false)
@@ -1091,7 +1133,7 @@ model Order {
   awbNumber                                                String?
   courierPartner                                           String?
   createdAt                                                DateTime                   @default(now())
-  updatedAt                                                DateTime
+  updatedAt                                                DateTime                   @default(now()) @updatedAt
   abandonedCheckoutId                                      String?
   agentId                                                  String?
   shippingCharges                                          Int                        @default(0)
@@ -1132,6 +1174,8 @@ model Order {
   Shipment                                                 Shipment?
   SupportTicket                                            SupportTicket[]
   VendorStrike                                             VendorStrike[]
+  VendorOrder                                              VendorOrder[]
+  CouponUsage                                              CouponUsage[]
 
   @@index([awbNumber])
   @@index([checkoutGroupId])
@@ -1144,26 +1188,27 @@ model Order {
   @@index([status])
   @@index([userId])
   @@index([userId, status])
+  @@index([userId, createdAt])
 }
 
 model ReturnQCChecklist {
-  id          String   @id @default(cuid())
-  orderId     String   @unique
-  returnId    String?
-  vendorId    String
-  agentId     String
-  isBrandBoxIntact Boolean @default(true)
-  isProductIntact  Boolean @default(true)
+  id                 String   @id @default(cuid())
+  orderId            String   @unique
+  returnId           String?
+  vendorId           String
+  agentId            String
+  isBrandBoxIntact   Boolean  @default(true)
+  isProductIntact    Boolean  @default(true)
   missingAccessories String[]
-  images      String[]
-  videoPath   String?
-  status      String   @default("PASSED") // PASSED, FAILED
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  order       Order    @relation(fields: [orderId], references: [id])
-  vendor      Vendor   @relation(fields: [vendorId], references: [id])
-  user        User     @relation(fields: [agentId], references: [id])
+  images             String[]
+  videoPath          String?
+  status             String   @default("PASSED") // PASSED, FAILED
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  order              Order    @relation(fields: [orderId], references: [id])
+  vendor             Vendor   @relation(fields: [vendorId], references: [id])
+  user               User     @relation(fields: [agentId], references: [id])
 
   @@index([orderId])
   @@index([vendorId])
@@ -1254,7 +1299,7 @@ model Payment {
   paymentId       String?
   status          PaymentStatus @default(PENDING)
   createdAt       DateTime      @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime      @default(now()) @updatedAt
   Order           Order         @relation(fields: [orderId], references: [id])
 }
 
@@ -1272,7 +1317,7 @@ model PaymentIntent {
   metadata        Json?
   createdByUserId String?
   createdAt       DateTime             @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime             @default(now()) @updatedAt
   User            User?                @relation(fields: [createdByUserId], references: [id])
 
   @@unique([purpose, referenceId])
@@ -1297,7 +1342,7 @@ model PickupPoint {
   timings      Json?
   isActive     Boolean    @default(true)
   createdAt    DateTime   @default(now())
-  updatedAt    DateTime
+  updatedAt    DateTime   @default(now()) @updatedAt
   Vendor       Vendor     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   Shipment     Shipment[]
 
@@ -1312,7 +1357,7 @@ model PincodeGeo {
   longitude Float
   source    GeoSource @default(PINCODE_DB)
   createdAt DateTime  @default(now())
-  updatedAt DateTime
+  updatedAt DateTime  @default(now()) @updatedAt
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -1332,81 +1377,82 @@ model PlatformConfig {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Product {
-  id                   String             @id
-  vendorId             String
-  title                String
-  name                 String?            // Alias for title for compatibility
-  description          String?
-  price                Int
-  offerPrice           Int?
-  stock                Int                @default(0)
-  categoryId           String
-  images               String[]
-  isWholesale          Boolean            @default(false)
-  wholesalePrice       Int?
-  moq                  Int                @default(1)
-  isActive             Boolean            @default(false)
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime
-  brandName            String?
-  dimensionUnit        String?            @default("cm")
-  height               Float?
-  length               Float?
-  metaDescription      String?
-  metaKeywords         String[]
-  metaTitle            String?
-  shippingClass        String?
-  sku                  String?            @unique
-  tags                 String[]
-  weight               Float?
-  weightUnit           String?            @default("kg")
-  width                Float?
-  allergenInformation  String?
-  attributes           Json?
-  basePreparationTime  Int                @default(0)
-  costPrice            Int?
-  isAttachmentRequired Boolean            @default(false)
-  isCancelable         Boolean            @default(false)
-  isInclusiveTax       Boolean            @default(false)
-  isReturnable         Boolean            @default(false)
-  mediaGallery         Json?
-  minOrderQuantity     Int                @default(1)
-  quantityStepSize     Int                @default(1)
-  requiresOTP          Boolean            @default(false)
-  rulesSnapshot        Json?
-  shippingDetails      Json?
-  storageInstructions  String?
-  totalAllowedQuantity Int                @default(10)
-  freeListingExpiresAt DateTime?
-  visibility           ProductVisibility  @default(DRAFT)
-  popularityScore      Float              @default(0)
-  embedding            Json?
-  disableAutoClearance Boolean            @default(false)
-  expiryDate           DateTime?
-  hasVariants          Boolean            @default(false)
-  BowActionLog         BowActionLog[]
-  BuyLater             BuyLater[]
-  CartItem             CartItem[]
-  ClearanceProduct     ClearanceProduct[]
-  Inventory            Inventory[]
-  LocalPromotion       LocalPromotion[]
-  CommissionRule       CommissionRule[]
-  Category             Category           @relation(fields: [categoryId], references: [id])
-  Vendor               Vendor             @relation(fields: [vendorId], references: [id])
-  OrderItem            OrderItem[]
-  ProductSpecValue     ProductSpecValue[]
-  ProductVariant       ProductVariant[]
-  Reel                 Reel[]
-  ReturnItem           ReturnItem[]
-  Review               Review[]
-  Room                 Room[]
-  UserProductEvent     UserProductEvent[]
-  VendorInquiry        VendorInquiry[]
-  Wishlist             Wishlist[]
-  CampaignProduct      CampaignProduct[]
-  UserProductInteraction UserProductInteraction[]
-  ProductSimilarity_ProductSimilarity_productIdToProduct        ProductSimilarity[] @relation("ProductSimilarity_productIdToProduct")
-  ProductSimilarity_ProductSimilarity_similarProductIdToProduct ProductSimilarity[] @relation("ProductSimilarity_similarProductIdToProduct")
+  id                                                            String                   @id
+  vendorId                                                      String
+  title                                                         String
+  name                                                          String? // Alias for title for compatibility
+  description                                                   String?
+  price                                                         Int
+  offerPrice                                                    Int?
+  stock                                                         Int                      @default(0)
+  categoryId                                                    String
+  images                                                        String[]
+  isWholesale                                                   Boolean                  @default(false)
+  wholesalePrice                                                Int?
+  moq                                                           Int                      @default(1)
+  isActive                                                      Boolean                  @default(false)
+  createdAt                                                     DateTime                 @default(now())
+  updatedAt                                                     DateTime                 @default(now()) @updatedAt
+  deletedAt                                                     DateTime?
+  brandName                                                     String?
+  dimensionUnit                                                 String?                  @default("cm")
+  height                                                        Float?
+  length                                                        Float?
+  metaDescription                                               String?
+  metaKeywords                                                  String[]
+  metaTitle                                                     String?
+  shippingClass                                                 String?
+  sku                                                           String?                  @unique
+  tags                                                          String[]
+  weight                                                        Float?
+  weightUnit                                                    String?                  @default("kg")
+  width                                                         Float?
+  allergenInformation                                           String?
+  attributes                                                    Json?
+  basePreparationTime                                           Int                      @default(0)
+  costPrice                                                     Int?
+  isAttachmentRequired                                          Boolean                  @default(false)
+  isCancelable                                                  Boolean                  @default(false)
+  isInclusiveTax                                                Boolean                  @default(false)
+  isReturnable                                                  Boolean                  @default(false)
+  mediaGallery                                                  Json?
+  minOrderQuantity                                              Int                      @default(1)
+  quantityStepSize                                              Int                      @default(1)
+  requiresOTP                                                   Boolean                  @default(false)
+  rulesSnapshot                                                 Json?
+  shippingDetails                                               Json?
+  storageInstructions                                           String?
+  totalAllowedQuantity                                          Int                      @default(10)
+  freeListingExpiresAt                                          DateTime?
+  visibility                                                    ProductVisibility        @default(DRAFT)
+  popularityScore                                               Float                    @default(0)
+  embedding                                                     Json?
+  disableAutoClearance                                          Boolean                  @default(false)
+  expiryDate                                                    DateTime?
+  hasVariants                                                   Boolean                  @default(false)
+  BowActionLog                                                  BowActionLog[]
+  BuyLater                                                      BuyLater[]
+  CartItem                                                      CartItem[]
+  ClearanceProduct                                              ClearanceProduct[]
+  Inventory                                                     Inventory[]
+  LocalPromotion                                                LocalPromotion[]
+  CommissionRule                                                CommissionRule[]
+  Category                                                      Category                 @relation(fields: [categoryId], references: [id])
+  Vendor                                                        Vendor                   @relation(fields: [vendorId], references: [id])
+  OrderItem                                                     OrderItem[]
+  ProductSpecValue                                              ProductSpecValue[]
+  ProductVariant                                                ProductVariant[]
+  Reel                                                          Reel[]
+  ReturnItem                                                    ReturnItem[]
+  Review                                                        Review[]
+  Room                                                          Room[]
+  UserProductEvent                                              UserProductEvent[]
+  VendorInquiry                                                 VendorInquiry[]
+  Wishlist                                                      Wishlist[]
+  CampaignProduct                                               CampaignProduct[]
+  UserProductInteraction                                        UserProductInteraction[]
+  ProductSimilarity_ProductSimilarity_productIdToProduct        ProductSimilarity[]      @relation("ProductSimilarity_productIdToProduct")
+  ProductSimilarity_ProductSimilarity_similarProductIdToProduct ProductSimilarity[]      @relation("ProductSimilarity_similarProductIdToProduct")
 
   @@index([categoryId])
   @@index([categoryId, isActive, createdAt])
@@ -1455,7 +1501,7 @@ model ProductSpecValue {
   specId       String
   value        String
   createdAt    DateTime     @default(now())
-  updatedAt    DateTime
+  updatedAt    DateTime     @default(now()) @updatedAt
   Product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
   CategorySpec CategorySpec @relation(fields: [specId], references: [id], onDelete: Cascade)
 
@@ -1573,7 +1619,7 @@ model ReferralRewardRule {
   effectiveTo         DateTime?
   setByAdminId        String?
   createdAt           DateTime              @default(now())
-  updatedAt           DateTime
+  updatedAt           DateTime              @default(now()) @updatedAt
   ReferralRewardGrant ReferralRewardGrant[]
   User                User?                 @relation(fields: [setByAdminId], references: [id])
 
@@ -1622,7 +1668,7 @@ model Refund {
   notes           String?
   metadata        Json?
   createdAt       DateTime       @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime       @default(now()) @updatedAt
   Order           Order          @relation(fields: [orderId], references: [id])
   ReturnRequest   ReturnRequest? @relation(fields: [returnId], references: [id])
   User            User           @relation(fields: [userId], references: [id])
@@ -1657,7 +1703,7 @@ model Report {
   description String?
   status      String   @default("PENDING")
   createdAt   DateTime @default(now())
-  updatedAt   DateTime
+  updatedAt   DateTime @default(now()) @updatedAt
   User        User     @relation(fields: [reporterId], references: [id])
 
   @@index([reporterId])
@@ -1684,8 +1730,6 @@ model ReturnItem {
   @@index([returnId])
 }
 
-
-
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model ReturnRequest {
   id                    String            @id
@@ -1699,7 +1743,7 @@ model ReturnRequest {
   evidenceImages        String[]
   evidenceVideo         String?
   requestedAt           DateTime          @default(now())
-  updatedAt             DateTime
+  updatedAt             DateTime          @default(now()) @updatedAt
   pickupDate            DateTime?
   pickupAddress         Json?
   courierPartner        String?
@@ -1735,7 +1779,7 @@ model ReturnSettlement {
   adminNotes     String?
   createdAt      DateTime      @default(now())
   penaltyReason  String?
-  updatedAt      DateTime
+  updatedAt      DateTime      @default(now()) @updatedAt
   costBearer     CostBearer    @default(PLATFORM)
   ReturnRequest  ReturnRequest @relation(fields: [returnId], references: [id])
 }
@@ -1759,21 +1803,22 @@ model ReturnTimeline {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Review {
-  id           String   @id
+  id           String       @id
   userId       String
   productId    String?
   vendorId     String?
   rating       Int
   comment      String?
   images       String[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime
-  helpfulCount Int      @default(0)
-  isVerified   Boolean  @default(false)
-  status       String   @default("ACTIVE")
-  Product      Product? @relation(fields: [productId], references: [id])
-  User         User     @relation(fields: [userId], references: [id])
-  Vendor       Vendor?  @relation(fields: [vendorId], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @default(now()) @updatedAt
+  helpfulCount Int          @default(0)
+  isVerified   Boolean      @default(false)
+  status       ReviewStatus @default(ACTIVE)
+  deletedAt    DateTime?
+  Product      Product?     @relation(fields: [productId], references: [id])
+  User         User         @relation(fields: [userId], references: [id])
+  Vendor       Vendor?      @relation(fields: [vendorId], references: [id])
 
   @@index([productId])
   @@index([productId, status])
@@ -1863,6 +1908,7 @@ model RoomPackage {
   packageType      String
   remainingCredits Int
   createdAt        DateTime @default(now())
+  Vendor           Vendor   @relation(fields: [vendorId], references: [id])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -1901,7 +1947,7 @@ model Shipment {
   trackingUrl     String?
   pickupPointId   String?
   createdAt       DateTime     @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime     @default(now()) @updatedAt
   Order           Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   PickupPoint     PickupPoint? @relation(fields: [pickupPointId], references: [id])
 
@@ -1956,7 +2002,7 @@ model SupportTicket {
   attachments     String[]
   tags            String[]
   createdAt       DateTime        @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime        @default(now()) @updatedAt
   closedAt        DateTime?
   firstResponseAt DateTime?
   resolvedAt      DateTime?
@@ -2012,7 +2058,7 @@ model TicketTemplate {
   content   String
   isActive  Boolean         @default(true)
   createdAt DateTime        @default(now())
-  updatedAt DateTime
+  updatedAt DateTime        @default(now()) @updatedAt
 
   @@index([category])
   @@index([isActive])
@@ -2022,7 +2068,7 @@ model TicketTemplate {
 model User {
   id                                                          String                   @id
   mobile                                                      String                   @unique
-  phone                                                       String?                  // Alias for compatibility
+  phone                                                       String? // Alias for compatibility
   name                                                        String?
   email                                                       String?                  @unique
   password                                                    String?
@@ -2046,7 +2092,8 @@ model User {
   kycDocuments                                                Json?
   kycStatus                                                   String                   @default("NOT_SUBMITTED")
   miscDocuments                                               Json?
-  updatedAt                                                   DateTime
+  updatedAt                                                   DateTime                 @default(now()) @updatedAt
+  deletedAt                                                   DateTime?
   metadata                                                    Json?                    @default("{}")
   AbandonedCheckout_AbandonedCheckout_agentIdToUser           AbandonedCheckout[]      @relation("AbandonedCheckout_agentIdToUser")
   AbandonedCheckout_AbandonedCheckout_userIdToUser            AbandonedCheckout[]      @relation("AbandonedCheckout_userIdToUser")
@@ -2064,6 +2111,7 @@ model User {
   CheckoutFollowup                                            CheckoutFollowup[]
   CheckoutGroup                                               CheckoutGroup[]
   CoinLedger                                                  CoinLedger[]
+  CoinTransaction                                             CoinTransaction[]
   CoinValuation                                               CoinValuation[]
   CreatorProfile                                              CreatorProfile?
   LedgerEntry                                                 LedgerEntry[]
@@ -2097,6 +2145,7 @@ model User {
   VendorInquiry                                               VendorInquiry[]
   Wallet                                                      Wallet?
   Wishlist                                                    Wishlist[]
+  CouponUsage                                                 CouponUsage[]
 
   @@index([referredBy])
   @@index([role])
@@ -2112,7 +2161,7 @@ model UserDevice {
   isActive   Boolean  @default(true)
   lastSeenAt DateTime @default(now())
   createdAt  DateTime @default(now())
-  updatedAt  DateTime
+  updatedAt  DateTime @default(now()) @updatedAt
   User       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([lastSeenAt])
@@ -2180,7 +2229,8 @@ model Vendor {
   /// Commission rate in basis points (bp). Example: 15% => 1500
   commissionRate                  Int                         @default(0)
   createdAt                       DateTime                    @default(now())
-  updatedAt                       DateTime
+  updatedAt                       DateTime                    @default(now()) @updatedAt
+  deletedAt                       DateTime?
   bankDetails                     Json?
   lastPayoutDate                  DateTime?
   pendingEarnings                 Int                         @default(0)
@@ -2211,6 +2261,7 @@ model Vendor {
   Product                         Product[]
   Reel                            Reel[]
   ReturnRequest                   ReturnRequest[]
+  RoomPackage                     RoomPackage[]
   ReturnQCChecklists              ReturnQCChecklist[]
   Review                          Review[]
   Story                           Story[]
@@ -2226,8 +2277,9 @@ model Vendor {
   VendorPromotion                 VendorPromotion[]
   VendorServiceArea               VendorServiceArea[]
   VendorStrike                    VendorStrike[]
+  VendorOrder                     VendorOrder[]
   VendorDiscipline                VendorDiscipline[]
-  CommissionRule                 CommissionRule[]
+  CommissionRule                  CommissionRule[]
   ContentFlag                     ContentFlag[]
   InvoiceTemplate                 InvoiceTemplate[]
   VendorRegistrationPayment       VendorRegistrationPayment?
@@ -2261,7 +2313,7 @@ model VendorDeliveryWindow {
   endMinute   Int
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
-  updatedAt   DateTime
+  updatedAt   DateTime @default(now()) @updatedAt
   Vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([vendorId, isActive])
@@ -2274,16 +2326,16 @@ model VendorRegistrationPayment {
   vendorId          String        @unique
   razorpayOrderId   String        @unique
   razorpayPaymentId String?       @unique
-  amount            Int           // Amount in paise (e.g., 50000 for ₹500)
+  amount            Int // Amount in paise (e.g., 50000 for ₹500)
   currency          String        @default("INR")
   status            PaymentStatus @default(PENDING)
   paymentMethod     String?
-  failureReason     String?       // Payment failure reason
-  failureCode       String?       // Razorpay failure code
+  failureReason     String? // Payment failure reason
+  failureCode       String? // Razorpay failure code
   paidAt            DateTime?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
-  metadata          Json?         // Additional payment metadata
+  metadata          Json? // Additional payment metadata
   Vendor            Vendor        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([status])
@@ -2441,7 +2493,7 @@ model VendorMembership {
   isActive       Boolean        @default(true)
   autoRenew      Boolean        @default(false)
   createdAt      DateTime       @default(now())
-  updatedAt      DateTime
+  updatedAt      DateTime       @default(now()) @updatedAt
   Vendor         Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([isActive])
@@ -2460,7 +2512,7 @@ model VendorPayout {
   transactionId String?
   processedAt   DateTime?
   createdAt     DateTime     @default(now())
-  updatedAt     DateTime
+  updatedAt     DateTime     @default(now()) @updatedAt
   Vendor        Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
@@ -2485,7 +2537,7 @@ model VendorPromotion {
   orders      Int             @default(0)
   revenue     Int             @default(0)
   createdAt   DateTime        @default(now())
-  updatedAt   DateTime
+  updatedAt   DateTime        @default(now()) @updatedAt
   metadata    Json?
   Vendor      Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
@@ -2507,11 +2559,39 @@ model VendorServiceArea {
   polygon   Json?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
-  updatedAt DateTime
+  updatedAt DateTime @default(now()) @updatedAt
   Vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([isActive])
   @@index([vendorId])
+  @@index([vendorId, isActive])
+}
+
+/// VendorOrder — Per-vendor sub-order for multi-vendor checkout fulfillment
+model VendorOrder {
+  id              String       @id @default(uuid())
+  orderId         String
+  vendorId        String
+  status          OrderStatus  @default(PENDING)
+  subtotal        Int
+  shippingCharges Int          @default(0)
+  commission      Int          @default(0)
+  vendorEarnings  Int          @default(0)
+  awbNumber       String?
+  courierPartner  String?
+  trackingUrl     String?
+  packedAt        DateTime?
+  shippedAt       DateTime?
+  deliveredAt     DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @default(now()) @updatedAt
+  Order           Order        @relation(fields: [orderId], references: [id])
+  Vendor          Vendor       @relation(fields: [vendorId], references: [id])
+
+  @@index([orderId])
+  @@index([vendorId, status])
+  @@index([vendorId, createdAt])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -2520,7 +2600,7 @@ model Wallet {
   userId      String        @unique
   balance     Int           @default(0)
   createdAt   DateTime      @default(now())
-  updatedAt   DateTime
+  updatedAt   DateTime      @default(now()) @updatedAt
   LedgerEntry LedgerEntry[]
   User        User          @relation(fields: [userId], references: [id])
 
@@ -2533,7 +2613,7 @@ model Warehouse {
   location  String
   isActive  Boolean     @default(true)
   createdAt DateTime    @default(now())
-  updatedAt DateTime
+  updatedAt DateTime    @default(now()) @updatedAt
   Inventory Inventory[]
 }
 
@@ -3068,34 +3148,34 @@ enum SpecType {
 
 /// Campaign model for flash sales and promotional campaigns
 model Campaign {
-  id               String           @id @default(uuid())
-  name             String
-  description      String?
-  type             CampaignType     @default(FLASH_SALE)
-  startDate        DateTime
-  endDate          DateTime
-  discountType     DiscountType     @default(PERCENTAGE)
-  discountValue    Int              // Percentage (0-100) or fixed amount in paise
-  maxDiscount      Int?             // Maximum discount in paise (for PERCENTAGE type)
-  minOrderValue    Int?             // Minimum order value in paise to qualify
-  limitedStock     Boolean          @default(false)
-  totalStock       Int?             // Total stock allocated for campaign
-  usedStock        Int              @default(0) // Stock consumed by orders
-  status           CampaignStatus   @default(SCHEDULED)
-  priority         Int              @default(0) // Higher priority campaigns applied first
-  isActive         Boolean          @default(true)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  createdBy        String?          // Admin user who created the campaign
-  targetAudience   String?          // ALL, NEW_USERS, PREMIUM, etc.
-  bannerImage      String?
-  termsConditions  String?
-  impressions      Int              @default(0)
-  clicks           Int              @default(0)
-  conversions      Int              @default(0)
-  revenue          Int              @default(0)
-  
-  CampaignProduct  CampaignProduct[]
+  id              String         @id @default(uuid())
+  name            String
+  description     String?
+  type            CampaignType   @default(FLASH_SALE)
+  startDate       DateTime
+  endDate         DateTime
+  discountType    DiscountType   @default(PERCENTAGE)
+  discountValue   Int // Percentage (0-100) or fixed amount in paise
+  maxDiscount     Int? // Maximum discount in paise (for PERCENTAGE type)
+  minOrderValue   Int? // Minimum order value in paise to qualify
+  limitedStock    Boolean        @default(false)
+  totalStock      Int? // Total stock allocated for campaign
+  usedStock       Int            @default(0) // Stock consumed by orders
+  status          CampaignStatus @default(SCHEDULED)
+  priority        Int            @default(0) // Higher priority campaigns applied first
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  createdBy       String? // Admin user who created the campaign
+  targetAudience  String? // ALL, NEW_USERS, PREMIUM, etc.
+  bannerImage     String?
+  termsConditions String?
+  impressions     Int            @default(0)
+  clicks          Int            @default(0)
+  conversions     Int            @default(0)
+  revenue         Int            @default(0)
+
+  CampaignProduct CampaignProduct[]
 
   @@index([status])
   @@index([startDate, endDate])
@@ -3106,18 +3186,18 @@ model Campaign {
 
 /// CampaignProduct model for many-to-many relation between Campaign and Product
 model CampaignProduct {
-  id              String   @id @default(uuid())
-  campaignId      String
-  productId       String
-  customDiscount  Int?     // Override campaign discount for specific product
-  stockAllocated  Int?     // Stock allocated for this product in campaign
-  stockUsed       Int      @default(0)
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  Campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  Product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id             String   @id @default(uuid())
+  campaignId     String
+  productId      String
+  customDiscount Int? // Override campaign discount for specific product
+  stockAllocated Int? // Stock allocated for this product in campaign
+  stockUsed      Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  Campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  Product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([campaignId, productId])
   @@index([campaignId])
@@ -3274,14 +3354,14 @@ enum DiscountType {
 
 /// UserProductInteraction model for tracking user interactions for recommendations
 model UserProductInteraction {
-  id              String                    @id @default(uuid())
+  id              String              @id @default(uuid())
   userId          String
   productId       String
   interactionType UserInteractionType
-  createdAt       DateTime                  @default(now())
-  metadata        Json?                     // Store additional context like session, source, etc.
-  User            User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  Product         Product                   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt       DateTime            @default(now())
+  metadata        Json? // Store additional context like session, source, etc.
+  User            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Product         Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([userId, productId, interactionType])
   @@index([userId, createdAt])
@@ -3291,14 +3371,14 @@ model UserProductInteraction {
 
 /// ProductSimilarity model for pre-calculated product similarities
 model ProductSimilarity {
-  id               String   @id @default(uuid())
-  productId        String
-  similarProductId String
-  score            Float    // Similarity score (0-1)
-  calculatedAt     DateTime @default(now())
-  algorithm        String   @default("content_based") // Algorithm used: content_based, collaborative, hybrid
-  Product_ProductSimilarity_productIdToProduct        Product @relation("ProductSimilarity_productIdToProduct", fields: [productId], references: [id], onDelete: Cascade)
-  Product_ProductSimilarity_similarProductIdToProduct Product @relation("ProductSimilarity_similarProductIdToProduct", fields: [similarProductId], references: [id], onDelete: Cascade)
+  id                                                  String   @id @default(uuid())
+  productId                                           String
+  similarProductId                                    String
+  score                                               Float // Similarity score (0-1)
+  calculatedAt                                        DateTime @default(now())
+  algorithm                                           String   @default("content_based") // Algorithm used: content_based, collaborative, hybrid
+  Product_ProductSimilarity_productIdToProduct        Product  @relation("ProductSimilarity_productIdToProduct", fields: [productId], references: [id], onDelete: Cascade)
+  Product_ProductSimilarity_similarProductIdToProduct Product  @relation("ProductSimilarity_similarProductIdToProduct", fields: [similarProductId], references: [id], onDelete: Cascade)
 
   @@unique([productId, similarProductId, algorithm])
   @@index([productId, score])
@@ -3315,7 +3395,7 @@ enum UserInteractionType {
 
 /// InvoiceTemplate model for vendor invoice customization
 model InvoiceTemplate {
-  id                 String                @id @default(uuid())
+  id                 String               @id @default(uuid())
   vendorId           String
   templateName       String
   logoUrl            String?
@@ -3323,18 +3403,18 @@ model InvoiceTemplate {
   address            String?
   phone              String?
   email              String?
-  gstin              String?                // GST Identification Number
-  taxFields          Json?                  // Custom tax fields configuration: {fields: [{name, rate, type}]}
-  headerText         String?                // Custom header/banner text
-  footerText         String?                // Terms, signature, custom footer
-  showQrCode         Boolean                @default(true)
-  currency           String                 @default("INR")
-  locale             String                 @default("en-IN")
-  isDefault          Boolean                @default(false)
-  isActive           Boolean                @default(true)
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
-  Vendor             Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  gstin              String? // GST Identification Number
+  taxFields          Json? // Custom tax fields configuration: {fields: [{name, rate, type}]}
+  headerText         String? // Custom header/banner text
+  footerText         String? // Terms, signature, custom footer
+  showQrCode         Boolean              @default(true)
+  currency           String               @default("INR")
+  locale             String               @default("en-IN")
+  isDefault          Boolean              @default(false)
+  isActive           Boolean              @default(true)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  Vendor             Vendor               @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   InvoiceCustomField InvoiceCustomField[]
 
   @@index([vendorId, isDefault])
@@ -3343,14 +3423,45 @@ model InvoiceTemplate {
 
 /// InvoiceCustomField model for additional fields in invoice templates
 model InvoiceCustomField {
-  id          String          @id @default(uuid())
-  templateId  String
-  fieldName   String          // e.g., "PAN", "CIN", "Bank Details"
-  fieldValue  String
-  displayOrder Int            @default(0)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  Template    InvoiceTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  id           String          @id @default(uuid())
+  templateId   String
+  fieldName    String // e.g., "PAN", "CIN", "Bank Details"
+  fieldValue   String
+  displayOrder Int             @default(0)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  Template     InvoiceTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
   @@index([templateId, displayOrder])
+}
+
+/// UploadFile model for tracking all uploaded files in the system
+model UploadFile {
+  id            String   @id @default(uuid())
+  filename      String
+  originalName  String
+  mimetype      String
+  size          Int
+  url           String
+  thumbnailUrl  String?
+  folder        String   @default("root")
+  bucket        String   @default("users")
+  storagePath   String
+  uploadedBy    String?  // Admin or User ID who uploaded
+  uploaderType  String   @default("ADMIN") // ADMIN, USER, VENDOR
+  entityType    String?  // e.g., PRODUCT, VENDOR, BANNER
+  entityId      String?  // ID of the related entity
+  metadata      Json?    // Additional metadata
+  isDeleted     Boolean  @default(false)
+  deletedAt     DateTime?
+  deletedBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([folder])
+  @@index([mimetype])
+  @@index([uploadedBy])
+  @@index([entityType, entityId])
+  @@index([isDeleted, createdAt])
+  @@index([createdAt])
 }

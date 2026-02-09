@@ -8,6 +8,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AdminRole } from '@prisma/client';
 import { AdminRoles } from './auth/decorators/admin-roles.decorator';
+import { BulkUpdateUserDto, BulkDeleteUserDto, BulkUpdateProductDto, BulkDeleteProductDto, BulkUpdateVendorDto, BulkDeleteVendorDto } from './dto/bulk-operations.dto';
 
 // Backward-compatible shim for legacy `@Roles('ADMIN'|'SUPER_ADMIN')` usage.
 // Maps old role strings to the new AdminRole enum.
@@ -91,10 +92,10 @@ export class AdminController {
     @Throttle({ default: { limit: 5, ttl: 60000 } })  // SECURITY: Rate limit bulk operations
     @ApiOperation({ summary: 'Bulk update users' })
     async bulkUpdateUsers(
-        @Request() req,
-        @Body() body: { userIds: string[]; data: { status?: string; role?: string } }
+        @Request() req: any,
+        @Body() body: BulkUpdateUserDto
     ) {
-        return this.adminService.bulkUpdateUsers(req.user.id, body.userIds, body.data);
+        return this.adminService.bulkUpdateUsers(req.user.id, body.userIds, { status: body.status, role: body.role });
     }
 
     @Post('users/bulk-delete')
@@ -102,8 +103,8 @@ export class AdminController {
     @Throttle({ default: { limit: 3, ttl: 60000 } })  // SECURITY: Stricter rate limit for deletes
     @ApiOperation({ summary: 'Bulk delete users' })
     async bulkDeleteUsers(
-        @Request() req,
-        @Body() body: { userIds: string[] }
+        @Request() req: any,
+        @Body() body: BulkDeleteUserDto
     ) {
         return this.adminService.bulkDeleteUsers(req.user.id, body.userIds);
     }
@@ -167,18 +168,18 @@ export class AdminController {
     @Roles('ADMIN', 'SUPER_ADMIN')
     @ApiOperation({ summary: 'Bulk update products' })
     async bulkUpdateProducts(
-        @Request() req,
-        @Body() body: { productIds: string[]; data: { isActive?: boolean } }
+        @Request() req: any,
+        @Body() body: BulkUpdateProductDto
     ) {
-        return this.adminService.bulkUpdateProducts(req.user.id, body.productIds, body.data);
+        return this.adminService.bulkUpdateProducts(req.user.id, body.productIds, { isActive: body.isActive });
     }
 
     @Post('products/bulk-delete')
     @Roles('ADMIN', 'SUPER_ADMIN')
     @ApiOperation({ summary: 'Bulk delete products' })
     async bulkDeleteProducts(
-        @Request() req,
-        @Body() body: { productIds: string[] }
+        @Request() req: any,
+        @Body() body: BulkDeleteProductDto
     ) {
         return this.adminService.bulkDeleteProducts(req.user.id, body.productIds);
     }
@@ -522,8 +523,30 @@ export class AdminController {
 
     @Post('vendors/:id/commission')
     @Roles('ADMIN', 'SUPER_ADMIN')
-    updateCommission(@Request() req, @Param('id') id: string, @Body('rate') rate: number) {
+    updateCommission(@Request() req: any, @Param('id') id: string, @Body('rate') rate: number) {
         return this.adminService.updateVendorCommission(req.user.id, id, rate);
+    }
+
+    @Post('vendors/bulk-update')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @Throttle({ default: { limit: 5, ttl: 60000 } })  // SECURITY: Rate limit bulk operations
+    @ApiOperation({ summary: 'Bulk update vendors' })
+    async bulkUpdateVendors(
+        @Request() req: any,
+        @Body() body: BulkUpdateVendorDto
+    ) {
+        return this.adminService.bulkUpdateVendors(req.user.id, body.vendorIds, { kycStatus: body.kycStatus, storeStatus: body.storeStatus });
+    }
+
+    @Post('vendors/bulk-delete')
+    @Roles('SUPER_ADMIN')  // SECURITY: Only SUPER_ADMIN can bulk delete
+    @Throttle({ default: { limit: 3, ttl: 60000 } })  // SECURITY: Stricter rate limit for deletes
+    @ApiOperation({ summary: 'Bulk delete vendors' })
+    async bulkDeleteVendors(
+        @Request() req: any,
+        @Body() body: BulkDeleteVendorDto
+    ) {
+        return this.adminService.bulkDeleteVendors(req.user.id, body.vendorIds);
     }
 
 
