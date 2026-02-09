@@ -62,7 +62,7 @@ export class MembershipTierResponseDto {
     @ApiProperty({ example: 3, description: 'Maximum images per SKU' })
     imageLimit: number;
 
-    @ApiProperty({ example: 0.15, description: 'Commission rate (0.15 = 15%)' })
+    @ApiProperty({ example: 1500, description: 'Commission rate in basis points (bp). Example: 15% => 1500' })
     commissionRate: number;
 
     @ApiProperty({ example: 'MONTHLY', enum: PayoutCycle })
@@ -96,7 +96,7 @@ export class CurrentMembershipResponseDto {
     @ApiProperty({ example: 5 })
     imageLimit: number;
 
-    @ApiProperty({ example: 0.12 })
+    @ApiProperty({ example: 1200, description: 'Commission rate in basis points (bp). Example: 12% => 1200' })
     commissionRate: number;
 
     @ApiProperty({ example: 'WEEKLY', enum: PayoutCycle })

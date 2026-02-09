@@ -30,27 +30,22 @@ export class SettlementService {
 
             try {
             // 1. Move PENDING settlements to ELIGIBLE if older than 7 days
-            const pendingSettlements = await (this.prisma as any).orderSettlement.findMany({
+            // Use updateMany in a single query instead of N individual updates
+            const eligibleResult = await (this.prisma as any).orderSettlement.updateMany({
                 where: {
                     status: 'PENDING',
                     order: {
                         status: 'DELIVERED',
                         deliveredAt: { lte: sevenDaysAgo }
                     }
+                },
+                data: {
+                    status: 'ELIGIBLE',
+                    eligibleAt: new Date()
                 }
             });
 
-            for (const settlement of pendingSettlements) {
-                await (this.prisma as any).orderSettlement.update({
-                    where: { id: settlement.id },
-                    data: {
-                        status: 'ELIGIBLE',
-                        eligibleAt: new Date()
-                    }
-                });
-            }
-
-            this.logger.log(`Marked ${pendingSettlements.length} settlements as ELIGIBLE`);
+            this.logger.log(`Marked ${eligibleResult.count} settlements as ELIGIBLE`);
 
             // 2. Process ELIGIBLE settlements to SETTLED 
             const eligibleSettlements = await (this.prisma as any).orderSettlement.findMany({
@@ -72,7 +67,23 @@ export class SettlementService {
     private async finalizeSettlement(settlement: any) {
         try {
             await this.prisma.$transaction(async (tx) => {
-                // 1. Atomically credit vendor pending earnings
+                // IDEMPOTENCY GUARD: Only update if still in ELIGIBLE status
+                // This prevents double-processing if the cron runs concurrently
+                const updated = await (tx as any).orderSettlement.updateMany({
+                    where: { id: settlement.id, status: 'ELIGIBLE' },
+                    data: {
+                        status: 'SETTLED',
+                        settledAt: new Date()
+                    }
+                });
+
+                // If count === 0, another process already settled this — skip
+                if (updated.count === 0) {
+                    this.logger.warn(`Settlement ${settlement.id} already processed, skipping`);
+                    return;
+                }
+
+                // Atomically credit vendor pending earnings
                 await tx.vendor.update({
                     where: { id: settlement.vendorId },
                     data: {
@@ -80,16 +91,7 @@ export class SettlementService {
                     }
                 });
 
-                // 2. Mark settlement as SETTLED
-                await (tx as any).orderSettlement.update({
-                    where: { id: settlement.id },
-                    data: {
-                        status: 'SETTLED',
-                        settledAt: new Date()
-                    }
-                });
-
-                // 3. Create historical Payout record
+                // Create historical Payout record
                 await tx.vendorPayout.create({
                     data: {
                         id: randomUUID(),

@@ -193,7 +193,8 @@ export class VendorReportsService {
           vendorId,
           productId: item.productId,
         });
-        totalCommission += Math.round(itemTotal * commissionRate);
+        // commissionRate is in basis points (bp): commission = itemTotal * bp / 10000
+        totalCommission += Math.round((itemTotal * commissionRate) / 10000);
       }
     }
 

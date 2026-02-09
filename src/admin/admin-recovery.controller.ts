@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
+import { AdminRole } from '@prisma/client';
+import { AdminJwtAuthGuard } from './auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from './auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from './auth/guards/admin-permissions.guard';
+import { AdminRoles } from './auth/decorators/admin-roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../shared/notifications.service';
 import { TelecallerService } from '../telecaller/telecaller.service';
@@ -12,8 +14,8 @@ import { randomUUID } from 'crypto';
 @ApiTags('Admin Recovery')
 @ApiBearerAuth()
 @Controller('admin/recovery')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'SUPER_ADMIN')
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+@AdminRoles(AdminRole.OPERATIONS_ADMIN)
 export class AdminRecoveryController {
   constructor(
     private readonly prisma: PrismaService,

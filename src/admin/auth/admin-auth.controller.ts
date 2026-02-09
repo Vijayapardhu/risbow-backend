@@ -11,6 +11,7 @@ import {
   Param,
   Ip,
   Headers,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -175,7 +176,15 @@ export class AdminAuthController {
     description: 'Invalidate a specific session by ID',
   })
   @ApiResponse({ status: 204, description: 'Session revoked' })
-  async revokeSession(@Param('sessionId') sessionId: string): Promise<void> {
+  async revokeSession(
+    @CurrentAdmin('id') adminId: string,
+    @Param('sessionId') sessionId: string,
+  ): Promise<void> {
+    // Verify session belongs to the authenticated admin (prevent IDOR)
+    const session = await this.authService.verifySessionOwnership(sessionId, adminId);
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
     await this.authService.revokeSession(sessionId);
   }
 

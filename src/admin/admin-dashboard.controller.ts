@@ -1,14 +1,16 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { AdminRole } from '@prisma/client';
 import { AdminDashboardService } from './admin-dashboard.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
+import { AdminJwtAuthGuard } from './auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from './auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from './auth/guards/admin-permissions.guard';
+import { AdminRoles } from './auth/decorators/admin-roles.decorator';
 
 @ApiTags('Admin')
 @Controller('admin/dashboard')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'SUPER_ADMIN')
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+@AdminRoles(AdminRole.OPERATIONS_ADMIN)
 export class AdminDashboardController {
     constructor(private readonly dashboardService: AdminDashboardService) { }
 

@@ -33,6 +33,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     async validate(payload: any) {
+        // Reject non-access tokens (e.g., refresh tokens used as access tokens)
+        if (payload.type && payload.type !== 'access') {
+            throw new UnauthorizedException('Invalid token type');
+        }
+
         // Check if token has been blacklisted (user logged out)
         const isBlacklisted = await this.redisService.get(`token:blacklist:${payload.sub}:${payload.iat}`);
         if (isBlacklisted) {

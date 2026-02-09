@@ -37,8 +37,17 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             password,
             tls: useTls ? {} : undefined, // Azure Redis requires TLS
             lazyConnect: true,
-            maxRetriesPerRequest: 1,
-            retryStrategy: () => null, // Do not spam reconnect attempts
+            maxRetriesPerRequest: 3,
+            retryStrategy: (times: number) => {
+                if (times > 10) {
+                    this.logger.error(`Redis: max reconnection attempts (${times}) reached`);
+                    return null; // Stop retrying after 10 attempts
+                }
+                // Exponential backoff: 200ms, 400ms, 800ms... capped at 5s
+                const delay = Math.min(times * 200, 5000);
+                this.logger.warn(`Redis: reconnecting in ${delay}ms (attempt ${times})`);
+                return delay;
+            },
             enableOfflineQueue: false,
             // Connection pooling to prevent "max clients reached" errors
             keepAlive: 30000, // Keep connection alive
@@ -292,12 +301,63 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         if (this.useMemory) {
             // In-memory fallback
             if (this.inMemoryStore.has(key)) {
-                return 0; // Key exists
+                const entry = this.inMemoryStore.get(key);
+                if (entry && entry.expiresAt >= Date.now()) {
+                    return 0; // Key exists and not expired
+                }
+                this.inMemoryStore.delete(key);
             }
             this.inMemoryStore.set(key, { value, expiresAt: Date.now() + 10000 });
             return 1; // Key set
         }
         return await this.client.setnx(key, value);
+    }
+
+    /**
+     * Atomic SET key value NX EX ttl — sets the key only if it doesn't exist,
+     * with an expiry, in a single atomic command. Essential for distributed locks.
+     */
+    async setNxEx(key: string, value: string, ttlSeconds: number): Promise<boolean> {
+        if (this.useMemory) {
+            // In-memory fallback — check for existing non-expired key
+            const existing = this.inMemoryStore.get(key);
+            if (existing && existing.expiresAt >= Date.now()) {
+                return false; // Key already held
+            }
+            this.inMemoryStore.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
+            return true;
+        }
+        if (!this.client) return false;
+        // SET key value NX EX ttl — returns 'OK' if set, null otherwise
+        const result = await this.client.set(key, value, 'EX', ttlSeconds, 'NX');
+        return result === 'OK';
+    }
+
+    /**
+     * Atomic delete-if-equal using Lua script.
+     * Only deletes the key if its current value matches the expected value.
+     * Prevents accidental release of locks held by other instances.
+     */
+    async delIfEqual(key: string, expectedValue: string): Promise<boolean> {
+        if (this.useMemory) {
+            const entry = this.inMemoryStore.get(key);
+            if (entry && entry.value === expectedValue) {
+                this.inMemoryStore.delete(key);
+                return true;
+            }
+            return false;
+        }
+        if (!this.client) return false;
+        // Lua script: atomic check-and-delete
+        const luaScript = `
+            if redis.call("get", KEYS[1]) == ARGV[1] then
+                return redis.call("del", KEYS[1])
+            else
+                return 0
+            end
+        `;
+        const result = await this.client.eval(luaScript, 1, key, expectedValue);
+        return result === 1;
     }
 
     async exists(key: string): Promise<boolean> {

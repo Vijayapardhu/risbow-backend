@@ -47,12 +47,10 @@ export enum Permission {
   ORDER_READ = 'order:read',
   ORDER_UPDATE = 'order:update',
   ORDER_CANCEL = 'order:cancel',
-  ORDER_REFUND = 'order:refund',
   ORDER_EXPORT = 'order:export',
 
   // Payment Management
   PAYMENT_READ = 'payment:read',
-  PAYMENT_REFUND = 'payment:refund',
   PAYMENT_PROCESS = 'payment:process',
   PAYMENT_EXPORT = 'payment:export',
 
@@ -154,7 +152,6 @@ export const PermissionGroups = {
     Permission.ORDER_READ,
     Permission.ORDER_UPDATE,
     Permission.ORDER_CANCEL,
-    Permission.ORDER_REFUND,
     Permission.ORDER_EXPORT,
   ],
 
@@ -167,7 +164,6 @@ export const PermissionGroups = {
 
   FINANCE: [
     Permission.PAYMENT_READ,
-    Permission.PAYMENT_REFUND,
     Permission.PAYMENT_PROCESS,
     Permission.PAYMENT_EXPORT,
     Permission.COIN_READ,

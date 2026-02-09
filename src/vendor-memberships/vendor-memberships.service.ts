@@ -28,7 +28,7 @@ export class VendorMembershipsService {
             price: 0,
             skuLimit: 10,
             imageLimit: 3,
-            commissionRate: 0.15,
+            commissionRate: 1500, // 15% => 1500bp
             payoutCycle: 'MONTHLY' as PayoutCycle,
             features: {
                 prioritySupport: false,
@@ -43,7 +43,7 @@ export class VendorMembershipsService {
             price: 999,
             skuLimit: 100,
             imageLimit: 5,
-            commissionRate: 0.12,
+            commissionRate: 1200, // 12% => 1200bp
             payoutCycle: 'WEEKLY' as PayoutCycle,
             features: {
                 prioritySupport: false,
@@ -58,7 +58,7 @@ export class VendorMembershipsService {
             price: 2999,
             skuLimit: 1000,
             imageLimit: 10,
-            commissionRate: 0.10,
+            commissionRate: 1000, // 10% => 1000bp
             payoutCycle: 'WEEKLY' as PayoutCycle,
             features: {
                 prioritySupport: true,
@@ -73,7 +73,7 @@ export class VendorMembershipsService {
             price: 4999,
             skuLimit: 999999,
             imageLimit: 15,
-            commissionRate: 0.08,
+            commissionRate: 800, // 8% => 800bp
             payoutCycle: 'BIWEEKLY' as PayoutCycle,
             features: {
                 prioritySupport: true,
@@ -88,7 +88,7 @@ export class VendorMembershipsService {
             price: 9999,
             skuLimit: 999999,
             imageLimit: 20,
-            commissionRate: 0.05,
+            commissionRate: 500, // 5% => 500bp
             payoutCycle: 'INSTANT' as PayoutCycle,
             features: {
                 prioritySupport: true,

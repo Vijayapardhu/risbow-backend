@@ -1,17 +1,19 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PrismaService } from '../prisma/prisma.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
+import { AdminRole } from '@prisma/client';
+import { AdminJwtAuthGuard } from './auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from './auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from './auth/guards/admin-permissions.guard';
+import { AdminRoles } from './auth/decorators/admin-roles.decorator';
 import { AuditLogService } from '../audit/audit.service';
 import { CreateReferralRewardRuleDto, UpdateReferralRewardRuleDto } from './dto/referral-reward-rule.dto';
 
 @ApiTags('Admin Referral Rewards')
 @ApiBearerAuth()
 @Controller('admin/referrals/reward-rules')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SUPER_ADMIN')  // SECURITY: Financial rules require SUPER_ADMIN only
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+@AdminRoles(AdminRole.SUPER_ADMIN)  // SECURITY: Financial rules require SUPER_ADMIN only
 export class ReferralRewardRulesController {
   constructor(private prisma: PrismaService, private audit: AuditLogService) {}
 

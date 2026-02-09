@@ -1,15 +1,24 @@
 import { Controller, Get, Post, Patch, Put, Delete, Body, Param, Query, UseGuards, Request, Res } from '@nestjs/common';
 import { AdminService } from './admin.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
+import { AdminJwtAuthGuard } from './auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from './auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from './auth/guards/admin-permissions.guard';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { Response } from 'express';
+import { AdminRole } from '@prisma/client';
+import { AdminRoles } from './auth/decorators/admin-roles.decorator';
+
+// Backward-compatible shim for legacy `@Roles('ADMIN'|'SUPER_ADMIN')` usage.
+// Maps old role strings to the new AdminRole enum.
+const Roles = (...roles: Array<'ADMIN' | 'SUPER_ADMIN'>) =>
+    AdminRoles(
+        ...roles.map((r) => (r === 'ADMIN' ? AdminRole.OPERATIONS_ADMIN : AdminRole.SUPER_ADMIN)),
+    );
 
 @ApiTags('Admin')
 @Controller('admin')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
 @Roles('ADMIN', 'SUPER_ADMIN')
 export class AdminController {
     constructor(private readonly adminService: AdminService) { }

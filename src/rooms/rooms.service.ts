@@ -195,9 +195,19 @@ export class RoomsService {
      */
     calculateCurrentDiscount(room: any): number {
         if (!room.maxDiscount || !room.maxMembers) return 0;
-        const discountPerUser = room.maxDiscount / room.maxMembers;
-        const discount = room.memberCount * discountPerUser;
-        return Number(Math.min(discount, room.maxDiscount).toFixed(2));
+        // Stored in DB as basis points of percentage (80% => 8000)
+        const maxDiscountBp = Number(room.maxDiscount);
+        const maxMembers = Number(room.maxMembers);
+        const memberCount = Number(room.memberCount || 0);
+
+        // discountBp = min(maxDiscountBp, round(memberCount * maxDiscountBp / maxMembers))
+        const discountBp = Math.min(
+            maxDiscountBp,
+            Math.round((memberCount * maxDiscountBp) / maxMembers),
+        );
+
+        // Return percentage with 2 decimals (bp -> %)
+        return Number((discountBp / 100).toFixed(2));
     }
 
     /**
@@ -214,7 +224,8 @@ export class RoomsService {
                 name: dto.name,
                 type: RoomType.LINEAR_DISCOUNT,
                 productId: dto.productId,
-                maxDiscount: dto.maxDiscount,
+                // Store as basis points (80% => 8000). Allows 2-decimal percent inputs.
+                maxDiscount: Math.round(dto.maxDiscount * 100),
                 maxMembers: dto.maxMembers,
                 size: dto.maxMembers,
                 status: RoomStatus.OPEN,

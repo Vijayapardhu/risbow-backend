@@ -151,7 +151,7 @@ export class OrderStateValidatorService {
             );
 
             // If admin override is explicitly allowed, log but don't throw
-            if (allowAdminOverride && actorRole === 'ADMIN' || actorRole === 'SUPER_ADMIN') {
+            if (allowAdminOverride && (actorRole === 'ADMIN' || actorRole === 'SUPER_ADMIN')) {
                 this.logger.warn(
                     `Admin override allowed for order ${orderId}: ${fromStatus} -> ${toStatus}`
                 );

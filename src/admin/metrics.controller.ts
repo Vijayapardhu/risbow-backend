@@ -1,15 +1,17 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { Roles } from '../auth/roles.decorator';
-import { RolesGuard } from '../auth/roles.guard';
+import { AdminRole } from '@prisma/client';
+import { AdminJwtAuthGuard } from './auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from './auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from './auth/guards/admin-permissions.guard';
+import { AdminRoles } from './auth/decorators/admin-roles.decorator';
 import { CacheService } from '../shared/cache.service';
 import { QueuesService } from '../queues/queues.service';
 import { CacheMetrics } from '../shared/cache.service';
 
 @ApiTags('Admin - Performance Metrics')
 @Controller('admin/metrics')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
 @ApiBearerAuth()
 export class MetricsController {
     constructor(
@@ -18,7 +20,7 @@ export class MetricsController {
     ) { }
 
     @Get('cache')
-    @Roles('ADMIN', 'SUPER_ADMIN')
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN)
     @ApiOperation({ summary: 'Get cache hit/miss metrics' })
     async getCacheMetrics() {
         const metrics: Record<string, CacheMetrics> = this.cache.getMetrics();
@@ -37,7 +39,7 @@ export class MetricsController {
     }
 
     @Get('queues')
-    @Roles('ADMIN', 'SUPER_ADMIN')
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN)
     @ApiOperation({ summary: 'Get queue statistics' })
     async getQueueStats() {
         const stats = await this.queues.getQueueStats();

@@ -108,7 +108,9 @@ export class OrdersService {
         const payableInPaise = Math.max(100, totalAmountInPaise - coinsDiscountPaise);
 
         // 3) Create logic for P0 Financial Snapshot
-        const commissionRate = totalBasePrice > 0 ? (totalCommissionAmount / totalBasePrice) : 0;
+        // Store commission rate as basis points (bp). Example: 15% => 1500
+        const commissionRateBp =
+            totalBasePrice > 0 ? Math.round((totalCommissionAmount * 10000) / totalBasePrice) : 0;
 
         // 4) Create Razorpay Order
         const rzpOrder = await this.razorpay.orders.create({
@@ -128,7 +130,8 @@ export class OrdersService {
                 roomId: dto.roomId,
                 orderNumber,
                 items: dto.items as any,
-                totalAmount: Math.round(payableInPaise / 100),
+                // Money is stored as integer paise
+                totalAmount: payableInPaise,
                 coinsUsed: usableCoins,
                 status: OrderStatus.PENDING,
                 razorpayOrderId: rzpOrder.id,
@@ -143,7 +146,7 @@ export class OrdersService {
                         // Include coins discount inside discountAmount to keep snapshot auditable and immutable.
                         discountAmount: discountAmount + coinsDiscountPaise,
                         giftCost: 0,
-                        commissionRate: commissionRate,
+                        commissionRate: commissionRateBp,
                         commissionAmount: totalCommissionAmount,
                         vendorEarnings: netVendorEarnings,
                         platformEarnings: totalCommissionAmount, // Fixed portion
@@ -454,17 +457,66 @@ export class OrdersService {
         // Prevent illegal jumps
         this.stateValidator.validateTransition(order.status as any, OrderStatus.CANCELLED as any, UserRole.CUSTOMER as any);
 
-        const updated = await this.prisma.order.update({
-            where: { id: orderId },
-            data: { status: OrderStatus.CANCELLED },
-        });
+        // Use transaction to cancel order + restore inventory atomically
+        const updated = await this.prisma.$transaction(async (tx) => {
+            const cancelledOrder = await tx.order.update({
+                where: { id: orderId },
+                data: { status: OrderStatus.CANCELLED },
+            });
 
-        if (order.payment && order.payment.status === 'PENDING') {
-            await this.prisma.payment.update({
-                where: { id: order.payment.id },
-                data: { status: 'FAILED' as any },
-            }).catch(() => { });
-        }
+            // Restore inventory if stock was deducted
+            if ((order as any).stockDeducted) {
+                const items = order.items as any[];
+                for (const item of items) {
+                    await tx.product.update({
+                        where: { id: item.productId },
+                        data: {
+                            stock: { increment: item.quantity },
+                        },
+                    });
+                }
+                // Clear stock deduction flag
+                await tx.order.update({
+                    where: { id: orderId },
+                    data: { stockDeducted: false } as any,
+                });
+            }
+
+            // Restore coins if they were debited
+            if (order.coinsUsedDebited && order.coinsUsed > 0) {
+                await tx.user.update({
+                    where: { id: userId },
+                    data: {
+                        coinsBalance: { increment: order.coinsUsed },
+                    },
+                });
+
+                await tx.coinLedger.create({
+                    data: {
+                        id: require('crypto').randomUUID(),
+                        userId,
+                        amount: order.coinsUsed,
+                        source: 'ORDER_CANCELLATION',
+                        referenceId: orderId,
+                    },
+                });
+
+                await tx.order.update({
+                    where: { id: orderId },
+                    data: { coinsUsedDebited: false },
+                });
+            }
+
+            // Cancel pending payment
+            if (order.payment && order.payment.status === 'PENDING') {
+                await tx.payment.update({
+                    where: { id: order.payment.id },
+                    data: { status: 'FAILED' as any },
+                });
+            }
+
+            return cancelledOrder;
+        });
 
         return { success: true, order: updated };
     }
@@ -546,10 +598,8 @@ export class OrdersService {
             }
         }
 
-        console.log('--- DEBUG: findAllOrders ---');
-        console.log('Params:', params);
-        console.log('Constructed Where:', JSON.stringify(where, null, 2));
-        console.log('OrderBy:', orderBy);
+        this.logger.debug(`findAllOrders params=${JSON.stringify(params)}`);
+        this.logger.debug(`findAllOrders orderBy=${JSON.stringify(orderBy)}`);
 
         const [orders, total] = await Promise.all([
             this.prisma.order.findMany({
@@ -568,7 +618,7 @@ export class OrdersService {
             this.prisma.order.count({ where })
         ]);
 
-        console.log(`Found ${orders.length} orders. Total: ${total}`);
+        this.logger.debug(`findAllOrders resultCount=${orders.length} total=${total}`);
 
         // Collect all unique productIds and vendorIds from order items
         const allProductIds = new Set<string>();
@@ -652,10 +702,11 @@ export class OrdersService {
                 };
             });
 
-            const subtotal = transformedItems.reduce((sum, item) => sum + item.total, 0);
-            const tax = Math.round(subtotal * 0.18);
-            const shipping = order.shippingCharges || 0;
-            const discount = order.coinsUsed || 0;
+            const snapshot = (order as any).OrderFinancialSnapshot;
+            const subtotal = snapshot?.subtotal ?? transformedItems.reduce((sum, item) => sum + item.total, 0);
+            const tax = snapshot?.taxAmount ?? this.priceResolver.calculateTax(subtotal);
+            const shipping = snapshot?.shippingAmount ?? (order.shippingCharges ?? 0);
+            const discount = snapshot?.discountAmount ?? (order.coinsUsed ?? 0);
             const total = subtotal + tax + shipping - discount;
 
             return {
@@ -848,10 +899,11 @@ export class OrdersService {
             };
         });
 
-        const subtotal = transformedItems.reduce((sum, item) => sum + item.total, 0);
-        const tax = Math.round(subtotal * 0.18);
-        const shipping = order.shippingCharges || 0;
-        const discount = order.coinsUsed || 0;
+        const snapshot = (order as any).OrderFinancialSnapshot;
+        const subtotal = snapshot?.subtotal ?? transformedItems.reduce((sum, item) => sum + item.total, 0);
+        const tax = snapshot?.taxAmount ?? this.priceResolver.calculateTax(subtotal);
+        const shipping = snapshot?.shippingAmount ?? (order.shippingCharges ?? 0);
+        const discount = snapshot?.discountAmount ?? (order.coinsUsed ?? 0);
         const total = subtotal + tax + shipping - discount;
 
         return {

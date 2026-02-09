@@ -182,10 +182,25 @@ export class CartService {
             const product = await this.prisma.product.findUnique({ where: { id: productId } });
             if (!product) throw new NotFoundException('Product not found');
 
+            // Gate inactive products + unverified vendors (backend is source of truth)
+            if ((product as any).isActive === false) {
+                throw new BadRequestException('Product is inactive');
+            }
+            const vendorId = (product as any).vendorId;
+            if (vendorId) {
+                const vendor = await this.prisma.vendor.findUnique({
+                    where: { id: vendorId },
+                    select: { kycStatus: true, isActive: true },
+                });
+                if (!vendor || vendor.isActive === false || vendor.kycStatus !== 'VERIFIED') {
+                    throw new BadRequestException('Vendor is not eligible to sell (KYC/active check failed)');
+                }
+            }
+
             // Validation Rules
             this.validateQuantityRules(product, quantity);
 
-            let price = product.offerPrice || product.price;
+            let price = product.offerPrice ?? product.price;
             let availableStock = product.stock;
 
             // JSON Variation Logic

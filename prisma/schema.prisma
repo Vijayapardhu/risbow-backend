@@ -598,7 +598,8 @@ model Category {
 model CategoryCommission {
   id             String   @id
   categoryId     String   @unique
-  commissionRate Float
+  /// Commission rate in basis points (bp). Example: 15% => 1500
+  commissionRate Int      @default(0)
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   Category       Category @relation(fields: [categoryId], references: [id])
@@ -608,7 +609,8 @@ model CategoryCommission {
 model CommissionRule {
   id             String          @id
   scope          CommissionScope
-  commissionRate Float
+  /// Commission rate in basis points (bp). Example: 15% => 1500
+  commissionRate Int            @default(0)
   isActive       Boolean         @default(true)
   effectiveFrom  DateTime        @default(now())
   effectiveTo    DateTime?
@@ -804,6 +806,26 @@ model Coupon {
 
   @@index([isActive])
   @@index([vendorId])
+}
+
+/// CouponUsage — per-user coupon usage tracking (append-only)
+/// Discount is stored in paise applied to the order at checkout time.
+model CouponUsage {
+  id        String   @id @default(uuid())
+  couponId  String
+  userId    String
+  orderId   String
+  discount  Int
+  createdAt DateTime @default(now())
+
+  Coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  User   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, orderId])
+  @@index([userId, couponId])
+  @@index([couponId])
+  @@index([createdAt])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -1174,7 +1196,8 @@ model OrderFinancialSnapshot {
   shippingAmount   Int
   discountAmount   Int
   giftCost         Int
-  commissionRate   Float
+  /// Commission rate in basis points (bp). Example: 15% => 1500
+  commissionRate   Int
   commissionAmount Int
   vendorEarnings   Int
   platformEarnings Int
@@ -1774,7 +1797,8 @@ model Room {
   isSystemRoom    Boolean       @default(false)
   createdAt       DateTime      @default(now())
   memberCount     Int           @default(1)
-  maxDiscount     Float?
+  /// Maximum discount percentage in basis points (bp). Example: 80% => 8000
+  maxDiscount     Int?
   maxMembers      Int?
   productId       String?
   type            RoomType      @default(GOAL_BASED)
@@ -2153,7 +2177,8 @@ model Vendor {
   coinsBalance                    Int                         @default(0)
   followCount                     Int                         @default(0)
   vendorCode                      String?                     @unique
-  commissionRate                  Float                       @default(0.0)
+  /// Commission rate in basis points (bp). Example: 15% => 1500
+  commissionRate                  Int                         @default(0)
   createdAt                       DateTime                    @default(now())
   updatedAt                       DateTime
   bankDetails                     Json?
@@ -2166,7 +2191,8 @@ model Vendor {
   storeLogo                       String?
   storeName                       String?
   storeTimings                    Json?
-  commissionOverride              Decimal?                    @db.Decimal(5, 4)
+  /// Commission override in basis points (bp). Example: 12.5% => 1250
+  commissionOverride              Int?
   latitude                        Float?
   longitude                       Float?
   pincode                         String?
@@ -2406,7 +2432,8 @@ model VendorMembership {
   price          Int            @default(0)
   skuLimit       Int            @default(10)
   imageLimit     Int            @default(3)
-  commissionRate Float          @default(0.15)
+  /// Commission rate in basis points (bp). Example: 15% => 1500
+  commissionRate Int            @default(1500)
   payoutCycle    PayoutCycle    @default(MONTHLY)
   features       Json?
   startDate      DateTime       @default(now())

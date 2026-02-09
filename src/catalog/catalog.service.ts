@@ -385,7 +385,11 @@ export class CatalogService {
             cacheKey,
             600,
             async () => {
-                const where: Prisma.ProductWhereInput = { isActive: true };
+                // Gate inactive products and vendors without VERIFIED KYC
+                const where: Prisma.ProductWhereInput = {
+                    isActive: true,
+                    Vendor: { isActive: true, kycStatus: 'VERIFIED' } as any,
+                } as any;
 
                 if (filters.category && filters.category !== 'All') {
                     where.categoryId = filters.category;
@@ -445,6 +449,8 @@ export class CatalogService {
                 return results;
             }
         );
+
+        return results;
     }
 
 
@@ -521,8 +527,13 @@ export class CatalogService {
             600, // 10 minutes TTL
             async () => {
                 const [product, reviewStats] = await Promise.all([
-                    this.prisma.product.findUnique({
-                        where: { id },
+                    // Gate inactive products and vendors without VERIFIED KYC
+                    this.prisma.product.findFirst({
+                        where: {
+                            id,
+                            isActive: true,
+                            Vendor: { isActive: true, kycStatus: 'VERIFIED' } as any,
+                        } as any,
                         select: {
                             id: true,
                             title: true,

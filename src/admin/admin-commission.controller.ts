@@ -5,16 +5,18 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UpdateCategoryCommissionDto } from './dto/commission.dto';
 import { AdminService } from './admin.service';
 import { randomUUID } from 'crypto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
+import { AdminRole } from '@prisma/client';
+import { AdminJwtAuthGuard } from './auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from './auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from './auth/guards/admin-permissions.guard';
 import { CreateCommissionRuleDto, UpdateCommissionRuleDto, ListCommissionRulesQueryDto } from './dto/commission-rule.dto';
 import { CommissionService } from '../common/commission.service';
+import { AdminRoles } from './auth/decorators/admin-roles.decorator';
 
 @ApiTags('Admin Commission')
 @Controller('admin/commissions')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SUPER_ADMIN')  // SECURITY: Financial rules require SUPER_ADMIN only
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+@AdminRoles(AdminRole.SUPER_ADMIN)  // SECURITY: Financial rules require SUPER_ADMIN only
 @ApiBearerAuth()
 export class AdminCommissionController {
     constructor(

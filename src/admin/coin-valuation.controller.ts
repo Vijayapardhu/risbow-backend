@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Put, Query, Req, UseGuards, BadRequestException } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
+import { AdminRole } from '@prisma/client';
+import { AdminJwtAuthGuard } from './auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from './auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from './auth/guards/admin-permissions.guard';
+import { AdminRoles } from './auth/decorators/admin-roles.decorator';
 import { CoinValuationService } from '../coins/coin-valuation.service';
 import { AuditLogService } from '../audit/audit.service';
 import { SetCoinValuationDto } from './dto/coin-valuation.dto';
@@ -11,8 +13,8 @@ import { randomUUID } from 'crypto';
 @ApiTags('Admin')
 @ApiBearerAuth()
 @Controller('admin/coin-valuation')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'SUPER_ADMIN')
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+@AdminRoles(AdminRole.OPERATIONS_ADMIN)
 export class CoinValuationController {
   constructor(
     private readonly valuation: CoinValuationService,

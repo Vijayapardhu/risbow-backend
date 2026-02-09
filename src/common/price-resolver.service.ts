@@ -43,9 +43,11 @@ export class PriceResolverService {
                 throw new NotFoundException(`Variant ${variantId} not found for product ${productId}`);
             }
             // Use variant price if set, otherwise fallback to product price
-            basePrice = (variant.price ?? null) !== null ? Number(variant.price) : (product.offerPrice || product.price);
+            // Use ?? (nullish coalescing) instead of || to handle offerPrice === 0 correctly
+            basePrice = (variant.price ?? null) !== null ? Number(variant.price) : (product.offerPrice ?? product.price);
         } else {
-            basePrice = product.offerPrice || product.price;
+            // Use ?? instead of || — offerPrice of 0 is a valid free-item price
+            basePrice = product.offerPrice ?? product.price;
         }
 
         const promo = args.location
@@ -139,7 +141,8 @@ export class PriceResolverService {
      * Calculates tax (GST) for a given amount.
      * Default is 18% GST.
      */
-    calculateTax(amount: number, rate: number = 0.18): number {
-        return Math.round(amount * rate);
+    calculateTax(amountPaise: number, ratePercent: number = 18): number {
+        // Integer math (no floats): taxPaise = round(amountPaise * ratePercent / 100)
+        return Math.round((amountPaise * ratePercent) / 100);
     }
 }

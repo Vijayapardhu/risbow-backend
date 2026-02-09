@@ -515,8 +515,9 @@ export class ReportingService {
     });
 
     // Commission earned (if applicable)
-    const commissionRate = 0.1; // 10% commission
-    const totalCommission = (orderRevenue._sum.totalAmount || 0) * commissionRate;
+    // NOTE: This is a placeholder estimate. For real reporting, sum OrderFinancialSnapshot.platformEarnings.
+    const commissionRateBp = 1000; // 10% => 1000bp
+    const totalCommission = Math.round(((orderRevenue._sum.totalAmount || 0) * commissionRateBp) / 10000);
 
     // Refunds
     const refunds = await this.prisma.order.aggregate({

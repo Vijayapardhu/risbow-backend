@@ -1,16 +1,18 @@
 import { Controller, Get, Query, UseGuards, Param, Post, Body, Patch, Delete } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { AdminRole } from '@prisma/client';
 import { AdminProductService } from './admin-product.service';
 import { AdminService } from './admin.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
+import { AdminJwtAuthGuard } from './auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from './auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from './auth/guards/admin-permissions.guard';
+import { AdminRoles } from './auth/decorators/admin-roles.decorator';
 import { CreateProductDto, UpdateProductDto } from '../catalog/dto/catalog.dto';
 
 @ApiTags('Admin')
 @Controller('admin/products')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'SUPER_ADMIN')
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+@AdminRoles(AdminRole.OPERATIONS_ADMIN)
 export class AdminProductController {
     constructor(
         private readonly productService: AdminProductService,

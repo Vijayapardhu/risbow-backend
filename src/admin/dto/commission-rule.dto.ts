@@ -5,7 +5,7 @@ import {
   IsDateString,
   IsEnum,
   IsNotEmpty,
-  IsNumber,
+  IsInt,
   IsOptional,
   IsString,
   Max,
@@ -18,10 +18,10 @@ export class CreateCommissionRuleDto {
   @IsEnum(CommissionScope)
   scope: CommissionScope;
 
-  @ApiProperty({ example: 0.12 })
-  @IsNumber()
+  @ApiProperty({ example: 1200, description: 'Commission rate in basis points (bp). Example: 12% => 1200' })
+  @IsInt()
   @Min(0)
-  @Max(0.8)
+  @Max(8000)
   commissionRate: number;
 
   @ApiPropertyOptional({ example: true })
@@ -71,11 +71,11 @@ export class UpdateCommissionRuleDto {
   @IsEnum(CommissionScope)
   scope?: CommissionScope;
 
-  @ApiPropertyOptional({ example: 0.12 })
+  @ApiPropertyOptional({ example: 1200, description: 'Commission rate in basis points (bp). Example: 12% => 1200' })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(0)
-  @Max(0.8)
+  @Max(8000)
   commissionRate?: number;
 
   @ApiPropertyOptional({ example: true })

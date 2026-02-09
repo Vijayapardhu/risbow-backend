@@ -1,4 +1,4 @@
-import { IsNumber, IsString, IsNotEmpty, IsBoolean, IsOptional, Min, Max } from 'class-validator';
+import { IsInt, IsString, IsNotEmpty, IsBoolean, IsOptional, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateCategoryCommissionDto {
@@ -7,10 +7,10 @@ export class UpdateCategoryCommissionDto {
     @IsNotEmpty()
     categoryId: string;
 
-    @ApiProperty({ example: 0.15 })
-    @IsNumber()
+    @ApiProperty({ example: 1500, description: 'Commission rate in basis points (bp). Example: 15% => 1500' })
+    @IsInt()
     @Min(0)
-    @Max(0.5) // Max 50% commission
+    @Max(5000) // Max 50% commission
     commissionRate: number;
 
     @ApiProperty({ example: true, required: false })
@@ -20,9 +20,9 @@ export class UpdateCategoryCommissionDto {
 }
 
 export class VendorCommissionOverrideDto {
-    @ApiProperty({ example: 0.125 })
-    @IsNumber()
+    @ApiProperty({ example: 1250, description: 'Override rate in basis points (bp). Example: 12.5% => 1250' })
+    @IsInt()
     @Min(0)
-    @Max(0.8) // Max 80% override
+    @Max(8000) // Max 80% override
     overrideRate: number;
 }

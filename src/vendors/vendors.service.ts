@@ -178,7 +178,8 @@ export class VendorsService {
                         price: 0, // Default FREE price
                         skuLimit: 10, // Default FREE limit
                         imageLimit: 3,
-                        commissionRate: 0.15,
+                        // Basis points (bp): 15% => 1500
+                        commissionRate: 1500,
                         payoutCycle: 'MONTHLY',
                         updatedAt: new Date()
                     }

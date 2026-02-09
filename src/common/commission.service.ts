@@ -5,7 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 @Injectable()
 export class CommissionService {
     private readonly logger = new Logger(CommissionService.name);
-    private readonly PLATFORM_DEFAULT_RATE = 0.15; // 15%
+    // Basis points: 15% => 1500 (10000 bp = 100%)
+    private readonly PLATFORM_DEFAULT_RATE_BP = 1500;
 
     constructor(private prisma: PrismaService) { }
 
@@ -31,20 +32,20 @@ export class CommissionService {
         vendorId: string,
         productId?: string,
     ): Promise<number> {
-        try {
-            const commissionRate = await this.resolveCommissionRate({
-                categoryId,
-                vendorId,
-                productId,
-            });
+        // Commission resolution must NOT silently fallback on error.
+        // A failed commission lookup means we cannot guarantee correct vendor earnings.
+        // Throwing here forces the caller to handle the error explicitly.
+        const commissionRateBp = await this.resolveCommissionRate({
+            categoryId,
+            vendorId,
+            productId,
+        });
 
-            const commissionInPaise = Math.round(price * commissionRate);
-            this.logger.debug(`Commission calculated: ${price} paise * ${commissionRate} = ${commissionInPaise} paise`);
-            return commissionInPaise;
-        } catch (error) {
-            this.logger.error(`Error calculating commission: ${error.message}`);
-            return Math.round(price * this.PLATFORM_DEFAULT_RATE);
-        }
+        const commissionInPaise = Math.round((price * commissionRateBp) / 10000);
+        this.logger.debug(
+            `Commission calculated: ${price} paise * ${commissionRateBp}bp = ${commissionInPaise} paise`
+        );
+        return commissionInPaise;
     }
 
     async resolveCommissionRate(args: {
@@ -113,7 +114,7 @@ export class CommissionService {
             }
         }
 
-        return this.PLATFORM_DEFAULT_RATE;
+        return this.PLATFORM_DEFAULT_RATE_BP;
     }
 
     async getCommissionPreview(args: {
@@ -122,7 +123,7 @@ export class CommissionService {
         vendorId?: string;
         productId?: string;
     }): Promise<{
-        commissionRate: number;
+        commissionRate: number; // basis points
         commissionAmount: number;
         scope: CommissionScope | 'DEFAULT';
         ruleId?: string;
@@ -163,7 +164,7 @@ export class CommissionService {
             if (rule?.commissionRate != null) {
                 return {
                     commissionRate: rule.commissionRate,
-                    commissionAmount: Math.round(price * rule.commissionRate),
+                    commissionAmount: Math.round((price * rule.commissionRate) / 10000),
                     scope: entry.scope,
                     ruleId: rule.id,
                 };
@@ -173,7 +174,7 @@ export class CommissionService {
         const rate = await this.resolveCommissionRate({ categoryId, vendorId, productId, when: now });
         return {
             commissionRate: rate,
-            commissionAmount: Math.round(price * rate),
+            commissionAmount: Math.round((price * rate) / 10000),
             scope: 'DEFAULT',
         };
     }

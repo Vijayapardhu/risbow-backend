@@ -7,11 +7,13 @@ import { CouponsService } from '../coupons/coupons.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { RedisService } from '../shared/redis.service';
 import { PriceResolverService } from '../common/price-resolver.service';
+import { CommissionService } from '../common/commission.service';
 import { DeliveryOptionsService } from '../delivery/delivery-options.service';
 import { GeoService } from '../shared/geo.service';
 import { VendorAvailabilityService } from '../vendors/vendor-availability.service';
 import { OrderStatus } from '@prisma/client';
 import { generateOrderNumber } from '../common/order-number.utils';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class CheckoutService {
@@ -25,6 +27,7 @@ export class CheckoutService {
         private readonly inventoryService: InventoryService,  // 🔐 P0 FIX: Add InventoryService
         private readonly redisService: RedisService,
         private readonly priceResolver: PriceResolverService,
+        private readonly commissionService: CommissionService,
         private readonly deliveryOptions: DeliveryOptionsService,
         private readonly geoService: GeoService,
         private readonly vendorAvailability: VendorAvailabilityService,
@@ -168,7 +171,7 @@ export class CheckoutService {
         }
 
         try {
-            return await this.prisma.$transaction(async (tx) => {
+            const result = await this.prisma.$transaction(async (tx) => {
                 const cart = await tx.cart.findUnique({
                     where: { userId },
                     include: { CartItem: { include: { Product: true } } },
@@ -229,6 +232,7 @@ export class CheckoutService {
                         productId: product.id,
                         variantId: item.variantId,
                         vendorId: product.vendorId,
+                        categoryId: product.categoryId,
                         productTitle: product.title,
                         productName: product.title,
                         image: product.images?.[0] || null,
@@ -250,6 +254,15 @@ export class CheckoutService {
 
                 // 🔐 DB-LEVEL ENFORCEMENT: Check shop availability for each vendor
                 for (const vendorId of vendorIds) {
+                    // Gate vendors that are inactive or not KYC verified
+                    const vendor = await tx.vendor.findUnique({
+                        where: { id: vendorId },
+                        select: { isActive: true, kycStatus: true },
+                    });
+                    if (!vendor || vendor.isActive === false || vendor.kycStatus !== 'VERIFIED') {
+                        throw new BadRequestException(`Cannot place order: Vendor ${vendorId} is not eligible (KYC/active check failed)`);
+                    }
+
                     const availability = await this.vendorAvailability.checkShopOpen(vendorId);
                     if (!availability.isOpen) {
                         throw new BadRequestException(
@@ -411,6 +424,76 @@ export class CheckoutService {
                             source: slot.source,
                         } as any,
                     });
+
+                    // === Financial snapshot + settlement (immutable after confirmation) ===
+                    // Allocate the vendor-level discount to items proportionally (largest remainder)
+                    const itemRaw = items.map((it: any) => {
+                        const exact = subtotal > 0 ? (allocDiscount * Number(it.subtotal)) / subtotal : 0;
+                        const floor = Math.floor(exact);
+                        return { it, floor, frac: exact - floor };
+                    });
+                    let itemRemaining = allocDiscount - itemRaw.reduce((s: number, r: any) => s + r.floor, 0);
+                    itemRaw.sort((a: any, b: any) => b.frac - a.frac);
+                    const itemDiscounts = new Map<string, number>();
+                    for (const r of itemRaw) {
+                        const key = `${r.it.productId}:${r.it.variantId || ''}`;
+                        itemDiscounts.set(key, r.floor);
+                    }
+                    let di = 0;
+                    while (itemRemaining > 0 && itemRaw.length > 0) {
+                        const r = itemRaw[di % itemRaw.length];
+                        const key = `${r.it.productId}:${r.it.variantId || ''}`;
+                        itemDiscounts.set(key, (itemDiscounts.get(key) || 0) + 1);
+                        itemRemaining -= 1;
+                        di += 1;
+                    }
+
+                    // Commission amount is computed per-item based on net (after-discount) amounts
+                    let commissionAmountPaise = 0;
+                    for (const it of items) {
+                        const key = `${it.productId}:${it.variantId || ''}`;
+                        const itemDiscount = Number(itemDiscounts.get(key) || 0);
+                        const netItemSubtotal = Math.max(0, Number(it.subtotal) - itemDiscount);
+                        commissionAmountPaise += await this.commissionService.calculateCommission(
+                            netItemSubtotal,
+                            String((it as any).categoryId),
+                            vendorId,
+                            String(it.productId),
+                        );
+                    }
+
+                    const commissionRateBp =
+                        totalAmountPaise > 0
+                            ? Math.round((commissionAmountPaise * 10000) / totalAmountPaise)
+                            : 0;
+                    const vendorEarningsPaise = Math.max(0, totalAmountPaise - commissionAmountPaise);
+
+                    await tx.orderFinancialSnapshot.create({
+                        data: {
+                            id: randomUUID(),
+                            orderId: created.id,
+                            subtotal: subtotal,
+                            taxAmount: 0,
+                            shippingAmount: 0,
+                            discountAmount: allocDiscount,
+                            giftCost: 0,
+                            commissionRate: commissionRateBp,
+                            commissionAmount: commissionAmountPaise,
+                            vendorEarnings: vendorEarningsPaise,
+                            platformEarnings: commissionAmountPaise,
+                            currency: 'INR',
+                        } as any,
+                    });
+
+                    await (tx as any).orderSettlement.create({
+                        data: {
+                            id: randomUUID(),
+                            orderId: created.id,
+                            vendorId,
+                            amount: vendorEarningsPaise,
+                            status: 'PENDING',
+                        } as any,
+                    });
                 }
 
                 // Clear cart items (both COD + ONLINE)
@@ -432,17 +515,9 @@ export class CheckoutService {
                 }
 
                 const groupTotalPaise = createdOrders.reduce((s, o) => s + Number(o.totalAmountPaise), 0);
-                razorpayOrder = await this.paymentsService.generateRazorpayOrder(groupTotalPaise, 'INR', checkoutGroup.id, {
-                    userId,
-                    checkoutGroupId: checkoutGroup.id,
-                    orderIds: createdOrders.map((o) => o.id),
-                });
 
-                await tx.checkoutGroup.update({
-                    where: { id: checkoutGroup.id },
-                    data: { totalAmountPaise: groupTotalPaise, providerOrderId: razorpayOrder.id },
-                });
-
+                // Create abandoned checkout and payment records INSIDE transaction (without Razorpay IDs)
+                // Razorpay API call will happen OUTSIDE the transaction to avoid holding DB locks during external I/O
                 abandonedCheckout = await tx.abandonedCheckout.create({
                     data: {
                         userId,
@@ -454,14 +529,18 @@ export class CheckoutService {
                         metadata: {
                             type: 'CHECKOUT_GROUP',
                             checkoutGroupId: checkoutGroup.id,
-                            razorpayOrderId: razorpayOrder.id,
                             createdAt: new Date().toISOString(),
                         },
                         abandonedAt: new Date(),
                     } as any,
                 });
 
-                // Link orders to abandoned checkout + provider order id + payments
+                await tx.checkoutGroup.update({
+                    where: { id: checkoutGroup.id },
+                    data: { totalAmountPaise: groupTotalPaise },
+                });
+
+                // Create payment records with providerOrderId as null (will be linked after Razorpay call)
                 for (const o of createdOrders) {
                     await tx.payment.create({
                         data: {
@@ -469,31 +548,87 @@ export class CheckoutService {
                             amount: o.totalAmountPaise,
                             currency: 'INR',
                             provider: 'RAZORPAY',
-                            providerOrderId: razorpayOrder.id,
+                            providerOrderId: null,
                             status: 'PENDING',
                         } as any,
                     });
                     await tx.order.update({
                         where: { id: o.id },
-                        data: { razorpayOrderId: razorpayOrder.id, abandonedCheckoutId: abandonedCheckout.id },
+                        data: { abandonedCheckoutId: abandonedCheckout.id },
                     });
                 }
 
+                // Return data needed for post-transaction Razorpay call
+                return {
+                    _needsRazorpay: true,
+                    checkoutGroupId: checkoutGroup.id,
+                    abandonedCheckoutId: abandonedCheckout.id,
+                    groupTotalPaise,
+                    ttlSeconds,
+                    createdOrders: createdOrders.map((o) => ({ orderId: o.id, vendorId: o.vendorId, totalAmountPaise: o.totalAmountPaise, discountPaise: o.allocDiscount })),
+                };
+            });
+
+            // PHASE 2: External API call OUTSIDE the database transaction
+            // This prevents holding DB locks during network I/O to Razorpay
+            if (result && (result as any)._needsRazorpay) {
+                const txResult = result as any;
+                const razorpayOrder = await this.paymentsService.generateRazorpayOrder(
+                    txResult.groupTotalPaise, 'INR', txResult.checkoutGroupId, {
+                        userId,
+                        checkoutGroupId: txResult.checkoutGroupId,
+                        orderIds: txResult.createdOrders.map((o: any) => o.orderId),
+                    }
+                );
+
+                // Link Razorpay order ID to all related records
+                await this.prisma.checkoutGroup.update({
+                    where: { id: txResult.checkoutGroupId },
+                    data: { providerOrderId: razorpayOrder.id } as any,
+                });
+
+                // Update all payments and orders with Razorpay order ID
+                for (const o of txResult.createdOrders) {
+                    await this.prisma.payment.updateMany({
+                        where: { orderId: o.orderId, provider: 'RAZORPAY', status: 'PENDING' } as any,
+                        data: { providerOrderId: razorpayOrder.id },
+                    });
+                    await this.prisma.order.update({
+                        where: { id: o.orderId },
+                        data: { razorpayOrderId: razorpayOrder.id } as any,
+                    });
+                }
+
+                // Update abandoned checkout metadata with Razorpay order ID
+                await this.prisma.abandonedCheckout.update({
+                    where: { id: txResult.abandonedCheckoutId },
+                    data: {
+                        metadata: {
+                            type: 'CHECKOUT_GROUP',
+                            checkoutGroupId: txResult.checkoutGroupId,
+                            razorpayOrderId: razorpayOrder.id,
+                            createdAt: new Date().toISOString(),
+                        },
+                    } as any,
+                });
+
                 await this.redisService
-                    .set(`payment:timeout:cg:${checkoutGroup.id}`, abandonedCheckout.id, ttlSeconds)
-                    .catch((err) => this.logger.warn(`Failed to set payment timeout TTL: ${err.message}`));
+                    .set(`payment:timeout:cg:${txResult.checkoutGroupId}`, txResult.abandonedCheckoutId, txResult.ttlSeconds)
+                    .catch((err: any) => this.logger.warn(`Failed to set payment timeout TTL: ${err.message}`));
 
                 return {
                     message: 'Checkout created, proceed to payment',
                     paymentMode: 'ONLINE',
-                    checkoutGroupId: checkoutGroup.id,
+                    checkoutGroupId: txResult.checkoutGroupId,
                     razorpayOrderId: razorpayOrder.id,
                     amountPaise: razorpayOrder.amount,
                     currency: razorpayOrder.currency,
                     key: process.env.RAZORPAY_KEY_ID,
-                    orders: createdOrders.map((o) => ({ orderId: o.id, vendorId: o.vendorId, totalAmountPaise: o.totalAmountPaise, discountPaise: o.allocDiscount })),
+                    orders: txResult.createdOrders,
                 };
-            });
+            }
+
+            return result;
         } catch (error) {
             // 🔐 P0 FIX: Release reservations on transaction failure
             this.logger.error(`Checkout failed, releasing reservations: ${error.message}`);

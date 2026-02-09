@@ -1,49 +1,41 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotImplementedException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateRefundDto } from './dto/create-refund.dto';
-import { ProcessRefundDto } from './dto/process-refund.dto';
 import { RefundQueryDto } from './dto/refund-query.dto';
 import { RefundStatus, Prisma } from '@prisma/client';
-import { randomUUID } from 'crypto';
 
+/**
+ * RefundsService — STRUCTURALLY BLOCKED
+ * 
+ * RISBOW enforces a REPLACEMENT-ONLY return policy.
+ * Direct monetary refunds are forbidden by design.
+ * 
+ * This service retains read-only access to historical refund records
+ * but all write operations (create, process, reject) are permanently blocked.
+ * 
+ * For returns, use the ReturnsService which creates replacement orders.
+ * Any admin override requires explicit architectural approval and audit trail.
+ */
 @Injectable()
 export class RefundsService {
   private readonly logger = new Logger(RefundsService.name);
 
   constructor(private prisma: PrismaService) {}
 
-  async create(dto: CreateRefundDto, adminId: string) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: dto.orderId },
-      include: { user: true }
-    });
-
-    if (!order) throw new NotFoundException('Order not found');
-
-    const refundNumber = `REF-${Date.now()}-${order.id.slice(-4)}`.toUpperCase();
-
-    return this.prisma.refund.create({
-      data: {
-        id: randomUUID(),
-        refundNumber,
-        userId: order.userId,
-        orderId: dto.orderId,
-        returnId: dto.returnId,
-        amount: dto.amount,
-        reason: dto.reason,
-        method: dto.method,
-        notes: dto.notes,
-        status: RefundStatus.PENDING,
-        updatedAt: new Date(),
-      } as any,
-      include: {
-        Order: { select: { id: true, totalAmount: true, status: true } },
-        User: { select: { id: true, name: true, email: true, mobile: true } },
-        ReturnRequest: { select: { id: true, returnNumber: true, status: true } }
-      }
-    });
+  /**
+   * BLOCKED: Direct refunds violate RISBOW replacement-only policy.
+   * Use ReturnsService.createReplacementOrder() instead.
+   */
+  async create(): Promise<never> {
+    this.logger.error('Attempted to create a direct refund — this is structurally blocked');
+    throw new NotImplementedException(
+      'Direct refunds are structurally blocked. RISBOW uses replacement-only returns. ' +
+      'Use the Returns module to initiate a replacement order.'
+    );
   }
 
+  /**
+   * READ-ONLY: View historical refund records for audit purposes.
+   */
   async findAll(query: RefundQueryDto) {
     const { page = 1, limit = 10, status, method, search, userId, orderId, startDate, endDate } = query;
     const skip = (page - 1) * limit;
@@ -92,6 +84,9 @@ export class RefundsService {
     };
   }
 
+  /**
+   * READ-ONLY: View a single historical refund record for audit purposes.
+   */
   async findOne(id: string) {
     const refund = await this.prisma.refund.findUnique({
       where: { id },
@@ -102,38 +97,26 @@ export class RefundsService {
       }
     });
 
-    if (!refund) throw new NotFoundException('Refund not found');
+    if (!refund) {
+      const { NotFoundException } = await import('@nestjs/common');
+      throw new NotFoundException('Refund not found');
+    }
     return refund;
   }
 
-  async processRefund(id: string, dto: ProcessRefundDto, adminId: string) {
-    const refund = await this.prisma.refund.findUnique({ where: { id } });
-    if (!refund) throw new NotFoundException('Refund not found');
-
-    if (refund.status === RefundStatus.PROCESSED) {
-      throw new BadRequestException('Refund has already been processed');
-    }
-
-    const updateData: Prisma.RefundUpdateInput = {
-      status: dto.status,
-      processedBy: adminId,
-      processedAt: new Date()
-    };
-
-    if (dto.transactionId) updateData.transactionId = dto.transactionId;
-    if (dto.rejectionReason) updateData.rejectionReason = dto.rejectionReason;
-    if (dto.notes) updateData.notes = dto.notes;
-
-    return this.prisma.refund.update({
-      where: { id },
-      data: updateData,
-      include: {
-        Order: { select: { id: true, totalAmount: true, status: true } },
-        User: { select: { id: true, name: true, email: true, mobile: true } }
-      }
-    });
+  /**
+   * BLOCKED: Processing refunds violates RISBOW replacement-only policy.
+   */
+  async processRefund(): Promise<never> {
+    this.logger.error('Attempted to process a refund — this is structurally blocked');
+    throw new NotImplementedException(
+      'Refund processing is structurally blocked. RISBOW uses replacement-only returns.'
+    );
   }
 
+  /**
+   * READ-ONLY: Refund statistics for historical audit.
+   */
   async getStats() {
     const [
       total,
@@ -164,10 +147,13 @@ export class RefundsService {
     };
   }
 
-  async rejectRefund(id: string, rejectionReason: string, adminId: string) {
-    return this.processRefund(id, {
-      status: RefundStatus.REJECTED,
-      rejectionReason
-    }, adminId);
+  /**
+   * BLOCKED: Rejecting refunds implies refund processing exists.
+   */
+  async rejectRefund(): Promise<never> {
+    this.logger.error('Attempted to reject a refund — this is structurally blocked');
+    throw new NotImplementedException(
+      'Refund operations are structurally blocked. RISBOW uses replacement-only returns.'
+    );
   }
 }

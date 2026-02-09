@@ -39,27 +39,53 @@ export class OrderProcessor extends WorkerHost {
     }
 
     private async handleStockDeduction(orderId: string, data: any) {
+        // IDEMPOTENCY: Check if stock was already deducted for this order
         const order = await this.prisma.order.findUnique({
             where: { id: orderId },
+            select: { id: true, items: true, stockDeducted: true },
         });
 
         if (!order) {
             throw new Error(`Order ${orderId} not found`);
         }
 
+        if ((order as any).stockDeducted) {
+            this.logger.warn(`Stock already deducted for order ${orderId}, skipping`);
+            return { success: true, orderId, alreadyDeducted: true };
+        }
+
         const items = order.items as any[];
 
-        // Deduct stock for each item
-        for (const item of items) {
-            await this.prisma.product.update({
-                where: { id: item.productId },
-                data: {
-                    stock: {
-                        decrement: item.quantity,
+        // TRANSACTIONAL: Deduct all stock atomically in a single transaction
+        await this.prisma.$transaction(async (tx) => {
+            for (const item of items) {
+                // Verify stock is sufficient before decrementing
+                const product = await tx.product.findUnique({
+                    where: { id: item.productId },
+                    select: { stock: true, title: true },
+                });
+
+                if (!product || product.stock < item.quantity) {
+                    throw new Error(
+                        `Insufficient stock for product ${item.productId} (${product?.title || 'unknown'}): ` +
+                        `available=${product?.stock ?? 0}, requested=${item.quantity}`
+                    );
+                }
+
+                await tx.product.update({
+                    where: { id: item.productId },
+                    data: {
+                        stock: { decrement: item.quantity },
                     },
-                },
+                });
+            }
+
+            // Mark stock as deducted (idempotency flag)
+            await tx.order.update({
+                where: { id: orderId },
+                data: { stockDeducted: true } as any,
             });
-        }
+        });
 
         this.logger.log(`Stock deducted for order ${orderId}`);
         return { success: true, orderId, itemsProcessed: items.length };
@@ -82,45 +108,59 @@ export class OrderProcessor extends WorkerHost {
     }
 
     private async handleCoinDebit(orderId: string, data: { userId: string; amount: number }) {
-        // Check if already debited
-        const order = await this.prisma.order.findUnique({
-            where: { id: orderId },
-            select: { coinsUsedDebited: true },
-        });
+        // TRANSACTIONAL + IDEMPOTENT: All coin operations in a single transaction
+        return await this.prisma.$transaction(async (tx) => {
+            // Idempotency check inside transaction
+            const order = await tx.order.findUnique({
+                where: { id: orderId },
+                select: { coinsUsedDebited: true },
+            });
 
-        if (order?.coinsUsedDebited) {
-            this.logger.warn(`Coins already debited for order ${orderId}`);
-            return { success: true, alreadyDebited: true };
-        }
+            if (order?.coinsUsedDebited) {
+                this.logger.warn(`Coins already debited for order ${orderId}`);
+                return { success: true, alreadyDebited: true };
+            }
 
-        // Debit coins
-        await this.prisma.user.update({
-            where: { id: data.userId },
-            data: {
-                coinsBalance: {
-                    decrement: data.amount,
+            // Verify sufficient balance before debit
+            const user = await tx.user.findUnique({
+                where: { id: data.userId },
+                select: { coinsBalance: true },
+            });
+
+            if (!user || user.coinsBalance < data.amount) {
+                throw new Error(
+                    `Insufficient coin balance for user ${data.userId}: ` +
+                    `available=${user?.coinsBalance ?? 0}, requested=${data.amount}`
+                );
+            }
+
+            // Debit coins
+            await tx.user.update({
+                where: { id: data.userId },
+                data: {
+                    coinsBalance: { decrement: data.amount },
                 },
-            },
-        });
+            });
 
-        // Create ledger entry
-        await this.prisma.coinLedger.create({
-            data: {
-                id: randomUUID(),
-                userId: data.userId,
-                amount: -data.amount,
-                source: 'ORDER_PAYMENT',
-                referenceId: orderId,
-            },
-        });
+            // Create ledger entry
+            await tx.coinLedger.create({
+                data: {
+                    id: randomUUID(),
+                    userId: data.userId,
+                    amount: -data.amount,
+                    source: 'ORDER_PAYMENT',
+                    referenceId: orderId,
+                },
+            });
 
-        // Mark as debited
-        await this.prisma.order.update({
-            where: { id: orderId },
-            data: { coinsUsedDebited: true },
-        });
+            // Mark as debited (idempotency flag)
+            await tx.order.update({
+                where: { id: orderId },
+                data: { coinsUsedDebited: true },
+            });
 
-        this.logger.log(`Coins debited for order ${orderId}: ${data.amount}`);
-        return { success: true, orderId, amount: data.amount };
+            this.logger.log(`Coins debited for order ${orderId}: ${data.amount}`);
+            return { success: true, orderId, amount: data.amount };
+        });
     }
 }

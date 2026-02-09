@@ -135,10 +135,13 @@ export class AuthService {
                 7 * 24 * 60 * 60 // 7 days in seconds
             );
 
+            // Strip sensitive fields before returning user data
+            const { password: _pw, ...safeUser } = user as any;
+
             const result = {
                 access_token: accessToken,
                 refresh_token: refreshToken,
-                user,
+                user: safeUser,
             };
 
             // 🔐 P0 FIX: Fraud Analysis on Login
@@ -284,12 +287,31 @@ export class AuthService {
     }
 
     async loginWithEmail(email: string, password: string) {
+        const normalizedEmail = String(email || '').trim().toLowerCase();
+        if (!normalizedEmail) {
+            throw new UnauthorizedException('Invalid email or password');
+        }
+
+        // Brute force protection (per-email)
+        const lockKey = `auth:email:lock:${normalizedEmail}`;
+        const attemptsKey = `auth:email:attempts:${normalizedEmail}`;
+        const isLocked = await this.redisService.get(lockKey);
+        if (isLocked) {
+            throw new HttpException('Too many failed attempts. Try again later.', HttpStatus.TOO_MANY_REQUESTS);
+        }
+
         // Find user by email
         const user = await this.prisma.user.findUnique({
-            where: { email },
+            where: { email: normalizedEmail },
         }) as any;
 
         if (!user || !user.password) {
+            // Count failed attempts even if user doesn't exist (prevents account probing)
+            const attempts = await this.redisService.incr(attemptsKey);
+            if (attempts === 1) await this.redisService.expire(attemptsKey, 15 * 60).catch(() => undefined);
+            if (attempts >= 5) {
+                await this.redisService.set(lockKey, '1', 15 * 60).catch(() => undefined);
+            }
             throw new UnauthorizedException('Invalid email or password');
         }
 
@@ -297,8 +319,18 @@ export class AuthService {
         const isPasswordValid = await bcrypt.compare(password, user.password);
 
         if (!isPasswordValid) {
+            const attempts = await this.redisService.incr(attemptsKey);
+            if (attempts === 1) await this.redisService.expire(attemptsKey, 15 * 60).catch(() => undefined);
+            if (attempts >= 5) {
+                await this.redisService.set(lockKey, '1', 15 * 60).catch(() => undefined);
+                throw new HttpException('Too many failed attempts. Try again later.', HttpStatus.TOO_MANY_REQUESTS);
+            }
             throw new UnauthorizedException('Invalid email or password');
         }
+
+        // Reset brute-force counters on success
+        await this.redisService.del(attemptsKey).catch(() => undefined);
+        await this.redisService.del(lockKey).catch(() => undefined);
 
         // Fetch vendor data if user is a vendor
         let vendor = null;
@@ -378,11 +410,23 @@ export class AuthService {
             const newPayload = { sub: user.id, email: user.email, role: user.role };
             const accessToken = this.jwtService.sign(newPayload, { expiresIn: '15m' });
 
+            // Rotate refresh token on every use (limits replay window)
+            const newRefreshToken = this.jwtService.sign(
+                { sub: user.id, type: 'refresh' },
+                { expiresIn: '7d' }
+            );
+            await this.redisService.set(
+                `refresh_token:${user.id}`,
+                newRefreshToken,
+                7 * 24 * 60 * 60
+            );
+
             // Remove password from user object
             const { password, ...userWithoutPassword } = user;
 
             return {
                 access_token: accessToken,
+                refresh_token: newRefreshToken,
                 user: userWithoutPassword,
             };
         } catch (error) {

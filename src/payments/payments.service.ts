@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, InternalServerErrorException, NotFoundException, NotImplementedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePaymentOrderDto } from './dto/create-payment-order.dto';
@@ -313,7 +313,12 @@ export class PaymentsService {
             .update(rawBody)
             .digest('hex');
 
-        if (signature !== expectedSignature) {
+        // Use timing-safe comparison to prevent timing attacks
+        const isValidSig = crypto.timingSafeEqual(
+            Buffer.from(expectedSignature, 'hex'),
+            Buffer.from(signature, 'hex'),
+        );
+        if (!isValidSig) {
             this.logger.warn('Webhook signature verification failed');
             throw new BadRequestException('Invalid webhook signature');
         }
@@ -514,47 +519,19 @@ export class PaymentsService {
                 return;
         }
     }
-    async processRefund(paymentId: string, amount: number, adminId?: string, notes?: any) {
-        try {
-            // Fetch payment to get providerOrderId or paymentId (razorpay_payment_id)
-            const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
-            if (!payment) throw new NotFoundException('Payment record not found');
-            if (!payment.paymentId) throw new BadRequestException('Payment was not completed (no provider payment ID)');
-
-            const refund = await this.razorpay.payments.refund(payment.paymentId, {
-                amount: amount, // Amount in paise
-                notes: notes,
-                speed: 'normal'
-            });
-
-            // 🔐 P0 FIX: ADD AUDIT LOGGING FOR REFUNDS
-            if (adminId) {
-                await this.prisma.auditLog.create({
-                    data: {
-                        id: String(randomUUID()),
-                        adminId,
-                        entity: 'PAYMENT',
-                        entityId: paymentId,
-                        action: 'REFUND_PROCESSED',
-                        details: {
-                            refundId: refund.id,
-                            amount: amount,
-                            notes: notes,
-                            status: refund.status
-                        }
-                    }
-                }).catch(err => this.logger.error(`Audit log failed: ${err.message}`));
-            }
-
-            return {
-                refundId: refund.id,
-                status: refund.status,
-                amount: refund.amount
-            };
-        } catch (error) {
-            this.logger.error(`Razorpay refund failed: ${error.message}`, error.stack);
-            throw new InternalServerErrorException('Failed to process refund with gateway');
-        }
+    /**
+     * STRUCTURALLY BLOCKED — Direct refunds violate RISBOW replacement-only policy.
+     * 
+     * RISBOW does not issue monetary refunds. All returns result in replacement orders.
+     * This method is retained as a hard block to prevent accidental refund issuance.
+     * Any attempt to call this will throw NotImplementedException.
+     */
+    async processRefund(_paymentId?: string, _amount?: number, _adminId?: string, _notes?: any): Promise<never> {
+        this.logger.error('BLOCKED: Attempted to process a direct Razorpay refund — this violates replacement-only policy');
+        throw new NotImplementedException(
+            'Direct refunds are structurally blocked. RISBOW uses replacement-only returns. ' +
+            'Use the Returns module to initiate a replacement order.'
+        );
     }
 
     // === Vendor Onboarding Payment Methods ===

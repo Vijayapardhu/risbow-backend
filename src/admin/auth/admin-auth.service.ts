@@ -122,13 +122,14 @@ export class AdminAuthService {
         throw new UnauthorizedException('Invalid MFA code');
       }
 
-      // If backup code was used, remove it
+      // If backup code was used, remove the matching hashed code
       if (isValidMfa.usedBackupCode) {
+        const remainingCodes = admin.backupCodes.filter(
+          (hashedCode) => !bcrypt.compareSync(dto.mfaCode.toUpperCase(), hashedCode)
+        );
         await this.prisma.adminUser.update({
           where: { id: admin.id },
-          data: {
-            backupCodes: admin.backupCodes.filter((c) => c !== dto.mfaCode),
-          },
+          data: { backupCodes: remainingCodes },
         });
       }
     }
@@ -174,13 +175,14 @@ export class AdminAuthService {
       throw new UnauthorizedException('Invalid MFA code');
     }
 
-    // If backup code was used, remove it
+    // If backup code was used, remove the matching hashed code
     if (isValidMfa.usedBackupCode) {
+      const remainingCodes = admin.backupCodes.filter(
+        (hashedCode) => !bcrypt.compareSync(code.toUpperCase(), hashedCode)
+      );
       await this.prisma.adminUser.update({
         where: { id: admin.id },
-        data: {
-          backupCodes: admin.backupCodes.filter((c) => c !== code),
-        },
+        data: { backupCodes: remainingCodes },
       });
     }
 
@@ -292,6 +294,16 @@ export class AdminAuthService {
   }
 
   /**
+   * Verify that a session belongs to the specified admin (prevents IDOR)
+   */
+  async verifySessionOwnership(sessionId: string, adminId: string): Promise<boolean> {
+    const session = await this.prisma.adminSession.findFirst({
+      where: { id: sessionId, adminUserId: adminId, isActive: true },
+    });
+    return !!session;
+  }
+
+  /**
    * Revoke specific session
    */
   async revokeSession(sessionId: string): Promise<void> {
@@ -327,22 +339,22 @@ export class AdminAuthService {
     // Generate QR code
     const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url!);
 
-    // Generate backup codes
-    const backupCodes = this.generateBackupCodes(10);
+    // Generate backup codes — plaintext shown to user, hashes stored in DB
+    const { plaintext: plaintextCodes, hashed: hashedCodes } = this.generateBackupCodes(10);
 
-    // Store secret temporarily (not enabled yet)
+    // Store secret and hashed backup codes (not enabled yet)
     await this.prisma.adminUser.update({
       where: { id: adminId },
       data: {
         mfaSecret: secret.base32,
-        backupCodes,
+        backupCodes: hashedCodes,
       },
     });
 
     return {
       secret: secret.base32,
       qrCodeUrl,
-      backupCodes,
+      backupCodes: plaintextCodes, // Show plaintext to user ONCE
     };
   }
 
@@ -470,6 +482,9 @@ export class AdminAuthService {
       throw new UnauthorizedException('Current password is incorrect');
     }
 
+    // Enforce password complexity
+    this.validatePasswordComplexity(newPassword);
+
     // Hash new password
     const passwordHash = await bcrypt.hash(newPassword, 12);
 
@@ -520,6 +535,7 @@ export class AdminAuthService {
 
     return {
       accessToken,
+      refreshToken: refreshTokenJwt,
       expiresIn: ACCESS_TOKEN_EXPIRY,
       admin: {
         id: admin.id,
@@ -590,19 +606,44 @@ export class AdminAuthService {
       return { valid: true, usedBackupCode: false };
     }
 
-    // Try backup codes
-    if (backupCodes.includes(code)) {
-      return { valid: true, usedBackupCode: true };
+    // Try backup codes (hashed with bcrypt)
+    for (const hashedCode of backupCodes) {
+      if (bcrypt.compareSync(code.toUpperCase(), hashedCode)) {
+        return { valid: true, usedBackupCode: true };
+      }
     }
 
     return { valid: false, usedBackupCode: false };
   }
 
-  private generateBackupCodes(count: number): string[] {
-    const codes: string[] = [];
+  /**
+   * Generates backup codes and returns both plaintext (for the user) and hashed versions (for storage).
+   * Plaintext codes are shown to the user ONCE during setup, then only hashes are stored.
+   */
+  private generateBackupCodes(count: number): { plaintext: string[]; hashed: string[] } {
+    const plaintext: string[] = [];
+    const hashed: string[] = [];
     for (let i = 0; i < count; i++) {
-      codes.push(crypto.randomBytes(4).toString('hex').toUpperCase());
+      const code = crypto.randomBytes(4).toString('hex').toUpperCase();
+      plaintext.push(code);
+      hashed.push(bcrypt.hashSync(code, 10));
     }
-    return codes;
+    return { plaintext, hashed };
+  }
+
+  /**
+   * Validates password complexity for admin accounts.
+   * Requirements: min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char.
+   */
+  private validatePasswordComplexity(password: string): void {
+    const errors: string[] = [];
+    if (password.length < 8) errors.push('at least 8 characters');
+    if (!/[A-Z]/.test(password)) errors.push('at least one uppercase letter');
+    if (!/[a-z]/.test(password)) errors.push('at least one lowercase letter');
+    if (!/[0-9]/.test(password)) errors.push('at least one digit');
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) errors.push('at least one special character');
+    if (errors.length > 0) {
+      throw new BadRequestException(`Password must contain: ${errors.join(', ')}`);
+    }
   }
 }

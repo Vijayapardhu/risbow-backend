@@ -233,54 +233,67 @@ export class VendorPayoutsService {
     }
 
     async requestPayout(vendorId: string, amount: number) {
-        const vendor = await this.prisma.vendor.findUnique({
-            where: { id: vendorId },
-            select: {
-                pendingEarnings: true,
-                kycStatus: true,
-                bankDetails: true
+        // Use transaction to prevent TOCTOU race condition:
+        // Without a transaction, two concurrent requests could both pass the
+        // balance check and create double payout requests exceeding actual earnings.
+        return this.prisma.$transaction(async (tx) => {
+            const vendor = await tx.vendor.findUnique({
+                where: { id: vendorId },
+                select: {
+                    pendingEarnings: true,
+                    kycStatus: true,
+                    bankDetails: true
+                }
+            });
+
+            if (!vendor) throw new NotFoundException('Vendor not found');
+
+            if (vendor.kycStatus !== 'VERIFIED') {
+                throw new BadRequestException('KYC verification required to request payouts');
             }
-        });
 
-        if (!vendor) throw new NotFoundException('Vendor not found');
-
-        if (vendor.kycStatus !== 'VERIFIED') {
-            throw new BadRequestException('KYC verification required to request payouts');
-        }
-
-        if (!vendor.bankDetails || Object.keys(vendor.bankDetails as any).length === 0) {
-            throw new BadRequestException('Bank details required to request payouts');
-        }
-
-        if (amount <= 0) {
-            throw new BadRequestException('Amount must be greater than 0');
-        }
-
-        if (amount > vendor.pendingEarnings) {
-            throw new BadRequestException(
-                `Insufficient balance. Available: ${vendor.pendingEarnings}, Requested: ${amount}`
-            );
-        }
-
-        // Minimum payout threshold (e.g., 500 INR)
-        const MIN_PAYOUT = 500;
-        if (amount < MIN_PAYOUT) {
-            throw new BadRequestException(`Minimum payout amount is ${MIN_PAYOUT}`);
-        }
-
-        // Create payout request
-        const payout = await this.prisma.vendorPayout.create({
-            data: {
-                id: randomUUID(),
-                vendorId,
-                amount,
-                period: new Date().toISOString().slice(0, 7), // YYYY-MM
-                status: PayoutStatus.PENDING,
-                bankDetails: vendor.bankDetails as any,
-                updatedAt: new Date()
+            if (!vendor.bankDetails || Object.keys(vendor.bankDetails as any).length === 0) {
+                throw new BadRequestException('Bank details required to request payouts');
             }
-        });
 
-        return payout;
+            if (amount <= 0) {
+                throw new BadRequestException('Amount must be greater than 0');
+            }
+
+            // Also factor in already-pending payout requests to prevent over-requesting
+            const pendingPayouts = await tx.vendorPayout.aggregate({
+                where: { vendorId, status: PayoutStatus.PENDING },
+                _sum: { amount: true },
+            });
+            const alreadyPending = pendingPayouts._sum.amount || 0;
+            const availableForRequest = vendor.pendingEarnings - alreadyPending;
+
+            if (amount > availableForRequest) {
+                throw new BadRequestException(
+                    `Insufficient balance. Available: ${availableForRequest} (earnings: ${vendor.pendingEarnings}, pending requests: ${alreadyPending}), Requested: ${amount}`
+                );
+            }
+
+            // Minimum payout threshold (e.g., 500 INR = 50000 paise)
+            const MIN_PAYOUT = 500;
+            if (amount < MIN_PAYOUT) {
+                throw new BadRequestException(`Minimum payout amount is ${MIN_PAYOUT}`);
+            }
+
+            // Create payout request
+            const payout = await tx.vendorPayout.create({
+                data: {
+                    id: randomUUID(),
+                    vendorId,
+                    amount,
+                    period: new Date().toISOString().slice(0, 7), // YYYY-MM
+                    status: PayoutStatus.PENDING,
+                    bankDetails: vendor.bankDetails as any,
+                    updatedAt: new Date()
+                }
+            });
+
+            return payout;
+        });
     }
 }

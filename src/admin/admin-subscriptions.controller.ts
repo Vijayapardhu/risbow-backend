@@ -1,13 +1,14 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
-import { UserRole, MembershipTier, Prisma } from '@prisma/client';
+import { AdminJwtAuthGuard } from './auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from './auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from './auth/guards/admin-permissions.guard';
+import { AdminRole, MembershipTier, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AdminRoles } from './auth/decorators/admin-roles.decorator';
 
 @Controller('admin/subscriptions')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+@AdminRoles(AdminRole.OPERATIONS_ADMIN)
 export class AdminSubscriptionsController {
   constructor(private prisma: PrismaService) {}
 
@@ -75,11 +76,11 @@ export class AdminSubscriptionsController {
   async getPlans() {
     // Return predefined membership plans configuration
     return [
-      { tier: MembershipTier.FREE, price: 0, skuLimit: 10, commissionRate: 0.15, features: ['Basic listing', '3 images per product'] },
-      { tier: MembershipTier.BASIC, price: 999, skuLimit: 50, commissionRate: 0.12, features: ['Priority listing', '5 images per product', 'Analytics dashboard'] },
-      { tier: MembershipTier.PRO, price: 2999, skuLimit: 200, commissionRate: 0.10, features: ['Featured listing', '10 images per product', 'Advanced analytics', 'Priority support'] },
-      { tier: MembershipTier.PREMIUM, price: 7999, skuLimit: 500, commissionRate: 0.08, features: ['Premium placement', 'Unlimited images', 'Dedicated account manager', 'Custom branding'] },
-      { tier: MembershipTier.ELITE, price: 19999, skuLimit: 2000, commissionRate: 0.05, features: ['Elite placement', 'Unlimited everything', 'White glove service', 'API access'] }
+      { tier: MembershipTier.FREE, price: 0, skuLimit: 10, commissionRate: 1500, features: ['Basic listing', '3 images per product'] }, // 15% => 1500bp
+      { tier: MembershipTier.BASIC, price: 999, skuLimit: 50, commissionRate: 1200, features: ['Priority listing', '5 images per product', 'Analytics dashboard'] }, // 12%
+      { tier: MembershipTier.PRO, price: 2999, skuLimit: 200, commissionRate: 1000, features: ['Featured listing', '10 images per product', 'Advanced analytics', 'Priority support'] }, // 10%
+      { tier: MembershipTier.PREMIUM, price: 7999, skuLimit: 500, commissionRate: 800, features: ['Premium placement', 'Unlimited images', 'Dedicated account manager', 'Custom branding'] }, // 8%
+      { tier: MembershipTier.ELITE, price: 19999, skuLimit: 2000, commissionRate: 500, features: ['Elite placement', 'Unlimited everything', 'White glove service', 'API access'] } // 5%
     ];
   }
 

@@ -1,21 +1,31 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RedisService } from '../shared/redis.service';
+import * as crypto from 'crypto';
 
 /**
  * Redis Lock Service
  * 
  * Provides distributed locking for cron jobs and background tasks
  * to prevent concurrent execution across multiple instances.
+ * 
+ * Uses atomic SET NX EX for acquisition and Lua script for
+ * ownership-verified release (no accidental unlock by other holders).
  */
 @Injectable()
 export class RedisLockService {
     private readonly logger = new Logger(RedisLockService.name);
     private readonly defaultLockTTL = 300; // 5 minutes default lock duration
 
+    /**
+     * Map of lock keys to their owner values for this instance.
+     * Used to verify ownership before release.
+     */
+    private readonly lockOwnership = new Map<string, string>();
+
     constructor(private redisService: RedisService) {}
 
     /**
-     * Acquires a distributed lock.
+     * Acquires a distributed lock atomically using SET key value NX EX ttl.
      * 
      * @param lockKey - Unique key for the lock
      * @param ttlSeconds - Lock duration in seconds (default: 5 minutes)
@@ -30,18 +40,16 @@ export class RedisLockService {
         retryDelayMs: number = 1000,
     ): Promise<boolean> {
         const fullLockKey = `lock:${lockKey}`;
-        const lockValue = `${Date.now()}-${Math.random()}`;
+        // Generate a unique owner value for this lock holder
+        const lockValue = `${process.pid}-${crypto.randomBytes(8).toString('hex')}`;
 
-        // Try to acquire lock using SETNX (set if not exists)
-        const acquired = await this.redisService.setnx(fullLockKey, lockValue);
+        // Atomic SET NX EX — acquires lock AND sets TTL in a single command
+        const acquired = await this.redisService.setNxEx(fullLockKey, lockValue, ttlSeconds);
 
-        if (acquired === 1) {
-            // Lock acquired, set TTL
-            await this.redisService.expire(fullLockKey, ttlSeconds).catch(() => {
-                // If expire fails, try to release the lock
-                this.redisService.del(fullLockKey).catch(() => {});
-            });
-            this.logger.debug(`Lock acquired: ${lockKey}`);
+        if (acquired) {
+            // Store the owner value so we can verify on release
+            this.lockOwnership.set(fullLockKey, lockValue);
+            this.logger.debug(`Lock acquired: ${lockKey} (owner: ${lockValue})`);
             return true;
         }
 
@@ -57,16 +65,31 @@ export class RedisLockService {
     }
 
     /**
-     * Releases a distributed lock.
+     * Releases a distributed lock ONLY if the caller is the current owner.
+     * Uses a Lua script to make the check-and-delete atomic.
      * 
      * @param lockKey - The lock key to release
      */
     async releaseLock(lockKey: string): Promise<void> {
         const fullLockKey = `lock:${lockKey}`;
-        await this.redisService.del(fullLockKey).catch((err) => {
-            this.logger.warn(`Failed to release lock ${lockKey}: ${err.message}`);
-        });
-        this.logger.debug(`Lock released: ${lockKey}`);
+        const expectedValue = this.lockOwnership.get(fullLockKey);
+
+        if (!expectedValue) {
+            this.logger.warn(`Cannot release lock ${lockKey}: no ownership record found (was it already released?)`);
+            return;
+        }
+
+        // Atomic check-and-delete: only delete if the value matches our owner value
+        const released = await this.redisService.delIfEqual(fullLockKey, expectedValue);
+
+        if (released) {
+            this.logger.debug(`Lock released: ${lockKey}`);
+        } else {
+            this.logger.warn(`Lock ${lockKey} was NOT released: ownership mismatch or already expired`);
+        }
+
+        // Clean up local ownership tracking regardless
+        this.lockOwnership.delete(fullLockKey);
     }
 
     /**
@@ -109,22 +132,31 @@ export class RedisLockService {
     }
 
     /**
-     * Extends the TTL of an existing lock.
+     * Extends the TTL of an existing lock ONLY if the caller owns it.
      * 
      * @param lockKey - The lock key
      * @param ttlSeconds - New TTL in seconds
-     * @returns true if lock was extended, false if lock doesn't exist
+     * @returns true if lock was extended, false if lock doesn't exist or not owned
      */
     async extendLock(lockKey: string, ttlSeconds: number): Promise<boolean> {
         const fullLockKey = `lock:${lockKey}`;
-        const exists = await this.redisService.exists(fullLockKey);
-        
-        if (exists) {
-            await this.redisService.expire(fullLockKey, ttlSeconds);
-            return true;
+        const expectedValue = this.lockOwnership.get(fullLockKey);
+
+        if (!expectedValue) {
+            this.logger.warn(`Cannot extend lock ${lockKey}: no ownership record found`);
+            return false;
         }
-        
-        return false;
+
+        // Verify ownership before extending
+        const currentValue = await this.redisService.get(fullLockKey);
+        if (currentValue !== expectedValue) {
+            this.logger.warn(`Cannot extend lock ${lockKey}: ownership mismatch`);
+            this.lockOwnership.delete(fullLockKey);
+            return false;
+        }
+
+        await this.redisService.expire(fullLockKey, ttlSeconds);
+        return true;
     }
 
     private sleep(ms: number): Promise<void> {

@@ -28,6 +28,17 @@ export class ReturnsService {
             throw new BadRequestException('Returns can only be requested for delivered orders');
         }
 
+        // Enforce return eligibility window (default 7 days, stored on the order as `returnWindow`)
+        if (!order.deliveredAt) {
+            throw new BadRequestException('Return eligibility cannot be determined (missing deliveredAt)');
+        }
+        const windowDays = Number((order as any).returnWindow ?? 7);
+        const expiresAt = new Date(order.deliveredAt);
+        expiresAt.setDate(expiresAt.getDate() + windowDays);
+        if (new Date() > expiresAt) {
+            throw new BadRequestException(`Return window expired (${windowDays} days)`);
+        }
+
         const returnNumber = `RET-${Date.now()}-${order.id.slice(-4)}`.toUpperCase();
 
         const orderItems = Array.isArray(order.items) ? (order.items as any[]) : [];

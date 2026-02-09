@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 
@@ -22,6 +22,7 @@ interface RazorpayOrder {
 
 @Injectable()
 export class RazorpayService {
+    private readonly logger = new Logger(RazorpayService.name);
     private readonly keyId: string;
     private readonly keySecret: string;
     private readonly registrationFee = 50000; // ₹500 in paise
@@ -69,7 +70,7 @@ export class RazorpayService {
             const order = await response.json() as RazorpayOrder;
             return order;
         } catch (error) {
-            console.error('Error creating Razorpay order:', error);
+            this.logger.error('Error creating Razorpay order', (error as any)?.stack || String(error));
             throw new InternalServerErrorException('Failed to create payment order');
         }
     }
@@ -89,9 +90,13 @@ export class RazorpayService {
                 .update(body)
                 .digest('hex');
 
-            return expectedSignature === razorpaySignature;
+            // Use timing-safe comparison to prevent timing attacks
+            return crypto.timingSafeEqual(
+                Buffer.from(expectedSignature, 'hex'),
+                Buffer.from(razorpaySignature, 'hex'),
+            );
         } catch (error) {
-            console.error('Error verifying payment signature:', error);
+            this.logger.error('Error verifying payment signature', (error as any)?.stack || String(error));
             return false;
         }
     }
@@ -114,7 +119,7 @@ export class RazorpayService {
 
             return await response.json();
         } catch (error) {
-            console.error('Error fetching payment details:', error);
+            this.logger.error('Error fetching payment details', (error as any)?.stack || String(error));
             throw new InternalServerErrorException('Failed to fetch payment details');
         }
     }
@@ -143,9 +148,13 @@ export class RazorpayService {
                 .update(payload)
                 .digest('hex');
 
-            return expectedSignature === signature;
+            // Use timing-safe comparison to prevent timing attacks
+            return crypto.timingSafeEqual(
+                Buffer.from(expectedSignature, 'hex'),
+                Buffer.from(signature, 'hex'),
+            );
         } catch (error) {
-            console.error('Error verifying webhook signature:', error);
+            this.logger.error('Error verifying webhook signature', (error as any)?.stack || String(error));
             return false;
         }
     }

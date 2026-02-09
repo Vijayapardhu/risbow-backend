@@ -94,9 +94,12 @@ export class AdminProductService {
                     ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
                     : 0;
 
-                const basePrice = (product as any).price ?? 0;
-                const basePriceWithGST = basePrice * 1.18;
-                const offerPriceWithGST = (product as any).offerPrice ? ((product as any).offerPrice * 1.18) : null;
+                const basePrice = (product as any).price ?? 0; // paise
+                const baseGstAmount = Math.round((Number(basePrice) * 18) / 100);
+                const basePriceWithGST = Number(basePrice) + baseGstAmount;
+                const offerPriceWithGST = (product as any).offerPrice != null
+                    ? (Number((product as any).offerPrice) + Math.round((Number((product as any).offerPrice) * 18) / 100))
+                    : null;
 
                 return {
                     id: product.id,
@@ -117,7 +120,7 @@ export class AdminProductService {
                     highestPrice: basePriceWithGST,
                     price: basePrice, // Add original price field
                     basePrice: basePrice,
-                    gstAmount: basePrice * 0.18,
+                    gstAmount: baseGstAmount,
                     gstPercentage: 18,
                     priceVariance: 0,
                     priceAnomaly: false,
@@ -205,16 +208,19 @@ export class AdminProductService {
         }
 
         // Calculate prices with 18% GST
-        const basePrice = product.price;
-        const priceWithGST = basePrice * 1.18;
-        const offerPriceWithGST = product.offerPrice ? (product.offerPrice * 1.18) : null;
+        const basePrice = Number(product.price); // paise
+        const gstAmount = Math.round((basePrice * 18) / 100);
+        const priceWithGST = basePrice + gstAmount;
+        const offerPriceWithGST = product.offerPrice != null
+            ? (Number(product.offerPrice) + Math.round((Number(product.offerPrice) * 18) / 100))
+            : null;
 
         return {
             ...product,
             basePrice: basePrice,
-            priceWithGST: priceWithGST,
-            offerPriceWithGST: offerPriceWithGST,
-            gstAmount: basePrice * 0.18,
+            priceWithGST,
+            offerPriceWithGST,
+            gstAmount,
             gstPercentage: 18,
         };
     }

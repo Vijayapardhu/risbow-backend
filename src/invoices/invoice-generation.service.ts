@@ -214,7 +214,8 @@ export class InvoiceGenerationService {
                 let taxTotal = 0;
                 if (taxFields.length > 0) {
                     taxFields.forEach((taxField: any) => {
-                        const taxAmount = (subtotal * taxField.rate) / 100;
+                        // Integer paise math: taxPaise = round(subtotalPaise * ratePercent / 100)
+                        const taxAmount = Math.round((subtotal * Number(taxField.rate)) / 100);
                         taxTotal += taxAmount;
 
                         doc.text(`${taxField.name} (${taxField.rate}%):`, 360, yPosition, { width: 80, align: 'right' });
@@ -223,7 +224,7 @@ export class InvoiceGenerationService {
                     });
                 } else {
                     // Default tax
-                    const defaultTax = subtotal * 0.18;
+                    const defaultTax = Math.round((subtotal * 18) / 100);
                     taxTotal = defaultTax;
                     doc.text('GST (18%):', 360, yPosition, { width: 80, align: 'right' });
                     doc.text(this.formatCurrency(defaultTax, currency, locale), 450, yPosition, { width: 90, align: 'right' });
