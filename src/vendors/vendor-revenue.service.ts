@@ -58,7 +58,7 @@ export class VendorRevenueService {
      */
     async getVendorHealthStats(vendorId: string) {
         const [orders, returns, ratings] = await Promise.all([
-            this.prisma.order.count({ where: { items: { path: ['0', 'vendorId'], equals: vendorId } } }),
+            this.prisma.order.count({ where: { itemsSnapshot: { path: ['0', 'vendorId'], equals: vendorId } } }),
             this.prisma.returnRequest.count({ where: { vendorId } }),
             this.prisma.review.aggregate({ where: { vendorId }, _avg: { rating: true } })
         ]);

@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CacheService } from '../cache/cache.service';
+import { CacheService } from '../shared/cache.service';
 
 @Injectable()
 export class PerformanceOptimizationService {
   constructor(
     private prisma: PrismaService,
     private cacheService: CacheService,
-  ) {}
+  ) { }
 
   // Method to get paginated results to prevent large data loads
   async getPaginatedResults<T>(
@@ -19,7 +19,7 @@ export class PerformanceOptimizationService {
     include?: any,
   ): Promise<{ data: T[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
     const skip = (page - 1) * limit;
-    
+
     const [results, total] = await Promise.all([
       model.findMany({
         where,
@@ -56,10 +56,10 @@ export class PerformanceOptimizationService {
 
     // If not in cache, fetch from database
     const result = await fetchFn();
-    
+
     // Store in cache
     await this.cacheService.set(cacheKey, result, ttl);
-    
+
     return result;
   }
 
@@ -113,13 +113,13 @@ export class PerformanceOptimizationService {
   ) {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
-    
+
     const where: any = {};
-    
+
     if (filters.categoryId) where.categoryId = filters.categoryId;
     if (filters.vendorId) where.vendorId = filters.vendorId;
     if (filters.isActive !== undefined) where.isActive = filters.isActive;
-    
+
     if (filters.search) {
       where.OR = [
         { title: { contains: filters.search, mode: 'insensitive' } },
@@ -168,20 +168,20 @@ export class PerformanceOptimizationService {
     delay: number = 1000,
   ): Promise<T> {
     let lastError: any;
-    
+
     for (let i = 0; i < maxRetries; i++) {
       try {
         return await operation();
       } catch (error) {
         lastError = error;
-        
+
         if (i < maxRetries - 1) {
           // Wait before retrying
           await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
         }
       }
     }
-    
+
     throw lastError;
   }
 
@@ -189,7 +189,8 @@ export class PerformanceOptimizationService {
   async performBulkUpdate(model: any, where: any, data: any) {
     return this.prisma.$transaction(async (tx) => {
       // Use updateMany for bulk updates to avoid individual queries
-      return tx[model].updateMany({
+      // Cast tx to any to allow dynamic model access
+      return (tx as any)[model].updateMany({
         where,
         data,
       });

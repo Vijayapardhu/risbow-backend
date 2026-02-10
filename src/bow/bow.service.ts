@@ -80,7 +80,7 @@ export class BowService {
             this.logger.log(`Processing message for user ${userId}: ${dto.message}`);
 
             // 🛑 Track 5.2: AI Kill Switch
-            const killSwitch = await this.prisma.platformConfig.findUnique({ 
+            const killSwitch = await this.prisma.platformConfig.findUnique({
                 where: PlatformConfigHelper.buildWhereUnique('app', 'AI_KILL_SWITCH')
             });
             const killValue = killSwitch ? PlatformConfigHelper.parseJsonValue(killSwitch.value) : false;
@@ -186,7 +186,7 @@ export class BowService {
     async processAutomaticActions(userId: string): Promise<void> {
         try {
             // 🛑 Track 5.2: AI Kill Switch
-            const killSwitch = await this.prisma.platformConfig.findUnique({ 
+            const killSwitch = await this.prisma.platformConfig.findUnique({
                 where: PlatformConfigHelper.buildWhereUnique('app', 'AI_KILL_SWITCH')
             });
             const killValue = killSwitch ? PlatformConfigHelper.parseJsonValue(killSwitch.value) : false;
@@ -660,16 +660,16 @@ export class BowService {
         if (recs.length < 5) {
             const orders = await this.prisma.order.findMany({
                 where: { userId },
-                select: { items: true }
+                select: { itemsSnapshot: true }
             });
             const categoryCount: Record<string, number> = {};
             for (const order of orders) {
                 try {
                     let items: any[] = [];
-                    if (Array.isArray(order.items)) {
-                        items = order.items;
-                    } else if (typeof order.items === 'string') {
-                        items = JSON.parse(order.items);
+                    if (Array.isArray(order.itemsSnapshot)) {
+                        items = order.itemsSnapshot as any[];
+                    } else if (typeof order.itemsSnapshot === 'string') {
+                        items = JSON.parse(order.itemsSnapshot);
                     }
                     for (const item of items) {
                         if (item.categoryId) categoryCount[item.categoryId] = (categoryCount[item.categoryId] || 0) + 1;

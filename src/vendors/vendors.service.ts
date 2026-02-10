@@ -235,13 +235,14 @@ export class VendorsService {
             const banner = await tx.banner.create({
                 data: {
                     id: randomUUID(),
-                    vendorId,
+                    Vendor: { connect: { id: vendorId } },
                     imageUrl: dto.imageUrl,
                     redirectUrl: dto.redirectUrl,
                     slotType: dto.slotType,
                     startDate: dto.startDate,
                     endDate: dto.endDate,
                     isActive: true,
+                    title: 'Promotional Banner',
                 },
             });
 
@@ -301,7 +302,7 @@ export class VendorsService {
         let monthRevenue = 0;
 
         for (const order of orders) {
-            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot as any[] : [];
             const vendorItems = items.filter(item => productIds.includes(item.productId));
 
             if (vendorItems.length > 0) {
@@ -321,13 +322,13 @@ export class VendorsService {
             this.prisma.product.count({ where: { vendorId, stock: { lt: 10 } } }),
             this.prisma.order.findMany({
                 where: { status: { in: ['PENDING', 'PENDING_PAYMENT'] } },
-                select: { items: true }
+                select: { itemsSnapshot: true }
             })
         ]);
 
         let pendingOrdersCount = 0;
         for (const order of pendingOrdersAll) {
-            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot as any[] : [];
             if (items.some(item => productIds.includes(item.productId))) {
                 pendingOrdersCount++;
             }
@@ -375,7 +376,7 @@ export class VendorsService {
         }
 
         for (const order of orders) {
-            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot as any[] : [];
             const vendorItems = items.filter(item => productIds.includes(item.productId));
 
             if (vendorItems.length > 0) {
@@ -450,12 +451,12 @@ export class VendorsService {
                 createdAt: { gte: thirtyDaysAgo },
                 status: { in: ['CONFIRMED', 'PAID', 'DELIVERED'] }
             },
-            select: { items: true, createdAt: true }
+            select: { itemsSnapshot: true, createdAt: true }
         });
 
         const productMetrics = new Map();
         for (const order of orders) {
-            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot as any[] : [];
             items.filter(i => productIds.includes(i.productId)).forEach(item => {
                 const m = productMetrics.get(item.productId) || { totalRevenue: 0, totalOrders: 0, thirtyDayUnits: 0, lastOrderDate: null };
                 m.totalRevenue += (item.price * item.quantity);
@@ -518,7 +519,7 @@ export class VendorsService {
         let totalOrders = 0;
 
         for (const order of orders) {
-            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot as any[] : [];
             const vendorItems = items.filter(i => productIds.includes(i.productId));
 
             if (vendorItems.length > 0) {
@@ -805,7 +806,7 @@ export class VendorsService {
 
     private async updateVendorKycStatusAfterDocUpload(vendorId: string, tx?: any) {
         const prisma = tx || this.prisma;
-        
+
         const vendor = await prisma.vendor.findUnique({
             where: { id: vendorId }
         });
@@ -824,7 +825,7 @@ export class VendorsService {
 
         // Required document types
         const requiredDocs = ['PAN_CARD', 'AADHAAR_CARD', 'CANCELLED_CHEQUE', 'STORE_PHOTO'];
-        
+
         // Fix: Check if GST number is valid (not empty string)
         if (vendor.gstNumber && vendor.gstNumber.trim() !== '') {
             requiredDocs.push('GST_CERTIFICATE');
@@ -836,10 +837,10 @@ export class VendorsService {
 
         if (hasAllRequiredDocs) {
             // Fix: Update vendor status with proper GST check
-            const newStatus = (vendor.gstNumber && vendor.gstNumber.trim() !== '') 
-                ? 'PENDING' 
+            const newStatus = (vendor.gstNumber && vendor.gstNumber.trim() !== '')
+                ? 'PENDING'
                 : 'PENDING_PAYMENT';
-            
+
             await prisma.vendor.update({
                 where: { id: vendorId },
                 data: { kycStatus: newStatus as any }
@@ -872,9 +873,9 @@ export class VendorsService {
 
         // Check if vendor has uploaded required documents
         const requiredDocTypes: VendorDocumentType[] = [
-            VendorDocumentType.PAN_CARD, 
-            VendorDocumentType.AADHAAR_CARD, 
-            VendorDocumentType.CANCELLED_CHEQUE, 
+            VendorDocumentType.PAN_CARD,
+            VendorDocumentType.AADHAAR_CARD,
+            VendorDocumentType.CANCELLED_CHEQUE,
             VendorDocumentType.STORE_PHOTO
         ];
         if (vendor.gstNumber && vendor.isGstVerified) {
@@ -887,7 +888,7 @@ export class VendorsService {
 
         const uploadedDocTypes = uploadedDocs.map(doc => doc.documentType);
         const missingDocs = requiredDocTypes.filter(type => !uploadedDocTypes.includes(type));
-        
+
         if (missingDocs.length > 0) {
             throw new BadRequestException(`Please upload all required documents: ${missingDocs.join(', ')}`);
         }
@@ -959,12 +960,12 @@ export class VendorsService {
                 createdAt: { gte: todayStart },
                 status: { in: ['CONFIRMED', 'PAID', 'PACKED', 'SHIPPED', 'DELIVERED'] }
             },
-            select: { items: true }
+            select: { itemsSnapshot: true }
         });
 
         let todaySales = 0;
         for (const order of todayOrders) {
-            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot as any[] : [];
             for (const item of items) {
                 if (productIds.has(item.productId)) {
                     todaySales += (Number(item.price || item.unitPrice || 0)) * (Number(item.quantity || 1));
@@ -976,12 +977,12 @@ export class VendorsService {
         // Optimization: Only fetch items for in-memory filtering.
         const pendingOrdersAll = await this.prisma.order.findMany({
             where: { status: { in: ['PENDING', 'PENDING_PAYMENT', 'CONFIRMED'] as any[] } }, // Cast to avoid strict enum match issues if any
-            select: { items: true }
+            select: { itemsSnapshot: true }
         });
 
         let pendingOrders = 0;
         for (const order of pendingOrdersAll) {
-            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot as any[] : [];
             if (items.some(item => productIds.has(item.productId))) {
                 pendingOrders++;
             }
@@ -991,14 +992,14 @@ export class VendorsService {
         const recentActivityOrdersRaw = await this.prisma.order.findMany({
             orderBy: { createdAt: 'desc' },
             take: 300, // Scan last 300 orders for "Recent" list and "Top Products" sample
-            select: { id: true, status: true, items: true, createdAt: true, user: { select: { name: true } }, totalAmount: true }
+            select: { id: true, status: true, itemsSnapshot: true, createdAt: true, user: { select: { name: true } }, totalAmount: true }
         });
 
         const recentOrders = [];
         const productSalesCount = new Map<string, number>();
 
         for (const order of recentActivityOrdersRaw) {
-            const items = Array.isArray(order.items) ? order.items as any[] : [];
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot as any[] : [];
             const vendorItemsInOrder = items.filter(item => productIds.has(item.productId));
 
             if (vendorItemsInOrder.length > 0) {

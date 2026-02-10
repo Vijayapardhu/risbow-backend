@@ -41,7 +41,7 @@ export class ReturnsService {
 
         const returnNumber = `RET-${Date.now()}-${order.id.slice(-4)}`.toUpperCase();
 
-        const orderItems = Array.isArray(order.items) ? (order.items as any[]) : [];
+        const orderItems = Array.isArray(order.itemsSnapshot) ? (order.itemsSnapshot as any[]) : [];
         const firstProductId = orderItems[0]?.productId;
         let vendorId = null;
         if (firstProductId) {
@@ -111,7 +111,7 @@ export class ReturnsService {
                 include: {
                     ReturnItem: { include: { Product: true } },
                     User: { select: { name: true, email: true, mobile: true } },
-                    Order: { select: { id: true, items: true } },
+                    Order: { select: { id: true, itemsSnapshot: true } },
                 },
                 orderBy: { requestedAt: 'desc' },
             }),
@@ -245,7 +245,7 @@ export class ReturnsService {
                         userId: returnReq.userId,
                         roomId: returnReq.Order.roomId,
                         addressId: returnReq.Order.addressId,
-                        items: returnReq.Order.items as any,
+                        itemsSnapshot: returnReq.Order.itemsSnapshot as any,
                         totalAmount: 0,
                         coinsUsed: 0,
                         status: 'CONFIRMED',

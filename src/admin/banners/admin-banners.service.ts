@@ -12,7 +12,7 @@ import {
 export class AdminBannersService {
   private readonly logger = new Logger(AdminBannersService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Get all banners with optional filtering
@@ -22,15 +22,15 @@ export class AdminBannersService {
     const skip = (page - 1) * limit;
 
     const where: any = {};
-    
+
     if (slot) {
       where.slot = slot;
     }
-    
+
     if (isActive !== undefined) {
       where.isActive = isActive;
     }
-    
+
     if (search) {
       where.title = {
         contains: search,
@@ -115,6 +115,7 @@ export class AdminBannersService {
         mobileImageUrl: dto.mobileImageUrl || null,
         linkUrl: dto.linkUrl || null,
         slot: dto.slot,
+        slotType: dto.slot, // Use slot as slotType
         device: dto.device,
         priority: dto.priority || 1,
         isActive: dto.isActive !== undefined ? dto.isActive : true,

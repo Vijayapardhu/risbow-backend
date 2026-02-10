@@ -7,27 +7,27 @@ export class AuthorizationGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private prisma: PrismaService,
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredPermissions = this.reflector.getAllAndOverride<string[]>('permissions', [
       context.getHandler(),
       context.getClass(),
     ]);
-    
+
     if (!requiredPermissions) {
       return true; // No permissions required
     }
 
     const { user, params } = context.switchToHttp().getRequest();
-    
+
     if (!user) {
       return false;
     }
 
     // Check if user has required permissions
     const hasPermission = await this.checkUserPermissions(user.id, requiredPermissions);
-    
+
     if (!hasPermission) {
       return false;
     }
@@ -48,7 +48,6 @@ export class AuthorizationGuard implements CanActivate {
     // In a real implementation, you'd check the user's permissions in the database
     const user = await this.prisma.adminUser.findUnique({
       where: { id: userId },
-      include: { permissions: true },
     });
 
     if (!user) {
@@ -56,8 +55,8 @@ export class AuthorizationGuard implements CanActivate {
     }
 
     // Check if user has all required permissions
-    return requiredPermissions.every(permission => 
-      user.permissions.includes(permission)
+    return requiredPermissions.every(permission =>
+      (user as any).permissions.includes(permission)
     );
   }
 
@@ -70,21 +69,20 @@ export class AuthorizationGuard implements CanActivate {
           return true;
         }
         return user.id === resourceId;
-      
+
       case 'Order':
         // Vendors can only access their own orders, admins can access all
         if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') {
           return true;
         }
         if (user.role === 'VENDOR') {
-          const order = await this.prisma.order.findUnique({
-            where: { id: resourceId },
-            select: { vendorId: true },
+          const vendorOrder = await this.prisma.vendorOrder.findFirst({
+            where: { orderId: resourceId, vendorId: user.id },
           });
-          return order?.vendorId === user.id;
+          return !!vendorOrder;
         }
         return user.id === resourceId; // Regular user accessing their own order
-      
+
       default:
         // Default to admin access only
         return user.role === 'SUPER_ADMIN' || user.role === 'ADMIN';

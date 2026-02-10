@@ -158,7 +158,7 @@ export class RecoveryService {
                         data: {
                             id: randomUUID(),
                             userId: order.userId,
-                            cartSnapshot: order.items as any,
+                            cartSnapshot: order.itemsSnapshot as any,
                             financeSnapshot: {
                                 totalAmount: order.totalAmount * 100, // Convert to paise
                                 currency: 'INR',
@@ -222,7 +222,7 @@ export class RecoveryService {
                 abandonedAt: { lte: fifteenMinsAgo, gte: thirtyMinsAgo },
             },
         });
-        
+
         // Filter for leads where escalationLevel is undefined or doesn't exist
         const pushLeads = allPushLeads.filter(lead => {
             const metadata = lead.metadata as any;
@@ -268,7 +268,7 @@ export class RecoveryService {
                 abandonedAt: { lte: fourHoursAgo },
             },
         });
-        
+
         // Filter for leads where escalationLevel is not 'TELE_ASSIGNED'
         const callLeads = allCallLeads.filter(lead => {
             const metadata = lead.metadata as any;

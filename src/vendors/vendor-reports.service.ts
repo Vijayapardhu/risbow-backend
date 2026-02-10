@@ -23,7 +23,7 @@ export class VendorReportsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly commissionService: CommissionService,
-  ) {}
+  ) { }
 
   /**
    * Get sales report grouped by day/week/month
@@ -316,7 +316,7 @@ export class VendorReportsService {
     // Filter to vendor items and compute vendor totals
     return allOrders
       .map((order) => {
-        const items = Array.isArray(order.items) ? order.items : [];
+        const items = Array.isArray(order.itemsSnapshot) ? (order.itemsSnapshot as any[]) : [];
         const vendorItems = items.filter((item: any) => item.vendorId === vendorId);
 
         if (vendorItems.length === 0) return null;
@@ -339,15 +339,15 @@ export class VendorReportsService {
         };
       })
       .filter(Boolean) as Array<{
-      id: string;
-      orderNumber: string | null;
-      createdAt: Date;
-      status: OrderStatus;
-      customerName: string;
-      vendorTotal: number;
-      itemCount: number;
-      items: any[];
-    }>;
+        id: string;
+        orderNumber: string | null;
+        createdAt: Date;
+        status: OrderStatus;
+        customerName: string;
+        vendorTotal: number;
+        itemCount: number;
+        items: any[];
+      }>;
   }
 
   /**

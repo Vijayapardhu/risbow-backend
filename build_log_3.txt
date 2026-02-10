@@ -1,0 +1,473 @@
+
+> risbow-backend@0.0.1 build
+> prisma generate && nest build
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+
+Γ£ö Generated Prisma Client (v5.22.0) to .\node_modules\@prisma\client in 1.18s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Easily identify and fix slow SQL queries in your app. Optimize helps you enhance your visibility: https://pris.ly/--optimize
+
+src/admin/banners/banner-campaign.service.ts:10:3 - error TS2724: '"@prisma/client"' has no exported member named 'BannerCampaignStatus'. Did you mean 'BannerCampaign'?
+
+10   BannerCampaignStatus,
+     ~~~~~~~~~~~~~~~~~~~~
+src/admin/banners/banner-campaign.service.ts:11:3 - error TS2305: Module '"@prisma/client"' has no exported member 'BannerType'.
+
+11   BannerType,
+     ~~~~~~~~~~
+src/admin/support-tickets/support-ticket.service.ts:53:11 - error TS2353: Object literal may only specify known properties, and 'Product' does not exist in type 'SupportTicketInclude<DefaultArgs>'.
+
+53           Product: { select: { id: true, title: true } },
+             ~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:112093:5
+    112093     include?: SupportTicketInclude<ExtArgs> | null
+               ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ select?: SupportTicketSelect<DefaultArgs>; include?: SupportTicketInclude<DefaultArgs>; where?: SupportTicketWhereInput; ... 4 more ...; distinct?: SupportTicketScalarFieldEnum | SupportTicketScalarFieldEnum[]; }'
+src/admin/support-tickets/support-ticket.service.ts:83:9 - error TS2353: Object literal may only specify known properties, and 'Product' does not exist in type 'SupportTicketInclude<DefaultArgs>'.
+
+83         Product: { select: { id: true, title: true, price: true } },
+           ~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:111961:5
+    111961     include?: SupportTicketInclude<ExtArgs> | null
+               ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ select?: SupportTicketSelect<DefaultArgs>; include?: SupportTicketInclude<DefaultArgs>; where: SupportTicketWhereUniqueInput; }'
+src/admin/support-tickets/support-ticket.service.ts:97:7 - error TS2322: Type '{ ticketNumber: string; category: TicketCategory; subject: string; description: string; priority?: TicketPriority; ... 5 more ...; assignedTo?: string; }' is not assignable to type '(Without<SupportTicketCreateInput, SupportTicketUncheckedCreateInput> & SupportTicketUncheckedCreateInput) | (Without<...> & SupportTicketCreateInput)'.
+  Type '{ ticketNumber: string; category: TicketCategory; subject: string; description: string; priority?: TicketPriority; ... 5 more ...; assignedTo?: string; }' is not assignable to type 'Without<SupportTicketUncheckedCreateInput, SupportTicketCreateInput> & SupportTicketCreateInput'.
+    Type '{ ticketNumber: string; category: TicketCategory; subject: string; description: string; priority?: TicketPriority; ... 5 more ...; assignedTo?: string; }' is not assignable to type 'Without<SupportTicketUncheckedCreateInput, SupportTicketCreateInput>'.
+      Types of property 'orderId' are incompatible.
+        Type 'string' is not assignable to type 'never'.
+
+97       data: {
+         ~~~~
+
+  node_modules/.prisma/client/index.d.ts:112140:5
+    112140     data: XOR<SupportTicketCreateInput, SupportTicketUncheckedCreateInput>
+               ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: SupportTicketSelect<DefaultArgs>; include?: SupportTicketInclude<DefaultArgs>; data: (Without<SupportTicketCreateInput, SupportTicketUncheckedCreateInput> & SupportTicketUncheckedCreateInput) | (Without<...> & SupportTicketCreateInput); }'
+src/admin/support-tickets/support-ticket.service.ts:124:15 - error TS2322: Type 'string' is not assignable to type 'TicketStatus | EnumTicketStatusFieldUpdateOperationsInput'.
+
+124       data: { status },
+                  ~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:174396:5
+    174396     status?: EnumTicketStatusFieldUpdateOperationsInput | $Enums.TicketStatus
+               ~~~~~~
+    The expected type comes from property 'status' which is declared here on type '(Without<SupportTicketUpdateInput, SupportTicketUncheckedUpdateInput> & SupportTicketUncheckedUpdateInput) | (Without<...> & SupportTicketUpdateInput)'
+src/admin/support-tickets/support-ticket.service.ts:158:7 - error TS2322: Type '{ ticketId: string; senderId: string; senderType: "ADMIN"; senderName: string; message: string; }' is not assignable to type '(Without<TicketMessageCreateInput, TicketMessageUncheckedCreateInput> & TicketMessageUncheckedCreateInput) | (Without<...> & TicketMessageCreateInput)'.
+  Type '{ ticketId: string; senderId: string; senderType: "ADMIN"; senderName: string; message: string; }' is not assignable to type 'Without<TicketMessageUncheckedCreateInput, TicketMessageCreateInput> & TicketMessageCreateInput'.
+    Type '{ ticketId: string; senderId: string; senderType: "ADMIN"; senderName: string; message: string; }' is not assignable to type 'Without<TicketMessageUncheckedCreateInput, TicketMessageCreateInput>'.
+      Types of property 'ticketId' are incompatible.
+        Type 'string' is not assignable to type 'never'.
+
+158       data: {
+          ~~~~
+
+  node_modules/.prisma/client/index.d.ts:114170:5
+    114170     data: XOR<TicketMessageCreateInput, TicketMessageUncheckedCreateInput>
+               ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: TicketMessageSelect<DefaultArgs>; include?: TicketMessageInclude<DefaultArgs>; data: (Without<TicketMessageCreateInput, TicketMessageUncheckedCreateInput> & TicketMessageUncheckedCreateInput) | (Without<...> & TicketMessageCreateInput); }'
+src/banners/banners.service.ts:144:13 - error TS2322: Type '{ id: `${string}-${string}-${string}-${string}-${string}`; imageUrl: string; redirectUrl: string; slotType: string; startDate: Date; endDate: Date; isActive: boolean; vendorId: null; }' is not assignable to type '(Without<BannerCreateInput, BannerUncheckedCreateInput> & BannerUncheckedCreateInput) | (Without<...> & BannerCreateInput)'.
+  Type '{ id: `${string}-${string}-${string}-${string}-${string}`; imageUrl: string; redirectUrl: string; slotType: string; startDate: Date; endDate: Date; isActive: boolean; vendorId: null; }' is not assignable to type 'Without<BannerUncheckedCreateInput, BannerCreateInput> & BannerCreateInput'.
+    Property 'title' is missing in type '{ id: `${string}-${string}-${string}-${string}-${string}`; imageUrl: string; redirectUrl: string; slotType: string; startDate: Date; endDate: Date; isActive: boolean; vendorId: null; }' but required in type 'BannerCreateInput'.
+
+144             data: {
+                ~~~~
+
+  node_modules/.prisma/client/index.d.ts:166181:5
+    166181     title: string
+               ~~~~~
+    'title' is declared here.
+  node_modules/.prisma/client/index.d.ts:28321:5
+    28321     data: XOR<BannerCreateInput, BannerUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: BannerSelect<DefaultArgs>; include?: BannerInclude<DefaultArgs>; data: (Without<BannerCreateInput, BannerUncheckedCreateInput> & BannerUncheckedCreateInput) | (Without<...> & BannerCreateInput); }'
+src/banners/banners.service.ts:311:17 - error TS2322: Type '{ id: `${string}-${string}-${string}-${string}-${string}`; vendorId: string; imageUrl: string; redirectUrl: null; slotType: string; startDate: Date; endDate: Date; isActive: false; metadata: any; }' is not assignable to type '(Without<BannerCreateInput, BannerUncheckedCreateInput> & BannerUncheckedCreateInput) | (Without<...> & BannerCreateInput)'.
+  Type '{ id: `${string}-${string}-${string}-${string}-${string}`; vendorId: string; imageUrl: string; redirectUrl: null; slotType: string; startDate: Date; endDate: Date; isActive: false; metadata: any; }' is not assignable to type 'Without<BannerUncheckedCreateInput, BannerCreateInput> & BannerCreateInput'.
+    Property 'title' is missing in type '{ id: `${string}-${string}-${string}-${string}-${string}`; vendorId: string; imageUrl: string; redirectUrl: null; slotType: string; startDate: Date; endDate: Date; isActive: false; metadata: any; }' but required in type 'BannerCreateInput'.
+
+311                 data: {
+                    ~~~~
+
+  node_modules/.prisma/client/index.d.ts:166181:5
+    166181     title: string
+               ~~~~~
+    'title' is declared here.
+  node_modules/.prisma/client/index.d.ts:28321:5
+    28321     data: XOR<BannerCreateInput, BannerUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: BannerSelect<DefaultArgs>; include?: BannerInclude<DefaultArgs>; data: (Without<BannerCreateInput, BannerUncheckedCreateInput> & BannerUncheckedCreateInput) | (Without<...> & BannerCreateInput); }'
+src/bow/bow-demand-forecasting.service.ts:197:34 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+197       select: { createdAt: true, items: true },
+                                     ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70687:5
+    70687     select?: OrderSelect<ExtArgs> | null
+              ~~~~~~
+    The expected type comes from property 'select' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; where?: OrderWhereInput; orderBy?: OrderOrderByWithRelationInput | OrderOrderByWithRelationInput[]; cursor?: OrderWhereUniqueInput; take?: number; skip?: number; distinct?: OrderScalarFieldEnum | OrderScalarFieldEnum[]; }'
+src/bow/bow-demand-forecasting.service.ts:736:19 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+736         select: { items: true },
+                      ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70687:5
+    70687     select?: OrderSelect<ExtArgs> | null
+              ~~~~~~
+    The expected type comes from property 'select' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; where?: OrderWhereInput; orderBy?: OrderOrderByWithRelationInput | OrderOrderByWithRelationInput[]; cursor?: OrderWhereUniqueInput; take?: number; skip?: number; distinct?: OrderScalarFieldEnum | OrderScalarFieldEnum[]; }'
+src/bow/bow-ml-personalization.service.ts:141:17 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+141       select: { items: true, totalAmount: true, createdAt: true },
+                    ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70687:5
+    70687     select?: OrderSelect<ExtArgs> | null
+              ~~~~~~
+    The expected type comes from property 'select' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; where?: OrderWhereInput; orderBy?: OrderOrderByWithRelationInput | OrderOrderByWithRelationInput[]; cursor?: OrderWhereUniqueInput; take?: number; skip?: number; distinct?: OrderScalarFieldEnum | OrderScalarFieldEnum[]; }'
+src/bow/bow-ml-personalization.service.ts:207:19 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+207         select: { items: true },
+                      ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70687:5
+    70687     select?: OrderSelect<ExtArgs> | null
+              ~~~~~~
+    The expected type comes from property 'select' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; where?: OrderWhereInput; orderBy?: OrderOrderByWithRelationInput | OrderOrderByWithRelationInput[]; cursor?: OrderWhereUniqueInput; take?: number; skip?: number; distinct?: OrderScalarFieldEnum | OrderScalarFieldEnum[]; }'
+src/bow/bow-ml-personalization.service.ts:213:38 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+213           const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+                                         ~~~~~
+src/bow/bow-ml-personalization.service.ts:213:76 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+213           const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+                                                                               ~~~~~
+src/bow/bow-ml-personalization.service.ts:213:91 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+213           const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+                                                                                              ~~~~~
+src/bow/bow-ml-personalization.service.ts:741:21 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+741           select: { items: true },
+                        ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70687:5
+    70687     select?: OrderSelect<ExtArgs> | null
+              ~~~~~~
+    The expected type comes from property 'select' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; where?: OrderWhereInput; orderBy?: OrderOrderByWithRelationInput | OrderOrderByWithRelationInput[]; cursor?: OrderWhereUniqueInput; take?: number; skip?: number; distinct?: OrderScalarFieldEnum | OrderScalarFieldEnum[]; }'
+src/bow/bow-ml-personalization.service.ts:748:45 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+748           const items = Array.isArray(order.items) ? order.items : [];
+                                                ~~~~~
+src/bow/bow-ml-personalization.service.ts:748:60 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+748           const items = Array.isArray(order.items) ? order.items : [];
+                                                               ~~~~~
+src/bow/bow-ml-personalization.service.ts:781:33 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+781         select: { userId: true, items: true },
+                                    ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70687:5
+    70687     select?: OrderSelect<ExtArgs> | null
+              ~~~~~~
+    The expected type comes from property 'select' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; where?: OrderWhereInput; orderBy?: OrderOrderByWithRelationInput | OrderOrderByWithRelationInput[]; cursor?: OrderWhereUniqueInput; take?: number; skip?: number; distinct?: OrderScalarFieldEnum | OrderScalarFieldEnum[]; }'
+src/bow/bow-outfit-recommender.service.ts:84:27 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+84                 select: { items: true },
+                             ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70687:5
+    70687     select?: OrderSelect<ExtArgs> | null
+              ~~~~~~
+    The expected type comes from property 'select' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; where?: OrderWhereInput; orderBy?: OrderOrderByWithRelationInput | OrderOrderByWithRelationInput[]; cursor?: OrderWhereUniqueInput; take?: number; skip?: number; distinct?: OrderScalarFieldEnum | OrderScalarFieldEnum[]; }'
+src/bow/bow-outfit-recommender.service.ts:104:45 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+104                     if (Array.isArray(order.items)) {
+                                                ~~~~~
+src/bow/bow-outfit-recommender.service.ts:105:31 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+105                         order.items.forEach((item: any) => {
+                                  ~~~~~
+src/bow/bow-price-tracker.service.ts:192:27 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+192                 select: { items: true },
+                              ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70687:5
+    70687     select?: OrderSelect<ExtArgs> | null
+              ~~~~~~
+    The expected type comes from property 'select' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; where?: OrderWhereInput; orderBy?: OrderOrderByWithRelationInput | OrderOrderByWithRelationInput[]; cursor?: OrderWhereUniqueInput; take?: number; skip?: number; distinct?: OrderScalarFieldEnum | OrderScalarFieldEnum[]; }'
+src/bow/bow-price-tracker.service.ts:200:41 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+200                 if (Array.isArray(order.items)) {
+                                            ~~~~~
+src/bow/bow-price-tracker.service.ts:201:46 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+201                     for (const item of order.items) {
+                                                 ~~~~~
+src/bow/bow-recommendation.service.ts:236:27 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+236                 select: { items: true },
+                              ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70687:5
+    70687     select?: OrderSelect<ExtArgs> | null
+              ~~~~~~
+    The expected type comes from property 'select' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; where?: OrderWhereInput; orderBy?: OrderOrderByWithRelationInput | OrderOrderByWithRelationInput[]; cursor?: OrderWhereUniqueInput; take?: number; skip?: number; distinct?: OrderScalarFieldEnum | OrderScalarFieldEnum[]; }'
+src/bow/bow-recommendation.service.ts:245:41 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+245                 if (Array.isArray(order.items)) {
+                                            ~~~~~
+src/bow/bow-recommendation.service.ts:246:27 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+246                     order.items.forEach((item: any) => {
+                              ~~~~~
+src/bow/bow-smart-reminders.service.ts:42:27 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+42                 select: { items: true },
+                             ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70687:5
+    70687     select?: OrderSelect<ExtArgs> | null
+              ~~~~~~
+    The expected type comes from property 'select' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; where?: OrderWhereInput; orderBy?: OrderOrderByWithRelationInput | OrderOrderByWithRelationInput[]; cursor?: OrderWhereUniqueInput; take?: number; skip?: number; distinct?: OrderScalarFieldEnum | OrderScalarFieldEnum[]; }'
+src/bow/bow-smart-reminders.service.ts:51:41 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+51                 if (Array.isArray(order.items)) {
+                                           ~~~~~
+src/bow/bow-smart-reminders.service.ts:52:27 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+52                     order.items.forEach((item: any) => {
+                             ~~~~~
+src/common/performance-optimization.service.ts:3:30 - error TS2307: Cannot find module '../cache/cache.service' or its corresponding type declarations.
+
+3 import { CacheService } from '../cache/cache.service';
+                               ~~~~~~~~~~~~~~~~~~~~~~~~
+src/common/performance-optimization.service.ts:192:24 - error TS2339: Property 'updateMany' does not exist on type '{ types: { payload: any; operations: { $executeRaw: { args: [query: TemplateStringsArray | Sql, ...values: any[]]; result: any; }; $executeRawUnsafe: { args: [query: string, ...values: any[]]; result: any; }; $queryRaw: { ...; }; $queryRawUnsafe: { ...; }; }; }; }'.
+
+192       return tx[model].updateMany({
+                           ~~~~~~~~~~
+src/common/scheduler.service.ts:156:45 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+156                         select: { id: true, items: true },
+                                                ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70687:5
+    70687     select?: OrderSelect<ExtArgs> | null
+              ~~~~~~
+    The expected type comes from property 'select' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; where?: OrderWhereInput; orderBy?: OrderOrderByWithRelationInput | OrderOrderByWithRelationInput[]; cursor?: OrderWhereUniqueInput; take?: number; skip?: number; distinct?: OrderScalarFieldEnum | OrderScalarFieldEnum[]; }'
+src/common/scheduler.service.ts:161:59 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+161                         const items = Array.isArray(order.items) ? order.items : [];
+                                                              ~~~~~
+src/common/scheduler.service.ts:161:74 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+161                         const items = Array.isArray(order.items) ? order.items : [];
+                                                                             ~~~~~
+src/coupons/coupons.service.ts:150:21 - error TS2339: Property 'userId' does not exist on type 'ValidateCouponDto'.
+
+150             if (dto.userId) {
+                        ~~~~~~
+src/coupons/coupons.service.ts:154:37 - error TS2339: Property 'userId' does not exist on type 'ValidateCouponDto'.
+
+154                         userId: dto.userId,
+                                        ~~~~~~
+src/guards/authorization.guard.ts:51:18 - error TS2353: Object literal may only specify known properties, and 'permissions' does not exist in type 'AdminUserInclude<DefaultArgs>'.
+
+51       include: { permissions: true },
+                    ~~~~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:18912:5
+    18912     include?: AdminUserInclude<ExtArgs> | null
+              ~~~~~~~
+    The expected type comes from property 'include' which is declared here on type '{ select?: AdminUserSelect<DefaultArgs>; include?: AdminUserInclude<DefaultArgs>; where: AdminUserWhereUniqueInput; }'
+src/guards/authorization.guard.ts:60:12 - error TS2339: Property 'permissions' does not exist on type '{ id: string; createdAt: Date; email: string; name: string; password: string; role: AdminRole; updatedAt: Date; isActive: boolean; lockedUntil: Date; avatar: string; ... 4 more ...; failedAttempts: number; }'.
+
+60       user.permissions.includes(permission)
+              ~~~~~~~~~~~
+src/guards/authorization.guard.ts:82:23 - error TS2353: Object literal may only specify known properties, and 'vendorId' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+82             select: { vendorId: true },
+                         ~~~~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70555:5
+    70555     select?: OrderSelect<ExtArgs> | null
+              ~~~~~~
+    The expected type comes from property 'select' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; where: OrderWhereUniqueInput; }'
+src/guards/authorization.guard.ts:84:25 - error TS2339: Property 'vendorId' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+84           return order?.vendorId === user.id;
+                           ~~~~~~~~
+src/invoices/invoice-generation.service.ts:46:43 - error TS2339: Property 'items' does not exist on type '{ address: { id: string; createdAt: Date; mobile: string; phone: string; name: string; updatedAt: Date; pincode: string; latitude: number; longitude: number; state: string; title: string; ... 8 more ...; geoUpdatedAt: Date; }; payment: { ...; }; user: { ...; }; } & { ...; }'.
+
+46         const items = Array.isArray(order.items) ? order.items : [];
+                                             ~~~~~
+src/invoices/invoice-generation.service.ts:46:58 - error TS2339: Property 'items' does not exist on type '{ address: { id: string; createdAt: Date; mobile: string; phone: string; name: string; updatedAt: Date; pincode: string; latitude: number; longitude: number; state: string; title: string; ... 8 more ...; geoUpdatedAt: Date; }; payment: { ...; }; user: { ...; }; } & { ...; }'.
+
+46         const items = Array.isArray(order.items) ? order.items : [];
+                                                            ~~~~~
+src/middleware/security.middleware.ts:27:46 - error TS2339: Property 'apiRequestLog' does not exist on type 'PrismaService'.
+
+27     const recentRequests = await this.prisma.apiRequestLog.count({
+                                                ~~~~~~~~~~~~~
+src/middleware/security.middleware.ts:44:23 - error TS2339: Property 'apiRequestLog' does not exist on type 'PrismaService'.
+
+44     await this.prisma.apiRequestLog.create({
+                         ~~~~~~~~~~~~~
+src/pipes/validation.pipe.ts:4:31 - error TS2307: Cannot find module 'sanitize-html' or its corresponding type declarations.
+
+4 import * as sanitizeHtml from 'sanitize-html';
+                                ~~~~~~~~~~~~~~~
+src/pipes/validation.pipe.ts:29:28 - error TS2345: Argument of type 'Function' is not assignable to parameter of type 'NumberConstructor | ObjectConstructor | StringConstructor | BooleanConstructor | ArrayConstructor'.
+  Type 'Function' is missing the following properties from type 'ArrayConstructor': isArray, from, of, [Symbol.species]
+
+29     return !types.includes(metatype);
+                              ~~~~~~~~
+src/queues/processors/order.processor.ts:45:33 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+45             select: { id: true, items: true, stockDeducted: true },
+                                   ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70555:5
+    70555     select?: OrderSelect<ExtArgs> | null
+              ~~~~~~
+    The expected type comes from property 'select' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; where: OrderWhereUniqueInput; }'
+src/queues/processors/order.processor.ts:57:29 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+57         const items = order.items as any[];
+                               ~~~~~
+src/returns/returns-qc.service.ts:29:30 - error TS2339: Property 'items' does not exist on type '{ user: { id: string; createdAt: Date; mobile: string; email: string; referralCode: string; phone: string; name: string; password: string; role: UserRole; status: UserStatus; ... 18 more ...; metadata: JsonValue; }; } & { ...; }'.
+
+29         const items = (order.items as any[]) || [];
+                                ~~~~~
+src/returns/returns.service.ts:44:48 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+44         const orderItems = Array.isArray(order.items) ? (order.items as any[]) : [];
+                                                  ~~~~~
+src/returns/returns.service.ts:44:64 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+44         const orderItems = Array.isArray(order.items) ? (order.items as any[]) : [];
+                                                                  ~~~~~
+src/returns/returns.service.ts:114:50 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+114                     Order: { select: { id: true, items: true } },
+                                                     ~~~~~
+src/returns/returns.service.ts:248:25 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type '(Without<OrderCreateInput, OrderUncheckedCreateInput> & OrderUncheckedCreateInput) | (Without<...> & OrderCreateInput)'.
+
+248                         items: returnReq.Order.items as any,
+                            ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70738:5
+    70738     data: XOR<OrderCreateInput, OrderUncheckedCreateInput>
+              ~~~~
+    The expected type comes from property 'data' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; data: (Without<OrderCreateInput, OrderUncheckedCreateInput> & OrderUncheckedCreateInput) | (Without<...> & OrderCreateInput); }'
+src/returns/returns.service.ts:248:48 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+248                         items: returnReq.Order.items as any,
+                                                   ~~~~~
+src/reviews/reviews.service.ts:33:23 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+33             select: { items: true }
+                         ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70687:5
+    70687     select?: OrderSelect<ExtArgs> | null
+              ~~~~~~
+    The expected type comes from property 'select' which is declared here on type '{ select?: OrderSelect<DefaultArgs>; include?: OrderInclude<DefaultArgs>; where?: OrderWhereInput; orderBy?: OrderOrderByWithRelationInput | OrderOrderByWithRelationInput[]; cursor?: OrderWhereUniqueInput; take?: number; skip?: number; distinct?: OrderScalarFieldEnum | OrderScalarFieldEnum[]; }'
+src/reviews/reviews.service.ts:37:33 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+37             const items = order.items as any[]; // Type assertion for JSON
+                                   ~~~~~
+src/rooms/rooms.service.ts:408:42 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+408                 const orderItems = order.items as any[];
+                                             ~~~~~
+src/validation/system-validation.ts:2:27 - error TS2307: Cannot find module './app.module' or its corresponding type declarations.
+
+2 import { AppModule } from './app.module';
+                            ~~~~~~~~~~~~~~
+src/validation/system-validation.ts:3:31 - error TS2307: Cannot find module './prisma/prisma.service' or its corresponding type declarations.
+
+3 import { PrismaService } from './prisma/prisma.service';
+                                ~~~~~~~~~~~~~~~~~~~~~~~~~
+src/validation/system-validation.ts:4:32 - error TS2307: Cannot find module './pipes/validation.pipe' or its corresponding type declarations.
+
+4 import { ValidationPipe } from './pipes/validation.pipe';
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~
+src/validation/system-validation.ts:5:36 - error TS2307: Cannot find module './middleware/security.middleware' or its corresponding type declarations.
+
+5 import { SecurityMiddleware } from './middleware/security.middleware';
+                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+src/vendor-payouts/vendor-payouts.service.ts:146:26 - error TS2339: Property 'logger' does not exist on type 'VendorPayoutsService'.
+
+146                     this.logger.warn(`Duplicate payout attempt with transactionId: ${transactionId}, returning existing`);
+                             ~~~~~~
+src/vendors/vendor-orders.service.ts:79:41 - error TS2339: Property 'items' does not exist on type '{ address: { id: string; createdAt: Date; mobile: string; phone: string; name: string; updatedAt: Date; pincode: string; latitude: number; longitude: number; state: string; title: string; ... 8 more ...; geoUpdatedAt: Date; }; user: { ...; }; } & { ...; }'.
+
+79       const items = Array.isArray(order.items) ? order.items : [];
+                                           ~~~~~
+src/vendors/vendor-orders.service.ts:79:56 - error TS2339: Property 'items' does not exist on type '{ address: { id: string; createdAt: Date; mobile: string; phone: string; name: string; updatedAt: Date; pincode: string; latitude: number; longitude: number; state: string; title: string; ... 8 more ...; geoUpdatedAt: Date; }; user: { ...; }; } & { ...; }'.
+
+79       const items = Array.isArray(order.items) ? order.items : [];
+                                                          ~~~~~
+src/vendors/vendor-orders.service.ts:88:41 - error TS2339: Property 'items' does not exist on type '{ address: { id: string; createdAt: Date; mobile: string; phone: string; name: string; updatedAt: Date; pincode: string; latitude: number; longitude: number; state: string; title: string; ... 8 more ...; geoUpdatedAt: Date; }; user: { ...; }; } & { ...; }'.
+
+88       const items = Array.isArray(order.items) ? order.items : [];
+                                           ~~~~~
+src/vendors/vendor-orders.service.ts:88:56 - error TS2339: Property 'items' does not exist on type '{ address: { id: string; createdAt: Date; mobile: string; phone: string; name: string; updatedAt: Date; pincode: string; latitude: number; longitude: number; state: string; title: string; ... 8 more ...; geoUpdatedAt: Date; }; user: { ...; }; } & { ...; }'.
+
+88       const items = Array.isArray(order.items) ? order.items : [];
+                                                          ~~~~~
+src/vendors/vendor-orders.service.ts:156:39 - error TS2339: Property 'items' does not exist on type '{ address: { id: string; createdAt: Date; mobile: string; phone: string; name: string; updatedAt: Date; pincode: string; latitude: number; longitude: number; state: string; title: string; ... 8 more ...; geoUpdatedAt: Date; }; payment: { ...; }; user: { ...; }; } & { ...; }'.
+
+156     const items = Array.isArray(order.items) ? order.items : [];
+                                          ~~~~~
+src/vendors/vendor-orders.service.ts:156:54 - error TS2339: Property 'items' does not exist on type '{ address: { id: string; createdAt: Date; mobile: string; phone: string; name: string; updatedAt: Date; pincode: string; latitude: number; longitude: number; state: string; title: string; ... 8 more ...; geoUpdatedAt: Date; }; payment: { ...; }; user: { ...; }; } & { ...; }'.
+
+156     const items = Array.isArray(order.items) ? order.items : [];
+                                                         ~~~~~
+src/vendors/vendor-orders.service.ts:353:39 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+353     const items = Array.isArray(order.items) ? order.items : [];
+                                          ~~~~~
+src/vendors/vendor-orders.service.ts:353:54 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+353     const items = Array.isArray(order.items) ? order.items : [];
+                                                         ~~~~~
+src/vendors/vendor-orders.service.ts:409:39 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+409     const items = Array.isArray(order.items) ? order.items : [];
+                                          ~~~~~
+src/vendors/vendor-orders.service.ts:409:54 - error TS2339: Property 'items' does not exist on type '{ id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; itemsSnapshot: JsonValue; ... 23 more ...; trackingId: string; }'.
+
+409     const items = Array.isArray(order.items) ? order.items : [];
+                                                         ~~~~~
+src/vendors/vendor-reports.service.ts:319:43 - error TS2339: Property 'items' does not exist on type '{ user: { name: string; }; } & { id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; ... 24 more ...; trackingId: string; }'.
+
+319         const items = Array.isArray(order.items) ? order.items : [];
+                                              ~~~~~
+src/vendors/vendor-reports.service.ts:319:58 - error TS2339: Property 'items' does not exist on type '{ user: { name: string; }; } & { id: string; createdAt: Date; status: OrderStatus; updatedAt: Date; razorpayOrderId: string; userId: string; roomId: string; addressId: string; ... 24 more ...; trackingId: string; }'.
+
+319         const items = Array.isArray(order.items) ? order.items : [];
+                                                             ~~~~~
+src/vendors/vendor-returns.service.ts:159:13 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderSelect<DefaultArgs>'.
+
+159             items: true,
+                ~~~~~
+src/vendors/vendor-revenue.service.ts:61:48 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'OrderWhereInput'.
+
+61             this.prisma.order.count({ where: { items: { path: ['0', 'vendorId'], equals: vendorId } } }),
+                                                  ~~~~~
+
+  node_modules/.prisma/client/index.d.ts:70695:5
+    70695     where?: OrderWhereInput
+              ~~~~~
+    The expected type comes from property 'where' which is declared here on type 'Subset<OrderCountArgs<DefaultArgs>, OrderCountArgs<DefaultArgs>>'
+
+Found 79 error(s).
+

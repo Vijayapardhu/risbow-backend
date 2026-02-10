@@ -30,11 +30,11 @@ export class ReviewsService {
                 userId,
                 status: 'DELIVERED',
             },
-            select: { items: true }
+            select: { itemsSnapshot: true }
         });
 
         const hasPurchased = deliveredOrders.some(order => {
-            const items = order.items as any[]; // Type assertion for JSON
+            const items = order.itemsSnapshot as any[]; // Type assertion for JSON
             return items.some(item => item.productId === productId);
         });
 

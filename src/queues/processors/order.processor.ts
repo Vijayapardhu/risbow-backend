@@ -42,7 +42,7 @@ export class OrderProcessor extends WorkerHost {
         // IDEMPOTENCY: Check if stock was already deducted for this order
         const order = await this.prisma.order.findUnique({
             where: { id: orderId },
-            select: { id: true, items: true, stockDeducted: true },
+            select: { id: true, itemsSnapshot: true },
         });
 
         if (!order) {
@@ -54,7 +54,7 @@ export class OrderProcessor extends WorkerHost {
             return { success: true, orderId, alreadyDeducted: true };
         }
 
-        const items = order.items as any[];
+        const items = order.itemsSnapshot as any[];
 
         // TRANSACTIONAL: Deduct all stock atomically in a single transaction
         await this.prisma.$transaction(async (tx) => {

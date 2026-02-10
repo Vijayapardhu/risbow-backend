@@ -62,16 +62,16 @@ export class BowMLPersonalizationEngine {
   private async initializeModel() {
     try {
       this.logger.log('Initializing ML Personalization Engine');
-      
+
       // Load existing user interaction data
       await this.loadUserInteractionData();
-      
+
       // Load product feature vectors
       await this.loadProductVectors();
-      
+
       // Load category vectors
       await this.loadCategoryVectors();
-      
+
       this.logger.log('ML model initialized successfully');
     } catch (error) {
       this.logger.error(`Failed to initialize ML model: ${error.message}`);
@@ -138,7 +138,7 @@ export class BowMLPersonalizationEngine {
     // Get user's order history
     const orders = await this.prisma.order.findMany({
       where: { userId },
-      select: { items: true, totalAmount: true, createdAt: true },
+      select: { itemsSnapshot: true, totalAmount: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
       take: 50
     });
@@ -153,10 +153,10 @@ export class BowMLPersonalizationEngine {
 
     // Get user's cart interactions
     const cartItems = await this.prisma.cartItem.findMany({
-      where: { 
+      where: {
         Cart: { userId }
       },
-      select: { 
+      select: {
         Product: { select: { categoryId: true, title: true, price: true } },
         quantity: true
       },
@@ -197,21 +197,21 @@ export class BowMLPersonalizationEngine {
 
     // Find similar users based on purchase history
     const similarUsers = await this.findSimilarUsers(userProfile);
-    
+
     // Get products purchased by similar users but not by this user
     const userPurchasedSet = new Set(userProfile.behavior.purchaseHistory);
-    
+
     for (const similarUser of similarUsers) {
       const userOrders = await this.prisma.order.findMany({
         where: { userId: similarUser.userId },
-        select: { items: true },
+        select: { itemsSnapshot: true },
         take: 20
       });
 
       for (const order of userOrders) {
         try {
-          const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
-          
+          const items = typeof order.itemsSnapshot === 'string' ? JSON.parse(order.itemsSnapshot) : order.itemsSnapshot;
+
           for (const item of items) {
             if (!userPurchasedSet.has(item.productId) && Math.random() > 0.3) {
               const product = await this.prisma.product.findUnique({
@@ -260,7 +260,7 @@ export class BowMLPersonalizationEngine {
     // Add category preferences
     if (userProfile.preferences.categories.length > 0) {
       whereClause.OR.push({
-        category: { 
+        category: {
           name: { in: userProfile.preferences.categories }
         }
       });
@@ -324,7 +324,7 @@ export class BowMLPersonalizationEngine {
 
     // Analyze search patterns
     const searchPatterns = this.analyzeSearchPatterns(userProfile.behavior.searchHistory);
-    
+
     // Analyze time patterns
     const timePatterns = userProfile.behavior.timeSpent;
 
@@ -345,7 +345,7 @@ export class BowMLPersonalizationEngine {
     for (let i = 0; i < trendingProducts.length; i++) {
       const product = trendingProducts[i];
       let score = 0.4 + (0.1 * (trendingProducts.length - i) / trendingProducts.length);
-      
+
       recommendations.push({
         productId: product.id,
         title: product.title,
@@ -375,10 +375,10 @@ export class BowMLPersonalizationEngine {
 
     // Combine and weight recommendations
     const combined = [...collaborative, ...content, ...behavioral];
-    
+
     // Remove duplicates
     const uniqueProducts = new Map<string, PersonalizedRecommendation>();
-    
+
     for (const rec of combined) {
       const existing = uniqueProducts.get(rec.productId);
       if (!existing || rec.score > existing.score) {
@@ -408,8 +408,8 @@ export class BowMLPersonalizationEngine {
       }
 
       // Boost based on price preferences
-      if (rec.price >= userProfile.preferences.priceRange.min && 
-          rec.price <= userProfile.preferences.priceRange.max) {
+      if (rec.price >= userProfile.preferences.priceRange.min &&
+        rec.price <= userProfile.preferences.priceRange.max) {
         boost += 0.05;
       }
 
@@ -426,7 +426,7 @@ export class BowMLPersonalizationEngine {
    */
   private extractCategoryPreferences(orders: any[], cartItems: any[]): string[] {
     const categories = new Map<string, number>();
-    
+
     // Count categories from orders
     for (const order of orders) {
       try {
@@ -455,7 +455,7 @@ export class BowMLPersonalizationEngine {
 
   private extractPriceRange(orders: any[]): { min: number; max: number } {
     const prices: number[] = [];
-    
+
     for (const order of orders) {
       if (order.totalAmount) {
         prices.push(order.totalAmount);
@@ -469,13 +469,13 @@ export class BowMLPersonalizationEngine {
     prices.sort((a, b) => a - b);
     const q25 = prices[Math.floor(prices.length * 0.25)];
     const q75 = prices[Math.floor(prices.length * 0.75)];
-    
+
     return { min: Math.max(0, q25 * 0.8), max: q75 * 1.2 };
   }
 
   private extractBrandPreferences(orders: any[], cartItems: any[]): string[] {
     const brands = new Map<string, number>();
-    
+
     // Extract from orders
     for (const order of orders) {
       try {
@@ -503,11 +503,11 @@ export class BowMLPersonalizationEngine {
   private extractColorPreferences(orders: any[], cartItems: any[]): string[] {
     const colors = new Map<string, number>();
     const colorKeywords = ['red', 'blue', 'green', 'black', 'white', 'yellow', 'pink', 'purple', 'orange', 'brown', 'gray', 'silver', 'gold'];
-    
+
     // Extract colors from product titles
-    const allItems = [...orders.flatMap(o => typeof o.items === 'string' ? JSON.parse(o.items) : o.items), 
-                           ...cartItems.map(ci => ci.product)];
-    
+    const allItems = [...orders.flatMap(o => typeof o.items === 'string' ? JSON.parse(o.items) : o.items),
+    ...cartItems.map(ci => ci.product)];
+
     for (const item of allItems) {
       const title = item.title?.toLowerCase() || '';
       for (const color of colorKeywords) {
@@ -526,7 +526,7 @@ export class BowMLPersonalizationEngine {
   private extractStylePreferences(orders: any[], cartItems: any[], searchHistory: any[]): string[] {
     const styles = new Map<string, number>();
     const styleKeywords = ['formal', 'casual', 'sports', 'party', 'office', 'ethnic', 'modern', 'classic'];
-    
+
     // Extract from search history
     for (const search of searchHistory) {
       const query = search.query?.toLowerCase() || '';
@@ -545,7 +545,7 @@ export class BowMLPersonalizationEngine {
 
   private extractPurchaseHistory(orders: any[]): string[] {
     const purchases: string[] = [];
-    
+
     for (const order of orders) {
       try {
         const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
@@ -562,7 +562,7 @@ export class BowMLPersonalizationEngine {
 
   private calculateTimeSpent(orders: any[]): Record<string, number> {
     const timeSpent: Record<string, number> = {};
-    
+
     for (const order of orders) {
       const hour = new Date(order.createdAt).getHours();
       const timeSlot = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
@@ -606,7 +606,7 @@ export class BowMLPersonalizationEngine {
         take: 100,
         orderBy: { createdAt: 'desc' }
       });
-      
+
       const deviceUsage: Record<string, number> = { web: 0, mobile: 0, app: 0 };
       for (const log of deviceLogs) {
         try {
@@ -636,18 +636,18 @@ export class BowMLPersonalizationEngine {
     try {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { 
+        select: {
           dateOfBirth: true,
           gender: true,
           Address: { take: 1, orderBy: { isDefault: 'desc' } }
         }
       });
-      
+
       const address = user?.Address?.[0];
-      const age = user?.dateOfBirth 
+      const age = user?.dateOfBirth
         ? Math.floor((Date.now() - new Date(user.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
         : undefined;
-      
+
       return {
         age,
         gender: user?.gender || undefined,
@@ -672,12 +672,12 @@ export class BowMLPersonalizationEngine {
         },
         take: 100
       });
-      
+
       if (recentLogs.length === 0) return 0.75; // Default score
-      
+
       let totalScore = 0;
       let count = 0;
-      
+
       for (const log of recentLogs) {
         try {
           const details = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
@@ -689,7 +689,7 @@ export class BowMLPersonalizationEngine {
           continue;
         }
       }
-      
+
       return count > 0 ? totalScore / count : 0.75;
     } catch (error) {
       this.logger.warn(`Failed to calculate recommendation score: ${error.message}`);
@@ -700,7 +700,7 @@ export class BowMLPersonalizationEngine {
   private analyzeSearchPatterns(searchHistory: any[]): string[] {
     // Simple pattern analysis - return frequent search terms
     const termCounts = new Map<string, number>();
-    
+
     for (const search of searchHistory) {
       const terms = search.query?.toLowerCase().split(' ') || [];
       for (const term of terms) {
@@ -722,7 +722,7 @@ export class BowMLPersonalizationEngine {
   private async findSimilarUsers(userProfile: UserProfile): Promise<Array<{ userId: string; similarity: number }>> {
     // This is a simplified version - in production, use cosine similarity on user vectors
     const allUsers = await this.prisma.user.findMany({
-      where: { 
+      where: {
         id: { not: userProfile.userId },
         role: 'CUSTOMER'
       },
@@ -738,28 +738,33 @@ export class BowMLPersonalizationEngine {
       allUsers.slice(0, 50).map(async (user) => {
         const userOrders = await this.prisma.order.findMany({
           where: { userId: user.id },
-          select: { items: true },
+          select: { itemsSnapshot: true },
           take: 10
         });
-        
+
         // Extract product IDs from orders
         const userProducts = new Set<string>();
         for (const order of userOrders) {
-          const items = Array.isArray(order.items) ? order.items : [];
+          let items: any[] = [];
+          if (Array.isArray(order.itemsSnapshot)) {
+            items = order.itemsSnapshot as any[];
+          } else if (typeof order.itemsSnapshot === 'string') {
+            items = JSON.parse(order.itemsSnapshot);
+          }
           for (const item of items as Array<{ productId?: string }>) {
             if (item.productId) userProducts.add(item.productId);
           }
         }
-        
+
         // Calculate Jaccard similarity
         const intersection = [...userProducts].filter(p => purchaseSet.has(p)).length;
         const union = new Set([...userProducts, ...purchaseSet]).size;
         const similarity = union > 0 ? intersection / union : 0;
-        
+
         return { userId: user.id, similarity };
       })
     );
-    
+
     // Sort by similarity and return top matches
     return similarityResults
       .filter(u => u.similarity > 0)
@@ -773,12 +778,12 @@ export class BowMLPersonalizationEngine {
   private async loadUserInteractionData(): Promise<void> {
     // Load existing user interaction data for faster recommendations
     this.logger.log('Loading user interaction data');
-    
+
     try {
       // Cache recent orders for quick access
       const recentOrders = await this.prisma.order.findMany({
         where: { createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
-        select: { userId: true, items: true },
+        select: { userId: true, itemsSnapshot: true },
         take: 1000
       });
       this.logger.log(`Loaded ${recentOrders.length} recent orders for user interaction analysis`);
@@ -793,7 +798,7 @@ export class BowMLPersonalizationEngine {
   private async loadProductVectors(): Promise<void> {
     // Load product features for similarity calculations
     this.logger.log('Loading product feature vectors');
-    
+
     try {
       const products = await this.prisma.product.findMany({
         where: { isActive: true },
@@ -812,7 +817,7 @@ export class BowMLPersonalizationEngine {
   private async loadCategoryVectors(): Promise<void> {
     // Load category data for recommendations
     this.logger.log('Loading category vectors');
-    
+
     try {
       const categories = await this.prisma.category.findMany({
         select: { id: true, name: true, _count: { select: { Product: true } } }
@@ -832,7 +837,7 @@ export class BowMLPersonalizationEngine {
   ): Promise<void> {
     // Log recommendation interaction for future learning
     this.logger.log(`Updating user profile with ${recommendations.length} recommendations`);
-    
+
     try {
       // Store recommendation event in audit log for tracking
       await this.prisma.auditLog.create({
@@ -877,15 +882,15 @@ export class BowMLPersonalizationEngine {
   async retrainModels(): Promise<void> {
     try {
       this.logger.log('Retraining ML models...');
-      
+
       // Load fresh data
       await this.loadUserInteractionData();
       await this.loadProductVectors();
       await this.loadCategoryVectors();
-      
+
       // Update last trained timestamp
       this.mlModel.lastTrained = new Date();
-      
+
       this.logger.log('ML models retrained successfully');
     } catch (error) {
       this.logger.error(`Model retraining failed: ${error.message}`);

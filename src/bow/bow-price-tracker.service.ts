@@ -26,7 +26,7 @@ export interface DealInfo {
 export class BowPriceTracker {
     private readonly logger = new Logger(BowPriceTracker.name);
 
-    constructor(private prisma: PrismaService) {}
+    constructor(private prisma: PrismaService) { }
 
     /**
      * Track price changes for a product
@@ -189,16 +189,16 @@ export class BowPriceTracker {
             // Get user's interested categories from purchase history
             const orders = await this.prisma.order.findMany({
                 where: { userId },
-                select: { items: true },
+                select: { itemsSnapshot: true },
                 take: 5
             });
 
             const categoryIds = new Set<string>();
-            
+
             // Extract categories from Order.items (JSON field)
             for (const order of orders) {
-                if (Array.isArray(order.items)) {
-                    for (const item of order.items) {
+                if (Array.isArray(order.itemsSnapshot)) {
+                    for (const item of (order.itemsSnapshot as any[])) {
                         const itemData = item as any;
                         if (itemData.categoryId) {
                             categoryIds.add(itemData.categoryId);

@@ -26,7 +26,7 @@ export class ReturnsQCService {
 
         // Identify vendor from first item (simplified)
         // In real world, returns might be split by vendor. Assuming 1 vendor per order or picking first.
-        const items = (order.items as any[]) || [];
+        const items = (order.itemsSnapshot as any[]) || [];
         const vendorId = items[0]?.vendorId;
 
         if (!vendorId) throw new BadRequestException('Vendor not found for order');

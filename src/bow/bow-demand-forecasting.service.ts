@@ -73,13 +73,13 @@ export class BowDemandForecastingService {
   private async initializeForecasting() {
     try {
       this.logger.log('Initializing Demand Forecasting System');
-      
+
       // Load historical data
       await this.loadHistoricalData();
-      
+
       // Initialize market trend analysis
       await this.initializeMarketTrends();
-      
+
       this.logger.log('Demand Forecasting System initialized');
     } catch (error) {
       this.logger.error(`Failed to initialize demand forecasting: ${error.message}`);
@@ -107,7 +107,7 @@ export class BowDemandForecastingService {
       const historicalData = await this.getHistoricalSalesData(productId, this.config.lookbackPeriod);
 
       // Step 2: Analyze seasonal patterns
-      const seasonalFactors = options.includeSeasonalFactors 
+      const seasonalFactors = options.includeSeasonalFactors
         ? await this.analyzeSeasonalPatterns(productId, historicalData)
         : { trend: 0, confidence: 0 };
 
@@ -194,7 +194,7 @@ export class BowDemandForecastingService {
         createdAt: { gte: startDate },
         status: { not: OrderStatus.CANCELLED },
       } as any,
-      select: { createdAt: true, items: true },
+      select: { createdAt: true, itemsSnapshot: true },
       orderBy: { createdAt: 'asc' },
       take: 5000,
     });
@@ -204,7 +204,7 @@ export class BowDemandForecastingService {
 
     // Group by date and calculate daily sales
     const dailyData = new Map<string, { sales: number; stock: number }>();
-    
+
     for (const o of orders as any[]) {
       const day = new Date(o.createdAt).toISOString().split('T')[0];
       const existing = dailyData.get(day) || { sales: 0, stock: currentStock };
@@ -271,7 +271,7 @@ export class BowDemandForecastingService {
     // Current day and month
     const currentDay = new Date().getDay();
     const currentMonth = new Date().getMonth();
-    
+
     const dayAverage = dayAverages.get(currentDay) || 0;
     const monthAverage = monthAverages.get(currentMonth) || 0;
     const overallAverage = Array.from(monthAverages.values()).reduce((sum, avg) => sum + avg, 0) / 12;
@@ -324,7 +324,7 @@ export class BowDemandForecastingService {
 
       // Calculate trend
       if (previousOrders === 0) return { trend: 0, confidence: 0.4 };
-      
+
       const growthRate = (recentOrders - previousOrders) / previousOrders;
       const trend = Math.max(-0.5, Math.min(0.5, growthRate)); // Cap at ±50%
 
@@ -483,10 +483,10 @@ export class BowDemandForecastingService {
     if (recentSales.length >= 7) {
       const firstHalf = recentSales.slice(0, Math.floor(recentSales.length / 2));
       const secondHalf = recentSales.slice(Math.floor(recentSales.length / 2));
-      
+
       const firstHalfAvg = firstHalf.reduce((sum, data) => sum + data.sales, 0) / firstHalf.length;
       const secondHalfAvg = secondHalf.reduce((sum, data) => sum + data.sales, 0) / secondHalf.length;
-      
+
       trend = (secondHalfAvg - firstHalfAvg) / Math.max(1, firstHalfAvg);
     }
 
@@ -505,8 +505,8 @@ export class BowDemandForecastingService {
     if (dataPoints < 7) return 0.3;
 
     const baseConfidence = Math.min(1, dataPoints / 30); // More data = higher confidence
-    
-    const weightedConfidence = 
+
+    const weightedConfidence =
       baseConfidence * 0.4 +
       seasonalConfidence * 0.3 +
       marketConfidence * 0.2 +
@@ -600,7 +600,7 @@ export class BowDemandForecastingService {
 
     try {
       let products;
-      
+
       if (productId) {
         const product = await this.prisma.product.findUnique({
           where: { id: productId },
@@ -617,7 +617,7 @@ export class BowDemandForecastingService {
 
       for (const product of products) {
         const forecast = await this.getLatestForecast(product.id);
-        
+
         if (forecast) {
           const alert = this.evaluateInventoryAlert(product, forecast);
           if (alert) {
@@ -677,7 +677,7 @@ export class BowDemandForecastingService {
     }
 
     const dailyDemandRate = predictedDemand / 30;
-    
+
     if (dailyDemandRate < this.config.alertThresholds.slowMovingThreshold && stockDays > 60) {
       return {
         productId: product.id,
@@ -725,7 +725,7 @@ export class BowDemandForecastingService {
   private async loadHistoricalData(): Promise<void> {
     // Preload frequently accessed historical data for faster forecasting
     this.logger.log('Loading historical data for forecasting');
-    
+
     try {
       // Get top 100 most ordered products for preloading
       const recentOrders = await this.prisma.order.findMany({
@@ -733,10 +733,10 @@ export class BowDemandForecastingService {
           createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
           status: { not: 'CANCELLED' as any }
         },
-        select: { items: true },
+        select: { itemsSnapshot: true },
         take: 1000
       });
-      
+
       this.logger.log(`Preloaded ${recentOrders.length} recent orders for forecasting cache`);
     } catch (error) {
       this.logger.warn(`Failed to preload historical data: ${error.message}`);
@@ -749,17 +749,17 @@ export class BowDemandForecastingService {
   private async initializeMarketTrends(): Promise<void> {
     // Initialize market trend analysis with platform-wide metrics
     this.logger.log('Initializing market trend analysis');
-    
+
     try {
       // Calculate overall platform growth rate
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
-      
+
       const [recentOrders, previousOrders] = await Promise.all([
         this.prisma.order.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
         this.prisma.order.count({ where: { createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } } })
       ]);
-      
+
       const growthRate = previousOrders > 0 ? ((recentOrders - previousOrders) / previousOrders * 100) : 0;
       this.logger.log(`Platform growth rate: ${growthRate.toFixed(2)}%`);
     } catch (error) {
@@ -814,7 +814,7 @@ export class BowDemandForecastingService {
       const orderCount = await this.prisma.order.count({
         where: { createdAt: { gte: thirtyDaysAgo } }
       });
-      
+
       // Data quality based on order volume
       let dataQuality: string;
       if (orderCount >= 1000) dataQuality = 'EXCELLENT';
@@ -861,7 +861,7 @@ export class BowDemandForecastingService {
       // Calculate variance metrics as proxy for forecast accuracy
       const totals = orders.map(o => o.totalAmount);
       const mean = totals.reduce((a, b) => a + b, 0) / totals.length;
-      
+
       const mae = totals.reduce((sum, t) => sum + Math.abs(t - mean), 0) / totals.length;
       const rmse = Math.sqrt(totals.reduce((sum, t) => sum + Math.pow(t - mean, 2), 0) / totals.length);
       const mape = totals.reduce((sum, t) => sum + Math.abs((t - mean) / (mean || 1)), 0) / totals.length * 100;

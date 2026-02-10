@@ -33,7 +33,7 @@ export class SchedulerService {
         @Optional() @Inject(ClearanceService) private clearanceService: ClearanceService | null,
         @Optional() @Inject(VendorDisciplineService) private vendorDisciplineService: VendorDisciplineService | null,
         @Optional() @Inject(WholesalersService) private wholesalersService: WholesalersService | null,
-    ) {}
+    ) { }
 
     // SRS FR-2: Check expiry every min -> EXPIRED if past endAt.
     @Cron(CronExpression.EVERY_MINUTE)
@@ -135,7 +135,7 @@ export class SchedulerService {
                 for (const key of reservationKeys) {
                     // Check if key exists and get its value
                     const value = await this.redisService.get(key);
-                    
+
                     if (!value) {
                         // Key expired or doesn't exist, skip
                         continue;
@@ -153,12 +153,12 @@ export class SchedulerService {
                         where: {
                             status: { in: ['PENDING', 'PENDING_PAYMENT'] },
                         },
-                        select: { id: true, items: true },
+                        select: { id: true, itemsSnapshot: true },
                     });
 
                     let hasActiveOrder = false;
                     for (const order of pendingOrders) {
-                        const items = Array.isArray(order.items) ? order.items : [];
+                        const items = Array.isArray(order.itemsSnapshot) ? (order.itemsSnapshot as any[]) : [];
                         const orderHasProduct = items.some((item: any) => {
                             if (item.productId === productId) {
                                 if (!variantId || item.variantId === variantId) {

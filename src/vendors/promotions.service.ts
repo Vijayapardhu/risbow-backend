@@ -29,7 +29,8 @@ export class PromotionsService {
         // Create the banner in INACTIVE state
         const banner = await this.prisma.banner.create({
             data: {
-                vendorId,
+                Vendor: { connect: { id: vendorId } },
+                title: 'Vendor Promotion Banner',
                 imageUrl: params.imageUrl,
                 redirectUrl: params.targetUrl, // Match schema redirectUrl
                 slotType: 'HOME_BANNER', // Required in schema

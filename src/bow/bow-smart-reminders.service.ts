@@ -29,7 +29,7 @@ export interface LoyaltyOptimization {
 export class BowSmartReminders {
     private readonly logger = new Logger(BowSmartReminders.name);
 
-    constructor(private prisma: PrismaService) {}
+    constructor(private prisma: PrismaService) { }
 
     /**
      * Get auto-replenishment reminders for consumables
@@ -39,7 +39,7 @@ export class BowSmartReminders {
             // Find frequently purchased items
             const orders = await this.prisma.order.findMany({
                 where: { userId },
-                select: { items: true },
+                select: { itemsSnapshot: true },
                 orderBy: { createdAt: 'desc' },
                 take: 20
             });
@@ -48,8 +48,8 @@ export class BowSmartReminders {
 
             // Count purchases from Order.items (JSON field)
             orders.forEach(order => {
-                if (Array.isArray(order.items)) {
-                    order.items.forEach((item: any) => {
+                if (Array.isArray(order.itemsSnapshot)) {
+                    (order.itemsSnapshot as any[]).forEach((item: any) => {
                         const key = item.productId;
                         productPurchaseCount.set(key, (productPurchaseCount.get(key) || 0) + 1);
                     });

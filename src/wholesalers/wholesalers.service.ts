@@ -22,7 +22,7 @@ export class WholesalersService {
     constructor(
         private prisma: PrismaService,
         private notificationsService: NotificationsService,
-    ) {}
+    ) { }
 
     /**
      * Register a new wholesaler
@@ -103,7 +103,7 @@ export class WholesalersService {
         // Get bulk orders (orders from vendors)
         const bulkOrders = await this.prisma.order.findMany({
             where: {
-                items: {
+                itemsSnapshot: {
                     path: ['$[*].vendorId'],
                     array_contains: wholesalerId,
                 },
@@ -451,7 +451,7 @@ export class WholesalersService {
         const orders = await this.prisma.order.findMany({
             where: {
                 createdAt: { gte: since },
-                items: {
+                itemsSnapshot: {
                     path: ['$[*].vendorId'],
                     array_contains: wholesalerId,
                 },
@@ -467,7 +467,7 @@ export class WholesalersService {
         });
 
         const totalRevenue = orders.reduce((sum, order) => {
-            const items = Array.isArray(order.items) ? (order.items as any[]) : [];
+            const items = Array.isArray(order.itemsSnapshot) ? (order.itemsSnapshot as any[]) : [];
             const orderTotal = items.reduce((itemSum: number, item: any) => {
                 return itemSum + (Number(item.price || 0) * Number(item.quantity || 0));
             }, 0);

@@ -27,7 +27,7 @@ export interface UserStyle {
 export class BowOutfitRecommender {
     private readonly logger = new Logger(BowOutfitRecommender.name);
 
-    constructor(private prisma: PrismaService) {}
+    constructor(private prisma: PrismaService) { }
 
     /**
      * Suggest complete outfit based on user style and preferences
@@ -81,7 +81,7 @@ export class BowOutfitRecommender {
             // Get user's orders to extract preferences
             const userOrders = await this.prisma.order.findMany({
                 where: { userId },
-                select: { items: true },
+                select: { itemsSnapshot: true },
                 take: 10
             });
 
@@ -101,8 +101,8 @@ export class BowOutfitRecommender {
 
                 userOrders.forEach(order => {
                     // Order.items is a JSON field (array)
-                    if (Array.isArray(order.items)) {
-                        order.items.forEach((item: any) => {
+                    if (Array.isArray(order.itemsSnapshot)) {
+                        (order.itemsSnapshot as any[]).forEach((item: any) => {
                             // Since we don't have product details in items, just track count
                             if (item.productTitle) {
                                 // Extract brand from title

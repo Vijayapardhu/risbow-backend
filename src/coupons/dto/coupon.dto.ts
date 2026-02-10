@@ -141,6 +141,11 @@ export class ValidateCouponDto {
     @IsInt()
     @Min(0)
     cartTotal: number;
+
+    @ApiPropertyOptional({ example: 'user_123', description: 'User ID for per-user limits' })
+    @IsOptional()
+    @IsString()
+    userId?: string;
 }
 
 export class ApplyCouponDto {

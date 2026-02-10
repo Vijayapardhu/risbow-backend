@@ -1,38 +1,39 @@
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateSupportTicketDto, UpdateSupportTicketDto, AssignTicketDto, ResolveTicketDto } from './dto';
 
 @Injectable()
 export class SupportTicketService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async getAllTickets(
-    page: number, 
-    limit: number, 
-    status?: string, 
-    priority?: string, 
-    category?: string, 
-    assignedTo?: string, 
+    page: number,
+    limit: number,
+    status?: string,
+    priority?: string,
+    category?: string,
+    assignedTo?: string,
     search?: string
   ) {
     const where: any = {};
-    
+
     if (status) {
       where.status = status;
     }
-    
+
     if (priority) {
       where.priority = priority;
     }
-    
+
     if (category) {
       where.category = category;
     }
-    
+
     if (assignedTo) {
       where.assignedTo = assignedTo;
     }
-    
+
     if (search) {
       where.OR = [
         { subject: { contains: search, mode: 'insensitive' } },
@@ -50,8 +51,6 @@ export class SupportTicketService {
           User: { select: { id: true, name: true, email: true, mobile: true } },
           Admin: { select: { id: true, name: true, email: true } },
           Order: { select: { id: true, orderNumber: true } },
-          Product: { select: { id: true, title: true } },
-          Vendor: { select: { id: true, name: true } },
           TicketMessage: {
             orderBy: { createdAt: 'desc' },
             take: 10, // Limit messages in ticket list
@@ -80,8 +79,6 @@ export class SupportTicketService {
         User: { select: { id: true, name: true, email: true, mobile: true } },
         Admin: { select: { id: true, name: true, email: true } },
         Order: { select: { id: true, orderNumber: true, totalAmount: true } },
-        Product: { select: { id: true, title: true, price: true } },
-        Vendor: { select: { id: true, name: true } },
         TicketMessage: {
           include: {
             SupportTicket: true,
@@ -93,9 +90,16 @@ export class SupportTicketService {
   }
 
   async createTicket(dto: CreateSupportTicketDto) {
+    const { userId, assignedTo, orderId, productId, vendorId, ...rest } = dto;
     return this.prisma.supportTicket.create({
       data: {
-        ...dto,
+        id: randomUUID(),
+        ...rest,
+        User: { connect: { id: userId } },
+        Admin: assignedTo ? { connect: { id: assignedTo } } : undefined,
+        Order: orderId ? { connect: { id: orderId } } : undefined,
+        Product: productId ? { connect: { id: productId } } : undefined,
+        Vendor: vendorId ? { connect: { id: vendorId } } : undefined,
         ticketNumber: `TKT-${Date.now()}`, // Generate ticket number
       },
     });
@@ -121,7 +125,7 @@ export class SupportTicketService {
   async updateTicketStatus(id: string, status: string) {
     return this.prisma.supportTicket.update({
       where: { id },
-      data: { status },
+      data: { status: status as any },
     });
   }
 
@@ -156,7 +160,8 @@ export class SupportTicketService {
   async addTicketMessage(ticketId: string, message: string) {
     return this.prisma.ticketMessage.create({
       data: {
-        ticketId,
+        id: randomUUID(),
+        ticketId, // Scalar field, not a relation
         senderId: 'system', // This would come from the authenticated user
         senderType: 'ADMIN',
         senderName: 'System', // This would come from the authenticated user

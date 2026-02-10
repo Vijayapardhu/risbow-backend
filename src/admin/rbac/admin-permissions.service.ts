@@ -103,6 +103,16 @@ export enum Permission {
   INVOICE_CREATE = 'invoice:create',
   INVOICE_VOID = 'invoice:void',
   INVOICE_EXPORT = 'invoice:export',
+
+  // Support Tickets
+  TICKET_READ = 'ticket:read',
+  TICKET_CREATE = 'ticket:create',
+  TICKET_UPDATE = 'ticket:update',
+  TICKET_DELETE = 'ticket:delete',
+  TICKET_ASSIGN = 'ticket:assign',
+  TICKET_RESOLVE = 'ticket:resolve',
+  TICKET_MESSAGE_ADD = 'ticket:message_add',
+  TICKET_MESSAGE_READ = 'ticket:message_read',
 }
 
 /**
@@ -187,6 +197,18 @@ export const PermissionGroups = {
     Permission.BANNER_UPDATE,
     Permission.BANNER_DELETE,
     Permission.REPORT_VIEW,
+    Permission.REPORT_VIEW,
+  ],
+
+  SUPPORT: [
+    Permission.TICKET_READ,
+    Permission.TICKET_CREATE,
+    Permission.TICKET_UPDATE,
+    Permission.TICKET_DELETE,
+    Permission.TICKET_ASSIGN,
+    Permission.TICKET_RESOLVE,
+    Permission.TICKET_MESSAGE_ADD,
+    Permission.TICKET_MESSAGE_READ,
   ],
 
   FULL_ACCESS: Object.values(Permission),
@@ -197,7 +219,7 @@ export const PermissionGroups = {
  */
 const RolePermissions: Record<AdminRole, Permission[]> = {
   [AdminRole.SUPER_ADMIN]: Object.values(Permission), // All permissions
-  
+
   // OPERATIONS_ADMIN has full operational permissions (similar to old ADMIN role)
   [AdminRole.OPERATIONS_ADMIN]: [
     ...PermissionGroups.VIEWER,
@@ -217,6 +239,9 @@ const RolePermissions: Record<AdminRole, Permission[]> = {
     Permission.AUDIT_EXPORT,
     Permission.REPORT_CREATE,
     Permission.REPORT_EXPORT,
+    Permission.REPORT_CREATE,
+    Permission.REPORT_EXPORT,
+    ...PermissionGroups.SUPPORT,
   ],
 
   // CONTENT_MODERATOR has moderation permissions (similar to old MODERATOR role)

@@ -1074,7 +1074,7 @@ export class OrdersService {
                 where: { id: orderId },
                 include: {
                     payment: true,
-                    items: { include: { product: true } },
+                    OrderItem: { include: { Product: true } },
                 }
             });
 
@@ -1131,7 +1131,7 @@ export class OrdersService {
                     where: { orderId },
                 });
                 if (!existingSnapshot) {
-                    const subtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                    const subtotal = order.OrderItem.reduce((sum, item) => sum + (item.price * item.quantity), 0);
                     const taxAmount = Math.round((subtotal * 18) / 100);
                     await tx.orderFinancialSnapshot.create({
                         data: {
@@ -1139,7 +1139,7 @@ export class OrdersService {
                             orderId,
                             subtotal,
                             taxAmount,
-                            shippingAmount: order.shippingCharge || 0,
+                            shippingAmount: order.shippingCharges || 0,
                             discountAmount: order.discountAmount || 0,
                             totalAmount: order.totalAmount,
                             commissionRate: 0,
@@ -1160,7 +1160,7 @@ export class OrdersService {
                         data: {
                             id: randomUUID(),
                             orderId,
-                            vendorId: order.vendorId,
+                            vendorId: order.OrderItem?.[0]?.Product?.vendorId ?? '', // Fallback as Order might not have vendorId directly
                             amount: order.totalAmount,
                             status: 'PENDING',
                         } as any

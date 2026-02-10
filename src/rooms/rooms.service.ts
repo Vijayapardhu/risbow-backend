@@ -405,7 +405,7 @@ export class RoomsService {
             const offer = await tx.weeklyOffer.findUnique({ where: { id: room.offerId } });
             const rules = offer?.rules as any;
             if (rules?.eligibleProductIds) {
-                const orderItems = order.items as any[];
+                const orderItems = order.itemsSnapshot as any[];
                 const allEligible = orderItems.every(item => rules.eligibleProductIds.includes(item.productId));
                 if (!allEligible) throw new BadRequestException('Order contains products not eligible for this room offer');
             }

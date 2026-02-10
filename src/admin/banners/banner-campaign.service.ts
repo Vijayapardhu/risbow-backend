@@ -10,16 +10,32 @@ import {
 } from '@prisma/client';
 import { AdminAuditService, AuditActionType, AuditResourceType } from '../audit/admin-audit.service';
 
-// BannerCampaignStatus enum values that exist in schema
+// Define enums that don't exist in Prisma schema
 enum BannerCampaignStatus {
   PENDING = 'PENDING',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
+  SCHEDULED = 'SCHEDULED',
   ACTIVE = 'ACTIVE',
   PAUSED = 'PAUSED',
-  COMPLETED = 'COMPLETED',
+  ENDED = 'ENDED',
+  EXPIRED = 'EXPIRED',
   CANCELLED = 'CANCELLED',
+  DEACTIVATED = 'DEACTIVATED',
+  COMPLETED = 'COMPLETED',
 }
+
+enum BannerType {
+  STATIC = 'STATIC',
+  DYNAMIC = 'DYNAMIC',
+  VIDEO = 'VIDEO',
+  PROMOTIONAL = 'PROMOTIONAL',
+}
+
+// BannerCampaignStatus enum values that exist in schema
+// Using Prisma's enum directly
+
 
 /**
  * Banner positions and their specs
@@ -99,7 +115,7 @@ export class BannerCampaignService {
   constructor(
     private prisma: PrismaService,
     private auditService: AdminAuditService,
-  ) {}
+  ) { }
 
   /**
    * Create a new banner campaign
@@ -136,7 +152,7 @@ export class BannerCampaignService {
       },
     });
 
-    if (conflicting && dto.type !== 'PROMOTIONAL') {
+    if (conflicting && dto.type !== BannerType.PROMOTIONAL) {
       throw new ConflictException(
         'Another campaign is already scheduled for this position and time period',
       );
@@ -170,7 +186,7 @@ export class BannerCampaignService {
         endDate,
         amountPaid: dto.budget || estimatedCost,
         paymentStatus: 'PENDING',
-        status: dto.vendorId ? BannerCampaignStatus.PENDING : BannerCampaignStatus.APPROVED,
+        status: dto.vendorId ? BannerCampaignStatus.PENDING_APPROVAL : BannerCampaignStatus.APPROVED,
       },
     });
 
@@ -202,7 +218,7 @@ export class BannerCampaignService {
       throw new NotFoundException('Campaign not found');
     }
 
-    if (campaign.status === BannerCampaignStatus.COMPLETED) {
+    if (campaign.status === BannerCampaignStatus.EXPIRED) {
       throw new BadRequestException('Cannot update completed campaigns');
     }
 
@@ -249,7 +265,7 @@ export class BannerCampaignService {
       throw new NotFoundException('Campaign not found');
     }
 
-    if (campaign.status !== BannerCampaignStatus.PENDING) {
+    if (campaign.status !== BannerCampaignStatus.PENDING_APPROVAL) {
       throw new BadRequestException('Only pending campaigns can be approved');
     }
 
@@ -289,7 +305,7 @@ export class BannerCampaignService {
       throw new NotFoundException('Campaign not found');
     }
 
-    if (campaign.status !== BannerCampaignStatus.PENDING) {
+    if (campaign.status !== BannerCampaignStatus.PENDING_APPROVAL) {
       throw new BadRequestException('Only pending campaigns can be rejected');
     }
 
@@ -378,13 +394,13 @@ export class BannerCampaignService {
       throw new NotFoundException('Campaign not found');
     }
 
-    if (campaign.status === BannerCampaignStatus.COMPLETED) {
+    if (campaign.status === BannerCampaignStatus.EXPIRED) {
       throw new BadRequestException('Cannot cancel completed campaigns');
     }
 
     return this.prisma.bannerCampaign.update({
       where: { id: campaignId },
-      data: { status: BannerCampaignStatus.CANCELLED },
+      data: { status: BannerCampaignStatus.DEACTIVATED },
     });
   }
 
@@ -436,9 +452,9 @@ export class BannerCampaignService {
     const vendorIds = Array.from(new Set(campaigns.map((c) => c.vendorId).filter(Boolean)));
     const vendors = vendorIds.length
       ? await this.prisma.vendor.findMany({
-          where: { id: { in: vendorIds } },
-          select: { id: true, storeName: true },
-        })
+        where: { id: { in: vendorIds } },
+        select: { id: true, storeName: true },
+      })
       : [];
     const vendorMap = new Map(vendors.map((v) => [v.id, v]));
 
@@ -463,7 +479,7 @@ export class BannerCampaignService {
    */
   async getPendingCampaigns(page = 1, limit = 20) {
     return this.getCampaigns({
-      status: BannerCampaignStatus.PENDING,
+      status: BannerCampaignStatus.PENDING_APPROVAL,
       page,
       limit,
     });
@@ -627,7 +643,7 @@ export class BannerCampaignService {
         status: BannerCampaignStatus.ACTIVE,
         endDate: { lte: now },
       },
-      data: { status: BannerCampaignStatus.COMPLETED },
+      data: { status: BannerCampaignStatus.EXPIRED },
     });
 
     return { completed: toComplete.count };

@@ -1,7 +1,7 @@
 import { PipeTransform, Injectable, ArgumentMetadata, BadRequestException } from '@nestjs/common';
 import { validate } from 'class-validator';
 import { plainToClass } from 'class-transformer';
-import * as sanitizeHtml from 'sanitize-html';
+import sanitizeHtml from 'sanitize-html';
 
 @Injectable()
 export class ValidationPipe implements PipeTransform<any> {
@@ -9,23 +9,23 @@ export class ValidationPipe implements PipeTransform<any> {
     if (!metatype || !this.toValidate(metatype)) {
       return this.sanitizeValue(value);
     }
-    
+
     const object = plainToClass(metatype, value);
     const errors = await validate(object);
-    
+
     if (errors.length > 0) {
       const messages = errors.map(error => {
         return Object.values(error.constraints || {}).join(', ');
       }).join('; ');
-      
+
       throw new BadRequestException(messages);
     }
-    
+
     return this.sanitizeValue(object);
   }
 
   private toValidate(metatype: Function): boolean {
-    const types = [String, Boolean, Number, Array, Object];
+    const types: Function[] = [String, Boolean, Number, Array, Object];
     return !types.includes(metatype);
   }
 

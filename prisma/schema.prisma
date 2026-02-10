@@ -90,6 +90,7 @@ model AdminUser {
   password       String // Also serves as passwordHash
   name           String
   role           AdminRole      @default(OPERATIONS_ADMIN)
+  permissions    String[]       @default([])
   isActive       Boolean        @default(true)
   isMfaEnabled   Boolean        @default(false)
   mfaSecret      String?
@@ -235,6 +236,17 @@ model BannerMetric {
   @@index([date])
 }
 
+model ApiRequestLog {
+  id        String   @id @default(uuid())
+  ip        String
+  endpoint  String
+  method    String
+  userAgent String
+  createdAt DateTime @default(now())
+
+  @@index([ip, endpoint, createdAt])
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model AdminNote {
   id                           String   @id
@@ -289,16 +301,17 @@ model Banner {
   linkUrl                String?
   redirectUrl            String?
   slot                   BannerSlot               @default(HOME_TOP)
-  slotType               String?
+  slotType               String
   device                 BannerDevice             @default(ALL)
   priority               Int                      @default(1)
-  startDate              DateTime?
-  endDate                DateTime?
+  startDate              DateTime
+  endDate                DateTime
   isActive               Boolean                  @default(true)
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @default(now()) @updatedAt
   metadata               Json?
   bannerCampaignId       String?
+  Vendor                 Vendor?                  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   BannerCampaign         BannerCampaign[]
   BannerImpressionLedger BannerImpressionLedger[]
 
@@ -1128,6 +1141,7 @@ model Order {
   totalAmount                                              Int
   coinsUsed                                                Int                        @default(0)
   coinsUsedDebited                                         Boolean                    @default(false)
+  stockDeducted                                            Boolean                    @default(false)
   status                                                   OrderStatus                @default(PENDING)
   razorpayOrderId                                          String?
   awbNumber                                                String?
@@ -1453,6 +1467,7 @@ model Product {
   UserProductInteraction                                        UserProductInteraction[]
   ProductSimilarity_ProductSimilarity_productIdToProduct        ProductSimilarity[]      @relation("ProductSimilarity_productIdToProduct")
   ProductSimilarity_ProductSimilarity_similarProductIdToProduct ProductSimilarity[]      @relation("ProductSimilarity_similarProductIdToProduct")
+  SupportTicket                                                 SupportTicket[]
 
   @@index([categoryId])
   @@index([categoryId, isActive, createdAt])
@@ -2008,6 +2023,8 @@ model SupportTicket {
   resolvedAt      DateTime?
   Admin           Admin?          @relation(fields: [assignedTo], references: [id])
   Order           Order?          @relation(fields: [orderId], references: [id])
+  Product         Product?        @relation(fields: [productId], references: [id])
+  Vendor          Vendor?         @relation(fields: [vendorId], references: [id])
   User            User            @relation(fields: [userId], references: [id])
   TicketMessage   TicketMessage[]
 
@@ -2146,6 +2163,7 @@ model User {
   Wallet                                                      Wallet?
   Wishlist                                                    Wishlist[]
   CouponUsage                                                 CouponUsage[]
+  NotificationPreference                                      NotificationPreference[]
 
   @@index([referredBy])
   @@index([role])
@@ -2283,6 +2301,8 @@ model Vendor {
   ContentFlag                     ContentFlag[]
   InvoiceTemplate                 InvoiceTemplate[]
   VendorRegistrationPayment       VendorRegistrationPayment?
+  SupportTicket                   SupportTicket[]
+  Banner                          Banner[]
 
   @@index([kycStatus])
   @@index([pincode])
@@ -2638,6 +2658,35 @@ model Wishlist {
   User      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, productId])
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model NotificationPreference {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, type])
+}
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  secret    String
+  scopes    String[]
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum AdminRole {
@@ -3465,3 +3514,4 @@ model UploadFile {
   @@index([isDeleted, createdAt])
   @@index([createdAt])
 }
+

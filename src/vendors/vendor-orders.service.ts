@@ -24,7 +24,7 @@ const VENDOR_STATUS_TRANSITIONS: Record<string, string[]> = {
 
 @Injectable()
 export class VendorOrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * List orders belonging to a vendor with pagination and filters
@@ -76,7 +76,7 @@ export class VendorOrdersService {
 
     // Filter orders that contain items from this vendor
     const vendorOrders = allOrders.filter((order) => {
-      const items = Array.isArray(order.items) ? order.items : [];
+      const items = Array.isArray(order.itemsSnapshot) ? (order.itemsSnapshot as any[]) : [];
       return items.some((item: any) => item.vendorId === vendorId);
     });
 
@@ -85,7 +85,7 @@ export class VendorOrdersService {
 
     // Transform orders for vendor view
     const transformedOrders = paginatedOrders.map((order) => {
-      const items = Array.isArray(order.items) ? order.items : [];
+      const items = Array.isArray(order.itemsSnapshot) ? (order.itemsSnapshot as any[]) : [];
       const vendorItems = items.filter((item: any) => item.vendorId === vendorId);
 
       const vendorTotal = vendorItems.reduce(
@@ -104,10 +104,10 @@ export class VendorOrdersService {
         deliveredAt: order.deliveredAt,
         customer: order.user
           ? {
-              id: order.user.id,
-              name: order.user.name,
-              phone: order.user.phone,
-            }
+            id: order.user.id,
+            name: order.user.name,
+            phone: order.user.phone,
+          }
           : null,
         itemCount: vendorItems.length,
         vendorTotal,
@@ -153,7 +153,7 @@ export class VendorOrdersService {
     }
 
     // Verify vendor owns items in this order
-    const items = Array.isArray(order.items) ? order.items : [];
+    const items = Array.isArray(order.itemsSnapshot) ? (order.itemsSnapshot as any[]) : [];
     const vendorItems = items.filter((item: any) => item.vendorId === vendorId);
 
     if (vendorItems.length === 0) {
@@ -205,11 +205,11 @@ export class VendorOrdersService {
       deliveredAt: order.deliveredAt,
       customer: order.user
         ? {
-            id: order.user.id,
-            name: order.user.name,
-            email: order.user.email,
-            phone: order.user.phone,
-          }
+          id: order.user.id,
+          name: order.user.name,
+          email: order.user.email,
+          phone: order.user.phone,
+        }
         : null,
       shippingAddress: order.address,
       items: transformedItems,
@@ -219,9 +219,9 @@ export class VendorOrdersService {
       awbNumber: order.awbNumber,
       payment: order.payment
         ? {
-            status: order.payment.status,
-            method: order.payment.provider, // Payment model doesn't have 'method' field, using provider
-          }
+          status: order.payment.status,
+          method: order.payment.provider, // Payment model doesn't have 'method' field, using provider
+        }
         : null,
     };
   }
@@ -350,7 +350,7 @@ export class VendorOrdersService {
     }
 
     // Get vendor items from this order
-    const items = Array.isArray(order.items) ? order.items : [];
+    const items = Array.isArray(order.itemsSnapshot) ? (order.itemsSnapshot as any[]) : [];
     const vendorItems = items.filter((item: any) => item.vendorId === vendorId);
 
     // Restore stock for vendor items
@@ -406,7 +406,7 @@ export class VendorOrdersService {
       throw new NotFoundException('Order not found');
     }
 
-    const items = Array.isArray(order.items) ? order.items : [];
+    const items = Array.isArray(order.itemsSnapshot) ? (order.itemsSnapshot as any[]) : [];
     const hasVendorItems = items.some((item: any) => item.vendorId === vendorId);
 
     if (!hasVendorItems) {

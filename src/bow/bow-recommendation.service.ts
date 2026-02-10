@@ -233,7 +233,7 @@ export class BowRecommendationEngine {
             // Get categories this user has purchased from
             const userOrders = await this.prisma.order.findMany({
                 where: { userId },
-                select: { items: true },
+                select: { itemsSnapshot: true },
                 take: 5
             });
 
@@ -242,8 +242,8 @@ export class BowRecommendationEngine {
             // Extract product IDs from order items (JSON field)
             const productIds = new Set<string>();
             userOrders.forEach(order => {
-                if (Array.isArray(order.items)) {
-                    order.items.forEach((item: any) => {
+                if (Array.isArray(order.itemsSnapshot)) {
+                    (order.itemsSnapshot as any[]).forEach((item: any) => {
                         if (item.productId) productIds.add(item.productId);
                     });
                 }

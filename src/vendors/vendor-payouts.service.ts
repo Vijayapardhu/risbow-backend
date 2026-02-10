@@ -2,6 +2,7 @@ import {
     Injectable,
     BadRequestException,
     NotFoundException,
+    Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CommissionService } from '../common/commission.service';
@@ -18,11 +19,12 @@ import { randomUUID } from 'crypto';
 @Injectable()
 export class VendorPayoutsService {
     private readonly MINIMUM_PAYOUT_AMOUNT = 10000; // ₹100 in paise
+    private readonly logger = new Logger(VendorPayoutsService.name);
 
     constructor(
         private prisma: PrismaService,
         private commissionService: CommissionService,
-    ) {}
+    ) { }
 
     async getBalance(vendorId: string): Promise<PayoutBalanceResponseDto> {
         const vendor = await this.prisma.vendor.findUnique({

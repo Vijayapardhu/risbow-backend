@@ -143,6 +143,7 @@ export class BannersService {
         const banner = await this.prisma.banner.create({
             data: {
                 id: randomUUID(),
+                title: `System Banner - ${dto.slotType}`,
                 imageUrl: dto.imageUrl,
                 redirectUrl: dto.redirectUrl,
                 slotType: dto.slotType,
@@ -310,7 +311,8 @@ export class BannersService {
             const banner = await tx.banner.create({
                 data: {
                     id: randomUUID(),
-                    vendorId,
+                    Vendor: { connect: { id: vendorId } },
+                    title: `Banner for ${dto.slotType}`,
                     imageUrl: '', // Will be uploaded later
                     redirectUrl: null,
                     slotType: dto.slotType,
@@ -560,14 +562,14 @@ export class BannersService {
      */
     async getBannerAnalytics(id: string) {
         const stats = await this.getBannerStats(id);
-        
+
         // Update banner metadata with latest analytics (best-effort, non-blocking)
         try {
             await this.updateBannerAnalyticsMetadata(id);
         } catch (error) {
             this.logger.warn(`Failed to update banner analytics metadata for ${id}: ${error.message}`);
         }
-        
+
         return stats;
     }
 

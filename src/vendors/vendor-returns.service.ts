@@ -27,7 +27,7 @@ const RETURN_STATUS_TRANSITIONS: Record<string, ReturnStatus[]> = {
 // Type for ReturnRequest with includes
 type ReturnRequestWithIncludes = Prisma.ReturnRequestGetPayload<{
   include: {
-    Order: { select: { id: true; orderNumber: true; status: true; items: true; createdAt: true } };
+    Order: { select: { id: true; orderNumber: true; status: true; itemsSnapshot: true; createdAt: true } };
     User: { select: { id: true; name: true; email: true; phone: true } };
     ReturnItem: true;
     Refund: true;
@@ -37,7 +37,7 @@ type ReturnRequestWithIncludes = Prisma.ReturnRequestGetPayload<{
 
 @Injectable()
 export class VendorReturnsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * List return requests for vendor's orders with pagination and filters
@@ -116,17 +116,17 @@ export class VendorReturnsService {
       updatedAt: ret.updatedAt,
       order: ret.Order
         ? {
-            id: ret.Order.id,
-            orderNumber: ret.Order.orderNumber,
-            status: ret.Order.status,
-          }
+          id: ret.Order.id,
+          orderNumber: ret.Order.orderNumber,
+          status: ret.Order.status,
+        }
         : null,
       customer: ret.User
         ? {
-            id: ret.User.id,
-            name: ret.User.name,
-            phone: ret.User.phone,
-          }
+          id: ret.User.id,
+          name: ret.User.name,
+          phone: ret.User.phone,
+        }
         : null,
       itemCount: ret.ReturnItem?.length || 0,
       refundAmount: ret.Refund?.reduce((sum, r) => sum + r.amount, 0) || 0,
@@ -156,7 +156,7 @@ export class VendorReturnsService {
             id: true,
             orderNumber: true,
             status: true,
-            items: true,
+            itemsSnapshot: true,
             createdAt: true,
           },
         },
@@ -174,7 +174,7 @@ export class VendorReturnsService {
           orderBy: { timestamp: 'desc' },
         },
       },
-    }) as ReturnRequestWithIncludes | null;
+    });
 
     if (!returnRequest) {
       throw new NotFoundException('Return request not found');
@@ -205,19 +205,19 @@ export class VendorReturnsService {
       qcNotes: returnRequest.qcNotes,
       order: returnRequest.Order
         ? {
-            id: returnRequest.Order.id,
-            orderNumber: returnRequest.Order.orderNumber,
-            status: returnRequest.Order.status,
-            createdAt: returnRequest.Order.createdAt,
-          }
+          id: returnRequest.Order.id,
+          orderNumber: returnRequest.Order.orderNumber,
+          status: returnRequest.Order.status,
+          createdAt: returnRequest.Order.createdAt,
+        }
         : null,
       customer: returnRequest.User
         ? {
-            id: returnRequest.User.id,
-            name: returnRequest.User.name,
-            email: returnRequest.User.email,
-            phone: returnRequest.User.phone,
-          }
+          id: returnRequest.User.id,
+          name: returnRequest.User.name,
+          email: returnRequest.User.email,
+          phone: returnRequest.User.phone,
+        }
         : null,
       items: returnRequest.ReturnItem,
       refunds: returnRequest.Refund?.map((r) => ({
