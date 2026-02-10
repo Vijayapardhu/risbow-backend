@@ -90,7 +90,7 @@ model AdminUser {
   password       String // Also serves as passwordHash
   name           String
   role           AdminRole      @default(OPERATIONS_ADMIN)
-  permissions    String[]       @default([])
+  // permissions    String[]       @default([]) // TODO: Add this column via migration
   isActive       Boolean        @default(true)
   isMfaEnabled   Boolean        @default(false)
   mfaSecret      String?
