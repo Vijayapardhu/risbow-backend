@@ -59,6 +59,7 @@ import { DriversModule } from './drivers/drivers.module';
 import { CmsModule } from './cms/cms.module';
 import { BlogModule } from './blog/blog.module';
 import { NotificationsAdminModule } from './notifications-admin/notifications-admin.module';
+import { SeedModule } from './seed/seed.module';
 
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { SharedModule } from './shared/shared.module';
@@ -142,6 +143,7 @@ import { HealthController } from './common/health.controller';
         CmsModule,
         BlogModule,
         NotificationsAdminModule,
+        SeedModule,
         InvoicesModule,
     ],
     controllers: [HealthController], // RootHealthController registered manually in main.ts
