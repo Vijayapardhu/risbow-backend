@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "stockDeducted" BOOLEAN NOT NULL DEFAULT false;
