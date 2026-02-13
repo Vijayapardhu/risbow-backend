@@ -535,7 +535,7 @@ export class BowService {
             return true;
         });
 
-        return products.map((p) => ({
+        return products.map((p: any) => ({
             id: p.id,
             title: p.title,
             price: p.offerPrice || p.price,
@@ -562,7 +562,7 @@ export class BowService {
             include: { Category: { select: { name: true } } }
         });
 
-        return products.map((p) => ({
+        return products.map((p: any) => ({
             id: p.id,
             title: p.title,
             price: p.offerPrice || p.price,
@@ -582,7 +582,7 @@ export class BowService {
             include: { Category: { select: { name: true } } }
         });
 
-        return products.map((p) => ({
+        return products.map((p: any) => ({
             id: p.id,
             title: p.title,
             price: p.offerPrice || p.price,
@@ -617,11 +617,11 @@ export class BowService {
     private async getRecommendations(userId: string, context: any) {
         const cartService = (this.contextService as any).cartService;
         const cart = await cartService.getCart(userId);
-        let recs = [];
+        let recs: any[] = [];
         // 1. Complementary categories (not in cart)
         if (cart && cart.items.length) {
             const cartProductIds = cart.items.map((i: any) => i.productId);
-            const cartCategories = [...new Set(cart.items.map((i: any) => String(i.product.categoryId)))] as string[];
+            const cartCategories: string[] = Array.from(new Set(cart.items.map((i: any) => String(i.product.categoryId))));
             // Find categories not in cart but popular
             const popularCategories = await this.prisma.product.groupBy({
                 by: ['categoryId'],
@@ -674,9 +674,9 @@ export class BowService {
                     for (const item of items) {
                         if (item.categoryId) categoryCount[item.categoryId] = (categoryCount[item.categoryId] || 0) + 1;
                     }
-                } catch { }
+                } catch { /* empty */ }
             }
-            const topCategories = Object.entries(categoryCount).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([cat]) => cat);
+            const topCategories = Object.entries(categoryCount).sort((a: [string, number], b: [string, number]) => b[1] - a[1]).slice(0, 2).map(([cat]: [string, number]) => cat);
             if (topCategories.length) {
                 const more = await this.prisma.product.findMany({
                     where: { categoryId: { in: topCategories }, isActive: true, stock: { gt: 0 } },

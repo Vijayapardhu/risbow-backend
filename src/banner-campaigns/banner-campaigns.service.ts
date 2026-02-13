@@ -71,6 +71,9 @@ export class BannerCampaignsService {
       },
     } as any);
 
+    if (!campaign) {
+      throw new NotFoundException('Campaign not found after creation');
+    }
     this.logger.log(`Banner campaign ${campaign.id} created for vendor ${vendorId}`);
     return campaign;
   }

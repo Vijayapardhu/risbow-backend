@@ -119,8 +119,8 @@ export class AdminBannersService {
         device: dto.device,
         priority: dto.priority || 1,
         isActive: dto.isActive !== undefined ? dto.isActive : true,
-        startDate: dto.startDate ? new Date(dto.startDate) : null,
-        endDate: dto.endDate ? new Date(dto.endDate) : null,
+        startDate: dto.startDate ? new Date(dto.startDate) : new Date(),
+        endDate: dto.endDate ? new Date(dto.endDate) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
       },
     });
 

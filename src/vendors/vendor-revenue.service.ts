@@ -16,7 +16,7 @@ export class VendorRevenueService {
             include: { promotionLogs: true }
         });
 
-        return promotions.map(p => {
+        return promotions.map((p: any) => {
             const cost = p.totalSpent || 0;
             const revenue = p.attributedRevenue || 0;
             const roi = cost > 0 ? (revenue / cost) : 0;

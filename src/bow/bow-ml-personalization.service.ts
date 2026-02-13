@@ -98,19 +98,20 @@ export class BowMLPersonalizationEngine {
       // Step 2: Generate recommendations based on strategy
       let recommendations: PersonalizedRecommendation[] = [];
 
+      const count = options.count || 10;
       switch (options.strategy) {
         case 'collaborative':
-          recommendations = await this.collaborativeFiltering(userProfile, options.count);
+          recommendations = await this.collaborativeFiltering(userProfile, count);
           break;
         case 'content':
-          recommendations = await this.contentBasedFiltering(userProfile, options.count);
+          recommendations = await this.contentBasedFiltering(userProfile, count);
           break;
         case 'behavioral':
-          recommendations = await this.behavioralRecommendations(userProfile, options.count);
+          recommendations = await this.behavioralRecommendations(userProfile, count);
           break;
         case 'hybrid':
         default:
-          recommendations = await this.hybridRecommendations(userProfile, options.count);
+          recommendations = await this.hybridRecommendations(userProfile, count);
           break;
       }
 

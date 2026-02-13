@@ -1,9 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../shared/cache.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class PerformanceOptimizationService {
+  private readonly logger = new Logger(PerformanceOptimizationService.name);
+
   constructor(
     private prisma: PrismaService,
     private cacheService: CacheService,
@@ -11,24 +14,26 @@ export class PerformanceOptimizationService {
 
   // Method to get paginated results to prevent large data loads
   async getPaginatedResults<T>(
-    model: any,
-    where: any = {},
+    model: Prisma.ModelName,
+    where: Record<string, unknown> = {},
     page: number = 1,
     limit: number = 20,
-    orderBy: any = { createdAt: 'desc' },
-    include?: any,
+    orderBy: Record<string, 'asc' | 'desc'> = { createdAt: 'desc' },
+    include?: Record<string, unknown>,
   ): Promise<{ data: T[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
     const skip = (page - 1) * limit;
 
+    const modelDelegate = this.prisma[model as keyof PrismaService] as { findMany: Function; count: Function };
+    
     const [results, total] = await Promise.all([
-      model.findMany({
+      modelDelegate.findMany({
         where,
         skip,
         take: limit,
         orderBy,
         include,
       }),
-      model.count({ where }),
+      modelDelegate.count({ where }),
     ]);
 
     return {
@@ -114,7 +119,7 @@ export class PerformanceOptimizationService {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.ProductWhereInput = {};
 
     if (filters.categoryId) where.categoryId = filters.categoryId;
     if (filters.vendorId) where.vendorId = filters.vendorId;
@@ -167,13 +172,13 @@ export class PerformanceOptimizationService {
     maxRetries: number = 3,
     delay: number = 1000,
   ): Promise<T> {
-    let lastError: any;
+    let lastError: Error | undefined;
 
     for (let i = 0; i < maxRetries; i++) {
       try {
         return await operation();
       } catch (error) {
-        lastError = error;
+        lastError = error instanceof Error ? error : new Error(String(error));
 
         if (i < maxRetries - 1) {
           // Wait before retrying
@@ -186,14 +191,17 @@ export class PerformanceOptimizationService {
   }
 
   // Method to optimize bulk operations
-  async performBulkUpdate(model: any, where: any, data: any) {
-    return this.prisma.$transaction(async (tx) => {
-      // Use updateMany for bulk updates to avoid individual queries
-      // Cast tx to any to allow dynamic model access
-      return (tx as any)[model].updateMany({
-        where,
-        data,
-      });
-    });
+  async performBulkUpdate(
+    model: 'order' | 'product' | 'vendor' | 'user' | 'banner' | 'bannerCampaign' | 'orderSettlement' | 'vendorPromotion',
+    where: Record<string, unknown>,
+    data: Record<string, unknown>,
+  ): Promise<{ count: number }> {
+    const modelDelegate = this.prisma[model] as { updateMany: Function };
+    
+    if (!modelDelegate || typeof modelDelegate.updateMany !== 'function') {
+      throw new Error(`Model ${model} does not support updateMany operation`);
+    }
+
+    return modelDelegate.updateMany({ where, data }) as Promise<{ count: number }>;
   }
 }

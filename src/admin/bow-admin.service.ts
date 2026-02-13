@@ -185,7 +185,7 @@ export class BowAdminService {
      * Update Bow configuration settings
      */
     async updateBowSettings(settings: any) {
-        const updates = [];
+        const updates: any[] = [];
 
         if (settings.maxAutoAddPrice !== undefined) {
             await this.redis.set('bow:settings:max_auto_add_price', settings.maxAutoAddPrice.toString(), 86400);
@@ -402,13 +402,13 @@ export class BowAdminService {
         });
 
         const dailyStats = {};
-        actions.forEach(action => {
+        actions.forEach((action: any) => {
             const date = action.createdAt.toISOString().split('T')[0];
-            if (!dailyStats[date]) {
-                dailyStats[date] = { total: 0, byType: {} };
+            if (!(dailyStats as any)[date]) {
+                (dailyStats as any)[date] = { total: 0, byType: {} };
             }
-            dailyStats[date].total++;
-            dailyStats[date].byType[action.actionType] = (dailyStats[date].byType[action.actionType] || 0) + 1;
+            (dailyStats as any)[date].total++;
+            (dailyStats as any)[date].byType[action.actionType] = ((dailyStats as any)[date].byType[action.actionType] || 0) + 1;
         });
 
         return dailyStats;

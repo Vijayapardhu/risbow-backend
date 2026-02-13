@@ -40,7 +40,7 @@ export class InvoicesController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get all invoice templates for vendor' })
     @ApiResponse({ status: 200, description: 'Returns list of templates' })
-    async getVendorTemplates(@Request() req) {
+    async getVendorTemplates(@Request() req: any) {
         return this.templateService.getTemplates(req.user.userId);
     }
 
@@ -50,7 +50,7 @@ export class InvoicesController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Create invoice template' })
     @ApiResponse({ status: 201, description: 'Template created successfully' })
-    async createTemplate(@Request() req, @Body() dto: CreateInvoiceTemplateDto) {
+    async createTemplate(@Request() req: any, @Body() dto: CreateInvoiceTemplateDto) {
         return this.templateService.createTemplate(req.user.userId, dto);
     }
 
@@ -72,7 +72,7 @@ export class InvoicesController {
     @ApiResponse({ status: 200, description: 'Template updated successfully' })
     async updateTemplate(
         @Param('id') id: string,
-        @Request() req,
+        @Request() req: any,
         @Body() dto: UpdateInvoiceTemplateDto
     ) {
         return this.templateService.updateTemplate(id, req.user.userId, dto);
@@ -84,7 +84,7 @@ export class InvoicesController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Delete invoice template' })
     @ApiResponse({ status: 200, description: 'Template deleted successfully' })
-    async deleteTemplate(@Param('id') id: string, @Request() req) {
+    async deleteTemplate(@Param('id') id: string, @Request() req: any) {
         return this.templateService.deleteTemplate(id, req.user.userId);
     }
 
@@ -94,7 +94,7 @@ export class InvoicesController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Set template as default' })
     @ApiResponse({ status: 200, description: 'Default template set successfully' })
-    async setDefaultTemplate(@Param('id') id: string, @Request() req) {
+    async setDefaultTemplate(@Param('id') id: string, @Request() req: any) {
         return this.templateService.setDefaultTemplate(id, req.user.userId);
     }
 
@@ -104,7 +104,7 @@ export class InvoicesController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Duplicate invoice template' })
     @ApiResponse({ status: 201, description: 'Template duplicated successfully' })
-    async duplicateTemplate(@Param('id') id: string, @Request() req) {
+    async duplicateTemplate(@Param('id') id: string, @Request() req: any) {
         return this.templateService.duplicateTemplate(id, req.user.userId);
     }
 

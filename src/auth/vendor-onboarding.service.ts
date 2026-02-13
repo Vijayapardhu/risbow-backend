@@ -147,6 +147,10 @@ export class VendorOnboardingService {
             where: { id: vendorId }
         });
 
+        if (!user) {
+            throw new Error('User not found');
+        }
+
         const payload = { sub: user.id, email: user.email, role: user.role };
         const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
         const refreshToken = this.jwtService.sign(

@@ -78,7 +78,7 @@ export class CouponsController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Create new coupon (Vendor)' })
     @ApiResponse({ status: 201, type: CouponResponseDto })
-    async createVendorCoupon(@Request() req, @Body() dto: CreateCouponDto) {
+    async createVendorCoupon(@Request() req: any, @Body() dto: CreateCouponDto) {
         dto.vendorId = req.user.id; // Force vendor ownership
         return this.couponsService.createCoupon(dto);
     }
@@ -89,7 +89,7 @@ export class CouponsController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get my coupons (Vendor)' })
     @ApiResponse({ status: 200, type: [CouponResponseDto] })
-    async getVendorCoupons(@Request() req) {
+    async getVendorCoupons(@Request() req: any) {
         return this.couponsService.getCouponsByVendor(req.user.id);
     }
 
@@ -99,7 +99,7 @@ export class CouponsController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Update my coupon (Vendor)' })
     @ApiResponse({ status: 200, type: CouponResponseDto })
-    async updateVendorCoupon(@Request() req, @Param('id') id: string, @Body() dto: UpdateCouponDto) {
+    async updateVendorCoupon(@Request() req: any, @Param('id') id: string, @Body() dto: UpdateCouponDto) {
         return this.couponsService.updateCoupon(id, dto, req.user.id);
     }
 
@@ -109,7 +109,7 @@ export class CouponsController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Delete my coupon (Vendor)' })
     @ApiResponse({ status: 204 })
-    async deleteVendorCoupon(@Request() req, @Param('id') id: string) {
+    async deleteVendorCoupon(@Request() req: any, @Param('id') id: string) {
         await this.couponsService.deleteCoupon(id, req.user.id);
     }
 

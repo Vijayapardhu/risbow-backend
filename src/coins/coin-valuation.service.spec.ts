@@ -9,13 +9,13 @@ describe('CoinValuationService', () => {
   let prisma: jest.Mocked<PrismaService>;
 
   beforeEach(async () => {
-    const mockPrisma = {
+    const mockPrisma: any = {
       coinValuation: {
         findFirst: jest.fn(),
         updateMany: jest.fn(),
         create: jest.fn(),
       },
-      $transaction: jest.fn((cb) => cb(mockPrisma)),
+      $transaction: jest.fn((cb: any) => cb(mockPrisma)),
     };
 
     const module: TestingModule = await Test.createTestingModule({

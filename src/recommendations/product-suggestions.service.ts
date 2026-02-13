@@ -440,7 +440,7 @@ export class ProductSuggestionsService {
           p,
           deliverable,
           openNow,
-          seed: { categoryId: seed.categoryId, brandName: seed.brandName, tags: seed.tags || [], price: seedEff },
+          seed: { categoryId: seed.categoryId, brandName: seed.brandName ?? undefined, tags: seed.tags || [], price: seedEff },
         });
         return {
           productId: p.id,

@@ -58,8 +58,8 @@ export class CartIntelligenceService {
 
     const signals: CartSignal[] = [];
     const cartValue = this.calculateCartValue(cart);
-    const itemCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
-    const categories = [...new Set(cart.items.map(item => item.product.categoryId))];
+    const itemCount = cart.items.reduce((sum: number, item: any) => sum + item.quantity, 0);
+    const categories = [...new Set(cart.items.map((item: any) => item.product.categoryId))];
 
     // 1. Hesitation Detection
     const hesitationSignals = await this.detectHesitation(userId, cart);
@@ -185,8 +185,8 @@ export class CartIntelligenceService {
     if (!Array.isArray(recentRemovals)) recentRemovals = [];
 
     if (recentRemovals.length >= 2) {
-      const avgPrice = recentRemovals.reduce((sum, log) => sum + (log.price || 0), 0) / recentRemovals.length;
-      const cartAvgPrice = cart.items.reduce((sum, item) =>
+      const avgPrice = recentRemovals.reduce((sum: number, log: any) => sum + (log.price || 0), 0) / recentRemovals.length;
+      const cartAvgPrice = cart.items.reduce((sum: number, item: any) =>
         sum + (item.product.offerPrice || item.product.price) * item.quantity, 0) / cart.items.length;
 
       if (avgPrice > cartAvgPrice * 1.5) {
@@ -223,8 +223,8 @@ export class CartIntelligenceService {
     }
     if (!Array.isArray(recentLogs)) recentLogs = [];
 
-    const removalCount = {};
-    recentLogs.forEach(log => {
+    const removalCount: Record<string, number> = {};
+    recentLogs.forEach((log: any) => {
       if (log.productId) {
         removalCount[log.productId] = (removalCount[log.productId] || 0) + 1;
       }
@@ -232,7 +232,7 @@ export class CartIntelligenceService {
 
     for (const [productId, count] of Object.entries(removalCount)) {
       if ((count as number) >= 2) {
-        const productInCart = cart.items.find(item => item.productId === productId);
+        const productInCart = cart.items.find((item: any) => item.productId === productId);
         if (productInCart) {
           signals.push({
             type: CartInsightType.REPEAT_REMOVAL,
@@ -309,7 +309,7 @@ export class CartIntelligenceService {
    * Calculate total cart value
    */
   private calculateCartValue(cart: any): number {
-    return cart.items.reduce((total, item) => {
+    return cart.items.reduce((total: number, item: any) => {
       const price = item.product.offerPrice || item.product.price;
       return total + (price * item.quantity);
     }, 0);

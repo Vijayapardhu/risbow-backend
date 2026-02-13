@@ -36,7 +36,7 @@ export class RoomsController {
     @Roles('VENDOR', 'ADMIN', 'SUPER_ADMIN')
     async purchaseBoost(
         @Param('id') id: string,
-        @Request() req,
+        @Request() req: any,
         @Body() dto: { type: RoomBoostType, coinsCost: number, durationMinutes: number }
     ) {
         return this.monetizationService.purchaseRoomBoost(req.user.id, {
@@ -53,13 +53,13 @@ export class RoomsController {
 
     @Post(':id/nudge')
     @UseGuards(JwtAuthGuard)
-    async triggerNudge(@Param('id') id: string, @Request() req) {
+    async triggerNudge(@Param('id') id: string, @Request() req: any) {
         return this.bowIntelligence.generateRoomNudge(id, req.user.id);
     }
 
     @Post()
     @UseGuards(JwtAuthGuard)
-    async create(@Request() req, @Body() dto: any) {
+    async create(@Request() req: any, @Body() dto: any) {
         if (dto.productId && dto.maxDiscount) {
             return this.roomsService.createDiscountRoom(req.user.id, dto as CreateDiscountRoomDto);
         }
@@ -68,7 +68,7 @@ export class RoomsController {
 
     @Post(':id/join')
     @UseGuards(JwtAuthGuard)
-    async join(@Request() req, @Param('id') id: string) {
+    async join(@Request() req: any, @Param('id') id: string) {
         const room = await this.prisma.room.findUnique({ where: { id } });
         if (room?.type === 'LINEAR_DISCOUNT') {
             return this.roomsService.joinDiscountRoom(id, req.user.id);
@@ -78,13 +78,13 @@ export class RoomsController {
 
     @Post(':id/leave')
     @UseGuards(JwtAuthGuard)
-    async leave(@Request() req, @Param('id') id: string) {
+    async leave(@Request() req: any, @Param('id') id: string) {
         return this.roomsService.leaveDiscountRoom(id, req.user.id);
     }
 
     @Post(':id/purchase')
     @UseGuards(JwtAuthGuard)
-    async purchase(@Request() req, @Param('id') id: string) {
+    async purchase(@Request() req: any, @Param('id') id: string) {
         // This Locks the room and returns the final calculated discount
         // Logic for applying discount to checkout happens in Orders/Cart service which would call RoomsService.initiatePurchase
         return this.roomsService.initiatePurchase(id, req.user.id);
@@ -95,7 +95,7 @@ export class RoomsController {
     async linkOrder(
         @Param('id') roomId: string,
         @Param('orderId') orderId: string,
-        @Request() req
+        @Request() req: any
     ) {
         return this.roomsService.linkOrder(roomId, req.user.id, orderId);
     }

@@ -25,7 +25,7 @@ export class BowController {
     @Post('chat')
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Send a message to Bow AI' })
-    async chat(@Request() req, @Body() dto: BowMessageDto) {
+    async chat(@Request() req: any, @Body() dto: BowMessageDto) {
         try {
             const userId = req.user?.id;
             this.logger.log(`Chat request from user ${userId}: ${dto.message}`);
@@ -41,7 +41,7 @@ export class BowController {
     @Post('actions/execute')
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Execute an action proposed by Bow' })
-    async executeAction(@Request() req, @Body() dto: BowActionExecuteDto) {
+    async executeAction(@Request() req: any, @Body() dto: BowActionExecuteDto) {
         const userId = req.user?.id;
         return this.bowService.executeAction(userId, dto);
     }
@@ -52,7 +52,7 @@ export class BowController {
     @ApiConsumes('multipart/form-data')
     @ApiOperation({ summary: 'Search products by image using AI' })
     async searchByImage(
-        @Request() req,
+        @Request() req: any,
         @UploadedFile() image: Express.Multer.File,
         @Body('options') optionsJson?: string
     ) {
@@ -125,7 +125,7 @@ export class BowController {
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Get personalized recommendations' })
     async getPersonalizedRecommendations(
-        @Request() req,
+        @Request() req: any,
         @Query('strategy') strategy?: 'collaborative' | 'content' | 'hybrid' | 'behavioral',
         @Query('count') count?: number
     ) {
@@ -148,7 +148,7 @@ export class BowController {
     @Post('personalization/retrain')
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Retrain ML models' })
-    async retrainModels(@Request() req) {
+    async retrainModels(@Request() req: any) {
         const userId = req.user?.id;
         
         // Only allow admin users to retrain models
@@ -177,7 +177,7 @@ export class BowController {
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Generate demand forecast' })
     async generateDemandForecast(
-        @Request() req,
+        @Request() req: any,
         @Body('productId') productId: string,
         @Body('options') options?: any
     ) {

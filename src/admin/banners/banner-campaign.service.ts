@@ -122,7 +122,7 @@ export class BannerCampaignService {
    */
   async createCampaign(dto: CreateCampaignDto) {
     // Validate position
-    if (!BANNER_POSITIONS[dto.position]) {
+    if (!(BANNER_POSITIONS as any)[dto.position]) {
       throw new BadRequestException(`Invalid banner id: ${dto.position}`);
     }
 
@@ -178,9 +178,9 @@ export class BannerCampaignService {
       data: {
         id: `banner_campaign_${Date.now()}`,
         bannerId: dto.bannerId || `banner_${Date.now()}`,
-        vendorId: dto.vendorId,
+        vendorId: dto.vendorId || '',
         campaignType: dto.type || 'STANDARD',
-        position: dto.position || 'TOP',
+        position: (dto.position || 'TOP') as string,
         targetAudience: JSON.stringify(dto.targetAudience || {}),
         startDate,
         endDate,
@@ -431,7 +431,7 @@ export class BannerCampaignService {
     const where: Prisma.BannerCampaignWhereInput = {};
 
     if (vendorId) where.vendorId = vendorId;
-    if (status) where.status = status;
+    if (status) where.status = status as unknown as 'DRAFT' | 'PENDING_PAYMENT' | 'PAYMENT_RECEIVED' | 'PENDING_APPROVAL' | 'APPROVED' | 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'REJECTED' | 'DEACTIVATED';
     if (position) where.position = position;
 
     if (startDate || endDate) {
@@ -535,7 +535,7 @@ export class BannerCampaignService {
     if (!campaign) return;
 
     const pricing = await this.prisma.bannerPricing.findFirst({
-      where: { position: campaign.position, isActive: true },
+      where: { position: campaign.position || undefined, isActive: true },
     });
 
     const cpcCost = pricing?.pricePerDay || 0;
@@ -666,7 +666,7 @@ export class BannerCampaignService {
     cpmRate: number,
     adminId: string,
   ) {
-    if (!BANNER_POSITIONS[id]) {
+    if (!(BANNER_POSITIONS as any)[id]) {
       throw new BadRequestException(`Invalid id: ${id}`);
     }
 

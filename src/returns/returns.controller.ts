@@ -16,14 +16,14 @@ export class ReturnsController {
     @Post()
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Create a new return request for a customer' })
-    create(@Request() req, @Body() createReturnDto: CreateReturnDto) {
+    create(@Request() req: any, @Body() createReturnDto: CreateReturnDto) {
         return this.returnsService.create(req.user.id, createReturnDto);
     }
 
     @Get()
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Get my returns (Customer) or All Returns (Admin)' })
-    findAll(@Request() req, @Query() query: any) {
+    findAll(@Request() req: any, @Query() query: any) {
         if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
             query.userId = req.user.id;
         }
@@ -42,7 +42,7 @@ export class ReturnsController {
     @Roles('ADMIN', 'SUPER_ADMIN')
     @ApiOperation({ summary: 'Admin: Update return status' })
     updateStatus(
-        @Request() req,
+        @Request() req: any,
         @Param('id') id: string,
         @Body() updateReturnStatusDto: UpdateReturnStatusDto,
     ) {
@@ -54,7 +54,7 @@ export class ReturnsController {
     @Roles('ADMIN', 'SUPER_ADMIN')
     @ApiOperation({ summary: 'Admin: Mark replacement as shipped with tracking' })
     shipReplacement(
-        @Request() req,
+        @Request() req: any,
         @Param('id') id: string,
         @Body() body: { trackingId: string },
     ) {
@@ -66,7 +66,7 @@ export class ReturnsController {
     @Roles('ADMIN', 'SUPER_ADMIN')
     @ApiOperation({ summary: 'Admin/Agent: Submit QC checklist for a return order' })
     submitQC(
-        @Request() req,
+        @Request() req: any,
         @Param('id') id: string, // orderId context
         @Body() checklist: any,
     ) {

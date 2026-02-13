@@ -120,7 +120,7 @@ export class SettlementService {
             _count: true
         });
 
-        return stats.reduce((acc, curr) => {
+        return stats.reduce((acc: Record<string, { count: number; amount: number }>, curr: { status: string; _count: number; _sum: { amount: number | null } }) => {
             acc[curr.status] = {
                 count: curr._count,
                 amount: curr._sum.amount || 0

@@ -29,7 +29,7 @@ describe('OrdersService', () => {
   const RAZORPAY_SECRET = 'test_secret_key';
 
   beforeEach(async () => {
-    const mockPrismaService = {
+    const mockPrismaService: any = {
       order: {
         findFirst: jest.fn(),
         findUnique: jest.fn(),

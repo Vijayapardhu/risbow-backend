@@ -18,7 +18,7 @@ export class VendorStoreController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get my store profile' })
-    async getProfile(@Req() req) {
+    async getProfile(@Req() req: any) {
         return this.storeService.getProfile(req.user.id);
     }
 
@@ -26,7 +26,7 @@ export class VendorStoreController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Update store profile (name, logo, banner)' })
-    async updateProfile(@Req() req, @Body() dto: UpdateStoreProfileDto) {
+    async updateProfile(@Req() req: any, @Body() dto: UpdateStoreProfileDto) {
         return this.storeService.updateProfile(req.user.id, dto);
     }
 
@@ -34,7 +34,7 @@ export class VendorStoreController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Update store opening hours' })
-    async updateTimings(@Req() req, @Body() dto: UpdateStoreTimingsDto) {
+    async updateTimings(@Req() req: any, @Body() dto: UpdateStoreTimingsDto) {
         return this.storeService.updateTimings(req.user.id, dto);
     }
 
@@ -42,7 +42,7 @@ export class VendorStoreController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Configure in-store pickup settings' })
-    async updatePickupSettings(@Req() req, @Body() dto: UpdatePickupSettingsDto) {
+    async updatePickupSettings(@Req() req: any, @Body() dto: UpdatePickupSettingsDto) {
         return this.storeService.updatePickupSettings(req.user.id, dto);
     }
 
@@ -50,7 +50,7 @@ export class VendorStoreController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'List my pickup points' })
-    async listPickupPoints(@Req() req) {
+    async listPickupPoints(@Req() req: any) {
         return this.storeService.listPickupPoints(req.user.id);
     }
 
@@ -58,7 +58,7 @@ export class VendorStoreController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Create a pickup point' })
-    async createPickupPoint(@Req() req, @Body() dto: CreatePickupPointDto) {
+    async createPickupPoint(@Req() req: any, @Body() dto: CreatePickupPointDto) {
         return this.storeService.createPickupPoint(req.user.id, dto);
     }
 
@@ -66,7 +66,7 @@ export class VendorStoreController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Update a pickup point' })
-    async updatePickupPoint(@Req() req, @Param('id') id: string, @Body() dto: UpdatePickupPointDto) {
+    async updatePickupPoint(@Req() req: any, @Param('id') id: string, @Body() dto: UpdatePickupPointDto) {
         return this.storeService.updatePickupPoint(req.user.id, id, dto);
     }
 
@@ -74,7 +74,7 @@ export class VendorStoreController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'List my service areas' })
-    async listServiceAreas(@Req() req) {
+    async listServiceAreas(@Req() req: any) {
         return this.storeService.listServiceAreas(req.user.id);
     }
 
@@ -82,7 +82,7 @@ export class VendorStoreController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Create a service area (delivery coverage)' })
-    async createServiceArea(@Req() req, @Body() dto: CreateVendorServiceAreaDto) {
+    async createServiceArea(@Req() req: any, @Body() dto: CreateVendorServiceAreaDto) {
         return this.storeService.createServiceArea(req.user.id, dto);
     }
 
@@ -90,7 +90,7 @@ export class VendorStoreController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Update a service area' })
-    async updateServiceArea(@Req() req, @Param('id') id: string, @Body() dto: UpdateVendorServiceAreaDto) {
+    async updateServiceArea(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateVendorServiceAreaDto) {
         return this.storeService.updateServiceArea(req.user.id, id, dto);
     }
 
@@ -98,7 +98,7 @@ export class VendorStoreController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'List my delivery windows (weekly time slots)' })
-    async listDeliveryWindows(@Req() req) {
+    async listDeliveryWindows(@Req() req: any) {
         return this.storeService.listDeliveryWindows(req.user.id);
     }
 
@@ -106,7 +106,7 @@ export class VendorStoreController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Create a delivery window (weekly schedule)' })
-    async createDeliveryWindow(@Req() req, @Body() dto: CreateVendorDeliveryWindowDto) {
+    async createDeliveryWindow(@Req() req: any, @Body() dto: CreateVendorDeliveryWindowDto) {
         return this.storeService.createDeliveryWindow(req.user.id, dto);
     }
 
@@ -114,7 +114,7 @@ export class VendorStoreController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Update a delivery window (weekly schedule)' })
-    async updateDeliveryWindow(@Req() req, @Param('id') id: string, @Body() dto: UpdateVendorDeliveryWindowDto) {
+    async updateDeliveryWindow(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateVendorDeliveryWindowDto) {
         return this.storeService.updateDeliveryWindow(req.user.id, id, dto);
     }
 
@@ -138,7 +138,7 @@ export class VendorStoreController {
         },
     })
     @UseInterceptors(FileInterceptor('file'))
-    async uploadLogo(@Req() req, @UploadedFile() file: Express.Multer.File) {
+    async uploadLogo(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
         if (!file) throw new BadRequestException('No file uploaded');
         const { url } = await this.uploadService.uploadImage(file, 'vendors' as any, req.user.id);
         return this.storeService.updateProfile(req.user.id, { storeLogo: url });
@@ -158,7 +158,7 @@ export class VendorStoreController {
         },
     })
     @UseInterceptors(FileInterceptor('file'))
-    async uploadBanner(@Req() req, @UploadedFile() file: Express.Multer.File) {
+    async uploadBanner(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
         if (!file) throw new BadRequestException('No file uploaded');
         const { url } = await this.uploadService.uploadImage(file, 'vendors' as any, req.user.id);
         return this.storeService.updateProfile(req.user.id, { storeBanner: url });

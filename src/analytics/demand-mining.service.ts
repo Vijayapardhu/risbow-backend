@@ -35,7 +35,7 @@ export class DemandMiningService {
             where: { resolved: false }
         });
 
-        const categorySummary = {};
+        const categorySummary: Record<string, number> = {};
         for (const miss of allMisses) {
             const metadata = miss.metadata as any;
             const cat = metadata?.inferredCategoryName || 'Uncategorized';

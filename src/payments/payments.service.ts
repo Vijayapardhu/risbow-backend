@@ -106,8 +106,13 @@ export class PaymentsService {
                 data: { razorpayOrderId: razorpayOrder.id }
             });
 
+            const razorpayKeyId = this.configService.get<string>('RAZORPAY_KEY_ID');
+            if (!razorpayKeyId) {
+                throw new InternalServerErrorException('Razorpay key ID not configured');
+            }
+
             return {
-                key: this.configService.get<string>('RAZORPAY_KEY_ID'), // Send key to client for checkout
+                key: razorpayKeyId, // Send key to client for checkout
                 orderId: razorpayOrder.id,
                 amount: razorpayOrder.amount,
                 currency: razorpayOrder.currency,
@@ -162,7 +167,7 @@ export class PaymentsService {
                 notes: {
                     intentPurpose: purpose,
                     referenceId,
-                    createdByUserId: userId,
+                    ...(userId && { createdByUserId: userId }),
                 },
             });
         } catch (error) {
@@ -177,7 +182,7 @@ export class PaymentsService {
                 amount,
                 currency,
                 provider: 'RAZORPAY',
-                providerOrderId: razorpayOrder.id,
+                providerOrderId: razorpayOrder!.id,
                 status: 'PENDING',
                 metadata: params.metadata || undefined,
                 createdByUserId: userId || undefined,
@@ -188,18 +193,23 @@ export class PaymentsService {
                 amount,
                 currency,
                 provider: 'RAZORPAY',
-                providerOrderId: razorpayOrder.id,
+                providerOrderId: razorpayOrder!.id,
                 status: 'PENDING',
                 metadata: params.metadata || undefined,
                 createdByUserId: userId || undefined,
             },
         });
 
+        const razorpayKeyId = this.configService.get<string>('RAZORPAY_KEY_ID');
+        if (!razorpayKeyId) {
+            throw new InternalServerErrorException('Razorpay key ID not configured');
+        }
+
         return {
-            key: this.configService.get<string>('RAZORPAY_KEY_ID'),
-            orderId: razorpayOrder.id,
-            amount: razorpayOrder.amount,
-            currency: razorpayOrder.currency,
+            key: razorpayKeyId!,
+            orderId: razorpayOrder!.id,
+            amount: razorpayOrder!.amount,
+            currency: razorpayOrder!.currency,
             intentId: intent.id,
             purpose,
             referenceId,
@@ -210,6 +220,9 @@ export class PaymentsService {
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = dto;
 
         const keySecret = this.configService.get<string>('RAZORPAY_KEY_SECRET');
+        if (!keySecret) {
+            throw new InternalServerErrorException('Razorpay key secret not configured');
+        }
 
         // 1. Verify Signature
         const generatedSignature = crypto
@@ -356,7 +369,7 @@ export class PaymentsService {
         }
 
         // 4. Idempotent Handling
-        if (payments && payments.length > 0 && payments.every((p) => p.status === 'SUCCESS' || p.status === 'REFUNDED')) {
+        if (payments && payments.length > 0 && payments.every((p: any) => p.status === 'SUCCESS' || p.status === 'REFUNDED')) {
             this.logger.log(`Payments already final for provider order ${razorpayOrderId}. Ignoring webhook.`);
             return { status: 'ignored', message: 'Already processed' };
         }
@@ -608,6 +621,9 @@ export class PaymentsService {
         // Verify signature
         const text = `${razorpayOrderId}|${razorpayPaymentId}`;
         const secret = this.configService.get<string>('RAZORPAY_KEY_SECRET');
+        if (!secret) {
+            throw new InternalServerErrorException('Razorpay key secret not configured');
+        }
         const generatedSignature = crypto
             .createHmac('sha256', secret)
             .update(text)

@@ -25,13 +25,13 @@ export class CheckoutController {
     @ApiResponse({ status: 201, description: 'Order created successfully' })
     @ApiResponse({ status: 400, description: 'Bad Request (Empty Cart, Stock Issue)' })
     @Throttle({ default: { limit: 2, ttl: 60000 } }) // Limit to 2 checkout attempts per minute
-    checkout(@Request() req, @Body() dto: CheckoutDto) {
+    checkout(@Request() req: any, @Body() dto: CheckoutDto) {
         return this.checkoutService.checkout(req.user.id, dto);
     }
 
     @Get('delivery-options')
     @ApiOperation({ summary: 'Get delivery eligibility + available slots per vendor for current cart' })
-    async getDeliveryOptions(@Request() req, @Query('shippingAddressId') shippingAddressId: string) {
+    async getDeliveryOptions(@Request() req: any, @Query('shippingAddressId') shippingAddressId: string) {
         return this.checkoutService.getDeliveryOptionsForCart(req.user.id, shippingAddressId);
     }
 
@@ -42,7 +42,7 @@ export class CheckoutController {
     })
     @ApiResponse({ status: 200, description: 'Gift selected successfully' })
     @ApiResponse({ status: 400, description: 'Gift not eligible or out of stock' })
-    async selectGift(@Request() req, @Body() dto: SelectGiftDto) {
+    async selectGift(@Request() req: any, @Body() dto: SelectGiftDto) {
         // In a real implementation, this would store the gift selection in a session or checkout snapshot
         // For now, we'll just validate the gift selection
         const cart = await this.checkoutService['prisma'].cart.findUnique({
@@ -73,7 +73,7 @@ export class CheckoutController {
     })
     @ApiResponse({ status: 200, description: 'Coupon applied successfully' })
     @ApiResponse({ status: 400, description: 'Invalid or expired coupon' })
-    async applyCoupon(@Request() req, @Body() dto: ApplyCouponDto) {
+    async applyCoupon(@Request() req: any, @Body() dto: ApplyCouponDto) {
         // Get cart total
         const cart = await this.checkoutService['prisma'].cart.findUnique({
             where: { userId: req.user.id },
@@ -102,8 +102,11 @@ export class CheckoutController {
         }
 
         return {
-            message: 'Coupon applied successfully',
-            ...validation,
+            message: validation.message || 'Coupon applied successfully',
+            isValid: validation.isValid,
+            discountAmount: validation.discountAmount,
+            finalAmount: validation.finalAmount,
+            coupon: validation.coupon,
         };
     }
 
@@ -113,7 +116,7 @@ export class CheckoutController {
         description: 'Removes the currently applied coupon from checkout'
     })
     @ApiResponse({ status: 200, description: 'Coupon removed successfully' })
-    async removeCoupon(@Request() req) {
+    async removeCoupon(@Request() req: any) {
         // In a real implementation, this would remove the coupon from session/checkout snapshot
         return {
             message: 'Coupon removed successfully',

@@ -192,7 +192,7 @@ export class AdminController {
     @Patch('users/:id')
     @Roles('ADMIN', 'SUPER_ADMIN')
     updateUser(
-        @Request() req,
+        @Request() req: any,
         @Param('id') userId: string,
         @Body() body: any
     ) {
@@ -203,7 +203,7 @@ export class AdminController {
     @Roles('ADMIN', 'SUPER_ADMIN')
     @Throttle({ default: { limit: 3, ttl: 60000 } })
     updateKyc(
-        @Request() req,
+        @Request() req: any,
         @Param('id') userId: string,
         @Body() body: { status: string, notes?: string }
     ) {
@@ -212,14 +212,14 @@ export class AdminController {
 
     @Post('users/:id/force-logout')
     @Roles('ADMIN', 'SUPER_ADMIN')
-    forceLogout(@Request() req, @Param('id') userId: string) {
+    forceLogout(@Request() req: any, @Param('id') userId: string) {
         return this.adminService.forceLogout(req.user.id, userId);
     }
 
     @Post('users/:id/toggle-refunds')
     @Roles('ADMIN', 'SUPER_ADMIN')
     toggleRefunds(
-        @Request() req,
+        @Request() req: any,
         @Param('id') userId: string,
         @Body() body: { disabled: boolean }
     ) {
@@ -229,7 +229,7 @@ export class AdminController {
     @Post('users/:id/toggle-cod')
     @Roles('ADMIN', 'SUPER_ADMIN')
     toggleCod(
-        @Request() req,
+        @Request() req: any,
         @Param('id') userId: string,
         @Body() body: { disabled: boolean }
     ) {
@@ -239,7 +239,7 @@ export class AdminController {
     @Post('users/:id/risk-tag')
     @Roles('ADMIN', 'SUPER_ADMIN')
     updateRiskTag(
-        @Request() req,
+        @Request() req: any,
         @Param('id') userId: string,
         @Body() body: { tag: string }
     ) {
@@ -249,7 +249,7 @@ export class AdminController {
     @Post('users/:id/value-tag')
     @Roles('ADMIN', 'SUPER_ADMIN')
     updateValueTag(
-        @Request() req,
+        @Request() req: any,
         @Param('id') userId: string,
         @Body() body: { tag: string }
     ) {
@@ -259,7 +259,7 @@ export class AdminController {
     @Post('users/:id/notes')
     @Roles('ADMIN', 'SUPER_ADMIN')
     addAdminNote(
-        @Request() req,
+        @Request() req: any,
         @Param('id') userId: string,
         @Body() body: { note: string }
     ) {
@@ -275,7 +275,7 @@ export class AdminController {
     @Post('users/:id/coins')
     @Roles('ADMIN', 'SUPER_ADMIN')
     updateCoins(
-        @Request() req,
+        @Request() req: any,
         @Param('id') userId: string,
         @Body() body: { amount: number, reason: string }
     ) {
@@ -285,7 +285,7 @@ export class AdminController {
     @Post('users/:id/status')
     @Roles('ADMIN', 'SUPER_ADMIN')
     updateUserStatus(
-        @Request() req,
+        @Request() req: any,
         @Param('id') userId: string,
         @Body() body: { status: string; reason?: string }
     ) {
@@ -295,7 +295,7 @@ export class AdminController {
     @Post('users/:id/suspend')
     @Roles('ADMIN', 'SUPER_ADMIN')
     suspendUser(
-        @Request() req,
+        @Request() req: any,
         @Param('id') userId: string,
         @Body() body: { reason?: string }
     ) {
@@ -305,7 +305,7 @@ export class AdminController {
     @Post('users/:id/activate')
     @Roles('ADMIN', 'SUPER_ADMIN')
     activateUser(
-        @Request() req,
+        @Request() req: any,
         @Param('id') userId: string
     ) {
         return this.adminService.activateUser(req.user.id, userId);
@@ -314,7 +314,7 @@ export class AdminController {
     @Post('users/:id/ban')
     @Roles('ADMIN', 'SUPER_ADMIN')
     banUser(
-        @Request() req,
+        @Request() req: any,
         @Param('id') userId: string,
         @Body() body: { reason: string }
     ) {
@@ -324,7 +324,7 @@ export class AdminController {
     @Delete('users/:id')
     @Roles('ADMIN', 'SUPER_ADMIN')
     deleteUser(
-        @Request() req,
+        @Request() req: any,
         @Param('id') userId: string
     ) {
         return this.adminService.deleteUser(req.user.id, userId);
@@ -363,7 +363,7 @@ export class AdminController {
     @Post('users/:id/reset-password')
     @Roles('ADMIN', 'SUPER_ADMIN')
     resetUserPassword(
-        @Request() req,
+        @Request() req: any,
         @Param('id') userId: string
     ) {
         return this.adminService.resetUserPassword(req.user.id, userId);
@@ -398,7 +398,7 @@ export class AdminController {
     @Roles('ADMIN', 'SUPER_ADMIN')
     @ApiOperation({ summary: 'Approve or reject vendor' })
     approveVendor(
-        @Request() req,
+        @Request() req: any,
         @Param('id') id: string,
         @Body() body: { approved: boolean, reason?: string }
     ) {
@@ -410,7 +410,7 @@ export class AdminController {
     @Throttle({ default: { limit: 3, ttl: 60000 } })
     @ApiOperation({ summary: 'Verify vendor KYC documents' })
     verifyVendorKyc(
-        @Request() req,
+        @Request() req: any,
         @Param('id') id: string,
         @Body() body: { status: string, notes?: string }
     ) {
@@ -421,7 +421,7 @@ export class AdminController {
     @Roles('ADMIN', 'SUPER_ADMIN')
     @ApiOperation({ summary: 'Suspend vendor account' })
     suspendVendor(
-        @Request() req,
+        @Request() req: any,
         @Param('id') id: string,
         @Body() body: { reason?: string }
     ) {
@@ -432,7 +432,7 @@ export class AdminController {
     @Roles('ADMIN', 'SUPER_ADMIN')
     @ApiOperation({ summary: 'Activate suspended vendor' })
     activateVendor(
-        @Request() req,
+        @Request() req: any,
         @Param('id') id: string
     ) {
         return this.adminService.activateVendor(req.user.id, id);
@@ -467,7 +467,7 @@ export class AdminController {
     }
 
     @Post('rooms')
-    createRoom(@Request() req, @Body() body: any) {
+    createRoom(@Request() req: any, @Body() body: any) {
         return this.adminService.createRoom(req.user.id, body);
     }
 
@@ -480,7 +480,7 @@ export class AdminController {
 
     @Post('notifications/broadcast')
     @Roles('ADMIN', 'SUPER_ADMIN')
-    sendBroadcast(@Request() req, @Body() body: { title: string, body: string, audience: string }) {
+    sendBroadcast(@Request() req: any, @Body() body: { title: string, body: string, audience: string }) {
         return this.adminService.sendBroadcast(req.user.id, body.title, body.body, body.audience);
     }
 
@@ -592,28 +592,28 @@ export class AdminController {
     @Post('memberships')
     @Roles('ADMIN', 'SUPER_ADMIN')
     @Throttle({ default: { limit: 10, ttl: 60 } })
-    createMembership(@Request() req, @Body() body: import('./dto/membership.dto').MembershipDto) {
+    createMembership(@Request() req: any, @Body() body: import('./dto/membership.dto').MembershipDto) {
         return this.adminService.createMembership(req.user.id, body);
     }
 
     @Post('coins/config')
     @Roles('SUPER_ADMIN')
     @Throttle({ default: { limit: 5, ttl: 60 } })
-    updateCoinsConfig(@Request() req, @Body() body: import('./dto/coins-config.dto').CoinsConfigDto) {
+    updateCoinsConfig(@Request() req: any, @Body() body: import('./dto/coins-config.dto').CoinsConfigDto) {
         return this.adminService.updateCoinsConfig(req.user.id, body);
     }
 
     @Post('gift-skus')
     @Roles('ADMIN', 'SUPER_ADMIN')
     @Throttle({ default: { limit: 10, ttl: 60 } })
-    createGiftSku(@Request() req, @Body() body: import('./dto/gift-sku.dto').GiftSkuDto) {
+    createGiftSku(@Request() req: any, @Body() body: import('./dto/gift-sku.dto').GiftSkuDto) {
         return this.adminService.createGiftSku(req.user.id, body);
     }
 
     @Post('room-offers')
     @Roles('ADMIN', 'SUPER_ADMIN')
     @Throttle({ default: { limit: 10, ttl: 60 } })
-    createRoomOffer(@Request() req, @Body() body: import('./dto/room-offer.dto').RoomOfferDto) {
+    createRoomOffer(@Request() req: any, @Body() body: import('./dto/room-offer.dto').RoomOfferDto) {
         return this.adminService.createRoomOffer(req.user.id, body);
     }
     */

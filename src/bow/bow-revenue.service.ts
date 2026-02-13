@@ -57,7 +57,7 @@ export class BowRevenueService {
             }
         });
 
-        const totalAttributed = logs.reduce((sum, log) => sum + (log.metadata as any).attributedRevenue, 0);
+        const totalAttributed = logs.reduce((sum: number, log: any) => sum + (log.metadata as any).attributedRevenue, 0);
         const totalActions = await (this.prisma as any).bowActionLog.count();
 
         return {

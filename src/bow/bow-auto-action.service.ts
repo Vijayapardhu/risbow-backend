@@ -437,7 +437,7 @@ export class BowAutoActionService {
       // Find and remove the auto-added item from cart
       try {
         const cart = await this.cartService.getCart(userId);
-        const itemToRemove = cart.items.find(item =>
+        const itemToRemove = cart.items.find((item: any) =>
           item.productId === actionLog.productId &&
           item.quantity === actionLog.quantity
         );

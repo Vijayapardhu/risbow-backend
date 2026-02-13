@@ -77,12 +77,12 @@ export class PlatformConfigHelper {
   /**
    * Serialize a value to Json type
    */
-  static serializeValue(value: any): Prisma.JsonValue {
+  static serializeValue(value: any): Prisma.InputJsonValue {
     if (value === null) {
-      return null;
+      return Prisma.JsonNull as unknown as Prisma.InputJsonValue;
     }
     if (typeof value === 'object' && value !== null) {
-      return value as Prisma.JsonValue;
+      return value as Prisma.InputJsonValue;
     }
     if (typeof value === 'string') {
       return value;

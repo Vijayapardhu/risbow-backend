@@ -50,7 +50,7 @@ export class VendorOrdersController {
   @ApiQuery({ name: 'dateFrom', required: false, type: String, description: 'Filter from date (ISO 8601)' })
   @ApiQuery({ name: 'dateTo', required: false, type: String, description: 'Filter to date (ISO 8601)' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by order number' })
-  async findAll(@Request() req, @Query() query: VendorOrderQueryDto) {
+  async findAll(@Request() req: any, @Query() query: VendorOrderQueryDto) {
     return this.vendorOrdersService.findAll(req.user.id, query);
   }
 
@@ -60,7 +60,7 @@ export class VendorOrdersController {
   @ApiResponse({ status: 200, description: 'Order details retrieved' })
   @ApiResponse({ status: 403, description: 'Order does not belong to vendor' })
   @ApiResponse({ status: 404, description: 'Order not found' })
-  async findOne(@Request() req, @Param('id') id: string) {
+  async findOne(@Request() req: any, @Param('id') id: string) {
     return this.vendorOrdersService.findOne(req.user.id, id);
   }
 
@@ -70,7 +70,7 @@ export class VendorOrdersController {
   @ApiResponse({ status: 200, description: 'Order timeline retrieved' })
   @ApiResponse({ status: 403, description: 'Order does not belong to vendor' })
   @ApiResponse({ status: 404, description: 'Order not found' })
-  async getTimeline(@Request() req, @Param('id') id: string) {
+  async getTimeline(@Request() req: any, @Param('id') id: string) {
     return this.vendorOrdersService.getOrderTimeline(req.user.id, id);
   }
 
@@ -85,7 +85,7 @@ export class VendorOrdersController {
   @ApiResponse({ status: 403, description: 'Order does not belong to vendor' })
   @ApiResponse({ status: 404, description: 'Order not found' })
   async updateStatus(
-    @Request() req,
+    @Request() req: any,
     @Param('id') id: string,
     @Body() dto: UpdateOrderStatusDto,
   ) {
@@ -100,7 +100,7 @@ export class VendorOrdersController {
   @ApiResponse({ status: 403, description: 'Order does not belong to vendor' })
   @ApiResponse({ status: 404, description: 'Order not found' })
   async updateTracking(
-    @Request() req,
+    @Request() req: any,
     @Param('id') id: string,
     @Body() dto: UpdateTrackingDto,
   ) {
@@ -121,7 +121,7 @@ export class VendorOrdersController {
   @ApiResponse({ status: 403, description: 'Order does not belong to vendor' })
   @ApiResponse({ status: 404, description: 'Order not found' })
   async cancelOrder(
-    @Request() req,
+    @Request() req: any,
     @Param('id') id: string,
     @Body() dto: CancelOrderDto,
   ) {

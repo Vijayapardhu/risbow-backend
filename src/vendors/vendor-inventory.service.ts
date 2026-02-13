@@ -450,4 +450,68 @@ export class VendorInventoryService {
       totalValue,
     };
   }
+
+  async importStockFromCsv(vendorId: string, csvBuffer: Buffer): Promise<{ imported: number; failed: number; errors: string[] }> {
+    const csvText = csvBuffer.toString('utf-8');
+    const lines = csvText.split('\n').filter(line => line.trim());
+    
+    // Skip header row
+    const dataLines = lines.slice(1);
+    
+    const results = {
+      imported: 0,
+      failed: 0,
+      errors: [] as string[],
+    };
+
+    for (let i = 0; i < dataLines.length; i++) {
+      const line = dataLines[i];
+      const columns = line.split(',').map(col => col.trim());
+      
+      if (columns.length < 2) {
+        results.failed++;
+        results.errors.push(`Line ${i + 2}: Invalid format`);
+        continue;
+      }
+
+      const sku = columns[0];
+      const stockQty = parseInt(columns[1], 10);
+
+      if (isNaN(stockQty)) {
+        results.failed++;
+        results.errors.push(`Line ${i + 2}: Invalid stock quantity for SKU ${sku}`);
+        continue;
+      }
+
+      try {
+        const product = await this.prisma.product.findFirst({
+          where: { 
+            vendorId,
+            OR: [
+              { sku: sku },
+              { id: sku }, // Also support product ID
+            ]
+          },
+        });
+
+        if (!product) {
+          results.failed++;
+          results.errors.push(`Line ${i + 2}: Product not found for SKU/ID ${sku}`);
+          continue;
+        }
+
+        await this.prisma.product.update({
+          where: { id: product.id },
+          data: { stock: stockQty },
+        });
+
+        results.imported++;
+      } catch (error) {
+        results.failed++;
+        results.errors.push(`Line ${i + 2}: ${(error as Error).message}`);
+      }
+    }
+
+    return results;
+  }
 }

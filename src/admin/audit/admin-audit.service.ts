@@ -353,7 +353,9 @@ export class AdminAuditService {
       byAction[log.action] = (byAction[log.action] || 0) + 1;
 
       // Count by resource
-      byResource[log.resourceType] = (byResource[log.resourceType] || 0) + 1;
+      if (log.resourceType) {
+        byResource[log.resourceType] = (byResource[log.resourceType] || 0) + 1;
+      }
 
       // Count by date
       const dateKey = log.createdAt.toISOString().split('T')[0];

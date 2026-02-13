@@ -236,7 +236,7 @@ export class VendorMembershipsService {
 
         // Calculate prorated cost
         const daysRemaining = Math.ceil(
-            (vendor.VendorMembership.endDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
+            ((vendor.VendorMembership.endDate?.getTime() || 0) - new Date().getTime()) / (1000 * 60 * 60 * 24),
         );
         const proratedCost = Math.ceil((newTierConfig.price * daysRemaining) / 30);
 
@@ -375,7 +375,7 @@ export class VendorMembershipsService {
 
         return {
             message: 'Auto-renewal cancelled successfully',
-            endDate: vendor.VendorMembership.endDate,
+            endDate: vendor.VendorMembership.endDate || new Date(),
         };
     }
 

@@ -13,7 +13,7 @@ export class TelecallerController {
     constructor(private readonly telecallerService: TelecallerService) { }
 
     @Get('dashboard')
-    async getDashboard(@Request() req) {
+    async getDashboard(@Request() req: any) {
         const stats = await this.telecallerService.getDashboardStats(req.user.id);
         const expiringCoins = await this.telecallerService.getExpiringCoins();
         const checkoutRecovery = await this.telecallerService.getCheckoutRecoveryLeads(req.user.id);
@@ -33,7 +33,7 @@ export class TelecallerController {
     }
 
     @Get('checkout-recovery')
-    async getCheckoutRecoveryLeads(@Request() req) {
+    async getCheckoutRecoveryLeads(@Request() req: any) {
         return this.telecallerService.getCheckoutRecoveryLeads(req.user.id);
     }
 

@@ -151,7 +151,7 @@ describe('CartIntelligenceService', () => {
     it('should detect gift eligibility threshold', () => {
       const result = (service as any).detectThresholdNear(195000); // ₹1950
 
-      expect(result.some(signal => signal.metadata.threshold === 200000)).toBe(true); // ₹2000
+      expect(result.some((signal: any) => signal.metadata.threshold === 200000)).toBe(true); // ₹2000
     });
   });
 

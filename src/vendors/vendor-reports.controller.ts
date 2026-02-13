@@ -63,7 +63,7 @@ export class VendorReportsController {
     description: 'Group by period: day, week, or month',
   })
   async getSalesReport(
-    @Request() req,
+    @Request() req: any,
     @Query() query: SalesReportQueryDto,
   ): Promise<SalesReportResponseDto> {
     return this.reportsService.getSalesReport(req.user.id, query);
@@ -100,7 +100,7 @@ export class VendorReportsController {
     description: 'Export format: json or csv',
   })
   async getOrdersReport(
-    @Request() req,
+    @Request() req: any,
     @Query() query: OrdersReportQueryDto,
     @Res({ passthrough: true }) res: Response,
   ) {
@@ -144,7 +144,7 @@ export class VendorReportsController {
     description: 'Filter by stock status: low, out, in_stock',
   })
   async getInventoryReport(
-    @Request() req,
+    @Request() req: any,
     @Query() query: InventoryReportQueryDto,
   ): Promise<InventoryReportResponseDto> {
     return this.reportsService.getInventoryReport(req.user.id, query);
@@ -170,7 +170,7 @@ export class VendorReportsController {
     description: 'End date (ISO 8601)',
   })
   async getRevenueReport(
-    @Request() req,
+    @Request() req: any,
     @Query() query: DateRangeQueryDto,
   ): Promise<RevenueReportResponseDto> {
     return this.reportsService.getRevenueReport(req.user.id, query);
@@ -196,7 +196,7 @@ export class VendorReportsController {
     description: 'End date (ISO 8601)',
   })
   async getProductsReport(
-    @Request() req,
+    @Request() req: any,
     @Query() query: DateRangeQueryDto,
   ): Promise<ProductPerformanceResponseDto> {
     return this.reportsService.getProductsReport(req.user.id, query);

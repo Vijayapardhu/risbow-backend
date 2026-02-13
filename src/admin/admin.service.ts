@@ -272,7 +272,7 @@ export class AdminService {
 
             if (!user) throw new NotFoundException('User not found');
 
-            let coinLedger = [];
+            let coinLedger: any[] = [];
             try {
                 // Manual fetch for CoinLedger 
                 coinLedger = await this.prisma.coinLedger.findMany({
@@ -1105,8 +1105,8 @@ export class AdminService {
 
         // Soft delete by marking as banned and clearing sensitive data
         // Use a unique placeholder email to avoid unique constraint violations
-        const deletedEmail = user.email ? `deleted_${userId.substring(0, 8)}_${Date.now()}@deleted.risbow` : null;
-        const deletedMobile = user.mobile ? `DEL${userId.substring(0, 6)}${Date.now()}` : null;
+        const deletedEmail = user.email ? `deleted_${userId.substring(0, 8)}_${Date.now()}@deleted.risbow` : undefined;
+        const deletedMobile = user.mobile ? `DEL${userId.substring(0, 6)}${Date.now()}` : undefined;
         
         await this.prisma.user.update({
             where: { id: userId },
@@ -1540,7 +1540,11 @@ export class AdminService {
             }
         });
 
-        await this.notifyVendorKycStatus(vendor, newStatus, reason);
+        await this.notifyVendorKycStatus(
+            { ...vendor, email: vendor.email || undefined },
+            newStatus,
+            reason,
+        );
         return updated;
     }
 
@@ -1694,7 +1698,11 @@ export class AdminService {
             }
         });
 
-        await this.notifyVendorKycStatus(vendor, status, notes);
+        await this.notifyVendorKycStatus(
+            { ...vendor, email: vendor.email || undefined },
+            status,
+            notes,
+        );
         return updated;
     }
 

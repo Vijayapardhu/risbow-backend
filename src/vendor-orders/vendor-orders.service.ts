@@ -142,4 +142,41 @@ export class VendorOrdersService {
             data: { status: status as OrderStatus }
         });
     }
+
+    async generateShippingLabel(vendorId: string, orderId: string) {
+        const order = await this.getVendorOrderDetails(vendorId, orderId) as any;
+
+        const shippingLabel = {
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            trackingNumber: order.trackingNumber || order.trackingId || `RISBOW-${Date.now()}-${order.id.slice(-4).toUpperCase()}`,
+            vendor: {
+                name: order.vendorName || 'RISBOW Seller',
+                address: 'Plot No. 123, Industrial Area',
+                city: 'Mumbai',
+                state: 'Maharashtra',
+                pincode: '400001',
+            },
+            customer: {
+                name: order.user?.name || 'Customer',
+                address: order.address?.addressLine1 || order.address?.street || '',
+                addressLine2: order.address?.addressLine2 || '',
+                city: order.address?.city || '',
+                state: order.address?.state || '',
+                pincode: order.address?.pincode || '',
+                mobile: order.address?.mobile || order.user?.mobile || '',
+            },
+            items: order.items?.map((item: any) => ({
+                name: item.name || item.productName,
+                quantity: item.quantity,
+                weight: item.weight || '0.5 kg',
+            })) || [],
+            totalWeight: '1.0 kg',
+            serviceType: 'Standard Delivery',
+            createdAt: new Date().toISOString(),
+            barcode: `*${order.id}*`,
+        };
+
+        return shippingLabel;
+    }
 }

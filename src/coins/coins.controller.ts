@@ -43,7 +43,7 @@ export class CoinsController {
 
     @Post('redeem')
     @Idempotent({ required: true, ttlSeconds: 300 })
-    async redeem(@Request() req, @Body('amount', ParseIntPipe) amount: number) {
+    async redeem(@Request() req: any, @Body('amount', ParseIntPipe) amount: number) {
         // User can only redeem their own coins
         if (amount <= 0) {
             throw new BadRequestException('Amount must be positive');

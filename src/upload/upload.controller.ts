@@ -90,7 +90,7 @@ export class UploadController {
     })
     @UseInterceptors(FileInterceptor('file'))
     async uploadDocument(
-        @Request() req,
+        @Request() req: any,
         @UploadedFile() file: Express.Multer.File,
         @Body() dto: DocumentUploadDto
     ) {
@@ -101,7 +101,7 @@ export class UploadController {
     @Delete()
     @ApiOperation({ summary: 'Delete a file' })
     async deleteFile(
-        @Request() req,
+        @Request() req: any,
         @Query('path') path: string
     ) {
         if (!path) throw new BadRequestException('path is required');

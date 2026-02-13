@@ -37,14 +37,14 @@ export class VendorProductsController {
   @ApiOperation({ summary: 'Create a new product' })
   @ApiResponse({ status: 201, description: 'Product created successfully' })
   @ApiResponse({ status: 400, description: 'SKU limit reached or invalid data' })
-  async create(@Request() req, @Body() dto: CreateVendorProductDto) {
+  async create(@Request() req: any, @Body() dto: CreateVendorProductDto) {
     return this.vendorProductsService.create(req.user.id, dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'List vendor products with pagination and filters' })
   @ApiResponse({ status: 200, description: 'Products retrieved successfully' })
-  async findAll(@Request() req, @Query() query: VendorProductQueryDto) {
+  async findAll(@Request() req: any, @Query() query: VendorProductQueryDto) {
     return this.vendorProductsService.findAll(req.user.id, query);
   }
 
@@ -54,7 +54,7 @@ export class VendorProductsController {
   @ApiResponse({ status: 200, description: 'Product retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Product not found' })
   @ApiResponse({ status: 403, description: 'Product does not belong to vendor' })
-  async findOne(@Request() req, @Param('id') id: string) {
+  async findOne(@Request() req: any, @Param('id') id: string) {
     return this.vendorProductsService.findOne(req.user.id, id);
   }
 
@@ -65,7 +65,7 @@ export class VendorProductsController {
   @ApiResponse({ status: 404, description: 'Product not found' })
   @ApiResponse({ status: 403, description: 'Product does not belong to vendor' })
   async update(
-    @Request() req,
+    @Request() req: any,
     @Param('id') id: string,
     @Body() dto: UpdateVendorProductDto,
   ) {
@@ -78,7 +78,7 @@ export class VendorProductsController {
   @ApiResponse({ status: 200, description: 'Product deactivated successfully' })
   @ApiResponse({ status: 404, description: 'Product not found' })
   @ApiResponse({ status: 403, description: 'Product does not belong to vendor' })
-  async remove(@Request() req, @Param('id') id: string) {
+  async remove(@Request() req: any, @Param('id') id: string) {
     return this.vendorProductsService.softDelete(req.user.id, id);
   }
 
@@ -89,7 +89,7 @@ export class VendorProductsController {
   @ApiResponse({ status: 404, description: 'Product not found' })
   @ApiResponse({ status: 403, description: 'Product does not belong to vendor' })
   async updateStock(
-    @Request() req,
+    @Request() req: any,
     @Param('id') id: string,
     @Body() dto: UpdateStockDto,
   ) {

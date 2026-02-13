@@ -32,7 +32,7 @@ export class CatalogController {
     @Roles('CUSTOMER', 'VENDOR')
     @ApiOperation({ summary: 'Reserve product variant stock (atomic, 15 min TTL)' })
     @ApiResponse({ status: 200, description: 'Stock reserved' })
-    async reserveStock(@Body() body: { productId: string; variantId: string; quantity: number }, @Request() req) {
+    async reserveStock(@Body() body: { productId: string; variantId: string; quantity: number }, @Request() req: any) {
         return this.catalogService.reserveStock(body.productId, body.variantId, body.quantity, req.user.id);
     }
 
@@ -41,13 +41,13 @@ export class CatalogController {
     @Roles('CUSTOMER', 'VENDOR')
     @ApiOperation({ summary: 'Release reserved product variant stock' })
     @ApiResponse({ status: 200, description: 'Stock released' })
-    async releaseStock(@Body() body: { productId: string; variantId: string; quantity: number }, @Request() req) {
+    async releaseStock(@Body() body: { productId: string; variantId: string; quantity: number }, @Request() req: any) {
         return this.catalogService.releaseReservedStock(body.productId, body.variantId, body.quantity, req.user.id);
     }
     constructor(private readonly catalogService: CatalogService) { }
 
     @Get()
-    async findAll(@Query() filters: ProductFilterDto, @Request() req) {
+    async findAll(@Query() filters: ProductFilterDto, @Request() req: any) {
         return this.catalogService.findAll(filters, req?.user?.id);
     }
 
@@ -87,7 +87,7 @@ export class CatalogController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('VENDOR', 'ADMIN', 'SUPER_ADMIN')
     @UseInterceptors(FileInterceptor('file'))
-    async bulkUpload(@UploadedFile() file: any, @Request() req) {
+    async bulkUpload(@UploadedFile() file: any, @Request() req: any) {
         if (!file) throw new Error('File not present');
         const content = file.buffer.toString('utf-8');
         const vendorId = req.user?.vendorId || req.user?.id;

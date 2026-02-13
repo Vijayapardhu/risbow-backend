@@ -39,7 +39,7 @@ export class VendorProfileController {
     @ApiResponse({ status: 200, description: 'Store profile retrieved', type: VendorProfileResponseDto })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 404, description: 'Vendor not found' })
-    async getProfile(@Request() req) {
+    async getProfile(@Request() req: any) {
         return this.vendorProfileService.getProfile(req.user.id);
     }
 
@@ -50,7 +50,7 @@ export class VendorProfileController {
     @ApiResponse({ status: 200, description: 'Profile updated successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 404, description: 'Vendor not found' })
-    async updateProfile(@Request() req, @Body() dto: UpdateVendorProfileDto) {
+    async updateProfile(@Request() req: any, @Body() dto: UpdateVendorProfileDto) {
         return this.vendorProfileService.updateProfile(req.user.id, dto);
     }
 
@@ -61,7 +61,7 @@ export class VendorProfileController {
     @ApiResponse({ status: 200, description: 'Logo updated successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 404, description: 'Vendor not found' })
-    async updateLogo(@Request() req, @Body() dto: UpdateVendorLogoDto) {
+    async updateLogo(@Request() req: any, @Body() dto: UpdateVendorLogoDto) {
         return this.vendorProfileService.updateLogo(req.user.id, dto);
     }
 
@@ -72,7 +72,7 @@ export class VendorProfileController {
     @ApiResponse({ status: 200, description: 'Banner updated successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 404, description: 'Vendor not found' })
-    async updateBanner(@Request() req, @Body() dto: UpdateVendorBannerDto) {
+    async updateBanner(@Request() req: any, @Body() dto: UpdateVendorBannerDto) {
         return this.vendorProfileService.updateBanner(req.user.id, dto);
     }
 
@@ -83,7 +83,7 @@ export class VendorProfileController {
     @ApiResponse({ status: 200, description: 'Store hours updated successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 404, description: 'Vendor not found' })
-    async updateHours(@Request() req, @Body() dto: UpdateVendorHoursDto) {
+    async updateHours(@Request() req: any, @Body() dto: UpdateVendorHoursDto) {
         return this.vendorProfileService.updateHours(req.user.id, dto);
     }
 
@@ -94,7 +94,7 @@ export class VendorProfileController {
     @ApiResponse({ status: 200, description: 'Pickup settings updated successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 404, description: 'Vendor not found' })
-    async updatePickup(@Request() req, @Body() dto: UpdateVendorPickupDto) {
+    async updatePickup(@Request() req: any, @Body() dto: UpdateVendorPickupDto) {
         return this.vendorProfileService.updatePickup(req.user.id, dto);
     }
 
@@ -105,7 +105,7 @@ export class VendorProfileController {
     @ApiResponse({ status: 200, description: 'Store status updated successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 404, description: 'Vendor not found' })
-    async updateStatus(@Request() req, @Body() dto: UpdateVendorStatusDto) {
+    async updateStatus(@Request() req: any, @Body() dto: UpdateVendorStatusDto) {
         return this.vendorProfileService.updateStatus(req.user.id, dto);
     }
 

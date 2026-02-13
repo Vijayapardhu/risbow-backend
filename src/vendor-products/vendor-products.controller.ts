@@ -33,7 +33,7 @@ export class VendorProductsController {
         },
     })
     @UseInterceptors(FileInterceptor('file'))
-    async bulkUpload(@Req() req, @UploadedFile() file: Express.Multer.File) {
+    async bulkUpload(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
         if (!file) throw new BadRequestException('No CSV file uploaded');
         if (file.mimetype !== 'text/csv' && !file.originalname.endsWith('.csv')) {
             throw new BadRequestException('File must be a CSV');
@@ -55,7 +55,7 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Create a new product' })
-    async create(@Req() req, @Body() dto: CreateProductDto) {
+    async create(@Req() req: any, @Body() dto: CreateProductDto) {
         return this.productsService.createProduct(req.user.id, dto);
     }
 
@@ -63,7 +63,7 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get all products for vendor' })
-    async findAll(@Req() req, @Query('includeExpiry') includeExpiry?: string) {
+    async findAll(@Req() req: any, @Query('includeExpiry') includeExpiry?: string) {
         return this.productsService.findAllProducts(req.user.id, includeExpiry === 'true');
     }
 
@@ -71,7 +71,7 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get products expiring soon (for auto-clearance preview)' })
-    async getExpiringSoon(@Req() req, @Query('days') days?: string) {
+    async getExpiringSoon(@Req() req: any, @Query('days') days?: string) {
         return this.productsService.getExpiringSoon(req.user.id, days ? parseInt(days) : 7);
     }
 
@@ -79,7 +79,7 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Update a product' })
-    async update(@Req() req, @Param('id') id: string, @Body() dto: UpdateProductDto) {
+    async update(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateProductDto) {
         return this.productsService.updateProduct(req.user.id, id, dto);
     }
 
@@ -87,7 +87,7 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Update product status' })
-    async updateStatus(@Req() req, @Param('id') id: string, @Body() dto: ProductStatusDto) {
+    async updateStatus(@Req() req: any, @Param('id') id: string, @Body() dto: ProductStatusDto) {
         return this.productsService.updateProductStatus(req.user.id, id, dto.isActive);
     }
 
@@ -95,7 +95,7 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Add or update product specifications' })
-    async saveSpecs(@Req() req, @Param('id') id: string, @Body() dto: SaveProductSpecsDto) {
+    async saveSpecs(@Req() req: any, @Param('id') id: string, @Body() dto: SaveProductSpecsDto) {
         return this.productsService.saveProductSpecs(req.user.id, id, dto);
     }
 
@@ -103,7 +103,7 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Update product specifications' })
-    async updateSpecs(@Req() req, @Param('id') id: string, @Body() dto: SaveProductSpecsDto) {
+    async updateSpecs(@Req() req: any, @Param('id') id: string, @Body() dto: SaveProductSpecsDto) {
         return this.productsService.saveProductSpecs(req.user.id, id, dto);
     }
 
@@ -111,7 +111,7 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Add a product variation' })
-    async addVariation(@Req() req, @Param('id') id: string, @Body() dto: VariationDto) {
+    async addVariation(@Req() req: any, @Param('id') id: string, @Body() dto: VariationDto) {
         return this.productsService.addVariation(req.user.id, id, dto);
     }
 
@@ -119,7 +119,7 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Update a product variation' })
-    async updateVariation(@Req() req, @Param('id') id: string, @Body() dto: VariationDto) {
+    async updateVariation(@Req() req: any, @Param('id') id: string, @Body() dto: VariationDto) {
         return this.productsService.updateVariation(req.user.id, id, dto);
     }
 
@@ -127,7 +127,7 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Delete a product variation' })
-    async deleteVariation(@Req() req, @Param('id') id: string, @Param('variationId') variationId: string) {
+    async deleteVariation(@Req() req: any, @Param('id') id: string, @Param('variationId') variationId: string) {
         return this.productsService.deleteVariation(req.user.id, id, variationId);
     }
 
@@ -135,7 +135,7 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Publish a product (Draft -> Published)' })
-    async publish(@Req() req, @Param('id') id: string) {
+    async publish(@Req() req: any, @Param('id') id: string) {
         return this.productsService.publishProduct(req.user.id, id);
     }
 
@@ -143,7 +143,7 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Unpublish a product (Published -> Draft)' })
-    async unpublish(@Req() req, @Param('id') id: string) {
+    async unpublish(@Req() req: any, @Param('id') id: string) {
         return this.productsService.unpublishProduct(req.user.id, id);
     }
 
@@ -151,7 +151,7 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Update product expiry date and auto-clearance settings' })
-    async updateExpiry(@Req() req, @Param('id') id: string, @Body() dto: UpdateProductExpiryDto) {
+    async updateExpiry(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateProductExpiryDto) {
         return this.productsService.updateProductExpiry(req.user.id, id, dto);
     }
 
@@ -173,7 +173,7 @@ export class VendorProductsController {
         },
     })
     @UseInterceptors(FileInterceptor('file'))
-    async uploadMedia(@Req() req, @Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
+    async uploadMedia(@Req() req: any, @Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
         if (!file) throw new BadRequestException('No file uploaded');
 
         // 1. Upload to Storage
@@ -187,7 +187,7 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Delete product media' })
-    async deleteMedia(@Req() req, @Param('id') id: string, @Query('url') url: string) {
+    async deleteMedia(@Req() req: any, @Param('id') id: string, @Query('url') url: string) {
         if (!url) throw new BadRequestException('Media URL required');
 
         // Note: Ideally we should delete from storage too, but for safety/simplicity we'll just unlink from product first.
@@ -200,7 +200,15 @@ export class VendorProductsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Delete a product (soft delete)' })
-    async delete(@Req() req, @Param('id') id: string) {
+    async delete(@Req() req: any, @Param('id') id: string) {
         return this.productsService.deleteProduct(req.user.id, id);
+    }
+
+    @Post('bulk-delete')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Bulk delete multiple products' })
+    async bulkDelete(@Req() req: any, @Body() body: { productIds: string[] }) {
+        return this.productsService.bulkDeleteProducts(req.user.id, body.productIds);
     }
 }

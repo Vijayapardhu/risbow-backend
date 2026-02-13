@@ -473,7 +473,7 @@ export class VendorStrikeService {
   ) {
     let action: DisciplineStatus | null = null;
     let durationDays: number | undefined;
-    let reason: string;
+    let reason: string = '';
 
     if (totalPoints >= STRIKE_THRESHOLDS.PERMANENT_BAN * 3) {
       action = DisciplineStatus.BANNED;

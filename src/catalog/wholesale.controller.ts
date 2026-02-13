@@ -15,7 +15,7 @@ export class WholesaleController {
     @Get('products')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.VENDOR, UserRole.ADMIN, UserRole.WHOLESALER)
-    async getWholesaleProducts(@Request() req) {
+    async getWholesaleProducts(@Request() req: any) {
         // Retailers (VENDOR role) buy from Wholesalers
         return this.catalogService.findAll({ isWholesale: true });
     }

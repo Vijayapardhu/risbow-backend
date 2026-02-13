@@ -28,8 +28,8 @@ export class RazorpayService {
     private readonly registrationFee = 50000; // ₹500 in paise
 
     constructor(private readonly configService: ConfigService) {
-        this.keyId = this.configService.get<string>('RAZORPAY_KEY_ID');
-        this.keySecret = this.configService.get<string>('RAZORPAY_KEY_SECRET');
+        this.keyId = this.configService.get<string>('RAZORPAY_KEY_ID') || '';
+        this.keySecret = this.configService.get<string>('RAZORPAY_KEY_SECRET') || '';
 
         if (!this.keyId || !this.keySecret) {
             throw new Error('Razorpay credentials not configured');

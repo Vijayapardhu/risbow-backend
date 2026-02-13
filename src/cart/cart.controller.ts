@@ -28,50 +28,50 @@ export class CartController {
     // Creating alias in UsersModule might be messy. 
     // I'll expose GET /cart here.
     @ApiOperation({ summary: 'Get current user cart' })
-    getCart(@Request() req) {
+    getCart(@Request() req: any) {
         return this.cartService.getCart(req.user.id);
     }
 
     @Post('items')
     @ApiOperation({ summary: 'Add item to cart' })
-    addItem(@Request() req, @Body() dto: AddCartItemDto) {
+    addItem(@Request() req: any, @Body() dto: AddCartItemDto) {
         return this.cartService.addItem(req.user.id, dto);
     }
 
     @Patch('items/:id')
     @ApiOperation({ summary: 'Update cart item quantity' })
-    updateItem(@Request() req, @Param('id') id: string, @Body() dto: UpdateCartItemDto) {
+    updateItem(@Request() req: any, @Param('id') id: string, @Body() dto: UpdateCartItemDto) {
         return this.cartService.updateItem(req.user.id, id, dto);
     }
 
     @Delete('items/:id')
     @ApiOperation({ summary: 'Remove item from cart' })
-    removeItem(@Request() req, @Param('id') id: string) {
+    removeItem(@Request() req: any, @Param('id') id: string) {
         return this.cartService.removeItem(req.user.id, id);
     }
 
     @Delete()
     @ApiOperation({ summary: 'Clear entire cart' })
-    clearCart(@Request() req) {
+    clearCart(@Request() req: any) {
         return this.cartService.clearCart(req.user.id);
     }
 
 @Post('sync')
     @ApiOperation({ summary: 'Sync local cart with server' })
-    syncCart(@Request() req, @Body() dto: SyncCartDto) {
+    syncCart(@Request() req: any, @Body() dto: SyncCartDto) {
         return this.cartService.syncCart(req.user.id, dto);
     }
 
     @Post('buy-later')
     @ApiOperation({ summary: 'Add product to buy later list' })
     @ApiResponse({ status: 201, description: 'Product added to buy later list' })
-    addToBuyLater(@Request() req, @Body() addToBuyLaterDto: AddToBuyLaterDto) {
+    addToBuyLater(@Request() req: any, @Body() addToBuyLaterDto: AddToBuyLaterDto) {
         return this.buyLaterService.addToBuyLater(req.user.id, addToBuyLaterDto);
     }
 
     @Get('buy-later')
     @ApiOperation({ summary: 'Get user\'s buy later list' })
-    getBuyLaterList(@Request() req) {
+    getBuyLaterList(@Request() req: any) {
         return this.buyLaterService.getBuyLaterList(req.user.id);
     }
 }

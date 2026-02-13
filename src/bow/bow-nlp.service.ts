@@ -66,13 +66,13 @@ export class BowNLPService {
         const words = text.toLowerCase().split(/\s+/);
         for (const word of words) {
             // Check direct mapping
-            if (this.categoryMapping[word]) {
-                return this.categoryMapping[word];
+            if ((this.categoryMapping as Record<string, string>)[word]) {
+                return (this.categoryMapping as Record<string, string>)[word];
             }
             // Check synonyms
             for (const [key, synonyms] of Object.entries(this.synonyms)) {
-                if (synonyms.includes(word) && this.categoryMapping[key]) {
-                    return this.categoryMapping[key];
+                if ((synonyms as string[]).includes(word) && (this.categoryMapping as Record<string, string>)[key]) {
+                    return (this.categoryMapping as Record<string, string>)[key];
                 }
             }
         }

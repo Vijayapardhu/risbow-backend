@@ -19,7 +19,7 @@ describe('CheckoutService', () => {
   let paymentsService: any;
 
   beforeEach(async () => {
-    const mockPrismaService = {
+    const mockPrismaService: any = {
       cart: {
         findUnique: jest.fn(),
       },
@@ -60,7 +60,7 @@ describe('CheckoutService', () => {
       orderDeliverySlotSnapshot: {
         create: jest.fn(),
       },
-      $transaction: jest.fn((callback) => callback(mockPrismaService)),
+      $transaction: jest.fn((callback: any) => callback(mockPrismaService)),
     };
 
     const mockInventoryService = {

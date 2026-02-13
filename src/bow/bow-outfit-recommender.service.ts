@@ -154,7 +154,7 @@ export class BowOutfitRecommender {
                 sports: ['Sports T-Shirt', 'Sports Shorts', 'Sports Shoes', 'Sports Accessories']
             };
 
-            const categories = outfitTemplates[occasion] || outfitTemplates['casual'];
+            const categories = (outfitTemplates as Record<string, string[]>)[occasion] || outfitTemplates['casual'];
             const items = [];
             let totalPrice = 0;
 

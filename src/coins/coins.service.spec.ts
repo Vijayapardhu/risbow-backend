@@ -12,7 +12,7 @@ describe('CoinsService', () => {
   let coinValuation: jest.Mocked<CoinValuationService>;
 
   beforeEach(async () => {
-    const mockPrismaService = {
+    const mockPrismaService: any = {
       user: {
         findUnique: jest.fn(),
         update: jest.fn(),
@@ -27,7 +27,7 @@ describe('CoinsService', () => {
       referralTracking: {
         count: jest.fn(),
       },
-      $transaction: jest.fn((callback) => callback(mockPrismaService)),
+      $transaction: jest.fn((callback: any) => callback(mockPrismaService)),
     };
 
     const mockCoinValuationService = {

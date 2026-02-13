@@ -27,7 +27,7 @@ export class LocalPromotionsController {
 
   @Post()
   @ApiOperation({ summary: 'Create local promotion' })
-  async create(@Request() req, @Body() dto: CreateLocalPromotionDto) {
+  async create(@Request() req: any, @Body() dto: CreateLocalPromotionDto) {
     const created = await this.prisma.localPromotion.create({
       data: {
         name: dto.name,
@@ -56,7 +56,7 @@ export class LocalPromotionsController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update local promotion' })
-  async update(@Request() req, @Param('id') id: string, @Body() dto: UpdateLocalPromotionDto) {
+  async update(@Request() req: any, @Param('id') id: string, @Body() dto: UpdateLocalPromotionDto) {
     const updated = await this.prisma.localPromotion.update({
       where: { id },
       data: {

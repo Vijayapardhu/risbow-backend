@@ -67,7 +67,7 @@ export class VendorReturnsController {
   @ApiQuery({ name: 'dateFrom', required: false, type: String, description: 'Filter from date (ISO 8601)' })
   @ApiQuery({ name: 'dateTo', required: false, type: String, description: 'Filter to date (ISO 8601)' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by return or order number' })
-  async findAll(@Request() req, @Query() query: VendorReturnQueryDto) {
+  async findAll(@Request() req: any, @Query() query: VendorReturnQueryDto) {
     return this.vendorReturnsService.findAll(req.user.id, query);
   }
 
@@ -78,7 +78,7 @@ export class VendorReturnsController {
     description: 'Return statistics',
     type: ReturnStatsResponse,
   })
-  async getStats(@Request() req): Promise<ReturnStatsResponse> {
+  async getStats(@Request() req: any): Promise<ReturnStatsResponse> {
     return this.vendorReturnsService.getStats(req.user.id);
   }
 
@@ -88,7 +88,7 @@ export class VendorReturnsController {
   @ApiResponse({ status: 200, description: 'Return request details retrieved' })
   @ApiResponse({ status: 403, description: 'Return does not belong to vendor' })
   @ApiResponse({ status: 404, description: 'Return request not found' })
-  async findOne(@Request() req, @Param('id') id: string) {
+  async findOne(@Request() req: any, @Param('id') id: string) {
     return this.vendorReturnsService.findOne(req.user.id, id);
   }
 
@@ -103,7 +103,7 @@ export class VendorReturnsController {
   @ApiResponse({ status: 403, description: 'Return does not belong to vendor' })
   @ApiResponse({ status: 404, description: 'Return request not found' })
   async acceptReturn(
-    @Request() req,
+    @Request() req: any,
     @Param('id') id: string,
     @Body() dto: AcceptReturnDto,
   ) {
@@ -121,7 +121,7 @@ export class VendorReturnsController {
   @ApiResponse({ status: 403, description: 'Return does not belong to vendor' })
   @ApiResponse({ status: 404, description: 'Return request not found' })
   async rejectReturn(
-    @Request() req,
+    @Request() req: any,
     @Param('id') id: string,
     @Body() dto: RejectReturnDto,
   ) {
@@ -139,7 +139,7 @@ export class VendorReturnsController {
   @ApiResponse({ status: 403, description: 'Return does not belong to vendor' })
   @ApiResponse({ status: 404, description: 'Return request not found' })
   async processRefund(
-    @Request() req,
+    @Request() req: any,
     @Param('id') id: string,
     @Body() dto: ProcessRefundDto,
   ) {

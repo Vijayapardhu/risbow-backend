@@ -70,14 +70,14 @@ export class VendorStoreService {
         const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
 
         let vendorCodeUpdate = {};
-        if (!vendor.vendorCode && dto.storeName) {
+        if (!vendor || !vendor.vendorCode && dto.storeName) {
             // Try to generate unique code up to 3 times
             let code = '';
             let isUnique = false;
             let attempts = 0;
 
             while (!isUnique && attempts < 3) {
-                code = this.generateVendorCode(dto.storeName);
+                code = this.generateVendorCode(dto.storeName || '');
                 const existing = await this.prisma.vendor.findUnique({ where: { vendorCode: code } });
                 if (!existing) {
                     isUnique = true;
@@ -86,8 +86,7 @@ export class VendorStoreService {
             }
 
             if (!isUnique) {
-                // Fallback to timestamp if random failed collision check
-                code = `${this.generateVendorCode(dto.storeName)}-${Date.now().toString().slice(-4)}`;
+                code = `${this.generateVendorCode(dto.storeName || '')}-${Date.now().toString().slice(-4)}`;
             }
 
             vendorCodeUpdate = { vendorCode: code };

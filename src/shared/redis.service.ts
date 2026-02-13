@@ -19,7 +19,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             return;
         }
         const host = this.configService.get<string>('REDIS_HOST');
-        const port = parseInt(this.configService.get<string>('REDIS_PORT')) || 6379;
+        const portStr = this.configService.get<string>('REDIS_PORT');
+        const port = portStr ? parseInt(portStr, 10) : 6379;
         const username = this.configService.get<string>('REDIS_USERNAME');
         const password = this.configService.get<string>('REDIS_PASSWORD');
         const useTls = this.configService.get<string>('REDIS_TLS') === 'true' || this.configService.get<string>('REDIS_TLS') === '1';
@@ -88,7 +89,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             this.inMemoryStore.set(mobile, { value: otp, expiresAt: Date.now() + 300_000 });
             return;
         }
-        await this.client.set(`otp:${mobile}`, otp, 'EX', 300);
+        await this.client!.set(`otp:${mobile}`, otp, 'EX', 300);
     }
 
     async getOtp(mobile: string): Promise<string | null> {
@@ -101,7 +102,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             }
             return entry.value;
         }
-        return this.client.get(`otp:${mobile}`);
+        return this.client!.get(`otp:${mobile}`);
     }
 
     async delOtp(mobile: string) {
@@ -109,7 +110,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             this.inMemoryStore.delete(mobile);
             return;
         }
-        await this.client.del(`otp:${mobile}`);
+        await this.client!.del(`otp:${mobile}`);
     }
 
     // Generic methods for caching
@@ -123,7 +124,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             }
             return entry.value;
         }
-        return this.client.get(key);
+        return this.client!.get(key);
     }
 
     async set(key: string, value: string, ttlSeconds: number) {
@@ -134,7 +135,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             });
             return;
         }
-        await this.client.set(key, value, 'EX', ttlSeconds);
+        await this.client!.set(key, value, 'EX', ttlSeconds);
     }
 
     async del(key: string) {
@@ -142,7 +143,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             this.inMemoryStore.delete(key);
             return;
         }
-        await this.client.del(key);
+        await this.client!.del(key);
     }
 
     // Batch operations for performance
@@ -158,7 +159,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
                 return entry.value;
             });
         }
-        return this.client.mget(...keys);
+        return this.client!.mget(...keys);
     }
 
     async mset(keyValues: Record<string, string>, ttlSeconds: number) {
@@ -173,7 +174,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         }
 
         // Use pipeline for atomic multi-set with TTL
-        const pipeline = this.client.pipeline();
+        const pipeline = this.client!.pipeline();
         Object.entries(keyValues).forEach(([key, value]) => {
             pipeline.set(key, value, 'EX', ttlSeconds);
         });
@@ -188,7 +189,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             this.inMemoryStore.set(key, { value, expiresAt: Infinity }); // No expiry for list items
             return 1; // Indicate one item pushed
         }
-        return this.client.lpush(key, value);
+        return this.client!.lpush(key, value);
     }
 
     async ltrim(key: string, start: number, stop: number): Promise<string> {
@@ -200,7 +201,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             }
             return 'OK';
         }
-        return this.client.ltrim(key, start, stop);
+        return this.client!.ltrim(key, start, stop);
     }
 
     async lrange(key: string, start: number, stop: number): Promise<string[]> {
@@ -213,7 +214,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             }
             return [];
         }
-        return this.client.lrange(key, start, stop);
+        return this.client!.lrange(key, start, stop);
     }
 
     // Delete keys by pattern (e.g., "products:*")
@@ -235,7 +236,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         let deletedCount = 0;
 
         do {
-            const [newCursor, keys] = await this.client.scan(
+            const [newCursor, keys] = await this.client!.scan(
                 cursor,
                 'MATCH',
                 pattern,
@@ -245,7 +246,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             cursor = newCursor;
 
             if (keys.length > 0) {
-                deletedCount += await this.client.del(...keys);
+                deletedCount += await this.client!.del(...keys);
             }
         } while (cursor !== '0');
 
@@ -310,7 +311,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             this.inMemoryStore.set(key, { value, expiresAt: Date.now() + 10000 });
             return 1; // Key set
         }
-        return await this.client.setnx(key, value);
+        return await this.client!.setnx(key, value);
     }
 
     /**
@@ -329,7 +330,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         }
         if (!this.client) return false;
         // SET key value NX EX ttl — returns 'OK' if set, null otherwise
-        const result = await this.client.set(key, value, 'EX', ttlSeconds, 'NX');
+        const result = await this.client!.set(key, value, 'EX', ttlSeconds, 'NX');
         return result === 'OK';
     }
 
@@ -356,7 +357,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
                 return 0
             end
         `;
-        const result = await this.client.eval(luaScript, 1, key, expectedValue);
+        const result = await this.client!.eval(luaScript, 1, key, expectedValue);
         return result === 1;
     }
 
@@ -370,7 +371,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             }
             return true;
         }
-        return (await this.client.exists(key)) === 1;
+        return (await this.client!.exists(key)) === 1;
     }
 
     // Get connection status
@@ -388,7 +389,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             this.inMemoryStore.set(`${key}:${member}`, { value: newVal.toString(), expiresAt: Infinity });
             return newVal;
         }
-        return this.client.zincrby(key, increment, member);
+        return this.client!.zincrby(key, increment, member);
     }
 
     async zrevrange(key: string, start: number, stop: number, withScores: 'WITHSCORES'): Promise<string[]> {
@@ -411,7 +412,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             sliced.forEach(x => { flat.push(x.member); flat.push(x.score.toString()); });
             return flat;
         }
-        return this.client.zrevrange(key, start, stop, withScores);
+        return this.client!.zrevrange(key, start, stop, withScores);
     }
 
     /**
@@ -437,7 +438,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         const keys: string[] = [];
         let cursor = '0';
         do {
-            const [newCursor, foundKeys] = await this.client.scan(
+            const [newCursor, foundKeys] = await this.client!.scan(
                 cursor,
                 'MATCH',
                 pattern,

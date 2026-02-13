@@ -31,7 +31,7 @@ export class VendorPayoutsController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
     async processPayout(
-        @Request() req,
+        @Request() req: any,
         @Body() body: { vendorId: string; amount: number; transactionId: string }
     ) {
         const adminId = req.user.id;
@@ -41,7 +41,7 @@ export class VendorPayoutsController {
     @Get('history')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.VENDOR, UserRole.WHOLESALER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
-    async getMyHistory(@Request() req) {
+    async getMyHistory(@Request() req: any) {
         const vendorId = req.user.vendorId || req.user.id;
         return this.payoutsService.getPayoutHistory(vendorId);
     }
@@ -49,7 +49,7 @@ export class VendorPayoutsController {
     @Get('balance')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.VENDOR, UserRole.WHOLESALER)
-    async getBalance(@Request() req) {
+    async getBalance(@Request() req: any) {
         const vendorId = req.user.vendorId || req.user.id;
         return this.payoutsService.getBalance(vendorId);
     }
@@ -57,7 +57,7 @@ export class VendorPayoutsController {
     @Get('pending')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.VENDOR, UserRole.WHOLESALER)
-    async getPendingPayouts(@Request() req) {
+    async getPendingPayouts(@Request() req: any) {
         const vendorId = req.user.vendorId || req.user.id;
         return this.payoutsService.getPendingPayouts(vendorId);
     }
@@ -66,7 +66,7 @@ export class VendorPayoutsController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.VENDOR, UserRole.WHOLESALER)
     async requestPayout(
-        @Request() req,
+        @Request() req: any,
         @Body() body: { amount: number }
     ) {
         const vendorId = req.user.vendorId || req.user.id;

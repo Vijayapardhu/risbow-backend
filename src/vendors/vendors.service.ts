@@ -832,7 +832,7 @@ export class VendorsService {
         }
 
         // Check if all required docs are uploaded
-        const uploadedTypes = documents.map(d => d.documentType);
+        const uploadedTypes = documents.map((d: any) => d.documentType);
         const hasAllRequiredDocs = requiredDocs.every(type => uploadedTypes.includes(type));
 
         if (hasAllRequiredDocs) {

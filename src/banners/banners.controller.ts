@@ -231,7 +231,7 @@ export class BannersController {
         type: BannerResponseDto,
     })
     @Idempotent({ required: true, ttlSeconds: 600 })
-    async purchaseBannerSlot(@Request() req, @Body() dto: PurchaseBannerDto) {
+    async purchaseBannerSlot(@Request() req: any, @Body() dto: PurchaseBannerDto) {
         const vendorId = req.user.id; // Assuming vendor user ID
         return this.bannersService.purchaseBannerSlot(vendorId, dto);
     }
@@ -249,7 +249,7 @@ export class BannersController {
         description: 'Banner creative uploaded successfully',
         type: BannerResponseDto,
     })
-    async uploadBannerCreative(@Request() req, @Body() dto: UploadBannerCreativeDto) {
+    async uploadBannerCreative(@Request() req: any, @Body() dto: UploadBannerCreativeDto) {
         const vendorId = req.user.id;
         return this.bannersService.uploadBannerCreative(vendorId, dto);
     }
@@ -267,7 +267,7 @@ export class BannersController {
         description: 'List of vendor banners',
         type: [BannerResponseDto],
     })
-    async getVendorBanners(@Request() req) {
+    async getVendorBanners(@Request() req: any) {
         const vendorId = req.user.id;
         return this.bannersService.getVendorBanners(vendorId);
     }

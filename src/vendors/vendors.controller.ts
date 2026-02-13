@@ -50,7 +50,7 @@ export class VendorsController {
 
     @Get('dashboard')
     @UseGuards(JwtAuthGuard)
-    async getDashboard(@Request() req) {
+    async getDashboard(@Request() req: any) {
         const vendorId = req.user.id;
         const [stats, sales, products, customers] = await Promise.all([
             this.vendorsService.getVendorStats(vendorId),
@@ -66,7 +66,7 @@ export class VendorsController {
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Get vendor sales analytics' })
     @ApiResponse({ status: 200, description: 'Sales analytics data' })
-    async getSalesAnalytics(@Request() req) {
+    async getSalesAnalytics(@Request() req: any) {
         return this.vendorsService.getSalesAnalytics(req.user.id);
     }
 
@@ -74,7 +74,7 @@ export class VendorsController {
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Get vendor product analytics' })
     @ApiResponse({ status: 200, description: 'Product analytics data' })
-    async getProductAnalytics(@Request() req) {
+    async getProductAnalytics(@Request() req: any) {
         return this.vendorsService.getProductAnalytics(req.user.id);
     }
 
@@ -82,7 +82,7 @@ export class VendorsController {
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Get vendor customer analytics' })
     @ApiResponse({ status: 200, description: 'Customer analytics data' })
-    async getCustomerAnalytics(@Request() req) {
+    async getCustomerAnalytics(@Request() req: any) {
         return this.vendorsService.getCustomerAnalytics(req.user.id);
     }
 
@@ -90,7 +90,7 @@ export class VendorsController {
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Get vendor traffic and funnel analytics' })
     @ApiResponse({ status: 200, description: 'Traffic analytics data' })
-    async getTrafficAnalytics(@Request() req, @Query('days') days?: string) {
+    async getTrafficAnalytics(@Request() req: any, @Query('days') days?: string) {
         const period = days ? Math.max(7, Math.min(90, parseInt(days, 10))) : 30;
         return this.vendorsService.getTrafficAnalytics(req.user.id, period);
     }
@@ -98,7 +98,7 @@ export class VendorsController {
     @Post('promotions/banner')
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Purchase a banner slot' })
-    async purchaseBanner(@Request() req, @Body() dto: PurchaseBannerDto) {
+    async purchaseBanner(@Request() req: any, @Body() dto: PurchaseBannerDto) {
         return this.vendorsService.purchaseBanner(req.user.id, {
             ...dto,
             startDate: new Date(dto.startDate),
@@ -132,7 +132,7 @@ export class VendorsController {
     @Throttle({ default: { limit: 2, ttl: 60000 } })
     @ApiOperation({ summary: 'Update Vendor KYC details' })
     @ApiResponse({ status: 200, description: 'KYC updated successfully' })
-    async updateKyc(@Body() dto: any, @Request() req) {
+    async updateKyc(@Body() dto: any, @Request() req: any) {
         return this.vendorsService.updateKycStatus(req.user.id, req.user.id, dto);
     }
 
@@ -142,7 +142,7 @@ export class VendorsController {
     @Throttle({ default: { limit: 3, ttl: 60000 } })
     @ApiOperation({ summary: 'Create a non-GST compliance fee payment intent' })
     @ApiResponse({ status: 201, description: 'Compliance fee payment intent created' })
-    async createComplianceFee(@Request() req) {
+    async createComplianceFee(@Request() req: any) {
         return this.vendorsService.createNonGstCompliancePayment(req.user.id);
     }
 
@@ -154,7 +154,7 @@ export class VendorsController {
     @ApiConsumes('multipart/form-data')
     @ApiResponse({ status: 201, description: 'Document uploaded successfully' })
     async uploadDocument(
-        @Request() req,
+        @Request() req: any,
         @UploadedFile() file: Express.Multer.File,
         @Body('documentType') documentType: string,
     ) {
@@ -166,7 +166,7 @@ export class VendorsController {
     @Roles('VENDOR')
     @ApiOperation({ summary: 'Get vendor uploaded documents' })
     @ApiResponse({ status: 200, description: 'Documents retrieved successfully' })
-    async getDocuments(@Request() req) {
+    async getDocuments(@Request() req: any) {
         return this.vendorsService.getVendorDocuments(req.user.id);
     }
 
@@ -175,7 +175,7 @@ export class VendorsController {
     @Roles('VENDOR')
     @ApiOperation({ summary: 'Reapply for KYC verification after rejection' })
     @ApiResponse({ status: 200, description: 'Reapplication submitted successfully' })
-    async reapplyForVerification(@Request() req) {
+    async reapplyForVerification(@Request() req: any) {
         return this.vendorsService.reapplyForVerification(req.user.id);
     }
 }

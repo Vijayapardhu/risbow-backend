@@ -40,7 +40,7 @@ export class VendorPayoutsController {
         description: 'Returns pending earnings, available balance, and total paid out',
         type: PayoutBalanceResponseDto,
     })
-    async getBalance(@Request() req): Promise<PayoutBalanceResponseDto> {
+    async getBalance(@Request() req: any): Promise<PayoutBalanceResponseDto> {
         return this.payoutsService.getBalance(req.user.id);
     }
 
@@ -51,7 +51,7 @@ export class VendorPayoutsController {
         description: 'Returns payout statistics summary',
         type: PayoutSummaryResponseDto,
     })
-    async getSummary(@Request() req): Promise<PayoutSummaryResponseDto> {
+    async getSummary(@Request() req: any): Promise<PayoutSummaryResponseDto> {
         return this.payoutsService.getPayoutSummary(req.user.id);
     }
 
@@ -61,7 +61,7 @@ export class VendorPayoutsController {
         status: 200,
         description: 'Returns paginated payout history',
     })
-    async getPayoutHistory(@Request() req, @Query() query: PayoutHistoryQueryDto) {
+    async getPayoutHistory(@Request() req: any, @Query() query: PayoutHistoryQueryDto) {
         return this.payoutsService.getPayoutHistory(req.user.id, query);
     }
 
@@ -76,7 +76,7 @@ export class VendorPayoutsController {
         status: 404,
         description: 'Payout not found',
     })
-    async getPayoutById(@Request() req, @Param('id') id: string) {
+    async getPayoutById(@Request() req: any, @Param('id') id: string) {
         return this.payoutsService.getPayoutById(req.user.id, id);
     }
 
@@ -90,7 +90,7 @@ export class VendorPayoutsController {
         status: 400,
         description: 'Invalid request - insufficient balance, missing bank details, or below minimum amount',
     })
-    async requestPayout(@Request() req, @Body() dto: RequestPayoutDto) {
+    async requestPayout(@Request() req: any, @Body() dto: RequestPayoutDto) {
         return this.payoutsService.requestPayout(req.user.id, dto);
     }
 }
@@ -108,7 +108,7 @@ export class VendorBankDetailsController {
         status: 200,
         description: 'Bank details updated successfully',
     })
-    async updateBankDetails(@Request() req, @Body() dto: UpdateBankDetailsDto) {
+    async updateBankDetails(@Request() req: any, @Body() dto: UpdateBankDetailsDto) {
         return this.payoutsService.updateBankDetails(req.user.id, dto);
     }
 }

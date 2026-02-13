@@ -32,6 +32,8 @@ export class BannerMetadataDto {
         impressions?: number;
         clicks?: number;
     };
+
+    [key: string]: unknown;
 }
 
 export class CreateBannerDto {

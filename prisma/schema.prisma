@@ -325,20 +325,20 @@ model Banner {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model BannerCampaign {
-  id             String   @id
+  id             String                @id
   bannerId       String
   vendorId       String
   campaignType   String
-  position       String? // Position for filtering
-  status         String   @default("PENDING") // Status field for campaign state
+  position       String?
+  status         BannerCampaignStatus   @default(DRAFT)
   targetAudience String
   startDate      DateTime
   endDate        DateTime
   amountPaid     Int
-  paymentStatus  String   @default("PENDING")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @default(now()) @updatedAt
-  Banner         Banner   @relation(fields: [bannerId], references: [id])
+  paymentStatus  String                @default("PENDING")
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  Banner         Banner                @relation(fields: [bannerId], references: [id])
 
   @@index([bannerId])
   @@index([startDate, endDate])

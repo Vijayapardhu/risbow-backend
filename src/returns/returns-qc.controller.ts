@@ -16,7 +16,7 @@ export class ReturnsQCController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.TELECALLER) // Agent role needed? Using TELECALLER/ADMIN for now
     @ApiOperation({ summary: 'Submit QC checklist for return pickup' })
-    async submitChecklist(@Request() req, @Body() dto: {
+    async submitChecklist(@Request() req: any, @Body() dto: {
         orderId: string;
         isBrandBoxIntact: boolean;
         isProductIntact: boolean;

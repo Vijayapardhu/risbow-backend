@@ -145,7 +145,8 @@ export class AuthService {
             };
 
             // 🔐 P0 FIX: Fraud Analysis on Login
-            await (this as any).fraudService.evaluateRisk(user.id, (user as any).metadata?.lastFingerprint).catch(e => console.error('Fraud analysis failed:', e));
+            const userMetadata = (user as any).metadata as { lastFingerprint?: string } | undefined;
+            await (this as any).fraudService.evaluateRisk(user.id, userMetadata?.lastFingerprint).catch((e: any) => console.error('Fraud analysis failed:', e));
 
             // Cache the successful verification for 30 seconds to prevent duplicate calls
             await this.redisService.set(recentVerificationKey, JSON.stringify(result), 30);
@@ -759,7 +760,14 @@ export class AuthService {
                 });
 
                 // Save uploaded documents (will be implemented by FileUploadService)
-                const documentRecords = [];
+                const documentRecords: Array<{
+                    id: string;
+                    vendorId: string;
+                    documentType: string;
+                    documentUrl: string;
+                    status: string;
+                    uploadedAt: Date;
+                }> = [];
                 const docTypeMap = {
                     panCard: 'PAN_CARD',
                     gstCertificate: 'GST_CERTIFICATE',
@@ -788,7 +796,7 @@ export class AuthService {
                 // Bulk create document records
                 if (documentRecords.length > 0) {
                     await prisma.vendorDocument.createMany({
-                        data: documentRecords
+                        data: documentRecords as any
                     });
                 }
 

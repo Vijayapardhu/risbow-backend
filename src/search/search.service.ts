@@ -254,7 +254,7 @@ export class SearchService {
 
     // --- CASE 1: Standard DB Sort (Price, Newest, Rating) ---
     if (!isRelevance) {
-      const orderBy = this.getSortOrder(dto.sort);
+      const orderBy = this.getSortOrder(dto.sort!);
       const page = dto.page || 1;
       const limit = dto.limit || 20;
       const skip = (page - 1) * limit;
@@ -421,7 +421,7 @@ export class SearchService {
 
     // Fallback Strategy 2: Get Bow recommendations
     try {
-      const recommendations = await this.bowRecommendation.getSmartRecommendations(userId, limit);
+      const recommendations = await this.bowRecommendation.getSmartRecommendations(userId || '', limit);
       if (recommendations.length > 0) {
         return {
           data: recommendations,
@@ -816,7 +816,7 @@ export class SearchService {
     const from = (page - 1) * limit;
 
     const must: any[] = [];
-    const query = this.normalizeQuery(q);
+    const query = this.normalizeQuery(q || '');
 
     if (query) {
       must.push({
@@ -856,7 +856,7 @@ export class SearchService {
             [{ _score: { order: 'desc' } }] // Default
     });
 
-    const total = typeof hits.total === 'number' ? hits.total : hits.total['value'];
+    const total = typeof hits.total === 'number' ? hits.total : hits.total?.['value'] ?? 0;
     if (total === 0) return null; // Let DB fallback handle it or return empty? 
     // If ES has 0, DB likely 0 too. But let's return results.
 

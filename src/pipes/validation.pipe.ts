@@ -29,7 +29,7 @@ export class ValidationPipe implements PipeTransform<any> {
     return !types.includes(metatype);
   }
 
-  private sanitizeValue(obj: any): any {
+    private sanitizeValue(obj: unknown): unknown {
     if (obj === null || obj === undefined) {
       return obj;
     }
@@ -46,10 +46,10 @@ export class ValidationPipe implements PipeTransform<any> {
       if (Array.isArray(obj)) {
         return obj.map(item => this.sanitizeValue(item));
       } else {
-        const sanitizedObj = {};
+        const sanitizedObj: Record<string, unknown> = {};
         for (const key in obj) {
-          if (obj.hasOwnProperty(key)) {
-            sanitizedObj[key] = this.sanitizeValue(obj[key]);
+          if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            sanitizedObj[key] = this.sanitizeValue((obj as Record<string, unknown>)[key]);
           }
         }
         return sanitizedObj;

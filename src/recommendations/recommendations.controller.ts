@@ -24,7 +24,7 @@ export class RecommendationsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get personalized product recommendations (ecommerce-style)' })
-  async getMyRecommendations(@Req() req, @Query('limit') limit?: string) {
+  async getMyRecommendations(@Req() req: any, @Query('limit') limit?: string) {
     const n = limit ? Math.max(1, Math.min(50, parseInt(limit, 10))) : 10;
     return this.engine.getSmartRecommendations(req.user.id, n);
   }
@@ -34,7 +34,7 @@ export class RecommendationsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get home screen product suggestions (shared engine, location-aware)' })
   async getHomeSuggestions(
-    @Req() req,
+    @Req() req: any,
     @Query('limit') limit?: string,
     @Query('lat') lat?: string,
     @Query('lng') lng?: string,
@@ -70,7 +70,7 @@ export class RecommendationsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get cart suggestions (co-purchase + category backfill, location-aware)' })
   async getCartSuggestions(
-    @Req() req,
+    @Req() req: any,
     @Query('limit') limit?: string,
     @Query('lat') lat?: string,
     @Query('lng') lng?: string,
@@ -88,7 +88,7 @@ export class RecommendationsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get cart analysis signals (thresholds/hesitation/bundle/price sensitivity)' })
-  async getMyCartAnalysis(@Req() req) {
+  async getMyCartAnalysis(@Req() req: any) {
     const signals = await this.cartIntel.analyzeCart(req.user.id);
     return { signals };
   }
@@ -97,7 +97,7 @@ export class RecommendationsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Track a product event (view/click/etc.) for recommendations' })
-  async trackEvent(@Req() req, @Body() dto: TrackProductEventDto) {
+  async trackEvent(@Req() req: any, @Body() dto: TrackProductEventDto) {
     await this.events.track({
       userId: req.user.id,
       type: dto.type,
@@ -120,7 +120,7 @@ export class RecommendationsController {
   })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of recommendations (max 20)', example: 10 })
   async getPersonalizedRecommendations(
-    @Req() req,
+    @Req() req: any,
     @Query('limit') limit?: string,
   ) {
     const n = limit ? Math.min(parseInt(limit, 10), 20) : 10;
@@ -175,7 +175,7 @@ export class RecommendationsController {
     summary: 'Track user interaction with a product',
     description: 'Records user interactions (view, add to cart, purchase, wishlist) for improving recommendations',
   })
-  async trackInteraction(@Req() req, @Body() dto: TrackInteractionDto) {
+  async trackInteraction(@Req() req: any, @Body() dto: TrackInteractionDto) {
     await this.recommendationsService.trackInteraction(
       req.user.id,
       dto.productId,

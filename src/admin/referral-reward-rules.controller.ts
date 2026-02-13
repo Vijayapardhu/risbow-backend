@@ -27,7 +27,7 @@ export class ReferralRewardRulesController {
 
   @Post()
   @ApiOperation({ summary: 'Create referral reward slab rule' })
-  async create(@Request() req, @Body() dto: CreateReferralRewardRuleDto) {
+  async create(@Request() req: any, @Body() dto: CreateReferralRewardRuleDto) {
     // Overlap validation (active window + range)
     const effectiveFrom = dto.effectiveFrom ? new Date(dto.effectiveFrom) : new Date();
     const effectiveTo = dto.effectiveTo ? new Date(dto.effectiveTo) : null;
@@ -67,7 +67,7 @@ export class ReferralRewardRulesController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update referral reward slab rule' })
-  async update(@Request() req, @Param('id') id: string, @Body() dto: UpdateReferralRewardRuleDto) {
+  async update(@Request() req: any, @Param('id') id: string, @Body() dto: UpdateReferralRewardRuleDto) {
     const effectiveFrom = dto.effectiveFrom ? new Date(dto.effectiveFrom) : undefined;
     const effectiveTo = dto.effectiveTo ? new Date(dto.effectiveTo) : undefined;
 
@@ -90,7 +90,7 @@ export class ReferralRewardRulesController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete referral reward slab rule' })
-  async delete(@Request() req, @Param('id') id: string) {
+  async delete(@Request() req: any, @Param('id') id: string) {
     // Check if rule has been used in any grants
     const grantCount = await this.prisma.referralRewardGrant.count({
       where: { ruleId: id },

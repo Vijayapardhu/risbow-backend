@@ -7,7 +7,7 @@ import { RedisService } from '../shared/redis.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { VendorAvailabilityService } from './vendor-availability.service';
 
-const mockPrisma = {
+const mockPrisma: any = {
     vendor: {
         findUnique: jest.fn(),
         update: jest.fn(),
@@ -32,7 +32,7 @@ const mockPrisma = {
     auditLog: {
         create: jest.fn(),
     },
-    $transaction: jest.fn((cb) => cb(mockPrisma)),
+    $transaction: jest.fn((cb: any) => cb(mockPrisma)),
 };
 
 const mockRedis = {
@@ -152,7 +152,7 @@ describe('VendorsService', () => {
 
             const result = await service.getSalesAnalytics('v1', 7);
             expect(result.daily.length).toBeGreaterThan(0);
-            const today = result.daily.find(d => d.date === new Date().toISOString().split('T')[0]);
+            const today = result.daily.find((d: { date: string }) => d.date === new Date().toISOString().split('T')[0]);
             expect(today.revenue).toBe(200);
         });
 

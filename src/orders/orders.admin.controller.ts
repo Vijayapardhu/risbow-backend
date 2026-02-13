@@ -41,7 +41,7 @@ export class OrdersAdminController {
 
     @Patch(':id/status')
     async updateStatus(
-        @Request() req,
+        @Request() req: any,
         @Param('id') id: string,
         @Body('status') status: OrderStatus,
         @Body('notes') notes?: string,

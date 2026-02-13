@@ -254,12 +254,13 @@ export class SchedulerService {
         await this.redisLock.withLock('cron:stories-expiry', async () => {
             this.logger.debug('Checking for expired stories...');
             try {
-                const result = await this.storiesService.deleteExpiredStories();
-                if (result.deleted > 0) {
+                const storiesSvc = this.storiesService!;
+                const result = await storiesSvc.deleteExpiredStories();
+                if (result != null && result.deleted != null && result.deleted > 0) {
                     this.logger.log(`Deleted ${result.deleted} expired stories`);
                 }
-            } catch (error: any) {
-                this.logger.error(`Stories expiry check failed: ${error?.message}`);
+            } catch (error) {
+                this.logger.error(`Stories expiry check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
         }, 3600); // 1 hour lock TTL
     }
@@ -271,12 +272,13 @@ export class SchedulerService {
         await this.redisLock.withLock('cron:clearance-expiry', async () => {
             this.logger.debug('Checking for expired clearance products...');
             try {
-                const result = await this.clearanceService.expireClearanceProducts();
-                if (result.deactivated > 0) {
+                const clearanceSvc = this.clearanceService!;
+                const result = await clearanceSvc.expireClearanceProducts();
+                if (result != null && result.deactivated != null && result.deactivated > 0) {
                     this.logger.log(`Deactivated ${result.deactivated} expired clearance products`);
                 }
-            } catch (error: any) {
-                this.logger.error(`Clearance expiry check failed: ${error?.message}`);
+            } catch (error) {
+                this.logger.error(`Clearance expiry check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
         }, 3600); // 1 hour lock TTL
     }
@@ -288,10 +290,12 @@ export class SchedulerService {
         await this.redisLock.withLock('cron:auto-clearance', async () => {
             this.logger.debug('Checking for products near expiry to auto-add to clearance...');
             try {
-                const result = await this.clearanceService.autoAddToClearance();
-                this.logger.log(`Auto-clearance check completed. Added ${result.added} products.`);
-            } catch (error: any) {
-                this.logger.error(`Auto-clearance check failed: ${error?.message}`);
+                const clearanceSvc = this.clearanceService!;
+                const result = await clearanceSvc.autoAddToClearance();
+                const added = result?.added ?? 0;
+                this.logger.log(`Auto-clearance check completed. Added ${added} products.`);
+            } catch (error) {
+                this.logger.error(`Auto-clearance check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
         }, 1800); // 30 minute lock TTL
     }
@@ -305,8 +309,8 @@ export class SchedulerService {
                 // This would typically process any pending discipline state recalculations
                 // For now, we'll just log - actual processing happens on-demand via Edge Functions
                 this.logger.debug('Discipline state processing check completed');
-            } catch (error: any) {
-                this.logger.error(`Discipline state processing failed: ${error?.message}`);
+            } catch (error) {
+                this.logger.error(`Discipline state processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
         }, 3600); // 1 hour lock TTL
     }
@@ -331,7 +335,7 @@ export class SchedulerService {
                     this.logger.log(`Deactivated ${result.count} expired banners`);
                 }
             } catch (error) {
-                this.logger.error(`Banner expiry check failed: ${error.message}`);
+                this.logger.error(`Banner expiry check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
         }, 3600); // 1 hour lock TTL
     }
@@ -347,8 +351,8 @@ export class SchedulerService {
                 if (expiredCount > 0) {
                     this.logger.log(`Expired ${expiredCount} old inquiries`);
                 }
-            } catch (error: any) {
-                this.logger.error(`Inquiry expiry failed: ${error?.message}`);
+            } catch (error) {
+                this.logger.error(`Inquiry expiry failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
         }, 3600); // 1 hour lock TTL
     }

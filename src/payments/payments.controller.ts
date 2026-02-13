@@ -18,7 +18,7 @@ export class PaymentsController {
     @ApiResponse({ status: 201, description: 'Order created successfully' })
     @ApiResponse({ status: 400, description: 'Invalid input or order not found' })
     @Idempotent({ required: true, ttlSeconds: 300 })
-    async createPaymentOrder(@Request() req, @Body() dto: CreatePaymentOrderDto) {
+    async createPaymentOrder(@Request() req: any, @Body() dto: CreatePaymentOrderDto) {
         const userId = req.user.id;
         // ...
         return this.paymentsService.createOrder(userId, dto);
@@ -31,7 +31,7 @@ export class PaymentsController {
     @ApiResponse({ status: 200, description: 'Payment verified successfully' })
     @ApiResponse({ status: 400, description: 'Invalid signature or payment not found' })
     @Idempotent({ required: true, ttlSeconds: 600 })
-    async verifyPayment(@Request() req, @Body() dto: VerifyPaymentDto) {
+    async verifyPayment(@Request() req: any, @Body() dto: VerifyPaymentDto) {
         const userId = req.user.id;
         return this.paymentsService.verifyPayment(userId, dto);
     }
@@ -52,7 +52,7 @@ export class PaymentsController {
     @ApiOperation({ summary: 'Create Razorpay order for ₹1000 vendor onboarding fee' })
     @ApiResponse({ status: 201, description: 'Vendor onboarding order created successfully' })
     @ApiResponse({ status: 400, description: 'Payment not required or vendor not found' })
-    async createVendorOnboardingOrder(@Request() req) {
+    async createVendorOnboardingOrder(@Request() req: any) {
         const vendorId = req.user.vendor?.id || req.user.id;
         return this.paymentsService.createVendorOnboardingOrder(vendorId);
     }
@@ -64,7 +64,7 @@ export class PaymentsController {
     @ApiResponse({ status: 200, description: 'Payment verified and vendor status updated to PENDING' })
     @ApiResponse({ status: 400, description: 'Invalid signature or payment failed' })
     async verifyVendorOnboardingPayment(
-        @Request() req,
+        @Request() req: any,
         @Body() body: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
     ) {
         const vendorId = req.user.vendor?.id || req.user.id;

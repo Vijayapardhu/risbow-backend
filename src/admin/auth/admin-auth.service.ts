@@ -125,7 +125,7 @@ export class AdminAuthService {
       // If backup code was used, remove the matching hashed code
       if (isValidMfa.usedBackupCode) {
         const remainingCodes = admin.backupCodes.filter(
-          (hashedCode) => !bcrypt.compareSync(dto.mfaCode.toUpperCase(), hashedCode)
+          (hashedCode) => !bcrypt.compareSync(dto.mfaCode!.toUpperCase(), hashedCode)
         );
         await this.prisma.adminUser.update({
           where: { id: admin.id },

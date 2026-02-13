@@ -8,6 +8,9 @@ import {
   Query,
   UseGuards,
   Request,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,7 +18,9 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiQuery,
+  ApiConsumes,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { VendorInventoryService } from './vendor-inventory.service';
 import {
@@ -46,7 +51,7 @@ export class VendorInventoryController {
   @ApiQuery({ name: 'outOfStock', required: false, type: Boolean })
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
   async getInventoryOverview(
-    @Request() req,
+    @Request() req: any,
     @Query() filters: InventoryFilterDto,
   ): Promise<InventoryProductDto[]> {
     return this.inventoryService.getInventoryOverview(req.user.id, filters);
@@ -59,7 +64,7 @@ export class VendorInventoryController {
     description: 'Products needing restock',
     type: LowStockAlertDto,
   })
-  async getLowStockAlerts(@Request() req): Promise<LowStockAlertDto> {
+  async getLowStockAlerts(@Request() req: any): Promise<LowStockAlertDto> {
     return this.inventoryService.getLowStockAlerts(req.user.id);
   }
 
@@ -70,7 +75,7 @@ export class VendorInventoryController {
     description: 'Bulk stock update result',
   })
   async bulkUpdateStock(
-    @Request() req,
+    @Request() req: any,
     @Body() dto: BulkStockUpdateDto,
   ): Promise<{ updated: number; failed: string[] }> {
     return this.inventoryService.bulkUpdateStock(req.user.id, dto);
@@ -83,7 +88,7 @@ export class VendorInventoryController {
     description: 'Updated product stock info',
   })
   async updateSingleStock(
-    @Request() req,
+    @Request() req: any,
     @Param('productId') productId: string,
     @Body() dto: SingleStockUpdateDto,
   ): Promise<{ success: boolean; product: InventoryProductDto }> {
@@ -101,7 +106,7 @@ export class VendorInventoryController {
     description: 'Threshold update result',
   })
   async updateThreshold(
-    @Request() req,
+    @Request() req: any,
     @Param('productId') productId: string,
     @Body() dto: UpdateThresholdDto,
   ): Promise<{ success: boolean; message: string }> {
@@ -115,7 +120,7 @@ export class VendorInventoryController {
     description: 'Total inventory value and breakdown by category',
     type: InventoryValuationDto,
   })
-  async getInventoryValuation(@Request() req): Promise<InventoryValuationDto> {
+  async getInventoryValuation(@Request() req: any): Promise<InventoryValuationDto> {
     return this.inventoryService.getInventoryValuation(req.user.id);
   }
 
@@ -125,7 +130,7 @@ export class VendorInventoryController {
     status: 200,
     description: 'Summary of product stock statuses',
   })
-  async getInventorySummary(@Request() req) {
+  async getInventorySummary(@Request() req: any) {
     return this.inventoryService.getInventorySummary(req.user.id);
   }
 
@@ -135,7 +140,7 @@ export class VendorInventoryController {
     status: 200,
     description: 'Stock adjustment history with audit trail',
   })
-  async getMovements(@Request() req, @Query() filters: any) {
+  async getMovements(@Request() req: any, @Query() filters: any) {
     const vendorId = req.user.vendorId || req.user.id;
     return this.inventoryService.getStockMovements(vendorId, filters);
   }
@@ -147,7 +152,7 @@ export class VendorInventoryController {
     description: 'Stock adjusted successfully with audit log',
   })
   async adjustStock(
-    @Request() req,
+    @Request() req: any,
     @Body() dto: { productId: string; quantity: number; reason?: string },
   ) {
     const vendorId = req.user.vendorId || req.user.id;
@@ -165,8 +170,31 @@ export class VendorInventoryController {
     status: 200,
     description: 'Inventory stats including total products, low stock, etc.',
   })
-  async getStats(@Request() req) {
+  async getStats(@Request() req: any) {
     const vendorId = req.user.vendorId || req.user.id;
     return this.inventoryService.getInventoryStats(vendorId);
+  }
+
+  @Post('import')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Import stock levels from CSV' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({
+    status: 200,
+    description: 'CSV imported and stock updated',
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async importStockCsv(
+    @Request() req: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('No CSV file uploaded');
+    if (file.mimetype !== 'text/csv' && !file.originalname.endsWith('.csv')) {
+      throw new BadRequestException('File must be a CSV');
+    }
+
+    const vendorId = req.user.vendorId || req.user.id;
+    return this.inventoryService.importStockFromCsv(vendorId, file.buffer);
   }
 }

@@ -76,16 +76,17 @@ export class VendorProductsService {
             }
 
             validProducts.push({
+                id: randomUUID(),
                 title: dto.title,
                 description: dto.description || '',
                 price: dto.price,
-                offerPrice: dto.offerPrice || dto.price, // Default to price if missing
+                offerPrice: dto.offerPrice || dto.price,
                 stock: dto.stock,
                 categoryId: dto.categoryId,
                 vendorId: vendorId,
                 sku: dto.sku,
                 brandName: dto.brandName || vendor.storeName || 'Generic',
-                isActive: false, // Default to draft/inactive
+                isActive: false,
                 images: [],
                 tags: []
             });
@@ -370,6 +371,7 @@ export class VendorProductsService {
             }
 
             validValues.push({
+                id: randomUUID(),
                 productId,
                 specId: item.specId,
                 value: item.value
@@ -696,6 +698,30 @@ export class VendorProductsService {
         // Soft delete: Set visibility to DRAFT and isActive to false
         return this.prisma.product.update({
             where: { id: productId },
+            data: {
+                visibility: 'DRAFT',
+                isActive: false
+            }
+        });
+    }
+
+    async bulkDeleteProducts(vendorId: string, productIds: string[]) {
+        const products = await this.prisma.product.findMany({
+            where: { 
+                id: { in: productIds },
+                vendorId
+            }
+        });
+
+        if (products.length === 0) {
+            throw new BadRequestException('No products found or access denied');
+        }
+
+        return this.prisma.product.updateMany({
+            where: { 
+                id: { in: productIds },
+                vendorId
+            },
             data: {
                 visibility: 'DRAFT',
                 isActive: false

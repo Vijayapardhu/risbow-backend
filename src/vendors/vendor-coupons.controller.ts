@@ -43,14 +43,14 @@ export class VendorCouponsController {
   })
   @ApiResponse({ status: 400, description: 'Invalid data' })
   @ApiResponse({ status: 409, description: 'Coupon code already exists' })
-  async create(@Request() req, @Body() dto: CreateVendorCouponDto) {
+  async create(@Request() req: any, @Body() dto: CreateVendorCouponDto) {
     return this.vendorCouponsService.create(req.user.id, dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'List vendor coupons with pagination and filters' })
   @ApiResponse({ status: 200, description: 'Coupons retrieved successfully' })
-  async findAll(@Request() req, @Query() query: VendorCouponQueryDto) {
+  async findAll(@Request() req: any, @Query() query: VendorCouponQueryDto) {
     return this.vendorCouponsService.findAll(req.user.id, query);
   }
 
@@ -64,7 +64,7 @@ export class VendorCouponsController {
   })
   @ApiResponse({ status: 404, description: 'Coupon not found' })
   @ApiResponse({ status: 403, description: 'Coupon does not belong to vendor' })
-  async findOne(@Request() req, @Param('id') id: string) {
+  async findOne(@Request() req: any, @Param('id') id: string) {
     return this.vendorCouponsService.findOne(req.user.id, id);
   }
 
@@ -80,7 +80,7 @@ export class VendorCouponsController {
   @ApiResponse({ status: 403, description: 'Coupon does not belong to vendor' })
   @ApiResponse({ status: 409, description: 'Coupon code already exists' })
   async update(
-    @Request() req,
+    @Request() req: any,
     @Param('id') id: string,
     @Body() dto: UpdateVendorCouponDto,
   ) {
@@ -96,7 +96,7 @@ export class VendorCouponsController {
   })
   @ApiResponse({ status: 404, description: 'Coupon not found' })
   @ApiResponse({ status: 403, description: 'Coupon does not belong to vendor' })
-  async delete(@Request() req, @Param('id') id: string) {
+  async delete(@Request() req: any, @Param('id') id: string) {
     return this.vendorCouponsService.delete(req.user.id, id);
   }
 
@@ -110,7 +110,7 @@ export class VendorCouponsController {
   })
   @ApiResponse({ status: 404, description: 'Coupon not found' })
   @ApiResponse({ status: 403, description: 'Coupon does not belong to vendor' })
-  async getUsageStats(@Request() req, @Param('id') id: string) {
+  async getUsageStats(@Request() req: any, @Param('id') id: string) {
     return this.vendorCouponsService.getUsageStats(req.user.id, id);
   }
 }

@@ -150,7 +150,7 @@ export class VendorProductVariantsService {
     await this.verifyProductOwnership(productId, vendorId);
 
     // Validate all SKUs are unique
-    const skus = dto.variants.filter((v) => v.sku).map((v) => v.sku);
+    const skus = dto.variants.filter((v) => v.sku).map((v) => v.sku) as string[];
     if (skus.length > 0) {
       const existingSkus = await this.prisma.productVariant.findMany({
         where: { sku: { in: skus } },

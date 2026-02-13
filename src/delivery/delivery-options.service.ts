@@ -29,7 +29,7 @@ export class DeliveryOptionsService {
             if (p && p.latitude != null && p.longitude != null) return { lat: Number(p.latitude), lng: Number(p.longitude) };
             return null;
           })
-          .filter(Boolean)
+          .filter((p): p is { lat: number; lng: number } => p !== null)
       : [];
     if (pts.length < 3) return false;
 

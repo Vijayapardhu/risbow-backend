@@ -12,14 +12,14 @@ export class VendorFollowersController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.CUSTOMER, UserRole.VENDOR, UserRole.WHOLESALER)
     @Post(':vendorId/follow')
-    async follow(@Request() req, @Param('vendorId') vendorId: string) {
+    async follow(@Request() req: any, @Param('vendorId') vendorId: string) {
         return this.service.followVendor(req.user.id, vendorId);
     }
 
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.CUSTOMER, UserRole.VENDOR, UserRole.WHOLESALER)
     @Delete(':vendorId/unfollow')
-    async unfollow(@Request() req, @Param('vendorId') vendorId: string) {
+    async unfollow(@Request() req: any, @Param('vendorId') vendorId: string) {
         return this.service.unfollowVendor(req.user.id, vendorId);
     }
 
@@ -31,7 +31,7 @@ export class VendorFollowersController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.CUSTOMER, UserRole.VENDOR, UserRole.WHOLESALER)
     @Get(':vendorId/status')
-    async getStatus(@Request() req, @Param('vendorId') vendorId: string) {
+    async getStatus(@Request() req: any, @Param('vendorId') vendorId: string) {
         return this.service.isFollowing(req.user.id, vendorId);
     }
 }

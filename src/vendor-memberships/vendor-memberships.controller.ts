@@ -37,7 +37,7 @@ export class VendorMembershipsController {
     })
     @ApiResponse({ status: 400, description: 'Bad request - already subscribed or insufficient balance' })
     @Idempotent({ required: true, ttlSeconds: 600 })
-    async subscribe(@Req() req, @Body() dto: SubscribeMembershipDto): Promise<CurrentMembershipResponseDto> {
+    async subscribe(@Req() req: any, @Body() dto: SubscribeMembershipDto): Promise<CurrentMembershipResponseDto> {
         const vendorId = req.user.id;
         return this.membershipService.subscribe(vendorId, dto);
     }
@@ -51,7 +51,7 @@ export class VendorMembershipsController {
     })
     @ApiResponse({ status: 400, description: 'Bad request - cannot downgrade or no active membership' })
     @Idempotent({ required: true, ttlSeconds: 600 })
-    async upgrade(@Req() req, @Body() dto: UpgradeMembershipDto): Promise<CurrentMembershipResponseDto> {
+    async upgrade(@Req() req: any, @Body() dto: UpgradeMembershipDto): Promise<CurrentMembershipResponseDto> {
         const vendorId = req.user.id;
         return this.membershipService.upgrade(vendorId, dto);
     }
@@ -64,7 +64,7 @@ export class VendorMembershipsController {
         type: CurrentMembershipResponseDto,
     })
     @ApiResponse({ status: 404, description: 'No active membership found' })
-    async getCurrentMembership(@Req() req): Promise<CurrentMembershipResponseDto> {
+    async getCurrentMembership(@Req() req: any): Promise<CurrentMembershipResponseDto> {
         const vendorId = req.user.id;
         return this.membershipService.getCurrentMembership(vendorId);
     }
@@ -82,7 +82,7 @@ export class VendorMembershipsController {
         },
     })
     @ApiResponse({ status: 404, description: 'No active membership found' })
-    async cancelAutoRenewal(@Req() req): Promise<{ message: string; endDate: Date }> {
+    async cancelAutoRenewal(@Req() req: any): Promise<{ message: string; endDate: Date }> {
         const vendorId = req.user.id;
         return this.membershipService.cancelAutoRenewal(vendorId);
     }
@@ -99,7 +99,7 @@ export class VendorMembershipsController {
             },
         },
     })
-    async cancel(@Req() req): Promise<{ message: string; endDate: Date }> {
+    async cancel(@Req() req: any): Promise<{ message: string; endDate: Date }> {
         const vendorId = req.user.id;
         return this.membershipService.cancelAutoRenewal(vendorId);
     }

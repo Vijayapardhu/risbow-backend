@@ -5,6 +5,7 @@ import {
     Logger,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { Prisma, PrismaClient, BannerSlot, PaymentIntentPurpose, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
     CreateBannerDto,
@@ -19,8 +20,6 @@ import { CacheService } from '../shared/cache.service';
 import { QueuesService } from '../queues/queues.service';
 import { PaymentsService } from '../payments/payments.service';
 import { CoinValuationService } from '../coins/coin-valuation.service';
-import { UserRole } from '@prisma/client';
-import { PaymentIntentPurpose } from '@prisma/client';
 
 @Injectable()
 export class BannersService {
@@ -315,11 +314,12 @@ export class BannersService {
                     title: `Banner for ${dto.slotType}`,
                     imageUrl: '', // Will be uploaded later
                     redirectUrl: null,
+                    slot: BannerSlot.HOME_TOP,
                     slotType: dto.slotType,
                     startDate,
                     endDate,
                     isActive: false, // Inactive until admin approves and payment confirmed
-                    metadata: metadata as any,
+                    metadata: metadata as Prisma.InputJsonValue,
                 },
             });
 
@@ -346,10 +346,10 @@ export class BannersService {
                     where: { id: banner.id },
                     data: {
                         metadata: {
-                            ...(metadata as any),
+                            ...metadata,
                             paymentIntentId: payment.intentId,
                             providerOrderId: payment.orderId,
-                        } as any,
+                        } as Prisma.InputJsonValue,
                     },
                 });
 

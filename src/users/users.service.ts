@@ -36,6 +36,9 @@ export class UsersService {
 
     async claimReferral(userId: string, refCode: string) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            throw new BadRequestException('User not found');
+        }
         if (user.referredBy) {
             throw new BadRequestException('Already referred by someone');
         }

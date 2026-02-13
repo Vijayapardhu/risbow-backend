@@ -51,7 +51,7 @@ export class VendorNotificationsController {
     description: 'Filter by notification type',
   })
   @ApiQuery({ name: 'isRead', required: false, type: Boolean, description: 'Filter by read status' })
-  async findAll(@Request() req, @Query() query: VendorNotificationQueryDto) {
+  async findAll(@Request() req: any, @Query() query: VendorNotificationQueryDto) {
     return this.vendorNotificationsService.findAll(req.user.id, query);
   }
 
@@ -62,7 +62,7 @@ export class VendorNotificationsController {
     description: 'Unread notification count',
     type: UnreadCountResponseDto,
   })
-  async getUnreadCount(@Request() req) {
+  async getUnreadCount(@Request() req: any) {
     return this.vendorNotificationsService.getUnreadCount(req.user.id);
   }
 
@@ -76,7 +76,7 @@ export class VendorNotificationsController {
   })
   @ApiResponse({ status: 403, description: 'Notification does not belong to vendor' })
   @ApiResponse({ status: 404, description: 'Notification not found' })
-  async markAsRead(@Request() req, @Param('id') id: string) {
+  async markAsRead(@Request() req: any, @Param('id') id: string) {
     return this.vendorNotificationsService.markAsRead(req.user.id, id);
   }
 
@@ -87,7 +87,7 @@ export class VendorNotificationsController {
     description: 'All notifications marked as read',
     type: MarkReadResponseDto,
   })
-  async markAllAsRead(@Request() req) {
+  async markAllAsRead(@Request() req: any) {
     return this.vendorNotificationsService.markAllAsRead(req.user.id);
   }
 
@@ -97,7 +97,7 @@ export class VendorNotificationsController {
   @ApiResponse({ status: 200, description: 'Notification deleted' })
   @ApiResponse({ status: 403, description: 'Notification does not belong to vendor' })
   @ApiResponse({ status: 404, description: 'Notification not found' })
-  async delete(@Request() req, @Param('id') id: string) {
+  async delete(@Request() req: any, @Param('id') id: string) {
     return this.vendorNotificationsService.delete(req.user.id, id);
   }
 }

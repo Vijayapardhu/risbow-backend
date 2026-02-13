@@ -325,7 +325,7 @@ export class CheckoutService {
                     const couponUpdateResult = await tx.coupon.updateMany({
                         where: {
                             id: coupon.id,
-                            OR: [{ usageLimit: null }, { usedCount: { lt: coupon.usageLimit } }],
+                            OR: [{ usageLimit: null }, { usedCount: { lt: coupon.usageLimit ?? undefined } }],
                         },
                         data: { usedCount: { increment: 1 } },
                     });

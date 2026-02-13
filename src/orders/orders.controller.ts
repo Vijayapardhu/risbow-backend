@@ -39,7 +39,7 @@ export class OrdersController {
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Get current user\'s orders' })
     async getMyOrders(
-        @Request() req,
+        @Request() req: any,
         @Query('page') page: string,
         @Query('limit') limit: string
     ) {
@@ -53,14 +53,14 @@ export class OrdersController {
     @Get(':id')
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Get order details by ID' })
-    async getOrderDetails(@Request() req, @Param('id') orderId: string) {
+    async getOrderDetails(@Request() req: any, @Param('id') orderId: string) {
         return this.ordersService.getOrderDetails(req.user.id, orderId);
     }
 
     @Post('checkout')
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Complete checkout (Create Order)' })
-    async checkout(@Request() req, @Body() dto: CheckoutDto) {
+    async checkout(@Request() req: any, @Body() dto: CheckoutDto) {
         return this.ordersService.createCheckout(req.user.id, dto);
     }
 
@@ -79,7 +79,7 @@ export class OrdersController {
     async addGift(
         @Param('id') orderId: string,
         @Body('giftId') giftId: string,
-        @Request() req
+        @Request() req: any
     ) {
         return this.ordersService.addGiftToOrder(orderId, req.user.id, giftId);
     }
@@ -88,14 +88,14 @@ export class OrdersController {
     @Post('create')
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Create direct order (e.g. COD)' })
-    async createOrder(@Request() req, @Body() orderData: any) {
+    async createOrder(@Request() req: any, @Body() orderData: any) {
         return this.ordersService.createOrder(req.user.id, orderData);
     }
 
     @Post(':id/cancel')
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Cancel my order (customer)' })
-    async cancel(@Request() req, @Param('id') orderId: string) {
+    async cancel(@Request() req: any, @Param('id') orderId: string) {
         return this.ordersService.cancelOrder(req.user.id, orderId);
     }
 
@@ -121,7 +121,7 @@ export class OrdersController {
         }
     })
     async updateStatus(
-        @Request() req,
+        @Request() req: any,
         @Param('id') id: string,
         @Body('status') status: any,
         @Body('notes') notes?: string,
@@ -132,14 +132,14 @@ export class OrdersController {
     @Get(':id/tracking')
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Get order tracking info (awb/courier)' })
-    async tracking(@Request() req, @Param('id') orderId: string) {
+    async tracking(@Request() req: any, @Param('id') orderId: string) {
         return this.ordersService.getTracking(req.user.id, orderId);
     }
 
     @Get(':id/packing-video')
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Get signed packing video URL (customer)'})
-    async getPackingVideo(@Request() req, @Param('id') orderId: string) {
+    async getPackingVideo(@Request() req: any, @Param('id') orderId: string) {
         return this.packingProof.getSignedVideoUrlForCustomer({ userId: req.user.id, orderId });
     }
 }

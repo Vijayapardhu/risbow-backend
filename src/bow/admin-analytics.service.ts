@@ -20,7 +20,7 @@ export class AdminAnalyticsService {
         });
 
         // Group by category if available
-        const categoryGaps = {};
+        const categoryGaps: Record<string, number> = {};
         misses.forEach(m => {
             const cat = (m.metadata as any)?.inferredCategoryName || 'Unknown';
             if (!categoryGaps[cat]) categoryGaps[cat] = 0;

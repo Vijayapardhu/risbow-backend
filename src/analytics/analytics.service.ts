@@ -50,7 +50,7 @@ export class AnalyticsService {
         });
 
         // specific aggregation logic
-        const grouped = orders.reduce((acc, order) => {
+        const grouped = orders.reduce((acc: Record<string, number>, order) => {
             const date = order.createdAt.toISOString().split('T')[0];
             acc[date] = (acc[date] || 0) + order.totalAmount;
             return acc;
@@ -165,7 +165,7 @@ export class AnalyticsService {
         };
 
         // Channel cost estimates (in paise)
-        const CHANNEL_COSTS = {
+        const CHANNEL_COSTS: Record<string, number> = {
             PUSH: 0, // Free
             WHATSAPP: 5, // ₹0.05 per message
             TELECALLER: 200, // ₹2 per call (agent time)

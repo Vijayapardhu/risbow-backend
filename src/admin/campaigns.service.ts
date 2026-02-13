@@ -216,7 +216,7 @@ export class CampaignsService {
     }
 
     // Validate discount value for percentage type
-    if (dto.discountType === DiscountType.PERCENTAGE && dto.discountValue > 100) {
+    if (dto.discountType === DiscountType.PERCENTAGE && dto.discountValue && dto.discountValue > 100) {
       throw new BadRequestException('Percentage discount cannot exceed 100');
     }
 

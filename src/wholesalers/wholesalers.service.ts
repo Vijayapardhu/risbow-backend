@@ -209,19 +209,20 @@ export class WholesalersService {
                 }
 
                 validProducts.push({
+                    id: randomUUID(),
                     vendorId: wholesalerId,
                     title: row.title,
                     description: row.description || '',
-                    price: price * 100, // Convert to paise
+                    price: price * 100,
                     offerPrice: row.offerPrice ? parseInt(row.offerPrice, 10) * 100 : price * 100,
                     wholesalePrice: wholesalePrice * 100,
                     stock: stock,
                     moq: moq,
                     isWholesale: true,
-                    categoryId: row.categoryId || '', // Should be validated
+                    categoryId: row.categoryId || '',
                     sku: row.sku || `WH-${Date.now()}-${i}`,
                     brandName: row.brandName || vendor.name,
-                    isActive: false, // Require approval
+                    isActive: false,
                     images: [],
                     tags: ['WHOLESALE'],
                 });

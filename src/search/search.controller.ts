@@ -50,7 +50,7 @@ export class SearchController {
   @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Search products with filters and intent detection' })
   @ApiResponse({ status: 200, description: 'Search results with metadata' })
-  async search(@Query() query: SearchQueryDto, @Request() req) {
+  async search(@Query() query: SearchQueryDto, @Request() req: any) {
     const region = this.computeRegion(query as any);
     return this.searchService.searchProducts(query, req.user?.id, region);
   }
@@ -70,7 +70,7 @@ export class SearchController {
   @Get('suggest/products')
   @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get product suggestions for search dropdown' })
-  async suggestProducts(@Query() query: AutocompleteDto, @Request() req) {
+  async suggestProducts(@Query() query: AutocompleteDto, @Request() req: any) {
     const region = this.computeRegion(query as any);
     const location =
       typeof query.lat === 'number' && typeof query.lng === 'number'

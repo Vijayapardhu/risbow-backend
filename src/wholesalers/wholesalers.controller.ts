@@ -24,7 +24,7 @@ export class WholesalersController {
     @Get('dashboard')
     @Roles(UserRole.WHOLESALER, UserRole.ADMIN)
     @ApiOperation({ summary: 'Get wholesaler dashboard stats' })
-    async getDashboard(@Request() req) {
+    async getDashboard(@Request() req: any) {
         return this.wholesalersService.getWholesalerDashboard(req.user.vendorId || req.user.id);
     }
 
@@ -33,7 +33,7 @@ export class WholesalersController {
     @UseInterceptors(FileInterceptor('file'))
     @ApiOperation({ summary: 'Bulk upload wholesale products via CSV' })
     async bulkUploadProducts(
-        @Request() req,
+        @Request() req: any,
         @UploadedFile() file: Express.Multer.File,
     ) {
         if (!file) {
@@ -49,7 +49,7 @@ export class WholesalersController {
     @Roles(UserRole.WHOLESALER)
     @ApiOperation({ summary: 'Set MOQ for a wholesale product' })
     async setMOQ(
-        @Request() req,
+        @Request() req: any,
         @Param('productId') productId: string,
         @Body('moq', ParseIntPipe) moq: number,
     ) {
@@ -64,7 +64,7 @@ export class WholesalersController {
     @Roles(UserRole.WHOLESALER)
     @ApiOperation({ summary: 'Set wholesale pricing tiers for a product' })
     async setPricingTiers(
-        @Request() req,
+        @Request() req: any,
         @Param('productId') productId: string,
         @Body('tiers') tiers: Array<{ minQty: number; pricePerUnit: number }>,
     ) {
@@ -78,28 +78,28 @@ export class WholesalersController {
     @Get('inquiries')
     @Roles(UserRole.WHOLESALER)
     @ApiOperation({ summary: 'Get vendor inquiries for wholesaler products' })
-    async getInquiries(@Request() req) {
+    async getInquiries(@Request() req: any) {
         return this.wholesalersService.getVendorInquiries(req.user.vendorId || req.user.id);
     }
 
     @Post('inquiries')
     @Roles(UserRole.VENDOR)
     @ApiOperation({ summary: 'Create an inquiry to a wholesaler product (Vendor buyer)' })
-    async createInquiry(@Request() req, @Body() dto: CreateInquiryDto) {
+    async createInquiry(@Request() req: any, @Body() dto: CreateInquiryDto) {
         return this.wholesalersService.createInquiry(req.user.id, dto);
     }
 
     @Get('inquiries/me')
     @Roles(UserRole.VENDOR)
     @ApiOperation({ summary: 'Get my inquiries (Vendor buyer)' })
-    async getMyInquiries(@Request() req) {
+    async getMyInquiries(@Request() req: any) {
         return this.wholesalersService.getMyInquiries(req.user.id);
     }
 
     @Post('inquiries/:id/respond')
     @Roles(UserRole.WHOLESALER)
     @ApiOperation({ summary: 'Respond to an inquiry (Wholesaler)' })
-    async respondInquiry(@Request() req, @Param('id') inquiryId: string, @Body() dto: RespondInquiryDto) {
+    async respondInquiry(@Request() req: any, @Param('id') inquiryId: string, @Body() dto: RespondInquiryDto) {
         const wholesalerVendorId = req.user.vendorId || req.user.id;
         return this.wholesalersService.respondToInquiry(wholesalerVendorId, inquiryId, dto);
     }
@@ -107,14 +107,14 @@ export class WholesalersController {
     @Post('inquiries/:id/accept')
     @Roles(UserRole.VENDOR)
     @ApiOperation({ summary: 'Accept a wholesaler\'s response to inquiry (Vendor buyer)' })
-    async acceptInquiry(@Request() req, @Param('id') inquiryId: string) {
+    async acceptInquiry(@Request() req: any, @Param('id') inquiryId: string) {
         return this.wholesalersService.acceptInquiry(req.user.id, inquiryId);
     }
 
     @Post('inquiries/:id/reject')
     @Roles(UserRole.VENDOR)
     @ApiOperation({ summary: 'Reject a wholesaler\'s response to inquiry (Vendor buyer)' })
-    async rejectInquiry(@Request() req, @Param('id') inquiryId: string) {
+    async rejectInquiry(@Request() req: any, @Param('id') inquiryId: string) {
         return this.wholesalersService.rejectInquiry(req.user.id, inquiryId);
     }
 
@@ -122,7 +122,7 @@ export class WholesalersController {
     @Roles(UserRole.WHOLESALER, UserRole.ADMIN)
     @ApiOperation({ summary: 'Get wholesaler analytics' })
     async getAnalytics(
-        @Request() req,
+        @Request() req: any,
         @Body('period') period?: '7d' | '30d' | '90d',
     ) {
         return this.wholesalersService.getWholesalerAnalytics(

@@ -365,7 +365,7 @@ export class RecommendationStrategyService {
       take: 3
     });
 
-    return products.map(p => ({
+    return products.map((p: any) => ({
       id: p.id,
       title: p.title,
       price: p.offerPrice || p.price,
@@ -397,7 +397,7 @@ export class RecommendationStrategyService {
       take: limit
     });
 
-    return products.map(p => ({
+    return products.map((p: any) => ({
       id: p.id,
       title: p.title,
       price: p.offerPrice || p.price,
@@ -466,14 +466,14 @@ export class RecommendationStrategyService {
 
     // Filter products with high average rating
     return products
-      .filter(p => {
+      .filter((p: any) => {
         const avgRating = p.reviews.length > 0
-          ? p.reviews.reduce((sum, r) => sum + r.rating, 0) / p.reviews.length
+          ? p.reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / p.reviews.length
           : 0;
         return avgRating >= 4.2;
       })
       .slice(0, limit)
-      .map(p => ({
+      .map((p: any) => ({
         id: p.id,
         title: p.title,
         price: p.offerPrice || p.price,

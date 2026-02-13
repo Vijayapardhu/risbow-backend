@@ -25,7 +25,7 @@ export class VendorOrdersController {
     @ApiQuery({ name: 'limit', required: false })
     @ApiQuery({ name: 'status', required: false })
     async getOrders(
-        @Request() req,
+        @Request() req: any,
         @Query('page') page: number = 1,
         @Query('limit') limit: number = 10,
         @Query('status') status?: string
@@ -54,7 +54,7 @@ export class VendorOrdersController {
     @Get(':id')
     @Roles(UserRole.VENDOR)
     @ApiOperation({ summary: 'Get order details' })
-    async getOrderDetails(@Request() req, @Param('id') orderId: string) {
+    async getOrderDetails(@Request() req: any, @Param('id') orderId: string) {
         return this.vendorOrdersService.getVendorOrderDetails(req.user.vendorId, orderId);
     }
 
@@ -62,7 +62,7 @@ export class VendorOrdersController {
     @Roles(UserRole.VENDOR)
     @ApiOperation({ summary: 'Update order status (Packed/Shipped)' })
     async updateStatus(
-        @Request() req,
+        @Request() req: any,
         @Param('id') orderId: string,
         @Body('status') status: string
     ) {
@@ -73,7 +73,7 @@ export class VendorOrdersController {
     @Roles(UserRole.VENDOR)
     @ApiOperation({ summary: 'Upload packing video proof (required before PACKED)' })
     @UseInterceptors(FileInterceptor('file'))
-    async uploadPackingVideo(@Request() req, @Param('id') orderId: string, @UploadedFile() file: Express.Multer.File) {
+    async uploadPackingVideo(@Request() req: any, @Param('id') orderId: string, @UploadedFile() file: Express.Multer.File) {
         if (!file) throw new BadRequestException('No file uploaded');
         // Ensure vendor actually owns items in this order (reuse existing details check)
         await this.vendorOrdersService.getVendorOrderDetails(req.user.vendorId, orderId);
@@ -83,5 +83,12 @@ export class VendorOrdersController {
             orderId,
             file,
         });
+    }
+
+    @Get(':id/label')
+    @Roles(UserRole.VENDOR)
+    @ApiOperation({ summary: 'Generate shipping label for order' })
+    async generateShippingLabel(@Request() req: any, @Param('id') orderId: string) {
+        return this.vendorOrdersService.generateShippingLabel(req.user.vendorId, orderId);
     }
 }

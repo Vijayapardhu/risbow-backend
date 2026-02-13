@@ -583,7 +583,7 @@ export class ContentModerationService {
       case ContentFlagType.BANNER:
         await this.prisma.bannerCampaign.update({
           where: { id: contentId },
-          data: { status: 'CANCELLED' },
+          data: { status: 'REJECTED' },
         });
         break;
     }

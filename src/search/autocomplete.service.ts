@@ -104,7 +104,7 @@ export class AutocompleteService {
         text: p.title,
         type: 'product' as const,
         category: p.Category?.name,
-        brand: p.brandName,
+        brand: p.brandName ?? undefined,
         priority: 100, // High priority for direct product matches
       }));
     } catch (error) {
