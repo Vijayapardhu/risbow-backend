@@ -9,33 +9,20 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
     constructor(configService?: ConfigService) {
         // Read environment variables BEFORE calling super() (can't use 'this' before super)
-        // Use Supabase PostgreSQL - DATABASE_URL must be set directly
-        const databaseUrl = process.env.DATABASE_URL;
+        let databaseUrl = process.env.DATABASE_URL;
 
-        // Validate database URL is set
-        if (!databaseUrl) {
-            const errorMessage = [
-                '❌ Supabase database connection is not configured!',
-                '',
-                'DATABASE_URL is required. Please set your Supabase PostgreSQL connection string.',
-                '',
-                'Get your connection string from:',
-                '  1. Go to https://supabase.com/dashboard',
-                '  2. Select your project',
-                '  3. Go to Settings → Database',
-                '  4. Copy Connection string → URI (Pooler)',
-                '',
-                'Example Supabase DATABASE_URL:',
-                '  postgresql://postgres.rxticediycnboewmsfmi:[PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require',
-                '',
-                'Also set DIRECT_URL for migrations (port 5432):',
-                '  DIRECT_URL=postgresql://postgres.rxticediycnboewmsfmi:[PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require',
-                '',
-                'Note: Replace [PASSWORD] with your actual Supabase database password.',
-            ].join('\n');
-            
-            console.error(errorMessage);
-            throw new Error('DATABASE_URL is required. Please configure Supabase database connection in environment variables.');
+        if (databaseUrl && databaseUrl.includes('supabase.com')) {
+            // Ensure pool configuration is present for Supabase
+            if (!databaseUrl.includes('connection_limit=')) {
+                const separator = databaseUrl.includes('?') ? '&' : '?';
+                databaseUrl += `${separator}connection_limit=20`;
+            }
+            if (!databaseUrl.includes('pool_timeout=')) {
+                databaseUrl += '&pool_timeout=30';
+            }
+            if (!databaseUrl.includes('pgbouncer=true') && databaseUrl.includes(':6543')) {
+                databaseUrl += '&pgbouncer=true';
+            }
         }
 
         // Call super() first - must be before accessing 'this'
@@ -91,12 +78,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
                 this.logger.error(
                     `❌ Database connection attempt ${attempt}/${maxRetries} failed: ${error.message}`
                 );
-                
+
                 if (attempt === maxRetries) {
                     this.logger.error('❌ All database connection attempts failed');
                     throw error;
                 }
-                
+
                 this.logger.log(`⏳ Retrying in ${delayMs}ms...`);
                 await new Promise(resolve => setTimeout(resolve, delayMs));
                 // Exponential backoff

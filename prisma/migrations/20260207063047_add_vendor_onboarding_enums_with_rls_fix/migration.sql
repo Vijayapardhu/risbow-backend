@@ -5,8 +5,17 @@ DROP POLICY IF EXISTS "customers_read_active_vendors" ON "Vendor";
 DROP POLICY IF EXISTS "retailers_read_wholesalers" ON "Vendor";
 
 -- CreateEnum for new types
-CREATE TYPE "KycStatus" AS ENUM ('PENDING', 'PENDING_PAYMENT', 'VERIFIED', 'REJECTED');
-CREATE TYPE "DocumentStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+DO $$ BEGIN
+    CREATE TYPE "KycStatus" AS ENUM ('PENDING', 'PENDING_PAYMENT', 'VERIFIED', 'REJECTED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE "DocumentStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Add failure tracking columns to VendorRegistrationPayment
 ALTER TABLE "VendorRegistrationPayment" ADD COLUMN IF NOT EXISTS "failureReason" TEXT;

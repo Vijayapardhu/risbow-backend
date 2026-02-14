@@ -35,6 +35,8 @@ async function bootstrap() {
                 'https://www.risbow.com',
                 'https://admin.risbow.com',
                 'https://vendor.risbow.com',
+                'http://10.223.45.43',
+                'http://10.223.45.43:3000',
                 process.env.FRONTEND_URL,
                 process.env.ADMIN_URL,
                 process.env.VENDOR_URL,

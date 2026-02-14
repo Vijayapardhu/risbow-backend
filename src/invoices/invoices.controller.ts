@@ -152,11 +152,70 @@ export class InvoicesController {
             'Content-Disposition': `attachment; filename="invoice-${orderId.substring(0, 8)}.pdf"`,
             'Content-Length': pdfBuffer.length
         });
-        
+         
         res.send(pdfBuffer);
     }
 
     // ============= ADMIN ENDPOINTS =============
+
+    @Get('admin/invoices/:orderId/download')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Download invoice PDF for admin' })
+    @ApiResponse({ status: 200, description: 'Returns PDF invoice for download' })
+    async downloadAdminInvoice(
+        @Param('orderId') orderId: string,
+        @Request() req: any,
+        @Res() res: Response
+    ) {
+        // Additional security: verify the admin has permission
+        const adminId = req.user?.id;
+        const adminRole = req.user?.role;
+        
+        if (!adminId || (adminRole !== 'ADMIN' && adminRole !== 'SUPER_ADMIN')) {
+            res.status(403).json({ error: 'Unauthorized access' });
+            return;
+        }
+
+        // Validate orderId format to prevent injection
+        if (!orderId || orderId.includes(' ') || orderId.length < 3) {
+            res.status(400).json({ error: 'Invalid order ID' });
+            return;
+        }
+
+        // Generate secure filename with invoice number
+        let filename = `Invoice-${orderId.substring(0, 8)}`;
+        
+        try {
+            const { pdfBuffer, invoiceNumber } = await this.invoicesService.generateInvoiceSecure(orderId);
+            
+            if (invoiceNumber) {
+                filename = `Invoice-${invoiceNumber}`;
+            }
+            
+            res.set({
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': `attachment; filename="${filename}.pdf"`,
+                'Content-Length': pdfBuffer.length,
+                'X-Content-Type-Options': 'nosniff',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            });
+            
+            res.send(pdfBuffer);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            if (errorMessage.includes('not found')) {
+                res.status(404).json({ error: 'Order not found' });
+            } else if (errorMessage.includes('only be generated')) {
+                res.status(400).json({ error: errorMessage });
+            } else {
+                res.status(500).json({ error: 'Failed to generate invoice' });
+            }
+        }
+    }
 
     @Get('admin/templates')
     @UseGuards(JwtAuthGuard, RolesGuard)

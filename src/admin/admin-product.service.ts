@@ -25,28 +25,35 @@ export class AdminProductService {
         const skip = (pageNum - 1) * limitNum;
 
         // Build where clause
-        const where: any = {};
+        const where: any = { deletedAt: null };
         if (search) {
             where.OR = [
                 { title: { contains: search, mode: 'insensitive' } },
                 { id: { contains: search } },
             ];
         }
-        
+
         // Add status filter
         if (status) {
-            if (status === 'ACTIVE') {
+            const upperStatus = status.toUpperCase();
+            if (upperStatus === 'ACTIVE') {
                 where.isActive = true;
-            } else if (status === 'INACTIVE') {
+                where.visibility = 'PUBLISHED';
+            } else if (upperStatus === 'INACTIVE') {
                 where.isActive = false;
+                where.visibility = 'PUBLISHED';
+            } else if (upperStatus === 'PENDING') {
+                where.visibility = 'DRAFT';
+            } else if (upperStatus === 'REJECTED') {
+                where.visibility = 'BLOCKED';
             }
         }
-        
+
         // Add category filter
         if (categoryId) {
             where.categoryId = categoryId;
         }
-        
+
         // Add vendor filter
         if (vendorId) {
             where.vendorId = vendorId;
@@ -86,29 +93,36 @@ export class AdminProductService {
             const totalActive = await this.prisma.product.count({ where: { isActive: true } });
 
             const transformedProducts = products.map(product => {
-                const reviews = Array.isArray((product as any).reviews) ? (product as any).reviews : [];
-                const images = Array.isArray((product as any).images) ? (product as any).images : [];
-                const vendor = (product as any).vendor || null;
+                // Handle both Prisma relation names (capitalized) and plain objects
+                const reviews = Array.isArray((product as any).Review) ? (product as any).Review :
+                    Array.isArray((product as any).reviews) ? (product as any).reviews : [];
+                const images = Array.isArray((product as any).images) ? (product as any).images :
+                    (product as any).mediaGallery?.map((m: any) => m.url) || [];
+                const vendor = (product as any).Vendor || (product as any).vendor || null;
+                const category = (product as any).Category || (product as any).category || null;
 
                 const avgRating = reviews.length > 0
-                    ? reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / reviews.length
+                    ? reviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / reviews.length
                     : 0;
 
-                const basePrice = (product as any).price ?? 0; // paise
+                const basePrice = (product as any).price ?? 0;
+                const offerPrice = (product as any).offerPrice ?? (product as any).sellingPrice ?? basePrice;
                 const baseGstAmount = Math.round((Number(basePrice) * 18) / 100);
                 const basePriceWithGST = Number(basePrice) + baseGstAmount;
-                const offerPriceWithGST = (product as any).offerPrice != null
-                    ? (Number((product as any).offerPrice) + Math.round((Number((product as any).offerPrice) * 18) / 100))
+                const offerPriceWithGST = offerPrice != null
+                    ? (Number(offerPrice) + Math.round((Number(offerPrice) * 18) / 100))
                     : null;
 
                 return {
                     id: product.id,
                     title: (product as any).title,
+                    name: (product as any).title, // Alias for frontend compatibility
                     description: (product as any).description,
                     image: images[0] || null,
+                    thumbnail: images[0] || null,
                     images,
-                    category: (product as any).category || 'Uncategorized',
-                    categoryId: (product as any).categoryId || null,
+                    category: category?.name || 'Uncategorized',
+                    categoryId: category?.id || (product as any).categoryId || null,
                     vendorCount: 1,
                     recommendedVendor: vendor ? {
                         id: vendor.id,
@@ -116,29 +130,6 @@ export class AdminProductService {
                         email: vendor.email,
                         reason: 'Primary vendor',
                     } : null,
-                    lowestPrice: offerPriceWithGST || basePriceWithGST,
-                    highestPrice: basePriceWithGST,
-                    price: basePrice, // Add original price field
-                    basePrice: basePrice,
-                    gstAmount: baseGstAmount,
-                    gstPercentage: 18,
-                    priceVariance: 0,
-                    priceAnomaly: false,
-                    stock: (product as any).stock ?? 0, // Add original stock field
-                    totalStock: (product as any).stock ?? 0,
-                    stockRisk: ((product as any).stock ?? 0) < 10,
-                    views: 0,
-                    cartRate: 0,
-                    conversion: 0,
-                    rating: Math.round(avgRating * 10) / 10,
-                    reviewCount: reviews.length,
-                    returnRate: 0,
-                    revenue: 0,
-                    commission: 0,
-                    isActive: (product as any).isActive ?? false, // Add isActive field
-                    status: (product as any).isActive ? 'active' : 'inactive',
-                    sku: (product as any).sku,
-                    vendorId: (product as any).vendorId,
                     vendor: vendor ? {
                         id: vendor.id,
                         name: vendor.name,
@@ -146,34 +137,67 @@ export class AdminProductService {
                         mobile: vendor.mobile,
                         role: vendor.role,
                         kycStatus: vendor.kycStatus,
+                        storeName: vendor.storeName,
                     } : null,
+                    lowestPrice: offerPriceWithGST || basePriceWithGST,
+                    highestPrice: basePriceWithGST,
+                    price: basePrice,
+                    basePrice: basePrice,
+                    sellingPrice: offerPrice, // Alias for frontend
+                    mrp: (product as any).mrp || basePrice,
+                    offerPrice: offerPrice,
+                    gstAmount: baseGstAmount,
+                    gstPercentage: 18,
+                    priceVariance: 0,
+                    priceAnomaly: false,
+                    stock: (product as any).stock ?? 0,
+                    totalStock: (product as any).stock ?? 0,
+                    stockRisk: ((product as any).stock ?? 0) < 10,
+                    soldCount: (product as any).salesCount || (product as any).viewCount || 0,
+                    views: (product as any).viewCount || 0,
+                    cartRate: 0,
+                    conversion: 0,
+                    rating: Math.round(avgRating * 10) / 10,
+                    reviewCount: reviews.length,
+                    returnRate: 0,
+                    revenue: 0,
+                    commission: 0,
+                    isActive: (product as any).isActive ?? false,
+                    status: (product as any).visibility === 'PUBLISHED'
+                        ? ((product as any).isActive ? 'ACTIVE' : 'INACTIVE')
+                        : ((product as any).visibility === 'BLOCKED' ? 'REJECTED' : 'PENDING'),
+                    sku: (product as any).sku,
+                    vendorId: vendor?.id || (product as any).vendorId || null,
                     createdAt: (product as any).createdAt,
                     updatedAt: (product as any).updatedAt,
                 };
             });
 
             return {
-                insights: {
-                    total: await this.prisma.product.count(),
-                    active: await this.prisma.product.count({ where: { isActive: true, stock: { gt: 0 } } }),
-                    inactive: await this.prisma.product.count({ where: { isActive: false } }),
-                    outOfStock: await this.prisma.product.count({ where: { stock: { lte: 0 } } }),
-                    lowStock: await this.prisma.product.count({ where: { stock: { gt: 0, lte: 10 } } }),
+                stats: {
+                    total: await this.prisma.product.count({ where: { deletedAt: null } }),
+                    active: await this.prisma.product.count({ where: { isActive: true, visibility: 'PUBLISHED', deletedAt: null } }),
+                    inactive: await this.prisma.product.count({ where: { isActive: false, visibility: 'PUBLISHED', deletedAt: null } }),
+                    pending: await this.prisma.product.count({ where: { visibility: 'DRAFT', deletedAt: null } }),
+                    rejected: await this.prisma.product.count({ where: { visibility: 'BLOCKED', deletedAt: null } }),
+                    outOfStock: await this.prisma.product.count({ where: { stock: { lte: 0 }, deletedAt: null } }),
+                    lowStock: await this.prisma.product.count({ where: { stock: { gt: 0, lte: 10 }, deletedAt: null } }),
                 },
-                products: transformedProducts,
-                pagination: {
+                data: transformedProducts,
+                meta: {
                     page: pageNum,
                     limit: limitNum,
                     total: await this.prisma.product.count({ where }),
+                    totalPages: Math.ceil(await this.prisma.product.count({ where }) / limitNum),
                 },
             };
         } catch (error) {
             console.error('Error in getProductList:', error);
-            // Return minimal safe response instead of 500
+            // Return minimal safe response matching PaginatedResponse
             return {
-                insights: { total: 0, active: 0, inactive: 0, outOfStock: 0, lowStock: 0 },
-                products: [],
-                pagination: { page: pageNum, limit: limitNum, total: 0 },
+                stats: { total: 0, active: 0, inactive: 0, outOfStock: 0, lowStock: 0 },
+                data: [],
+                meta: { page: pageNum, limit: limitNum, total: 0, totalPages: 0 },
             };
         }
     }
@@ -199,7 +223,8 @@ export class AdminProductService {
                     include: {
                         CategorySpec: true
                     }
-                }
+                },
+                ProductVariant: true
             },
         });
 

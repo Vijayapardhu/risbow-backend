@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { AdminDashboardController } from './admin-dashboard.controller';
@@ -29,6 +29,11 @@ import { AdminRecoveryController } from './admin-recovery.controller';
 import { QueuesProviderModule } from '../queues/queues-provider.module';
 import { AdminCampaignsController } from './admin-campaigns.controller';
 import { CampaignsService } from './campaigns.service';
+import { AdminOrdersController } from './admin-orders.controller';
+import { AdminOrdersAliasController } from './admin-orders-alias.controller';
+import { DriversModule } from '../drivers/drivers.module';
+import { VendorOrdersModule } from '../vendor-orders/vendor-orders.module';
+
 
 // New Admin Modules (Opus 4.5 Implementation)
 import { AdminAuthModule } from './auth/admin-auth.module';
@@ -39,6 +44,7 @@ import { BowCoinModule } from './coins/bow-coin.module';
 import { BannerCampaignModule } from './banners/banner-campaign.module';
 import { ContentModerationModule } from './moderation/content-moderation.module';
 import { ReportingModule } from './reports/reporting.module';
+import { SupportTicketModule } from './support-tickets/support-ticket.module';
 
 /**
  * Main Admin Module
@@ -62,11 +68,13 @@ import { ReportingModule } from './reports/reporting.module';
     imports: [
         // Core modules
         PrismaModule,
-        VendorsModule,
-        BowModule,
-        CoinsModule,
-        OrdersModule,
-        TelecallerModule,
+        forwardRef(() => VendorsModule),
+        forwardRef(() => BowModule),
+        forwardRef(() => CoinsModule),
+        forwardRef(() => OrdersModule),
+        forwardRef(() => TelecallerModule),
+        forwardRef(() => DriversModule),
+        forwardRef(() => VendorOrdersModule),
         QueuesProviderModule.forRoot(),
 
         // New Admin Security & Business Logic Modules
@@ -78,6 +86,7 @@ import { ReportingModule } from './reports/reporting.module';
         BannerCampaignModule,
         ContentModerationModule,
         ReportingModule,
+        SupportTicketModule,
     ],
     controllers: [
         AdminController,
@@ -96,6 +105,8 @@ import { ReportingModule } from './reports/reporting.module';
         AdminCampaignsController,
         AdminVendorsController,
         AdminUploadsController,
+        AdminOrdersController,
+        AdminOrdersAliasController,
     ],
     providers: [
         AdminService,
@@ -118,4 +129,4 @@ import { ReportingModule } from './reports/reporting.module';
         ReportingModule,
     ],
 })
-export class AdminModule {}
+export class AdminModule { }

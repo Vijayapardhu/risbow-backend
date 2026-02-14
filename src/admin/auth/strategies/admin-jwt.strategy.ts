@@ -27,11 +27,15 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
     private configService: ConfigService,
     private prisma: PrismaService,
   ) {
-    super({
+    const secret = configService.get<string>('JWT_SECRET');
+
+    const jwtOptions = {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get('JWT_SECRET'),
-    });
+      secretOrKey: secret,
+    };
+
+    super(jwtOptions);
   }
 
   async validate(payload: AdminJwtPayload): Promise<AdminRequestUser> {
@@ -75,11 +79,14 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
       throw new UnauthorizedException('Session expired');
     }
 
-    // Update session activity
-    await this.prisma.adminSession.update({
-      where: { id: session.id },
-      data: { lastActive: new Date() },
-    });
+    // Update session activity (throttled to every 5 minutes)
+    const FIVE_MINUTES = 5 * 60 * 1000;
+    if (Date.now() - session.lastActive.getTime() > FIVE_MINUTES) {
+      await this.prisma.adminSession.update({
+        where: { id: session.id },
+        data: { lastActive: new Date() },
+      });
+    }
 
     return {
       id: payload.sub,

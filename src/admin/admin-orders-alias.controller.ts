@@ -1,18 +1,19 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { OrdersService } from './orders.service';
-import { OrderStatus } from '@prisma/client';
+import { AdminJwtAuthGuard } from './auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from './auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from './auth/guards/admin-permissions.guard';
+import { AdminRoles } from './auth/decorators/admin-roles.decorator';
+import { OrdersService } from '../orders/orders.service';
+import { AdminRole, OrderStatus } from '@prisma/client';
 
 /**
  * Backward-compatible alias routes for older admin clients.
  * Prefer using `/admin/orders`.
  */
 @Controller('orders/admin')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'SUPER_ADMIN')
-export class OrdersAdminAliasController {
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+@AdminRoles(AdminRole.SUPER_ADMIN, AdminRole.OPERATIONS_ADMIN)
+export class AdminOrdersAliasController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Get('all')
@@ -35,4 +36,3 @@ export class OrdersAdminAliasController {
     return this.ordersService.getOrderDetail(id);
   }
 }
-

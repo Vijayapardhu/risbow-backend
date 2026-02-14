@@ -565,8 +565,12 @@ export class OrdersService {
         search?: string;
         status?: OrderStatus;
         sort?: string;
+        paymentStatus?: string;
+        startDate?: string;
+        endDate?: string;
+        vendorId?: string;
     }) {
-        const { page = 1, limit = 10, search, status, sort } = params;
+        const { page = 1, limit = 10, search, status, sort, paymentStatus, startDate, endDate, vendorId } = params;
         const skip = (page - 1) * limit;
 
         const where: any = {};
@@ -580,9 +584,35 @@ export class OrdersService {
             }
         }
 
+        // Filter by payment status
+        if (paymentStatus) {
+            where.payment = {
+                status: paymentStatus === 'PAID' ? 'SUCCESS' : paymentStatus === 'PENDING' ? 'PENDING' : 'FAILED'
+            };
+        }
+
+        // Filter by date range
+        if (startDate || endDate) {
+            where.createdAt = {};
+            if (startDate) {
+                where.createdAt.gte = new Date(startDate);
+            }
+            if (endDate) {
+                where.createdAt.lte = new Date(endDate);
+            }
+        }
+
+        // Filter by vendor (from itemsSnapshot)
+        if (vendorId) {
+            where.itemsSnapshot = {
+                array_contains: [{ vendorId }]
+            };
+        }
+
         if (search) {
             where.OR = [
                 { id: { contains: search, mode: 'insensitive' } },
+                { orderNumber: { contains: search, mode: 'insensitive' } },
                 { user: { name: { contains: search, mode: 'insensitive' } } },
                 { user: { email: { contains: search, mode: 'insensitive' } } },
                 { user: { mobile: { contains: search, mode: 'insensitive' } } }
@@ -633,20 +663,56 @@ export class OrdersService {
         });
 
         // Fetch all products with their vendors in parallel
-        const [products, vendors] = await Promise.all([
+        // Also fetch OrderItems to get vendor info
+        const [products, vendors, orderItems] = await Promise.all([
             this.prisma.product.findMany({
                 where: { id: { in: Array.from(allProductIds) } },
                 select: { id: true, vendorId: true, title: true }
             }),
+            // Fetch vendors - we need to include all possible vendorIds from orderItems
             this.prisma.vendor.findMany({
-                where: { id: { in: Array.from(allVendorIds) } },
+                where: { 
+                    OR: [
+                        { id: { in: Array.from(allVendorIds) } },
+                    ]
+                },
                 select: { id: true, name: true, storeName: true }
+            }),
+            // Also fetch OrderItem records to get vendor info
+            this.prisma.orderItem.findMany({
+                where: { orderId: { in: orders.map(o => o.id) } },
+                select: { orderId: true, vendorId: true }
             })
         ]);
 
+        // Collect vendorIds from OrderItems that might not be in allVendorIds
+        const orderItemVendorIds = new Set<string>();
+        orderItems.forEach(oi => {
+            if (oi.vendorId) orderItemVendorIds.add(oi.vendorId);
+        });
+
+        // If we have vendorIds from OrderItems not in vendors, fetch them
+        const missingVendorIds = Array.from(orderItemVendorIds).filter(vid => !vendors.find(v => v.id === vid));
+        let additionalVendors: any[] = [];
+        if (missingVendorIds.length > 0) {
+            additionalVendors = await this.prisma.vendor.findMany({
+                where: { id: { in: missingVendorIds } },
+                select: { id: true, name: true, storeName: true }
+            });
+        }
+
         // Create lookup maps
         const productMap = new Map(products.map(p => [p.id, p]));
-        const vendorMap = new Map(vendors.map(v => [v.id, v]));
+        const allVendors = [...vendors, ...additionalVendors];
+        const vendorMap = new Map(allVendors.map(v => [v.id, v]));
+        
+        // Create OrderItem vendor lookup
+        const orderItemVendorMap = new Map<string, string>();
+        orderItems.forEach(oi => {
+            if (oi.vendorId && !orderItemVendorMap.has(oi.orderId)) {
+                orderItemVendorMap.set(oi.orderId, oi.vendorId);
+            }
+        });
 
         // Transform orders to match frontend expectations
         const transformedOrders = orders.map(order => {
@@ -677,6 +743,16 @@ export class OrdersService {
                             shopName = vendor.storeName || vendor.name || 'Risbow Store';
                         }
                     }
+                }
+            }
+            
+            // Fallback: try to get vendor from OrderItem table
+            if (!shopId && orderItemVendorMap.has(order.id)) {
+                const vendorIdFromOrderItem = orderItemVendorMap.get(order.id);
+                const vendor = vendors.find(v => v.id === vendorIdFromOrderItem);
+                if (vendor) {
+                    shopId = vendor.id;
+                    shopName = vendor.storeName || vendor.name || 'Risbow Store';
                 }
             }
 
@@ -714,16 +790,30 @@ export class OrdersService {
                 orderNumber: order.orderNumber || `ORD-${order.id.substring(0, 8).toUpperCase()}`,
                 orderDate: order.createdAt.toISOString(),
                 userId: order.userId,
+                // Add checkoutGroupId to link split orders
+                checkoutGroupId: (order as any).checkoutGroupId || null,
                 user: order.user ? {
                     id: order.user.id,
                     name: order.user.name,
                     email: order.user.email,
                     mobile: order.user.mobile
                 } : undefined,
+                // Frontend expects customer object
+                customer: order.user ? {
+                    id: order.user.id,
+                    name: order.user.name || 'Guest',
+                    email: order.user.email,
+                    phone: order.user.mobile
+                } : { id: '', name: 'Guest', email: '', phone: '' },
                 customerId: order.userId,
                 customerName: order.user?.name || 'Guest Customer',
                 customerEmail: order.user?.email || '',
                 customerMobile: order.user?.mobile || '',
+                // Frontend expects vendor object with businessName
+                vendor: shopId ? {
+                    id: shopId,
+                    businessName: shopName
+                } : undefined,
                 shopId: shopId,
                 shopName: shopName,
                 items: transformedItems, // Use transformed items
@@ -732,9 +822,11 @@ export class OrdersService {
                 tax: tax,
                 discount: discount,
                 total: total,
+                // Frontend expects totalAmount
+                totalAmount: total,
                 status: order.status,
                 paymentMethod: order.payment?.provider || 'COD',
-                paymentStatus: order.payment?.status === 'SUCCESS' ? 'Paid' : order.payment?.status === 'FAILED' ? 'Unpaid' : 'Pending',
+                paymentStatus: order.payment?.status === 'SUCCESS' ? 'PAID' : order.payment?.status === 'FAILED' ? 'FAILED' : 'PENDING',
                 shippingAddress: order.address ? {
                     fullName: order.address.name || order.user?.name || '',
                     phone: order.address.phone || order.address.mobile || order.user?.mobile || '',
@@ -792,22 +884,41 @@ export class OrdersService {
     }
 
     private async getOrderStats() {
-        // Match the logic from dashboard getStats() - include multiple statuses for pending
-        const [pendingCreated, pendingPayment, pendingOrders, confirmed, packed, shipped, delivered, cancelled] = await Promise.all([
-            this.prisma.order.count({ where: { status: 'CREATED' } }),
-            this.prisma.order.count({ where: { status: 'PENDING_PAYMENT' } }),
-            this.prisma.order.count({ where: { status: 'PENDING' } }),
-            this.prisma.order.count({ where: { status: 'CONFIRMED' } }),
-            this.prisma.order.count({ where: { status: 'PACKED' } }),
-            this.prisma.order.count({ where: { status: 'SHIPPED' } }),
-            this.prisma.order.count({ where: { status: 'DELIVERED' } }),
-            this.prisma.order.count({ where: { status: 'CANCELLED' } }),
-        ]);
+        const stats = await this.prisma.order.groupBy({
+            by: ['status'],
+            _count: {
+                _all: true,
+            },
+        });
 
-        // Sum all pending-related statuses
-        const pending = pendingCreated + pendingPayment + pendingOrders;
+        const counts: Record<string, number> = {
+            PENDING: 0,
+            CONFIRMED: 0,
+            PACKED: 0,
+            SHIPPED: 0,
+            DELIVERED: 0,
+            CANCELLED: 0,
+        };
 
-        return { pending, confirmed, packed, shipped, delivered, cancelled };
+        stats.forEach((stat) => {
+            const status = stat.status;
+            const count = stat._count._all;
+
+            if (status === 'CREATED' || status === 'PENDING_PAYMENT' || status === 'PENDING') {
+                counts.PENDING += count;
+            } else if (counts.hasOwnProperty(status)) {
+                counts[status] = count;
+            }
+        });
+
+        return {
+            pending: counts.PENDING,
+            confirmed: counts.CONFIRMED,
+            packed: counts.PACKED,
+            shipped: counts.SHIPPED,
+            delivered: counts.DELIVERED,
+            cancelled: counts.CANCELLED,
+        };
     }
 
     async getOrderDetail(orderId: string) {
@@ -818,7 +929,26 @@ export class OrdersService {
                     select: { id: true, name: true, email: true, mobile: true }
                 },
                 address: true,
-                payment: true
+                payment: true,
+                OrderItem: {
+                    include: {
+                        Product: {
+                            select: { id: true, title: true, images: true, sku: true }
+                        },
+                        Vendor: {
+                            select: { id: true, name: true, storeName: true }
+                        }
+                    }
+                },
+                OrderFinancialSnapshot: true,
+                Shipment: true,
+                Delivery: {
+                    include: {
+                        Driver: {
+                            select: { id: true, name: true, mobile: true, vehicleType: true }
+                        }
+                    }
+                }
             }
         });
 
@@ -826,78 +956,105 @@ export class OrdersService {
             throw new NotFoundException('Order not found');
         }
 
-        // Transform single order with same logic as list
-        const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot : [];
-
-        // Collect productIds and vendorIds from items
-        const productIds = new Set<string>();
-        const vendorIds = new Set<string>();
-        items.forEach((item: any) => {
-            if (item.productId) productIds.add(item.productId);
-            if (item.vendorId) vendorIds.add(item.vendorId);
-        });
-
-        // Fetch products and vendors
-        const [products, vendors] = await Promise.all([
-            this.prisma.product.findMany({
-                where: { id: { in: Array.from(productIds) } },
-                select: { id: true, vendorId: true, title: true }
-            }),
-            this.prisma.vendor.findMany({
-                where: { id: { in: Array.from(vendorIds) } },
-                select: { id: true, name: true, storeName: true }
-            })
-        ]);
-
-        const productMap = new Map(products.map(p => [p.id, p]));
-        const vendorMap = new Map(vendors.map(v => [v.id, v]));
-
-        // Get vendor info from the first item
+        // Use OrderItem relation if available, otherwise fall back to itemsSnapshot
+        let transformedItems: any[] = [];
         let shopId = '';
         let shopName = 'Risbow Store';
 
-        if (items.length > 0) {
-            const firstItem = items[0] as any;
-            if (firstItem.vendorId) {
-                const vendor = vendorMap.get(firstItem.vendorId);
-                if (vendor) {
-                    shopId = vendor.id;
-                    shopName = vendor.storeName || vendor.name || 'Risbow Store';
-                }
+        if (order.OrderItem && order.OrderItem.length > 0) {
+            // Use OrderItem relation data (preferred)
+            transformedItems = order.OrderItem.map((item, index) => ({
+                id: item.id || `${order.id}-item-${index}`,
+                productId: item.productId || '',
+                productName: item.Product?.title || 'Product',
+                productImage: item.Product?.images?.[0] || '',
+                sku: item.Product?.sku || '',
+                variantId: null,
+                variantName: null,
+                quantity: item.quantity || 1,
+                unitPrice: item.price || 0,
+                total: item.total || (item.price * item.quantity),
+                vendorId: item.vendorId,
+                shopName: item.Vendor?.storeName || item.Vendor?.name || 'Risbow Store'
+            }));
+
+            // Get shop info from first OrderItem
+            const firstItem = order.OrderItem[0];
+            if (firstItem.Vendor) {
+                shopId = firstItem.Vendor.id;
+                shopName = firstItem.Vendor.storeName || firstItem.Vendor.name || 'Risbow Store';
             }
-            if (!shopId && firstItem.productId) {
-                const product = productMap.get(firstItem.productId);
-                if (product?.vendorId) {
-                    const vendor = vendorMap.get(product.vendorId);
+        } else {
+            // Fall back to itemsSnapshot JSON
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot : [];
+
+            // Collect productIds and vendorIds from items
+            const productIds = new Set<string>();
+            const vendorIds = new Set<string>();
+            items.forEach((item: any) => {
+                if (item.productId) productIds.add(item.productId);
+                if (item.vendorId) vendorIds.add(item.vendorId);
+            });
+
+            // Fetch products and vendors
+            const [products, vendors] = await Promise.all([
+                this.prisma.product.findMany({
+                    where: { id: { in: Array.from(productIds) } },
+                    select: { id: true, vendorId: true, title: true }
+                }),
+                this.prisma.vendor.findMany({
+                    where: { id: { in: Array.from(vendorIds) } },
+                    select: { id: true, name: true, storeName: true }
+                })
+            ]);
+
+            const productMap = new Map(products.map(p => [p.id, p]));
+            const vendorMap = new Map(vendors.map(v => [v.id, v]));
+
+            // Get vendor info from the first item
+            if (items.length > 0) {
+                const firstItem = items[0] as any;
+                if (firstItem.vendorId) {
+                    const vendor = vendorMap.get(firstItem.vendorId);
                     if (vendor) {
                         shopId = vendor.id;
                         shopName = vendor.storeName || vendor.name || 'Risbow Store';
                     }
                 }
+                if (!shopId && firstItem.productId) {
+                    const product = productMap.get(firstItem.productId);
+                    if (product?.vendorId) {
+                        const vendor = vendorMap.get(product.vendorId);
+                        if (vendor) {
+                            shopId = vendor.id;
+                            shopName = vendor.storeName || vendor.name || 'Risbow Store';
+                        }
+                    }
+                }
             }
+
+            // Transform items to match frontend OrderItem interface
+            transformedItems = items.map((item: any, index: number) => {
+                const product = productMap.get(item.productId);
+                const vendor = item.vendorId ? vendorMap.get(item.vendorId) :
+                    (product?.vendorId ? vendorMap.get(product.vendorId) : null);
+
+                return {
+                    id: `${order.id}-item-${index}`,
+                    productId: item.productId || '',
+                    productName: item.productName || item.productTitle || item.title || item.name || product?.title || 'Product',
+                    productImage: item.image || item.productImage || item.product?.image || item.product?.images?.[0] || '',
+                    sku: item.sku || item.variantSnapshot?.sku || item.productId || '',
+                    variantId: item.variantId,
+                    variantName: item.variantName || item.variantSnapshot?.name || item.variant?.name,
+                    quantity: item.quantity || 1,
+                    unitPrice: item.price || item.unitPrice || 0,
+                    total: (item.price || item.unitPrice || 0) * (item.quantity || 1),
+                    vendorId: item.vendorId || product?.vendorId,
+                    shopName: vendor?.storeName || vendor?.name || 'Risbow Store'
+                };
+            });
         }
-
-        // Transform items to match frontend OrderItem interface
-        const transformedItems = items.map((item: any, index: number) => {
-            const product = productMap.get(item.productId);
-            const vendor = item.vendorId ? vendorMap.get(item.vendorId) :
-                (product?.vendorId ? vendorMap.get(product.vendorId) : null);
-
-            return {
-                id: `${order.id}-item-${index}`,
-                productId: item.productId || '',
-                productName: item.productName || item.productTitle || item.title || item.name || product?.title || 'Product',
-                productImage: item.image || item.productImage || item.product?.image || item.product?.images?.[0] || '',
-                sku: item.sku || item.variantSnapshot?.sku || item.productId || '',
-                variantId: item.variantId,
-                variantName: item.variantName || item.variantSnapshot?.name || item.variant?.name,
-                quantity: item.quantity || 1,
-                unitPrice: item.price || item.unitPrice || 0,
-                total: (item.price || item.unitPrice || 0) * (item.quantity || 1),
-                vendorId: item.vendorId || product?.vendorId,
-                shopName: vendor?.storeName || vendor?.name || 'Risbow Store'
-            };
-        });
 
         const snapshot = (order as any).OrderFinancialSnapshot;
         const subtotal = snapshot?.subtotal ?? transformedItems.reduce((sum, item) => sum + item.total, 0);
@@ -910,6 +1067,21 @@ export class OrdersService {
             id: order.id,
             orderNumber: order.orderNumber || `ORD-${order.id.substring(0, 8).toUpperCase()}`,
             orderDate: order.createdAt.toISOString(),
+            userId: order.userId,
+            // Include user object for customer details
+            user: order.user ? {
+                id: order.user.id,
+                name: order.user.name,
+                email: order.user.email,
+                phone: order.user.mobile
+            } : undefined,
+            // Include customer object for frontend compatibility
+            customer: order.user ? {
+                id: order.user.id,
+                name: order.user.name || 'Guest',
+                email: order.user.email,
+                phone: order.user.mobile
+            } : { id: '', name: 'Guest', email: '', phone: '' },
             customerId: order.userId,
             customerName: order.user?.name || 'Guest Customer',
             customerEmail: order.user?.email || '',
@@ -924,7 +1096,7 @@ export class OrdersService {
             total: total,
             status: order.status,
             paymentMethod: order.payment?.provider || 'COD',
-            paymentStatus: order.payment?.status === 'SUCCESS' ? 'Paid' : order.payment?.status === 'FAILED' ? 'Unpaid' : 'Pending',
+            paymentStatus: order.payment?.status === 'SUCCESS' ? 'PAID' : order.payment?.status === 'FAILED' ? 'FAILED' : 'PENDING',
             shippingAddress: order.address ? {
                 fullName: order.address.name || order.user?.name || '',
                 phone: order.address.phone || order.address.mobile || order.user?.mobile || '',
@@ -948,9 +1120,80 @@ export class OrdersService {
             },
             courierPartner: order.courierPartner || '',
             awbNumber: order.awbNumber || '',
+            trackingId: order.trackingId || '',
+            isThirdPartyDelivery: order.isThirdPartyDelivery || false,
             notes: '',
             createdAt: order.createdAt.toISOString(),
-            updatedAt: order.updatedAt.toISOString()
+            updatedAt: order.updatedAt.toISOString(),
+            deliveredAt: order.deliveredAt?.toISOString() || null,
+            confirmedAt: order.confirmedAt?.toISOString() || null,
+            // Delivery information
+            delivery: order.Delivery && order.Delivery.length > 0 ? {
+                id: order.Delivery[0].id,
+                status: order.Delivery[0].status,
+                driver: order.Delivery[0].Driver ? {
+                    id: order.Delivery[0].Driver.id,
+                    name: order.Delivery[0].Driver.name,
+                    mobile: order.Delivery[0].Driver.mobile,
+                    vehicleType: order.Delivery[0].Driver.vehicleType,
+                } : null,
+            } : null,
+            // Shipment information
+            shipment: order.Shipment ? {
+                id: order.Shipment.id,
+                courierPartner: order.Shipment.courierProvider,
+                trackingNumber: order.Shipment.awb,
+                trackingUrl: order.Shipment.trackingUrl,
+                status: order.Shipment.status,
+            } : null,
+            // Financial snapshot
+            financialSnapshot: order.OrderFinancialSnapshot ? {
+                subtotal: order.OrderFinancialSnapshot.subtotal,
+                taxAmount: order.OrderFinancialSnapshot.taxAmount,
+                shippingAmount: order.OrderFinancialSnapshot.shippingAmount,
+                discountAmount: order.OrderFinancialSnapshot.discountAmount,
+                commissionAmount: order.OrderFinancialSnapshot.commissionAmount,
+                vendorEarnings: order.OrderFinancialSnapshot.vendorEarnings,
+            } : null
+        };
+    }
+
+    async getOrderGroup(orderId: string) {
+        // First get the order to find its checkoutGroupId
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            select: { checkoutGroupId: true, userId: true }
+        });
+
+        if (!order) {
+            return { orders: [], message: 'Order not found' };
+        }
+
+        // If no checkoutGroupId, return just this order
+        if (!order.checkoutGroupId) {
+            const singleOrder = await this.getOrderDetail(orderId);
+            return { orders: [singleOrder], isGrouped: false };
+        }
+
+        // Get all orders in the same checkout group
+        const orders = await this.prisma.order.findMany({
+            where: { checkoutGroupId: order.checkoutGroupId },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        // Get full details for each order
+        const orderDetails = await Promise.all(
+            orders.map(o => this.getOrderDetail(o.id))
+        );
+
+        // Calculate total across all orders in group
+        const groupTotal = orderDetails.reduce((sum, o) => sum + (o.total || 0), 0);
+
+        return {
+            orders: orderDetails,
+            isGrouped: true,
+            groupTotal,
+            orderCount: orders.length
         };
     }
 
@@ -960,6 +1203,12 @@ export class OrdersService {
             const hasProof = await this.packingProof.hasProof(orderId);
             if (!hasProof) {
                 throw new BadRequestException('Packing video proof is mandatory before order can be shipped. Please upload packing video first.');
+            }
+        }
+        if (status === 'ARRIVED' as OrderStatus) {
+            const hasProof = await this.prisma.orderArrivalProof.findUnique({ where: { orderId } });
+            if (!hasProof) {
+                throw new BadRequestException('Arrival video proof is mandatory before order can be marked as arrived. Please upload arrival video first.');
             }
         }
         const order = await this.prisma.order.findUnique({
@@ -1009,9 +1258,10 @@ export class OrdersService {
         // Process vendor discipline for DELIVERED orders
         if (status === OrderStatus.DELIVERED && order.status !== OrderStatus.DELIVERED) {
             try {
-                // Extract vendor ID from order items
-                const items = (order.itemsSnapshot as any[]) || [];
-                const vendorIds = [...new Set(items.map(item => item.vendorId).filter(Boolean))];
+                // Extract vendor ID from order items - ensure it's always an array
+                const rawItems = order.itemsSnapshot;
+                const items = Array.isArray(rawItems) ? rawItems : [];
+                const vendorIds = [...new Set(items.map((item: any) => item.vendorId).filter(Boolean))];
 
                 // Process successful delivery for each vendor
                 for (const vendorId of vendorIds) {
@@ -1027,8 +1277,9 @@ export class OrdersService {
         if ((status === OrderStatus.CANCELLED || status === OrderStatus.RETURNED) &&
             (order.status === OrderStatus.SHIPPED || order.status === OrderStatus.PACKED)) {
             try {
-                const items = (order.itemsSnapshot as any[]) || [];
-                const vendorIds = [...new Set(items.map(item => item.vendorId).filter(Boolean))];
+                const rawItems = order.itemsSnapshot;
+                const items = Array.isArray(rawItems) ? rawItems : [];
+                const vendorIds = [...new Set(items.map((item: any) => item.vendorId).filter(Boolean))];
 
                 // Add strike for missed delivery
                 for (const vendorId of vendorIds) {
@@ -1046,23 +1297,31 @@ export class OrdersService {
 
         // Audit Log if admin context is provided
         if (adminId) {
-            await this.prisma.auditLog.create({
-                data: {
-                    id: randomUUID(),
-                    adminId,
-                    entity: 'Order',
-                    entityId: orderId,
-                    action: 'UPDATE_STATUS',
-                    details: {
-                        oldStatus: order.status,
-                        newStatus: status,
-                        notes: notes || '',
-                        role: role || '',
-                        transitionValidated: true,
-                        adminOverride: allowAdminOverride,
-                    }
+            try {
+                // Verify admin exists before creating audit log
+                const adminExists = await this.prisma.admin.findUnique({ where: { id: adminId } });
+                if (adminExists) {
+                    await this.prisma.auditLog.create({
+                        data: {
+                            id: randomUUID(),
+                            adminId,
+                            entity: 'Order',
+                            entityId: orderId,
+                            action: 'UPDATE_STATUS',
+                            details: {
+                                oldStatus: order.status,
+                                newStatus: status,
+                                notes: notes || '',
+                                role: role || '',
+                                transitionValidated: true,
+                                adminOverride: allowAdminOverride,
+                            }
+                        }
+                    });
                 }
-            });
+            } catch (auditError) {
+                this.logger.warn(`Failed to create audit log for order ${orderId}: ${auditError.message}`);
+            }
         }
 
         return updatedOrder;
@@ -1082,9 +1341,12 @@ export class OrdersService {
                 throw new NotFoundException('Order not found');
             }
 
+            // Map order status 'PAID' to payment status 'SUCCESS'
+            const normalizedPaymentStatus = paymentStatus === 'PAID' ? 'SUCCESS' : paymentStatus;
+
             // Idempotency guard: if payment is already in the target status, return early
-            if (order.payment?.status === paymentStatus) {
-                this.logger.log(`Payment for order ${orderId} already in status ${paymentStatus}, skipping`);
+            if (order.payment?.status === normalizedPaymentStatus) {
+                this.logger.log(`Payment for order ${orderId} already in status ${normalizedPaymentStatus}, skipping`);
                 return {
                     success: true,
                     payment: order.payment,
@@ -1100,7 +1362,7 @@ export class OrdersService {
                 updatedPayment = await tx.payment.update({
                     where: { id: order.payment.id },
                     data: {
-                        status: paymentStatus as any,
+                        status: normalizedPaymentStatus as any,
                         updatedAt: new Date()
                     }
                 });
@@ -1113,13 +1375,13 @@ export class OrdersService {
                         amount: order.totalAmount,
                         currency: 'INR',
                         provider: 'MANUAL',
-                        status: paymentStatus as any,
+                        status: normalizedPaymentStatus as any,
                     } as any
                 });
             }
 
             // If payment is now successful and order is pending, run full confirmation
-            if (paymentStatus === 'SUCCESS' && order.status === OrderStatus.PENDING) {
+            if ((paymentStatus === 'SUCCESS' || paymentStatus === 'PAID') && order.status === OrderStatus.PENDING) {
                 // 1. Update order status to CONFIRMED
                 await tx.order.update({
                     where: { id: orderId },
@@ -1146,6 +1408,7 @@ export class OrdersService {
                             commissionAmount: 0,
                             vendorEarnings: 0,
                             platformEarnings: 0,
+                            giftCost: 0,
                             snapshotData: {},
                         } as any
                     });

@@ -2,15 +2,16 @@ import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Ht
 import { CmsService } from './cms.service';
 import { CreatePageDto, UpdatePageDto } from './dto/create-page.dto';
 import { CreateMenuDto, UpdateMenuDto, CreateMenuItemDto } from './dto/create-menu.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
-import { UserRole, MenuLocation } from '@prisma/client';
+import { AdminJwtAuthGuard } from '../admin/auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from '../admin/auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from '../admin/auth/guards/admin-permissions.guard';
+import { AdminRoles } from '../admin/auth/decorators/admin-roles.decorator';
+import { AdminRole, MenuLocation } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('admin/cms')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+@AdminRoles(AdminRole.SUPER_ADMIN, AdminRole.OPERATIONS_ADMIN)
 export class AdminCmsController {
   constructor(private readonly cmsService: CmsService) {}
 

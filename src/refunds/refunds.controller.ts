@@ -1,10 +1,11 @@
 import { Controller, Get, Post, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { RefundsService } from './refunds.service';
 import { RefundQueryDto } from './dto/refund-query.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { AdminJwtAuthGuard } from '../admin/auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from '../admin/auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from '../admin/auth/guards/admin-permissions.guard';
+import { AdminRoles } from '../admin/auth/decorators/admin-roles.decorator';
+import { AdminRole } from '@prisma/client';
 
 /**
  * RefundsController — WRITE OPERATIONS STRUCTURALLY BLOCKED
@@ -14,8 +15,8 @@ import { UserRole } from '@prisma/client';
  * All write endpoints return 501 Not Implemented.
  */
 @Controller('admin/refunds')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+@AdminRoles(AdminRole.SUPER_ADMIN, AdminRole.OPERATIONS_ADMIN)
 export class RefundsController {
   constructor(private readonly refundsService: RefundsService) {}
 

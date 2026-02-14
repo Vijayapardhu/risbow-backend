@@ -3,14 +3,15 @@ import { EmployeesService } from './employees.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { EmployeeQueryDto } from './dto/employee-query.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { AdminJwtAuthGuard } from '../admin/auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from '../admin/auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from '../admin/auth/guards/admin-permissions.guard';
+import { AdminRoles } from '../admin/auth/decorators/admin-roles.decorator';
+import { AdminRole } from '@prisma/client';
 
 @Controller('admin/employees')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+@AdminRoles(AdminRole.SUPER_ADMIN, AdminRole.OPERATIONS_ADMIN)
 export class EmployeesController {
   constructor(private readonly employeesService: EmployeesService) {}
 

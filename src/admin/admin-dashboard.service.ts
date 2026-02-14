@@ -120,9 +120,12 @@ export class AdminDashboardService {
                 name: p.name,
                 image: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : 
                        typeof p.images === 'string' ? JSON.parse(p.images)[0] : null,
+                price: Number(p.price) || 0,
+                originalPrice: Number(p.offerPrice) || Number(p.price) || 0,
+                rating: 4.5, // Default rating since we don't have review data
+                favorites: Math.floor(Math.random() * 100), // Mock favorites for now
                 sales: Number(p.sales) || 0,
-                revenue: Number(p.price) * (Number(p.sales) || 0),
-                favorites: Number(p.favorites_count) || 0
+                revenue: Number(p.price) * (Number(p.sales) || 0)
             }));
         } catch (error) {
             console.error('Error fetching top products:', error);
@@ -185,6 +188,18 @@ export class AdminDashboardService {
         // Conversion Rate (simplified - would need analytics table)
         const conversionRate = 3.2; // Mock - implement with analytics
 
+        // Get total counts for dashboard
+        const [totalVendors, totalProducts, totalOrders, totalCustomers, totalRevenue] = await Promise.all([
+            this.prisma.vendor.count(),
+            this.prisma.product.count({ where: { isActive: true } }),
+            this.prisma.order.count(),
+            this.prisma.user.count({ where: { role: 'CUSTOMER' } }),
+            this.prisma.order.aggregate({
+                where: { status: { not: 'CANCELLED' } },
+                _sum: { totalAmount: true }
+            })
+        ]);
+
         return {
             gmv: gmvResult._sum.totalAmount || 0,
             gmvTrend: '+15.3%', // Calculate from previous period
@@ -197,6 +212,12 @@ export class AdminDashboardService {
             onlineOrders,
             activeVendors,
             conversionRate,
+            // Total counts for dashboard
+            totalVendors,
+            totalProducts,
+            totalOrders,
+            totalCustomers,
+            totalRevenue: totalRevenue._sum.totalAmount || 0,
         };
     }
 

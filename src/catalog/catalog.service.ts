@@ -124,22 +124,17 @@ export class CatalogService {
                 where: {
                     vendorId: { in: vendorIds },
                     isActive: true,
+                    visibility: 'PUBLISHED',
                     stock: params.inStock ? { gt: 0 } : undefined,
                     categoryId: params.categoryId || undefined,
-                } as any,
-                select: {
-                    id: true,
-                    title: true,
-                    price: true,
-                    offerPrice: true,
-                    images: true,
-                    stock: true,
-                    categoryId: true,
-                    vendorId: true,
-                    vendor: { select: { id: true, name: true, storeName: true, vendorCode: true } },
-                } as any,
+                },
+                include: {
+                    Vendor: {
+                        select: { id: true, name: true, storeName: true, vendorCode: true }
+                    }
+                },
                 take: limit,
-                orderBy: { popularityScore: 'desc' as any },
+                orderBy: { popularityScore: 'desc' },
             });
 
             const out = products
@@ -388,8 +383,9 @@ export class CatalogService {
                 // Gate inactive products and vendors without VERIFIED KYC
                 const where: Prisma.ProductWhereInput = {
                     isActive: true,
-                    Vendor: { isActive: true, kycStatus: 'VERIFIED' } as any,
-                } as any;
+                    visibility: 'PUBLISHED',
+                    Vendor: { isActive: true, kycStatus: 'VERIFIED' },
+                };
 
                 if (filters.category && filters.category !== 'All') {
                     where.categoryId = filters.category;
@@ -433,16 +429,20 @@ export class CatalogService {
                     where,
                     orderBy,
                     take: 50,
-                    select: {
-                        id: true,
-                        title: true,
-                        price: true,
-                        offerPrice: true,
-                        stock: true,
-                        images: true,
-                        brandName: true,
-                        isActive: true,
-                        createdAt: true,
+                    include: {
+                        Vendor: {
+                            select: {
+                                id: true,
+                                name: true,
+                                storeName: true,
+                            }
+                        },
+                        Category: {
+                            select: {
+                                id: true,
+                                name: true,
+                            }
+                        }
                     }
                 });
 
@@ -532,8 +532,9 @@ export class CatalogService {
                         where: {
                             id,
                             isActive: true,
-                            Vendor: { isActive: true, kycStatus: 'VERIFIED' } as any,
-                        } as any,
+                            visibility: 'PUBLISHED',
+                            Vendor: { isActive: true, kycStatus: 'VERIFIED' },
+                        },
                         select: {
                             id: true,
                             title: true,

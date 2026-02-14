@@ -3,16 +3,17 @@ import { SupportService } from './support.service';
 import { ReplyTicketDto } from './dto/reply-ticket.dto';
 import { UpdateTicketStatusDto, UpdateTicketPriorityDto, AssignTicketDto } from './dto/assign-ticket.dto';
 import { TicketQueryDto } from './dto/ticket-query.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { AdminJwtAuthGuard } from '../admin/auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from '../admin/auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from '../admin/auth/guards/admin-permissions.guard';
+import { AdminRoles } from '../admin/auth/decorators/admin-roles.decorator';
+import { AdminRole } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { MessageSender } from '@prisma/client';
 
 @Controller('admin/support')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+@AdminRoles(AdminRole.SUPER_ADMIN, AdminRole.OPERATIONS_ADMIN)
 export class AdminSupportController {
   constructor(private readonly supportService: SupportService) {}
 

@@ -618,6 +618,7 @@ model CartItem {
 model Category {
   id                 String              @id
   name               String
+  slug               String?             @unique
   image              String?
   nameTE             String?
   parentId           String?
@@ -1176,6 +1177,7 @@ model Order {
   OrderDeliverySlotSnapshot                                OrderDeliverySlotSnapshot?
   OrderFinancialSnapshot                                   OrderFinancialSnapshot?
   OrderItem                                                OrderItem[]
+  OrderArrivalProof                                        OrderArrivalProof?
   OrderPackingProof                                        OrderPackingProof?
   OrderSettlement                                          OrderSettlement?
   payment                                                  Payment?
@@ -1287,6 +1289,24 @@ model OrderPackingProof {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model OrderArrivalProof {
+  id               String   @id @default(uuid())
+  orderId          String   @unique
+  vendorId         String
+  uploadedByUserId String
+  videoPath        String
+  videoMime        String?
+  videoSizeBytes   Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  Order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  User             User     @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  Vendor           Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([vendorId])
+}
+
 model OrderSettlement {
   id         String           @id
   orderId    String           @unique
@@ -1408,6 +1428,8 @@ model Product {
   createdAt                                                     DateTime                 @default(now())
   updatedAt                                                     DateTime                 @default(now()) @updatedAt
   deletedAt                                                     DateTime?
+  salesCount                                                    Int                      @default(0)
+  viewCount                                                     Int                      @default(0)
   brandName                                                     String?
   dimensionUnit                                                 String?                  @default("cm")
   height                                                        Float?
@@ -2135,6 +2157,7 @@ model User {
   LocalPromotion                                              LocalPromotion[]
   Notification                                                Notification[]
   Order                                                       Order[]
+  OrderArrivalProof                                           OrderArrivalProof[]
   OrderPackingProof                                           OrderPackingProof[]
   PaymentIntent                                               PaymentIntent[]
   ProductSearchMiss                                           ProductSearchMiss[]
@@ -2273,6 +2296,7 @@ model Vendor {
   LocalPromotion                  LocalPromotion[]
   OrderDeliverySlotSnapshot       OrderDeliverySlotSnapshot[]
   OrderItem                       OrderItem[]
+  OrderArrivalProof               OrderArrivalProof[]
   OrderPackingProof               OrderPackingProof[]
   OrderSettlement                 OrderSettlement[]
   PickupPoint                     PickupPoint[]
@@ -3015,6 +3039,7 @@ enum OrderStatus {
   PENDING_PAYMENT
   PAID
   OUT_FOR_INSPECTION
+  ARRIVED
   RETURN_REQUESTED
   QC_IN_PROGRESS
   RETURN_PICKED_UP
@@ -3195,64 +3220,7 @@ enum SpecType {
   MULTISELECT
 }
 
-/// Campaign model for flash sales and promotional campaigns
-model Campaign {
-  id              String         @id @default(uuid())
-  name            String
-  description     String?
-  type            CampaignType   @default(FLASH_SALE)
-  startDate       DateTime
-  endDate         DateTime
-  discountType    DiscountType   @default(PERCENTAGE)
-  discountValue   Int // Percentage (0-100) or fixed amount in paise
-  maxDiscount     Int? // Maximum discount in paise (for PERCENTAGE type)
-  minOrderValue   Int? // Minimum order value in paise to qualify
-  limitedStock    Boolean        @default(false)
-  totalStock      Int? // Total stock allocated for campaign
-  usedStock       Int            @default(0) // Stock consumed by orders
-  status          CampaignStatus @default(SCHEDULED)
-  priority        Int            @default(0) // Higher priority campaigns applied first
-  isActive        Boolean        @default(true)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  createdBy       String? // Admin user who created the campaign
-  targetAudience  String? // ALL, NEW_USERS, PREMIUM, etc.
-  bannerImage     String?
-  termsConditions String?
-  impressions     Int            @default(0)
-  clicks          Int            @default(0)
-  conversions     Int            @default(0)
-  revenue         Int            @default(0)
 
-  CampaignProduct CampaignProduct[]
-
-  @@index([status])
-  @@index([startDate, endDate])
-  @@index([isActive])
-  @@index([type])
-  @@index([status, startDate, endDate])
-}
-
-/// CampaignProduct model for many-to-many relation between Campaign and Product
-model CampaignProduct {
-  id             String   @id @default(uuid())
-  campaignId     String
-  productId      String
-  customDiscount Int? // Override campaign discount for specific product
-  stockAllocated Int? // Stock allocated for this product in campaign
-  stockUsed      Int      @default(0)
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  Campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  Product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@unique([campaignId, productId])
-  @@index([campaignId])
-  @@index([productId])
-  @@index([isActive])
-}
 
 enum StockMovementType {
   IN
@@ -3381,25 +3349,7 @@ enum VendorDocumentType {
   OTHER
 }
 
-enum CampaignType {
-  FLASH_SALE
-  DISCOUNT
-  BUNDLE
-  SEASONAL
-}
 
-enum CampaignStatus {
-  SCHEDULED
-  ACTIVE
-  ENDED
-  PAUSED
-  CANCELLED
-}
-
-enum DiscountType {
-  PERCENTAGE
-  FIXED
-}
 
 /// UserProductInteraction model for tracking user interactions for recommendations
 model UserProductInteraction {
@@ -3515,3 +3465,79 @@ model UploadFile {
   @@index([createdAt])
 }
 
+/// Campaign - Marketing campaigns for products
+model Campaign {
+  id              String            @id @default(uuid())
+  name            String
+  description     String?
+  type            CampaignOfferType @default(FLASH_SALE)
+  status          MarketingCampaignStatus    @default(SCHEDULED)
+  startDate       DateTime
+  endDate         DateTime
+  discountType    CampaignDiscountType      @default(PERCENTAGE)
+  discountValue   Int // Percentage (0-100) or Amount in Paise
+  maxDiscount     Int? // Max discount in paise (for percentage type)
+  minOrderValue   Int? // Min order value in paise
+  totalStock      Int? // Total stock allocated for campaign
+  usedStock       Int               @default(0)
+  limitedStock    Boolean           @default(false)
+  priority        Int               @default(0)
+  isActive        Boolean           @default(true)
+  targetAudience  String? // JSON or string identifier for targeted user segment
+  bannerImage     String?
+  termsConditions String?
+  impressions     Int               @default(0)
+  clicks          Int               @default(0)
+  conversions     Int               @default(0)
+  revenue         Int               @default(0)
+  createdBy       String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  CampaignProduct CampaignProduct[]
+
+  @@index([status, isActive])
+  @@index([startDate, endDate])
+  @@index([priority])
+}
+
+/// CampaignProduct - Products included in a campaign
+model CampaignProduct {
+  id             String   @id @default(uuid())
+  campaignId     String
+  productId      String
+  customDiscount Int? // Optional override for specific product discount
+  stockAllocated Int? // Optional override for specific product stock
+  stockUsed      Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  Campaign       Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  Product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, productId])
+  @@index([campaignId])
+  @@index([productId])
+  @@index([isActive])
+}
+
+enum CampaignOfferType {
+  FLASH_SALE
+  FESTIVAL_OFFER
+  CLEARANCE
+  NEW_ARRIVAL
+  MEMBER_EXCLUSIVE
+  SEASONAL
+}
+
+enum MarketingCampaignStatus {
+  SCHEDULED
+  ACTIVE
+  PAUSED
+  ENDED
+  CANCELLED
+}
+
+enum CampaignDiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}

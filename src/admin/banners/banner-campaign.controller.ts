@@ -173,11 +173,11 @@ class UpdatePricingDto {
 }
 
 @ApiTags('Banner Campaigns')
-@Controller('admin/banners')
+@Controller('admin/banner-campaigns')
 @UseGuards(AdminJwtAuthGuard, AdminPermissionsGuard)
 @ApiBearerAuth()
 export class BannerCampaignController {
-  constructor(private campaignService: BannerCampaignService) {}
+  constructor(private campaignService: BannerCampaignService) { }
 
   @Get('positions')
   @RequirePermissions(Permission.BANNER_READ)

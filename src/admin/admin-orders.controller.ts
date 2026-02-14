@@ -1,20 +1,25 @@
 import { Controller, Get, Patch, Query, Param, Body, UseGuards, Request, Post } from '@nestjs/common';
-import { OrdersService } from './orders.service';
+import { OrdersService } from '../orders/orders.service';
 import { DriversService } from '../drivers/drivers.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { OrderStatus, DriverStatus } from '@prisma/client';
+import { AdminJwtAuthGuard } from './auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from './auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from './auth/guards/admin-permissions.guard';
+import { AdminRoles } from './auth/decorators/admin-roles.decorator';
+import { AdminRole, OrderStatus, DriverStatus } from '@prisma/client';
+import { ArrivalProofService } from '../vendor-orders/arrival-proof.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UseInterceptors, UploadedFile } from '@nestjs/common';
 
 @Controller('admin/orders')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'SUPER_ADMIN')
-export class OrdersAdminController {
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+@AdminRoles(AdminRole.SUPER_ADMIN, AdminRole.OPERATIONS_ADMIN)
+export class AdminOrdersController {
     constructor(
         private readonly ordersService: OrdersService,
         private readonly driversService: DriversService,
         private readonly prisma: PrismaService,
+        private readonly arrivalProof: ArrivalProofService,
     ) { }
 
     @Get()
@@ -23,20 +28,33 @@ export class OrdersAdminController {
         @Query('limit') limit: string,
         @Query('search') search: string,
         @Query('status') status: OrderStatus,
-        @Query('sort') sort: string
+        @Query('sort') sort: string,
+        @Query('paymentStatus') paymentStatus: string,
+        @Query('startDate') startDate: string,
+        @Query('endDate') endDate: string,
+        @Query('vendorId') vendorId: string
     ) {
         return this.ordersService.findAllOrders({
             page: Number(page) || 1,
             limit: Number(limit) || 10,
             search,
             status,
-            sort
+            sort,
+            paymentStatus,
+            startDate,
+            endDate,
+            vendorId
         });
     }
 
     @Get(':id')
     async findOne(@Param('id') id: string) {
         return this.ordersService.getOrderDetail(id);
+    }
+
+    @Get(':id/group')
+    async findOrderGroup(@Param('id') id: string) {
+        return this.ordersService.getOrderGroup(id);
     }
 
     @Patch(':id/status')
@@ -64,9 +82,9 @@ export class OrdersAdminController {
         // Check order exists
         const order = await this.prisma.order.findUnique({
             where: { id },
-            include: { 
+            include: {
                 Delivery: { take: 1, orderBy: { createdAt: 'desc' } },
-                address: true 
+                address: true
             }
         });
 
@@ -106,7 +124,7 @@ export class OrdersAdminController {
     ) {
         const order = await this.prisma.order.findUnique({
             where: { id },
-            include: { 
+            include: {
                 Delivery: { take: 1, orderBy: { createdAt: 'desc' } },
                 address: true,
             }
@@ -149,8 +167,8 @@ export class OrdersAdminController {
                 orderId: id,
                 driverId,
                 pickupAddress: 'Vendor Warehouse',
-                deliveryAddress: order.address ? 
-                    `${order.address.addressLine1}, ${order.address.city}, ${order.address.state} - ${order.address.pincode}` : 
+                deliveryAddress: order.address ?
+                    `${order.address.addressLine1}, ${order.address.city}, ${order.address.state} - ${order.address.pincode}` :
                     'Customer Address',
             });
         }
@@ -241,5 +259,32 @@ export class OrdersAdminController {
             driver: latestDelivery?.Driver || null,
             deliveryStatus: latestDelivery?.status || null,
         };
+    }
+
+    @Post(':id/mark-arrived')
+    @UseInterceptors(FileInterceptor('video'))
+    async markArrived(
+        @Param('id') id: string,
+        @UploadedFile() file: Express.Multer.File,
+        @Request() req: any
+    ) {
+        // 1. Identify vendor (just picking first as simplified)
+        const order = await this.prisma.order.findUnique({ where: { id } });
+        if (!order) return { error: 'Order not found' };
+
+        const items = (order.itemsSnapshot as any[]) || [];
+        const vendorId = items[0]?.vendorId;
+        if (!vendorId) return { error: 'Vendor not found for order' };
+
+        // 2. Upload video proof
+        await this.arrivalProof.uploadArrivalVideo({
+            orderId: id,
+            vendorId,
+            userId: req.user.id,
+            file
+        });
+
+        // 3. Update status to ARRIVED
+        return this.ordersService.updateOrderStatus(id, 'ARRIVED' as OrderStatus, req.user.id, req.user.role, 'Marked arrived via webcam');
     }
 }

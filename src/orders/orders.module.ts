@@ -1,8 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
-import { OrdersAdminController } from './orders.admin.controller';
-import { OrdersAdminAliasController } from './orders.admin-alias.controller';
 import { RoomsModule } from '../rooms/rooms.module';
 import { CoinsModule } from '../coins/coins.module';
 import { InventoryModule } from '../inventory/inventory.module';
@@ -22,8 +20,10 @@ import { OrderStateValidatorService } from './order-state-validator.service';
 import { BowModule } from '../bow/bow.module';
 
 @Module({
-    imports: [RoomsModule, CoinsModule, InventoryModule, VendorsModule, CommonModule, forwardRef(() => BowModule), AuditModule, CheckoutModule, forwardRef(() => RecommendationsModule), ReferralsModule, VendorOrdersModule, DriversModule, PrismaModule],
-    controllers: [OrdersController, OrdersAdminController, OrdersAdminAliasController],
+    imports: [
+        RoomsModule, CoinsModule, InventoryModule, VendorsModule, CommonModule, forwardRef(() => BowModule), AuditModule, CheckoutModule, forwardRef(() => RecommendationsModule), ReferralsModule, VendorOrdersModule, DriversModule, PrismaModule,
+    ],
+    controllers: [OrdersController],
     providers: [OrdersService, OrderStateMachine, OrderStateValidatorService],
     exports: [OrdersService, OrderStateValidatorService],
 })

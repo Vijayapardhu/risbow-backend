@@ -13,16 +13,17 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { AdminJwtAuthGuard } from '../admin/auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from '../admin/auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from '../admin/auth/guards/admin-permissions.guard';
+import { AdminRoles } from '../admin/auth/decorators/admin-roles.decorator';
+import { AdminRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @ApiTags('Admin - Inventory')
 @Controller('admin/inventory')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+@AdminRoles(AdminRole.SUPER_ADMIN, AdminRole.OPERATIONS_ADMIN)
 @ApiBearerAuth()
 export class AdminInventoryController {
   constructor(private prisma: PrismaService) {}

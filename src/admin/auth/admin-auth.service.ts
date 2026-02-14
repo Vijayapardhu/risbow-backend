@@ -40,7 +40,7 @@ export class AdminAuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) {}
+  ) { }
 
   /**
    * Validate admin credentials
@@ -150,8 +150,9 @@ export class AdminAuthService {
     // Verify temp token
     let payload: JwtPayload;
     try {
+      const secret = this.configService.get<string>('JWT_SECRET');
       payload = this.jwtService.verify(tempToken, {
-        secret: this.configService.get('JWT_SECRET'),
+        secret: secret,
       });
     } catch {
       throw new UnauthorizedException('Invalid or expired temporary token');
@@ -200,9 +201,11 @@ export class AdminAuthService {
   ): Promise<AdminRefreshResponseDto> {
     // Verify refresh token
     let payload: JwtPayload;
+    const secret = this.configService.get<string>('JWT_SECRET');
+
     try {
       payload = this.jwtService.verify(refreshToken, {
-        secret: this.configService.get('JWT_SECRET'),
+        secret: secret,
       });
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
@@ -216,7 +219,6 @@ export class AdminAuthService {
     const session = await this.prisma.adminSession.findFirst({
       where: {
         id: payload.sessionId,
-        token: refreshToken,
         isActive: true,
       },
       include: { AdminUser: true },
@@ -556,8 +558,11 @@ export class AdminAuthService {
       type: 'temp',
     };
 
+    const secret = this.configService.get<string>('JWT_SECRET');
+
     return this.jwtService.sign(payload, {
-      expiresIn: '5m', // 5 minutes for MFA step
+      expiresIn: '5m',
+      secret: secret,
     });
   }
 
@@ -570,8 +575,11 @@ export class AdminAuthService {
       type: 'access',
     };
 
+    const secret = this.configService.get<string>('JWT_SECRET');
+
     return this.jwtService.sign(payload, {
       expiresIn: ACCESS_TOKEN_EXPIRY,
+      secret: secret,
     });
   }
 
@@ -584,8 +592,11 @@ export class AdminAuthService {
       type: 'refresh',
     };
 
+    const secret = this.configService.get<string>('JWT_SECRET');
+
     return this.jwtService.sign(payload, {
       expiresIn: REFRESH_TOKEN_EXPIRY,
+      secret: secret,
     });
   }
 

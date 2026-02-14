@@ -2,14 +2,16 @@ import { IsString, IsNotEmpty, IsOptional, IsDateString, IsEnum, IsInt, IsBoolea
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export enum CampaignType {
+export enum CampaignOfferType {
   FLASH_SALE = 'FLASH_SALE',
-  DISCOUNT = 'DISCOUNT',
-  BUNDLE = 'BUNDLE',
+  FESTIVAL_OFFER = 'FESTIVAL_OFFER',
+  CLEARANCE = 'CLEARANCE',
+  NEW_ARRIVAL = 'NEW_ARRIVAL',
+  MEMBER_EXCLUSIVE = 'MEMBER_EXCLUSIVE',
   SEASONAL = 'SEASONAL',
 }
 
-export enum CampaignStatus {
+export enum MarketingCampaignStatus {
   SCHEDULED = 'SCHEDULED',
   ACTIVE = 'ACTIVE',
   ENDED = 'ENDED',
@@ -17,9 +19,9 @@ export enum CampaignStatus {
   CANCELLED = 'CANCELLED',
 }
 
-export enum DiscountType {
+export enum CampaignDiscountType {
   PERCENTAGE = 'PERCENTAGE',
-  FIXED = 'FIXED',
+  FIXED_AMOUNT = 'FIXED_AMOUNT',
 }
 
 export class CampaignProductDto {
@@ -52,9 +54,9 @@ export class CreateCampaignDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({ enum: CampaignType, description: 'Campaign type' })
-  @IsEnum(CampaignType)
-  type: CampaignType;
+  @ApiProperty({ enum: CampaignOfferType, description: 'Campaign type' })
+  @IsEnum(CampaignOfferType)
+  type: CampaignOfferType;
 
   @ApiProperty({ description: 'Campaign start date (ISO 8601)' })
   @IsDateString()
@@ -64,9 +66,9 @@ export class CreateCampaignDto {
   @IsDateString()
   endDate: string;
 
-  @ApiProperty({ enum: DiscountType, description: 'Discount type' })
-  @IsEnum(DiscountType)
-  discountType: DiscountType;
+  @ApiProperty({ enum: CampaignDiscountType, description: 'Discount type' })
+  @IsEnum(CampaignDiscountType)
+  discountType: CampaignDiscountType;
 
   @ApiProperty({ description: 'Discount value (percentage 0-100 or fixed amount in paise)' })
   @IsInt()
@@ -134,10 +136,10 @@ export class UpdateCampaignDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ enum: CampaignType, description: 'Campaign type' })
+  @ApiPropertyOptional({ enum: CampaignOfferType, description: 'Campaign type' })
   @IsOptional()
-  @IsEnum(CampaignType)
-  type?: CampaignType;
+  @IsEnum(CampaignOfferType)
+  type?: CampaignOfferType;
 
   @ApiPropertyOptional({ description: 'Campaign start date (ISO 8601)' })
   @IsOptional()
@@ -149,10 +151,10 @@ export class UpdateCampaignDto {
   @IsDateString()
   endDate?: string;
 
-  @ApiPropertyOptional({ enum: DiscountType, description: 'Discount type' })
+  @ApiPropertyOptional({ enum: CampaignDiscountType, description: 'Discount type' })
   @IsOptional()
-  @IsEnum(DiscountType)
-  discountType?: DiscountType;
+  @IsEnum(CampaignDiscountType)
+  discountType?: CampaignDiscountType;
 
   @ApiPropertyOptional({ description: 'Discount value (percentage 0-100 or fixed amount in paise)' })
   @IsOptional()
@@ -212,15 +214,15 @@ export class UpdateCampaignDto {
 }
 
 export class CampaignFilterDto {
-  @ApiPropertyOptional({ enum: CampaignStatus, description: 'Filter by campaign status' })
+  @ApiPropertyOptional({ enum: MarketingCampaignStatus, description: 'Filter by campaign status' })
   @IsOptional()
-  @IsEnum(CampaignStatus)
-  status?: CampaignStatus;
+  @IsEnum(MarketingCampaignStatus)
+  status?: MarketingCampaignStatus;
 
-  @ApiPropertyOptional({ enum: CampaignType, description: 'Filter by campaign type' })
+  @ApiPropertyOptional({ enum: CampaignOfferType, description: 'Filter by campaign type' })
   @IsOptional()
-  @IsEnum(CampaignType)
-  type?: CampaignType;
+  @IsEnum(CampaignOfferType)
+  type?: CampaignOfferType;
 
   @ApiPropertyOptional({ description: 'Filter by active campaigns only' })
   @IsOptional()

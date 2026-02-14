@@ -58,4 +58,45 @@ export class AdminDashboardController {
     async getTopProducts(@Query('limit') limit: string = '5') {
         return this.dashboardService.getTopProducts(parseInt(limit, 10));
     }
+
+    @Get('revenue')
+    async getRevenue(@Query('period') period: string = 'Last 7 Days') {
+        return this.dashboardService.getRevenueIntelligence(period);
+    }
+
+    @Get('trending-shops')
+    async getTrendingShops() {
+        return this.dashboardService.getTrendingShops();
+    }
+
+    @Get('favorite-products')
+    async getFavoriteProducts(@Query('limit') limit: string = '5') {
+        return this.dashboardService.getTopProducts(parseInt(limit, 10));
+    }
+
+    @Get('recent-orders')
+    async getRecentOrders() {
+        return this.dashboardService.getRecentOrders();
+    }
+
+    @Get('user-distribution')
+    async getUserDistribution() {
+        // Mock data to prevent 404
+        return [
+            { name: 'Direct', value: 400 },
+            { name: 'Social', value: 300 },
+            { name: 'Search', value: 300 },
+        ];
+    }
+
+    @Get('wallet-stats')
+    async getWalletStats() {
+        // Mock data to prevent 404
+        return {
+            totalBalance: 2500000,
+            pendingSettlements: 450000,
+            recentTransactions: []
+        };
+    }
 }
+

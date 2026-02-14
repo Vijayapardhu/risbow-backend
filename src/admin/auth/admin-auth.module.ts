@@ -19,12 +19,16 @@ import { PrismaModule } from '../../prisma/prisma.module';
     PassportModule.register({ defaultStrategy: 'admin-jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: '15m', // Access token: 15 minutes
-        },
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const secret = configService.get<string>('JWT_SECRET');
+
+        return {
+          secret: secret,
+          signOptions: {
+            expiresIn: '15m',
+          },
+        };
+      },
       inject: [ConfigService],
     }),
     AdminRbacModule,
@@ -48,4 +52,4 @@ import { PrismaModule } from '../../prisma/prisma.module';
     AdminMfaGuard,
   ],
 })
-export class AdminAuthModule {}
+export class AdminAuthModule { }

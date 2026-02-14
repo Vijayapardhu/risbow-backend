@@ -2,16 +2,17 @@ import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Ht
 import { BlogService } from './blog.service';
 import { CreatePostDto, UpdatePostDto } from './dto/create-post.dto';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/create-category.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
-import { UserRole, PostStatus } from '@prisma/client';
+import { AdminJwtAuthGuard } from '../admin/auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from '../admin/auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from '../admin/auth/guards/admin-permissions.guard';
+import { AdminRoles } from '../admin/auth/decorators/admin-roles.decorator';
+import { AdminRole, PostStatus } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 // Admin Controller
 @Controller('admin/blog')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+@UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+@AdminRoles(AdminRole.SUPER_ADMIN, AdminRole.OPERATIONS_ADMIN)
 export class AdminBlogController {
   constructor(private readonly blogService: BlogService) {}
 

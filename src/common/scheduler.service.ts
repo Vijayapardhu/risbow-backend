@@ -36,7 +36,8 @@ export class SchedulerService {
     ) { }
 
     // SRS FR-2: Check expiry every min -> EXPIRED if past endAt.
-    @Cron(CronExpression.EVERY_MINUTE)
+    // Staggered to 25s past the minute
+    @Cron('25 * * * * *')
     async handleRoomExpiry() {
         // 🔐 P0 FIX: Use distributed lock to prevent concurrent execution
         await this.redisLock.withLock('cron:room-expiry', async () => {
@@ -105,7 +106,8 @@ export class SchedulerService {
     }
 
     // Cart Abandonment Detection - runs every 15 minutes
-    @Cron('0 */15 * * * *')
+    // Staggered to 45s past the minute
+    @Cron('45 */15 * * * *')
     async handleCartAbandonment() {
         // 🔐 P0 FIX: Use distributed lock
         await this.redisLock.withLock('cron:cart-abandonment', async () => {
@@ -132,6 +134,14 @@ export class SchedulerService {
                 let cleanedCount = 0;
                 const reservationTTL = 900; // 15 minutes in seconds
 
+                // Get all pending orders once to check against reservations (avoid N+1)
+                const pendingOrders = await this.prisma.order.findMany({
+                    where: {
+                        status: { in: ['PENDING', 'PENDING_PAYMENT'] },
+                    },
+                    select: { id: true, itemsSnapshot: true },
+                });
+
                 for (const key of reservationKeys) {
                     // Check if key exists and get its value
                     const value = await this.redisService.get(key);
@@ -146,15 +156,6 @@ export class SchedulerService {
                     const parts = key.replace('reservation:', '').split(':');
                     const productId = parts[0];
                     const variantId = parts[1] !== 'base' ? parts[1] : undefined;
-
-                    // Check if there's an active order for this product
-                    // Look for orders in PENDING or PENDING_PAYMENT status that contain this product
-                    const pendingOrders = await this.prisma.order.findMany({
-                        where: {
-                            status: { in: ['PENDING', 'PENDING_PAYMENT'] },
-                        },
-                        select: { id: true, itemsSnapshot: true },
-                    });
 
                     let hasActiveOrder = false;
                     for (const order of pendingOrders) {
@@ -353,6 +354,30 @@ export class SchedulerService {
                 }
             } catch (error) {
                 this.logger.error(`Inquiry expiry failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+        }, 3600); // 1 hour lock TTL
+    }
+
+    // Auto-expire admin sessions - runs daily at midnight
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    async handleAdminSessionCleanup() {
+        await this.redisLock.withLock('cron:admin-session-cleanup', async () => {
+            this.logger.debug('Starting admin session cleanup...');
+            try {
+                const now = new Date();
+                const result = await this.prisma.adminSession.deleteMany({
+                    where: {
+                        OR: [
+                            { expiresAt: { lt: now } },
+                            { isActive: false, lastActive: { lt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) } } // Also clean inactive sessions older than 7 days
+                        ]
+                    },
+                });
+                if (result.count > 0) {
+                    this.logger.log(`Deleted ${result.count} expired/inactive admin sessions`);
+                }
+            } catch (error) {
+                this.logger.error(`Admin session cleanup failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
         }, 3600); // 1 hour lock TTL
     }

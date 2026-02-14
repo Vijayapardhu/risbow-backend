@@ -20,18 +20,28 @@ export class AuditLogService {
             return;
         }
 
-        return this.prisma.auditLog.create({
-            data: {
-                id: randomUUID(),
-                User: { connect: { id: adminId } },
-                action,
-                entity,
-                entityId,
-                details: details || {},
-                ipAddress,
-                userAgent,
-            },
-        });
+        // Skip if no valid ID
+        if (!adminId || adminId.trim() === '') {
+            return;
+        }
+
+        try {
+            // Just create the audit log with adminId - the schema will validate
+            return await this.prisma.auditLog.create({
+                data: {
+                    id: randomUUID(),
+                    adminId: adminId,
+                    action,
+                    entity,
+                    entityId,
+                    details: details || {},
+                    ipAddress,
+                    userAgent,
+                },
+            });
+        } catch (error) {
+            console.warn(`AuditLogService: Failed to create audit log: ${error.message}`);
+        }
     }
 
     async getLogs(params: {

@@ -12,22 +12,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         private prisma: PrismaService,
         private redisService: RedisService,
     ) {
-        const publicKey = configService.get<string>('JWT_PUBLIC_KEY');
         const secret = configService.get<string>('JWT_SECRET');
 
-        // Use RS256 (asymmetric) if public key is configured, otherwise HS256
-        const jwtOptions = publicKey
-            ? {
-                jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-                ignoreExpiration: false,
-                secretOrKey: publicKey.replace(/\\n/g, '\n'),
-                algorithms: ['RS256'] as const,
-            }
-            : {
-                jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-                ignoreExpiration: false,
-                secretOrKey: secret,
-            };
+        const jwtOptions = {
+            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+            ignoreExpiration: false,
+            secretOrKey: secret,
+        };
 
         super(jwtOptions);
     }
@@ -53,7 +44,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         const user = await this.prisma.user.findUnique({
             where: { id: payload.sub },
         });
-        
+
         if (!user) {
             throw new UnauthorizedException('User not found');
         }
@@ -62,7 +53,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         if (user.status === 'BANNED') {
             throw new UnauthorizedException('Account has been banned');
         }
-        
+
         if (user.status === 'SUSPENDED') {
             throw new UnauthorizedException('Account has been suspended');
         }

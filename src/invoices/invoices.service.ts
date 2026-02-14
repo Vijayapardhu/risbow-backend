@@ -27,6 +27,16 @@ export class InvoicesService {
                     },
                     address: true,
                     payment: true,
+                    OrderItem: {
+                        include: {
+                            Product: {
+                                select: { id: true, title: true, sku: true, images: true }
+                            },
+                            Vendor: {
+                                select: { id: true, name: true, storeName: true }
+                            }
+                        }
+                    }
                 }
             });
 
@@ -439,5 +449,340 @@ export class InvoicesService {
         };
         
         return convert(Math.round(num));
+    }
+
+    /**
+     * Secure invoice generation with better data fetching
+     */
+    async generateInvoiceSecure(orderId: string): Promise<{ pdfBuffer: Buffer; invoiceNumber: string }> {
+        console.log(`[SecureInvoice] Generating for order: ${orderId}`);
+
+        if (!orderId || orderId.trim() === '') {
+            throw new Error('Order ID is required');
+        }
+
+        // Fetch order with comprehensive data
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+                user: {
+                    select: { id: true, name: true, email: true, mobile: true }
+                },
+                address: true,
+                payment: true,
+            }
+        });
+
+        if (!order) {
+            throw new Error(`Order not found: ${orderId}`);
+        }
+
+        // Generate invoice number
+        let invoiceNumber = order.invoiceNumber;
+        if (!invoiceNumber) {
+            invoiceNumber = await this.generateUniqueInvoiceNumber();
+            await this.prisma.order.update({
+                where: { id: orderId },
+                data: { invoiceNumber }
+            });
+        }
+
+        // Get vendor info from itemsSnapshot
+        let vendorName = 'Risbow Store';
+        let vendorAddress = 'Bangalore, Karnataka';
+        let vendorGST = '29AABCU9603R1ZM';
+
+        const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot : [];
+        if (items.length > 0) {
+            const firstItem = items[0] as any;
+            if (firstItem.vendorId) {
+                const vendor = await this.prisma.vendor.findUnique({
+                    where: { id: firstItem.vendorId },
+                    select: { name: true, storeName: true, pincode: true, gstNumber: true }
+                });
+                if (vendor) {
+                    vendorName = vendor.storeName || vendor.name || 'Risbow Store';
+                    vendorAddress = vendor.pincode ? `Pincode: ${vendor.pincode}` : 'Bangalore, Karnataka';
+                    vendorGST = vendor.gstNumber || vendorGST;
+                }
+            }
+        }
+
+        // Generate barcode
+        let barcodeBuffer: Buffer | null = null;
+        const barcodeText = order.orderNumber || order.id;
+        try {
+            barcodeBuffer = await bwipjs.toBuffer({
+                bcid: 'code128',
+                text: barcodeText,
+                scale: 3,
+                height: 10,
+                includetext: true,
+                textxalign: 'center',
+            });
+        } catch (err) {
+            console.warn('[SecureInvoice] Barcode generation failed:', err.message);
+        }
+
+        // Generate QR code for verification
+        let qrBuffer: Buffer | null = null;
+        try {
+            qrBuffer = await bwipjs.toBuffer({
+                bcid: 'qrcode',
+                text: `RISBOW|INV|${invoiceNumber}|${order.orderNumber}`,
+                scale: 3,
+                height: 50,
+            });
+        } catch (err) {
+            console.warn('[SecureInvoice] QR generation failed:', err.message);
+        }
+
+        // Generate the professional PDF
+        const pdfBuffer = await this.generateProfessionalPDF(order, invoiceNumber, vendorName, vendorAddress, vendorGST, barcodeBuffer, qrBuffer);
+
+        return { pdfBuffer, invoiceNumber };
+    }
+
+    private generateProfessionalPDF(
+        order: any, 
+        invoiceNumber: string, 
+        vendorName: string, 
+        vendorAddress: string, 
+        vendorGST: string, 
+        barcodeBuffer: Buffer | null,
+        qrBuffer: Buffer | null
+    ): Promise<Buffer> {
+        return new Promise((resolve, reject) => {
+            try {
+                const doc = new PDFDocument({ margin: 40, size: 'A4' });
+                const chunks: Buffer[] = [];
+                
+                doc.on('data', chunk => chunks.push(chunk));
+                doc.on('end', () => resolve(Buffer.concat(chunks)));
+                doc.on('error', reject);
+
+                const orderNumber = order.orderNumber || `ORD-${order.id.substring(0, 8).toUpperCase()}`;
+                const invoiceDate = order.confirmedAt || order.updatedAt || order.createdAt;
+                const orderDate = new Date(invoiceDate).toLocaleDateString('en-IN', { 
+                    day: '2-digit', month: 'long', year: 'numeric' 
+                });
+                const customerName = order.user?.name || 'Customer';
+                const customerMobile = order.user?.mobile || '-';
+                const customerEmail = order.user?.email || '-';
+                
+                const address = order.address || {};
+                const shippingAddress = [
+                    address.addressLine1 || address.street || '',
+                    address.addressLine2 || '',
+                    address.city || '',
+                    address.state || '',
+                    address.pincode || address.postalCode || ''
+                ].filter(Boolean).join(', ');
+
+                // ==================== HEADER ====================
+                doc.fontSize(28).font('Helvetica-Bold').fillColor('#1a1a2e');
+                doc.text('RISBOW', 40, 30);
+                
+                doc.fontSize(10).font('Helvetica').fillColor('#666');
+                doc.text('E-Commerce Platform', 40, 58);
+                
+                doc.fontSize(22).font('Helvetica-Bold').fillColor('#FD4A6E');
+                doc.text('TAX INVOICE', 400, 30, { align: 'right' });
+                
+                doc.fontSize(9).font('Helvetica').fillColor('#666');
+                doc.text('Original for Recipient', 400, 55, { align: 'right' });
+                
+                doc.moveTo(40, 80).lineTo(560, 80).strokeColor('#1a1a2e').lineWidth(2).stroke();
+                
+                // ==================== COMPANY & INVOICE INFO ====================
+                let yPos = 100;
+                
+                doc.fontSize(10).font('Helvetica-Bold').fillColor('#333');
+                doc.text('From:', 40, yPos);
+                doc.fontSize(11).font('Helvetica-Bold').fillColor('#1a1a2e');
+                doc.text('RISBOW Private Limited', 40, yPos + 14);
+                
+                doc.fontSize(9).font('Helvetica').fillColor('#666');
+                doc.text('Bangalore, Karnataka - 560001', 40, yPos + 28);
+                doc.text('GSTIN: 29AABCU9603R1ZM', 40, yPos + 40);
+                doc.text('CIN: U72900KA2020PTC123456', 40, yPos + 52);
+                
+                doc.fontSize(10).font('Helvetica-Bold').fillColor('#333');
+                doc.text('Invoice Details:', 200, yPos);
+                
+                doc.fontSize(9).font('Helvetica').fillColor('#333');
+                doc.text(`Invoice #: ${invoiceNumber}`, 200, yPos + 14);
+                doc.text(`Order #: ${orderNumber}`, 200, yPos + 26);
+                doc.text(`Invoice Date: ${orderDate}`, 200, yPos + 38);
+                doc.text(`Payment: ${order.payment?.provider || 'COD'}`, 200, yPos + 50);
+                
+                if (barcodeBuffer) {
+                    doc.image(barcodeBuffer, 200, yPos + 58, { width: 100, height: 30 });
+                }
+                
+                doc.fontSize(10).font('Helvetica-Bold').fillColor('#333');
+                doc.text('Bill To:', 400, yPos);
+                
+                doc.fontSize(11).font('Helvetica-Bold').fillColor('#1a1a2e');
+                doc.text(customerName, 400, yPos + 14);
+                
+                doc.fontSize(9).font('Helvetica').fillColor('#333');
+                if (shippingAddress) {
+                    doc.text(shippingAddress, 400, yPos + 28, { width: 160 });
+                }
+                doc.text(`Ph: ${customerMobile}`, 400, yPos + 55);
+                if (customerEmail !== '-') {
+                    doc.text(customerEmail, 400, yPos + 67);
+                }
+                
+                yPos = 190;
+                
+                // ==================== ITEMS TABLE ====================
+                doc.moveTo(40, yPos).lineTo(560, yPos).strokeColor('#ccc').lineWidth(1).stroke();
+                yPos += 10;
+                
+                doc.fontSize(9).font('Helvetica-Bold').fillColor('#1a1a2e');
+                doc.text('#', 45, yPos, { width: 25, align: 'center' });
+                doc.text('Item Description', 75, yPos, { width: 220 });
+                doc.text('HSN', 300, yPos, { width: 50, align: 'center' });
+                doc.text('Qty', 355, yPos, { width: 35, align: 'center' });
+                doc.text('Rate', 395, yPos, { width: 60, align: 'right' });
+                doc.text('Taxable', 460, yPos, { width: 60, align: 'right' });
+                
+                yPos += 15;
+                doc.moveTo(40, yPos).lineTo(560, yPos).strokeColor('#ccc').lineWidth(1).stroke();
+                yPos += 8;
+                
+                const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot : [];
+                let totalTaxable = 0;
+                let totalCGST = 0;
+                let totalSGST = 0;
+                
+                doc.fontSize(8).font('Helvetica').fillColor('#333');
+                
+                items.forEach((item: any, index: number) => {
+                    const unitPrice = (item.price || item.unitPrice || 0) / 100;
+                    const quantity = item.quantity || 1;
+                    const taxableValue = unitPrice * quantity;
+                    const cgst = taxableValue * 0.09;
+                    const sgst = taxableValue * 0.09;
+                    
+                    totalTaxable += taxableValue;
+                    totalCGST += cgst;
+                    totalSGST += sgst;
+                    
+                    const itemName = item.productName || item.productTitle || 'Product';
+                    
+                    doc.text(String(index + 1), 45, yPos, { width: 25, align: 'center' });
+                    doc.text(itemName.substring(0, 40), 75, yPos, { width: 220 });
+                    doc.text('-', 300, yPos, { width: 50, align: 'center' });
+                    doc.text(String(quantity), 355, yPos, { width: 35, align: 'center' });
+                    doc.text(this.formatCurrency(unitPrice * 100), 395, yPos, { width: 60, align: 'right' });
+                    doc.text(this.formatCurrency(taxableValue * 100), 460, yPos, { width: 60, align: 'right' });
+                    
+                    yPos += 18;
+                    
+                    if (yPos > 700) {
+                        doc.addPage();
+                        yPos = 40;
+                    }
+                });
+                
+                yPos += 5;
+                doc.moveTo(40, yPos).lineTo(560, yPos).strokeColor('#1a1a2e').lineWidth(1).stroke();
+                yPos += 15;
+                
+                // ==================== TOTALS ====================
+                const shipping = (order.shippingCharges || 0) / 100;
+                const discount = (order.coinsUsed || 0) / 100;
+                const grandTotal = totalTaxable + totalCGST + totalSGST + shipping - discount;
+                
+                const totalsX = 350;
+                
+                doc.fontSize(10).font('Helvetica').fillColor('#333');
+                doc.text('Taxable Amount:', totalsX, yPos, { width: 100, align: 'right' });
+                doc.text(this.formatCurrency(totalTaxable * 100), totalsX + 105, yPos, { width: 60, align: 'right' });
+                yPos += 16;
+                
+                doc.text('CGST (9%):', totalsX, yPos, { width: 100, align: 'right' });
+                doc.text(this.formatCurrency(totalCGST * 100), totalsX + 105, yPos, { width: 60, align: 'right' });
+                yPos += 16;
+                
+                doc.text('SGST (9%):', totalsX, yPos, { width: 100, align: 'right' });
+                doc.text(this.formatCurrency(totalSGST * 100), totalsX + 105, yPos, { width: 60, align: 'right' });
+                yPos += 16;
+                
+                if (shipping > 0) {
+                    doc.text('Shipping:', totalsX, yPos, { width: 100, align: 'right' });
+                    doc.text(this.formatCurrency(shipping * 100), totalsX + 105, yPos, { width: 60, align: 'right' });
+                    yPos += 16;
+                }
+                
+                if (discount > 0) {
+                    doc.fillColor('#059669');
+                    doc.text('Discount:', totalsX, yPos, { width: 100, align: 'right' });
+                    doc.text(`-${this.formatCurrency(discount * 100)}`, totalsX + 105, yPos, { width: 60, align: 'right' });
+                    doc.fillColor('#333');
+                    yPos += 16;
+                }
+                
+                yPos += 5;
+                doc.rect(totalsX - 10, yPos - 3, 220, 28).fillAndStroke('#1a1a2e', '#1a1a2e');
+                doc.fontSize(12).font('Helvetica-Bold').fillColor('#fff');
+                doc.text('Grand Total:', totalsX, yPos + 2, { width: 100, align: 'right' });
+                doc.text(this.formatCurrency(grandTotal * 100), totalsX + 105, yPos + 2, { width: 60, align: 'right' });
+                yPos += 40;
+                
+                doc.fontSize(9).font('Helvetica-Oblique').fillColor('#666');
+                doc.text(`Amount in Words: ${this.numberToWords(grandTotal)} Rupees Only`, 40, yPos, { width: 500 });
+                yPos += 25;
+                
+                // ==================== FOOTER ====================
+                doc.moveTo(40, yPos).lineTo(560, yPos).strokeColor('#ccc').lineWidth(0.5).stroke();
+                yPos += 15;
+                
+                doc.fontSize(9).font('Helvetica-Bold').fillColor('#333');
+                doc.text('Terms & Conditions:', 40, yPos);
+                yPos += 15;
+                
+                doc.fontSize(8).font('Helvetica').fillColor('#666');
+                const terms = [
+                    '1. Goods once sold will not be taken back or exchanged.',
+                    '2. Warranty is as per manufacturer terms.',
+                    '3. E&O.E.',
+                    '4. Dispute subject to Bangalore jurisdiction.',
+                ];
+                terms.forEach(term => {
+                    doc.text(term, 40, yPos, { width: 350 });
+                    yPos += 12;
+                });
+                
+                if (qrBuffer) {
+                    doc.image(qrBuffer, 450, yPos - 30, { width: 60, height: 60 });
+                }
+                
+                doc.fontSize(8).font('Helvetica').fillColor('#666');
+                doc.text('Scan QR to verify', 450, yPos + 35, { width: 60, align: 'center' });
+                
+                yPos += 50;
+                doc.fontSize(8).font('Helvetica').fillColor('#666');
+                doc.text('Declaration: We declare that this invoice shows the actual price of the goods described.', 40, yPos, { width: 350 });
+                yPos += 15;
+                doc.text('This is a computer generated invoice and does not require physical signature.', 40, yPos, { width: 350 });
+                
+                yPos += 25;
+                doc.fontSize(11).font('Helvetica-Bold').fillColor('#FD4A6E');
+                doc.text('Thank you for shopping with RISBOW!', 40, yPos, { width: 500, align: 'center' });
+                
+                doc.moveTo(40, 780).lineTo(560, 780).strokeColor('#1a1a2e').lineWidth(1).stroke();
+                doc.fontSize(7).font('Helvetica').fillColor('#999');
+                doc.text('RISBOW Private Limited | www.risbow.com | support@risbow.com', 40, 785, { width: 520, align: 'center' });
+                
+                doc.end();
+            } catch (error) {
+                console.error('[ProfessionalInvoice] PDF generation error:', error);
+                reject(error);
+            }
+        });
     }
 }

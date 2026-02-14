@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { RoomStatus, RiskTag, ValueTag, UserRole, UserStatus, OrderStatus, KycStatus } from '@prisma/client';
+import { RoomStatus, RiskTag, ValueTag, UserRole, UserStatus, OrderStatus, KycStatus, VendorStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { OrderStateValidatorService } from '../orders/order-state-validator.service';
 import { RedisService } from '../shared/redis.service';
@@ -746,18 +746,18 @@ export class AdminService {
         // Set force logout timestamp in Redis for immediate effect
         const now = Math.floor(Date.now() / 1000);
         await this.redisService.set(`force_logout:${userId}`, now.toString(), 7 * 24 * 60 * 60);
-        
+
         // Remove all refresh tokens
         await this.redisService.del(`refresh_token:${userId}`);
 
         await this.prisma.auditLog.create({
-            data: { 
+            data: {
                 id: randomUUID(),
-                adminId, 
-                entity: 'USER', 
-                entityId: userId, 
+                adminId,
+                entity: 'USER',
+                entityId: userId,
                 action: 'FORCE_LOGOUT',
-                details: { 
+                details: {
                     previousForceLogoutAt: updatedUser.forceLogoutAt,
                     newForceLogoutAt: new Date().toISOString()
                 }
@@ -995,7 +995,7 @@ export class AdminService {
         // Soft delete by setting status to BANNED and adding deletedAt marker
         const result = await this.prisma.user.updateMany({
             where: { id: { in: userIds } },
-            data: { 
+            data: {
                 status: 'BANNED',
                 updatedAt: new Date()
             }
@@ -1107,7 +1107,7 @@ export class AdminService {
         // Use a unique placeholder email to avoid unique constraint violations
         const deletedEmail = user.email ? `deleted_${userId.substring(0, 8)}_${Date.now()}@deleted.risbow` : undefined;
         const deletedMobile = user.mobile ? `DEL${userId.substring(0, 6)}${Date.now()}` : undefined;
-        
+
         await this.prisma.user.update({
             where: { id: userId },
             data: {
@@ -1132,8 +1132,8 @@ export class AdminService {
                 entity: 'USER',
                 entityId: userId,
                 action: 'DELETE_USER',
-                details: { 
-                    deletedEmail: user.email, 
+                details: {
+                    deletedEmail: user.email,
                     deletedName: user.name,
                     deletedMobile: user.mobile,
                     deletedAt: new Date().toISOString()
@@ -1397,9 +1397,9 @@ export class AdminService {
                 entity: 'ORDER',
                 entityId: orderId,
                 action: 'UPDATE_STATUS',
-                details: { 
-                    oldStatus: order.status, 
-                    newStatus: status, 
+                details: {
+                    oldStatus: order.status,
+                    newStatus: status,
                     logistics,
                     adminOverride: allowAdminOverride,
                     isValidTransition,
@@ -1452,57 +1452,67 @@ export class AdminService {
                 }
             }
 
-        const [vendors, total] = await Promise.all([
-            this.prisma.vendor.findMany({
-                where,
-                orderBy,
-                skip: (page - 1) * limit,
-                take: limit,
-                select: {
-                    id: true,
-                    name: true,
-                    mobile: true,
-                    email: true,
-                    storeName: true,
-                    storeLogo: true,
-                    storeBanner: true,
-                    kycStatus: true,
-                    tier: true,
-                    storeStatus: true,
-                    role: true,
-                    commissionRate: true,
-                    coinsBalance: true,
-                    performanceScore: true,
-                    createdAt: true,
-                    updatedAt: true,
-                    _count: { select: { Product: true } },
-                },
-            }),
-            this.prisma.vendor.count({ where }),
-        ]);
+            const [vendors, total, pendingCount, activeCount, pendingKycCount, suspendedCount] = await Promise.all([
+                this.prisma.vendor.findMany({
+                    where,
+                    orderBy,
+                    skip: (page - 1) * limit,
+                    take: limit,
+                    select: {
+                        id: true,
+                        name: true,
+                        mobile: true,
+                        email: true,
+                        storeName: true,
+                        storeLogo: true,
+                        storeBanner: true,
+                        kycStatus: true,
+                        tier: true,
+                        storeStatus: true,
+                        role: true,
+                        commissionRate: true,
+                        coinsBalance: true,
+                        performanceScore: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        _count: { select: { Product: true } },
+                    },
+                }),
+                this.prisma.vendor.count({ where }),
+                this.prisma.vendor.count({ where: { kycStatus: KycStatus.PENDING } }),
+                this.prisma.vendor.count({ where: { kycStatus: KycStatus.VERIFIED, storeStatus: VendorStatus.ACTIVE } }),
+                this.prisma.vendor.count({ where: { kycStatus: { in: [KycStatus.PENDING, KycStatus.PENDING_PAYMENT] } } }),
+                this.prisma.vendor.count({ where: { storeStatus: VendorStatus.SUSPENDED } }),
+            ]);
 
-        const data = vendors.map((v: any) => {
-            const { _count, ...rest } = v;
+            const data = vendors.map((v: any) => {
+                const { _count, ...rest } = v;
+                return {
+                    ...rest,
+                    phone: v.mobile,
+                    status: v.storeStatus ?? 'ACTIVE',
+                    totalSales: 0,
+                    totalOrders: 0,
+                    rating: Number(v.performanceScore) || 0,
+                    totalProducts: _count?.Product ?? 0,
+                };
+            });
+
             return {
-                ...rest,
-                phone: v.mobile,
-                status: v.storeStatus ?? 'ACTIVE',
-                totalSales: 0,
-                totalOrders: 0,
-                rating: Number(v.performanceScore) || 0,
-                totalProducts: _count?.Product ?? 0,
+                data,
+                stats: {
+                    pending: pendingCount,
+                    active: activeCount,
+                    pendingKyc: pendingKycCount,
+                    suspended: suspendedCount
+                },
+                meta: {
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit),
+                },
             };
-        });
-
-        return {
-            data,
-            meta: {
-                total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit),
-            },
-        };
         } catch (error) {
             console.error('Error in getVendors:', error);
             // Return empty result instead of throwing
@@ -1556,7 +1566,7 @@ export class AdminService {
         if (rate < 0 || rate > 100) {
             throw new BadRequestException('Commission rate must be between 0 and 100');
         }
-        
+
         // Check if vendor exists
         const existingVendor = await this.prisma.vendor.findUnique({ where: { id } });
         if (!existingVendor) {
@@ -1634,7 +1644,7 @@ export class AdminService {
     }
 
     async verifyVendorKyc(adminId: string, vendorId: string, status: string, notes?: string) {
-        const vendor = await this.prisma.vendor.findUnique({ 
+        const vendor = await this.prisma.vendor.findUnique({
             where: { id: vendorId }
         });
         if (!vendor) throw new NotFoundException('Vendor not found');
@@ -1652,7 +1662,7 @@ export class AdminService {
 
         const updated = await this.prisma.vendor.update({
             where: { id: vendorId },
-            data: { 
+            data: {
                 kycStatus: status as KycStatus,
                 rejectionReason: status === KycStatus.REJECTED ? notes : null,
             }
@@ -1661,11 +1671,11 @@ export class AdminService {
         // Update vendor documents status if rejecting
         if (status === KycStatus.REJECTED) {
             await this.prisma.vendorDocument.updateMany({
-                where: { 
+                where: {
                     vendorId,
                     status: 'PENDING'
                 },
-                data: { 
+                data: {
                     status: 'REJECTED',
                     rejectionReason: notes,
                     reviewedAt: new Date(),
@@ -1675,11 +1685,11 @@ export class AdminService {
         } else if (status === 'VERIFIED') {
             // Approve all pending documents
             await this.prisma.vendorDocument.updateMany({
-                where: { 
+                where: {
                     vendorId,
                     status: 'PENDING'
                 },
-                data: { 
+                data: {
                     status: 'APPROVED',
                     reviewedAt: new Date(),
                     reviewedBy: adminId
@@ -1975,7 +1985,7 @@ export class AdminService {
         return this.prisma.category.findMany();
     }
 
-    async createCategory(data: { name: string, parentId?: string, image?: string }) {
+    async createCategory(data: { name: string; parentId?: string; image?: string; slug?: string }) {
         return this.prisma.category.create({ data: { id: randomUUID(), ...data, updatedAt: new Date() } });
     }
 
@@ -2105,14 +2115,14 @@ export class AdminService {
     async updatePlatformConfig(key: string, value: string, updatedById: string = 'system') {
         const category = PlatformConfigHelper.extractCategory(key);
         const keyPart = PlatformConfigHelper.extractKey(key);
-        
+
         return this.prisma.platformConfig.upsert({
             where: PlatformConfigHelper.buildWhereUnique(category, keyPart),
-            update: { 
+            update: {
                 value: PlatformConfigHelper.serializeValue(value),
-                updatedById 
+                updatedById
             },
-            create: { 
+            create: {
                 category,
                 key: keyPart,
                 value: PlatformConfigHelper.serializeValue(value),
@@ -2152,15 +2162,15 @@ export class AdminService {
             const category = PlatformConfigHelper.extractCategory(key.toUpperCase());
             const keyPart = PlatformConfigHelper.extractKey(key.toUpperCase());
             const serializedValue = PlatformConfigHelper.serializeValue(value);
-            
+
             updates.push(
                 this.prisma.platformConfig.upsert({
                     where: PlatformConfigHelper.buildWhereUnique(category, keyPart),
-                    update: { 
+                    update: {
                         value: serializedValue,
-                        updatedById 
+                        updatedById
                     },
-                    create: { 
+                    create: {
                         category,
                         key: keyPart,
                         value: serializedValue,
@@ -2285,6 +2295,7 @@ export class AdminService {
                 name: data.name,
                 parentId: data.parentId === "" ? null : data.parentId,
                 image: data.image,
+                slug: data.slug,
                 attributeSchema: data.attributeSchema
             }
         });

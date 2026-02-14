@@ -492,8 +492,25 @@ export class AdminController {
     }
 
     @Get('categories')
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN, AdminRole.SUPER_ADMIN, AdminRole.CONTENT_MODERATOR)
     getCategories() {
         return this.adminService.getCategories();
+    }
+
+    @Get('pos/reports')
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN, AdminRole.SUPER_ADMIN)
+    getPosReports() {
+        return {
+            summary: {
+                totalSales: 0,
+                totalTransactions: 0,
+                averageOrderValue: 0,
+            },
+            dailyReport: [],
+            weeklyReport: [],
+            monthlyReport: [],
+            message: 'POS reports endpoint - data aggregation pending implementation'
+        };
     }
 
     @Post('categories')
