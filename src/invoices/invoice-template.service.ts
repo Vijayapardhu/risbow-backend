@@ -4,7 +4,6 @@ import PDFDocument from 'pdfkit';
 import * as QRCode from 'qrcode';
 import { CreateInvoiceTemplateDto } from './dto/create-invoice-template.dto';
 import { UpdateInvoiceTemplateDto } from './dto/update-invoice-template.dto';
-import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class InvoiceTemplateService {
@@ -224,7 +223,7 @@ export class InvoiceTemplateService {
                 phone: template.phone,
                 email: template.email,
                 gstin: template.gstin,
-                taxFields: template.taxFields === null ? undefined : (template.taxFields as Prisma.JsonValue) || undefined,
+                taxFields: template.taxFields,
                 headerText: template.headerText,
                 footerText: template.footerText,
                 showQrCode: template.showQrCode,

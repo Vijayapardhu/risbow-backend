@@ -9,6 +9,8 @@ import { Response } from 'express';
 import { AdminRole } from '@prisma/client';
 import { AdminRoles } from './auth/decorators/admin-roles.decorator';
 import { BulkUpdateUserDto, BulkDeleteUserDto, BulkUpdateProductDto, BulkDeleteProductDto, BulkUpdateVendorDto, BulkDeleteVendorDto } from './dto/bulk-operations.dto';
+import { UpdateVendorDto } from './dto/update-vendor.dto';
+import { CreateVendorDto } from './dto/create-vendor.dto';
 
 // Backward-compatible shim for legacy `@Roles('ADMIN'|'SUPER_ADMIN')` usage.
 // Maps old role strings to the new AdminRole enum.
@@ -201,7 +203,7 @@ export class AdminController {
 
     @Post('users/:id/kyc')
     @Roles('ADMIN', 'SUPER_ADMIN')
-    @Throttle({ default: { limit: 3, ttl: 60000 } })
+    @Throttle({ default: { limit: 100, ttl: 60000 } })
     updateKyc(
         @Request() req: any,
         @Param('id') userId: string,
@@ -377,15 +379,27 @@ export class AdminController {
 
     @Get('vendors')
     @ApiOperation({ summary: 'List all vendors with filters' })
+    @ApiQuery({ name: 'kycStatus', required: false, type: String })
     getVendors(
         @Query('status') status: string,
+        @Query('kycStatus') kycStatus: string,
         @Query('page') page: string,
         @Query('limit') limit: string,
         @Query('search') search: string,
         @Query('sort') sort: string
     ) {
         const { page: normalizedPage, limit: normalizedLimit } = this.normalizePagination(page, limit, 20);
-        return this.adminService.getVendors(status, normalizedPage, normalizedLimit, search, sort);
+        return this.adminService.getVendors(status, normalizedPage, normalizedLimit, search, sort, kycStatus);
+    }
+
+    @Post('vendors')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Create a new vendor' })
+    createVendor(
+        @Request() req: any,
+        @Body() body: CreateVendorDto
+    ) {
+        return this.adminService.createVendor(req.user.id, body);
     }
 
     @Get('vendors/:id')
@@ -407,7 +421,7 @@ export class AdminController {
 
     @Post('vendors/:id/kyc-verify')
     @Roles('ADMIN', 'SUPER_ADMIN')
-    @Throttle({ default: { limit: 3, ttl: 60000 } })
+    @Throttle({ default: { limit: 100, ttl: 60000 } })
     @ApiOperation({ summary: 'Verify vendor KYC documents' })
     verifyVendorKyc(
         @Request() req: any,
@@ -438,6 +452,17 @@ export class AdminController {
         return this.adminService.activateVendor(req.user.id, id);
     }
 
+    @Patch('vendors/:id')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: 'Update vendor details' })
+    updateVendor(
+        @Request() req: any,
+        @Param('id') id: string,
+        @Body() body: UpdateVendorDto
+    ) {
+        return this.adminService.updateVendor(req.user.id, id, body);
+    }
+
     @Get('vendors/:id/analytics')
     @ApiOperation({ summary: 'Get vendor analytics and performance metrics' })
     getVendorAnalytics(@Param('id') id: string) {
@@ -446,8 +471,8 @@ export class AdminController {
 
     @Get('vendors/:id/documents')
     @ApiOperation({ summary: 'Get vendor KYC documents' })
-    getVendorDocuments(@Param('id') id: string) {
-        return this.adminService.getVendorDocuments(id);
+    getVendorDocuments(@Param('id') id: string, @Query('status') status?: string) {
+        return this.adminService.getVendorDocuments(id, status);
     }
 
     @Get('vendors/:id/payouts')
@@ -459,6 +484,29 @@ export class AdminController {
     ) {
         const { page: normalizedPage, limit: normalizedLimit } = this.normalizePagination(page, limit, 20);
         return this.adminService.getVendorPayouts(id, normalizedPage, normalizedLimit);
+    }
+
+    @Get('vendors/:id/products')
+    @ApiOperation({ summary: 'Get vendor products' })
+    getVendorProducts(
+        @Param('id') id: string,
+        @Query('page') page: string,
+        @Query('limit') limit: string
+    ) {
+        const { page: normalizedPage, limit: normalizedLimit } = this.normalizePagination(page, limit, 20);
+        return this.adminService.getVendorProducts(id, normalizedPage, normalizedLimit);
+    }
+
+    @Get('vendors/:id/orders')
+    @ApiOperation({ summary: 'Get vendor orders' })
+    getVendorOrders(
+        @Param('id') id: string,
+        @Query('page') page: string,
+        @Query('limit') limit: string,
+        @Query('status') status?: string
+    ) {
+        const { page: normalizedPage, limit: normalizedLimit } = this.normalizePagination(page, limit, 20);
+        return this.adminService.getVendorOrders(id, normalizedPage, normalizedLimit, status);
     }
 
     @Get('rooms')

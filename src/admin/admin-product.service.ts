@@ -69,10 +69,19 @@ export class AdminProductService {
                         select: {
                             id: true,
                             name: true,
-                            // isActive: true, // DB Migration Mismatch: Column missing in Prod
                         }
                     },
-                    Vendor: true,
+                    Vendor: {
+                        select: {
+                            id: true,
+                            name: true,
+                            storeName: true,
+                            email: true,
+                            mobile: true,
+                            role: true,
+                            kycStatus: true,
+                        }
+                    },
                     Review: {
                         select: { rating: true },
                     },
@@ -121,7 +130,10 @@ export class AdminProductService {
                     image: images[0] || null,
                     thumbnail: images[0] || null,
                     images,
-                    category: category?.name || 'Uncategorized',
+                    category: category ? {
+                        id: category.id,
+                        name: category.name,
+                    } : { name: 'Uncategorized' },
                     categoryId: category?.id || (product as any).categoryId || null,
                     vendorCount: 1,
                     recommendedVendor: vendor ? {
@@ -133,6 +145,7 @@ export class AdminProductService {
                     vendor: vendor ? {
                         id: vendor.id,
                         name: vendor.name,
+                        businessName: vendor.storeName || vendor.name,
                         email: vendor.email,
                         mobile: vendor.mobile,
                         role: vendor.role,
@@ -210,6 +223,7 @@ export class AdminProductService {
                     select: {
                         id: true,
                         name: true,
+                        storeName: true,
                     }
                 },
                 Category: {

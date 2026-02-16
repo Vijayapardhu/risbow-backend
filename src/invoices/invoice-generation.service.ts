@@ -16,7 +16,7 @@ export class InvoiceGenerationService {
     constructor(
         private prisma: PrismaService,
         private templateService: InvoiceTemplateService
-    ) { }
+    ) {}
 
     async generateInvoiceWithTemplate(orderId: string, templateId?: string): Promise<Buffer> {
         // Fetch order with all details
@@ -28,6 +28,13 @@ export class InvoiceGenerationService {
                 },
                 address: true,
                 payment: true,
+                OrderItem: {
+                    include: {
+                        Product: {
+                            select: { id: true, title: true, price: true, vendorId: true }
+                        }
+                    }
+                }
             }
         });
 
@@ -43,12 +50,12 @@ export class InvoiceGenerationService {
         }
 
         // Get vendor ID from order items
-        const items = Array.isArray(order.itemsSnapshot) ? (order.itemsSnapshot as any[]) : [];
+        const items = order.OrderItem || [];
         let vendorId: string | null = null;
-
+        
         if (items.length > 0) {
             const firstItem = items[0] as any;
-            vendorId = firstItem.vendorId;
+            vendorId = firstItem.Product?.vendorId || null;
         }
 
         // Get template
@@ -76,8 +83,8 @@ export class InvoiceGenerationService {
     private async generatePDFWithTemplate(order: any, invoiceNumber: string, template: any): Promise<Buffer> {
         return new Promise(async (resolve, reject) => {
             try {
-                const doc = new PDFDocument({
-                    size: 'A4',
+                const doc = new PDFDocument({ 
+                    size: 'A4', 
                     margin: 50,
                     bufferPages: true
                 });
@@ -127,7 +134,7 @@ export class InvoiceGenerationService {
                 doc.fontSize(10).fillColor('#333');
                 doc.text(`Invoice No: ${invoiceNumber}`, 50, yPosition);
                 doc.text(`Date: ${new Date().toLocaleDateString(locale)}`, 350, yPosition);
-
+                
                 if (order.orderNumber) {
                     yPosition += 20;
                     doc.text(`Order No: ${order.orderNumber}`, 50, yPosition);
@@ -174,7 +181,7 @@ export class InvoiceGenerationService {
                 yPosition += 25;
 
                 // Items
-                const items = Array.isArray(order.items) ? order.items : [];
+                const items = order.OrderItem || [];
                 let subtotal = 0;
 
                 items.forEach((item: any, index: number) => {
@@ -183,7 +190,10 @@ export class InvoiceGenerationService {
                         yPosition = 50;
                     }
 
-                    const itemTotal = item.price * item.quantity;
+                    const itemPrice = item.price || item.Product?.price || 0;
+                    const itemQty = item.quantity || 1;
+                    const itemName = item.Product?.title || item.name || 'Product';
+                    const itemTotal = itemPrice * itemQty;
                     subtotal += itemTotal;
 
                     doc.fontSize(10).fillColor('#333');
@@ -191,9 +201,9 @@ export class InvoiceGenerationService {
                         doc.rect(50, yPosition, 500, 25).fill('#f9f9f9');
                     }
 
-                    doc.fillColor('#333').text(item.name || 'Product', 60, yPosition + 7, { width: 220 });
-                    doc.text(item.quantity.toString(), 300, yPosition + 7, { width: 50, align: 'center' });
-                    doc.text(this.formatCurrency(item.price, currency, locale), 360, yPosition + 7, { width: 80, align: 'right' });
+                    doc.fillColor('#333').text(itemName, 60, yPosition + 7, { width: 220 });
+                    doc.text(itemQty.toString(), 300, yPosition + 7, { width: 50, align: 'center' });
+                    doc.text(this.formatCurrency(itemPrice, currency, locale), 360, yPosition + 7, { width: 80, align: 'right' });
                     doc.text(this.formatCurrency(itemTotal, currency, locale), 450, yPosition + 7, { width: 90, align: 'right' });
 
                     yPosition += 25;
@@ -271,7 +281,7 @@ export class InvoiceGenerationService {
                         const qrData = `Invoice: ${invoiceNumber}\nOrder: ${order.orderNumber}\nAmount: ${this.formatCurrency(order.totalAmount, currency, locale)}`;
                         const qrCodeDataURL = await QRCode.toDataURL(qrData, { width: 120 });
                         const qrBuffer = Buffer.from(qrCodeDataURL.split(',')[1], 'base64');
-
+                        
                         doc.image(qrBuffer, 50, yPosition + 10, { width: 100 });
                     } catch (e) {
                         console.error('QR code generation failed:', e);
@@ -281,9 +291,9 @@ export class InvoiceGenerationService {
                 // Footer Text
                 if (template?.footerText) {
                     const footerY = doc.page.height - 80;
-                    doc.fontSize(9).fillColor('#666').text(template.footerText, 50, footerY, {
-                        width: 500,
-                        align: 'center'
+                    doc.fontSize(9).fillColor('#666').text(template.footerText, 50, footerY, { 
+                        width: 500, 
+                        align: 'center' 
                     });
                 }
 
@@ -302,7 +312,7 @@ export class InvoiceGenerationService {
 
     private formatCurrency(amount: number, currency: string, locale: string): string {
         const amountInCurrency = currency === 'INR' ? amount / 100 : amount;
-
+        
         return new Intl.NumberFormat(locale, {
             style: 'currency',
             currency: currency,
@@ -313,7 +323,7 @@ export class InvoiceGenerationService {
     private async generateUniqueInvoiceNumber(): Promise<string> {
         const year = new Date().getFullYear();
         const month = String(new Date().getMonth() + 1).padStart(2, '0');
-
+        
         // Find the last invoice number for this month
         const lastInvoice = await this.prisma.order.findFirst({
             where: {

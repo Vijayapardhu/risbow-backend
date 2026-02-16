@@ -66,7 +66,7 @@ export class AuditLogService {
                 take: limit,
                 orderBy: { createdAt: 'desc' },
                 include: {
-                    User: {
+                    AdminUser: {
                         select: { name: true, email: true }
                     }
                 }

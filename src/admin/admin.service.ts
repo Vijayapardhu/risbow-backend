@@ -1412,18 +1412,21 @@ export class AdminService {
 
     // --- VENDORS MANAGEMENT ---
 
-    async getVendors(status: string = 'ALL', page: number = 1, limit: number = 20, search?: string, sort?: string) {
+    async getVendors(status: string = 'ALL', page: number = 1, limit: number = 20, search?: string, sort?: string, kycStatusFilter?: string) {
         try {
             const where: any = {};
-            if (status && status !== 'ALL' && status !== '') {
-                // Map frontend status to DB: ACTIVE/VERIFIED -> APPROVED; PENDING/SUSPENDED as-is
+
+            if (kycStatusFilter) {
+                where.kycStatus = kycStatusFilter;
+            } else if (status && status !== 'ALL' && status !== '') {
+                // Map frontend status to DB: ACTIVE/VERIFIED -> VERIFIED; PENDING/SUSPENDED as-is
                 const kycMap: Record<string, string> = {
-                    ACTIVE: 'APPROVED',
-                    VERIFIED: 'APPROVED',
+                    ACTIVE: 'VERIFIED',
+                    VERIFIED: 'VERIFIED',
                     PENDING: 'PENDING',
                     SUSPENDED: 'SUSPENDED',
                     REJECTED: 'REJECTED',
-                    APPROVED: 'APPROVED',
+                    APPROVED: 'VERIFIED',
                 };
                 where.kycStatus = kycMap[status] ?? status;
             }
@@ -1473,9 +1476,14 @@ export class AdminService {
                         commissionRate: true,
                         coinsBalance: true,
                         performanceScore: true,
+                        pincode: true,
+                        address: true,
+                        city: true,
+                        state: true,
+                        storeDescription: true,
                         createdAt: true,
                         updatedAt: true,
-                        _count: { select: { Product: true } },
+                        _count: { select: { Product: true, OrderItem: true } },
                     },
                 }),
                 this.prisma.vendor.count({ where }),
@@ -1490,11 +1498,12 @@ export class AdminService {
                 return {
                     ...rest,
                     phone: v.mobile,
+                    logo: v.storeLogo,
+                    storeCover: v.storeBanner,
+                    productCount: _count?.Product ?? 0,
+                    orderCount: _count?.OrderItem ?? 0,
                     status: v.storeStatus ?? 'ACTIVE',
-                    totalSales: 0,
-                    totalOrders: 0,
                     rating: Number(v.performanceScore) || 0,
-                    totalProducts: _count?.Product ?? 0,
                 };
             });
 
@@ -1591,6 +1600,170 @@ export class AdminService {
         return vendor;
     }
 
+    async updateVendor(adminId: string, id: string, data: any) {
+        // Check if vendor exists
+        const existingVendor = await this.prisma.vendor.findUnique({ where: { id } });
+        if (!existingVendor) {
+            throw new NotFoundException('Vendor not found');
+        }
+
+        // Validate commission rate if provided
+        if (data.commissionRate !== undefined) {
+            if (typeof data.commissionRate !== 'number' || isNaN(data.commissionRate)) {
+                throw new BadRequestException('Commission rate must be a valid number');
+            }
+            if (data.commissionRate < 0 || data.commissionRate > 100) {
+                throw new BadRequestException('Commission rate must be between 0 and 100');
+            }
+        }
+
+        // Validate SKU limit if provided
+        if (data.skuLimit !== undefined && data.skuLimit < 0) {
+            throw new BadRequestException('SKU limit must be a non-negative number');
+        }
+
+        // Validate vendor code uniqueness if provided
+        if (data.vendorCode && data.vendorCode !== existingVendor.vendorCode) {
+            const existingCode = await this.prisma.vendor.findUnique({
+                where: { vendorCode: data.vendorCode }
+            });
+            if (existingCode) {
+                throw new BadRequestException('Vendor code already exists');
+            }
+        }
+
+        // Prepare update data
+        const updateData: any = {};
+
+        // Map frontend fields to schema fields for compatibility
+        if (data.logo !== undefined) data.storeLogo = data.logo;
+        if (data.storeCover !== undefined) data.storeBanner = data.storeCover;
+        if (data.phone !== undefined && !data.mobile) data.mobile = data.phone;
+        if (data.businessName !== undefined && !data.storeName) data.storeName = data.businessName;
+
+        const allowedFields = [
+            'name', 'mobile', 'email', 'storeName', 'storeBanner', 'storeLogo',
+            'role', 'tier', 'gstNumber', 'isGstVerified', 'kycStatus', 'storeStatus',
+            'isActive', 'skuLimit', 'commissionRate', 'latitude', 'longitude',
+            'pincode', 'vendorCode', 'bankDetails', 'storeTimings', 'pickupTimings',
+            'pickupEnabled', 'autoClearanceThresholdDays', 'defaultClearanceDiscountPercent',
+            'rejectionReason', 'address', 'city', 'state', 'storeDescription'
+        ];
+
+        for (const field of allowedFields) {
+            if (data[field] !== undefined) {
+                updateData[field] = data[field];
+            }
+        }
+
+        const updated = await this.prisma.vendor.update({
+            where: { id },
+            data: updateData
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                id: randomUUID(),
+                adminId,
+                entity: 'VENDOR',
+                entityId: id,
+                action: 'UPDATE_VENDOR',
+                details: { updatedFields: Object.keys(updateData), previousData: existingVendor }
+            }
+        });
+
+        return updated;
+    }
+
+    async createVendor(adminId: string, data: any) {
+        // Check if mobile already exists
+        const existingVendor = await this.prisma.vendor.findUnique({
+            where: { mobile: data.mobile },
+        });
+        if (existingVendor) {
+            throw new BadRequestException('Vendor with this mobile number already exists');
+        }
+
+        // Check if email already exists (if provided)
+        if (data.email) {
+            const existingEmail = await this.prisma.vendor.findFirst({
+                where: { email: data.email },
+            });
+            if (existingEmail) {
+                throw new BadRequestException('Vendor with this email already exists');
+            }
+        }
+
+        // Validate commission rate if provided
+        if (data.commissionRate !== undefined) {
+            if (typeof data.commissionRate !== 'number' || isNaN(data.commissionRate)) {
+                throw new BadRequestException('Commission rate must be a valid number');
+            }
+            if (data.commissionRate < 0 || data.commissionRate > 100) {
+                throw new BadRequestException('Commission rate must be between 0 and 100');
+            }
+        }
+
+        // Map frontend fields to schema fields for compatibility
+        if (data.logo !== undefined) data.storeLogo = data.logo;
+        if (data.storeCover !== undefined) data.storeBanner = data.storeCover;
+        if (data.phone !== undefined && !data.mobile) data.mobile = data.phone;
+        if (data.businessName !== undefined && !data.storeName) data.storeName = data.businessName;
+
+        // Create vendor with membership
+        const vendor = await this.prisma.vendor.create({
+            data: {
+                id: randomUUID(),
+                name: data.name,
+                mobile: data.mobile,
+                email: data.email || null,
+                storeName: data.storeName || null,
+                storeLogo: data.storeLogo || null,
+                storeBanner: data.storeBanner || null,
+                pincode: data.pincode || null,
+                address: data.address || null,
+                city: data.city || null,
+                state: data.state || null,
+                storeDescription: data.storeDescription || null,
+                gstNumber: data.gstNumber || null,
+                role: data.role || 'RETAILER',
+                tier: data.tier || 'BASIC',
+                kycStatus: data.kycStatus || 'PENDING',
+                storeStatus: data.storeStatus || 'ACTIVE',
+                commissionRate: data.commissionRate !== undefined ? Math.round(data.commissionRate * 100) : 0,
+                updatedAt: new Date(),
+                VendorMembership: {
+                    create: {
+                        id: randomUUID(),
+                        tier: data.membershipTier || 'FREE',
+                        price: 0,
+                        skuLimit: 100,
+                        imageLimit: 10,
+                        commissionRate: data.commissionRate !== undefined ? Math.round(data.commissionRate * 100) : 1500,
+                        payoutCycle: 'MONTHLY',
+                        updatedAt: new Date()
+                    }
+                }
+            },
+            include: {
+                VendorMembership: true
+            }
+        });
+
+        await this.prisma.auditLog.create({
+            data: {
+                id: randomUUID(),
+                adminId,
+                entity: 'VENDOR',
+                entityId: vendor.id,
+                action: 'CREATE_VENDOR',
+                details: { name: data.name, mobile: data.mobile, email: data.email }
+            }
+        });
+
+        return vendor;
+    }
+
     async getVendorDetails(id: string) {
         const vendor = await this.prisma.vendor.findUnique({
             where: { id },
@@ -1619,14 +1792,14 @@ export class AdminService {
 
         if (!vendor) throw new NotFoundException('Vendor not found');
 
-        // Get additional stats
+        // Get additional stats from VendorOrder
         const [totalOrders, totalRevenue, totalProducts] = await Promise.all([
-            this.prisma.orderSettlement.count({
+            this.prisma.vendorOrder.count({
                 where: { vendorId: id },
             }),
-            this.prisma.orderSettlement.aggregate({
+            this.prisma.vendorOrder.aggregate({
                 where: { vendorId: id },
-                _sum: { amount: true },
+                _sum: { subtotal: true },
             }),
             this.prisma.product.count({
                 where: { vendorId: id },
@@ -1635,12 +1808,64 @@ export class AdminService {
 
         return {
             ...vendor,
+            logo: vendor.storeLogo,
+            storeCover: vendor.storeBanner,
+            phone: vendor.mobile,
             stats: {
                 totalOrders,
-                totalRevenue: totalRevenue._sum.amount || 0,
+                totalRevenue: totalRevenue._sum.subtotal || 0,
                 totalProducts,
             },
         };
+    }
+
+    /**
+     * Get vendor's products
+     */
+    async getVendorProducts(vendorId: string, page: number = 1, limit: number = 20) {
+        const products = await this.prisma.product.findMany({
+            where: { vendorId },
+            skip: (page - 1) * limit,
+            take: limit,
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const total = await this.prisma.product.count({ where: { vendorId } });
+        
+        return { products, total, page, limit };
+    }
+
+    /**
+     * Get vendor's orders
+     */
+    async getVendorOrders(vendorId: string, page: number = 1, limit: number = 20, status?: string) {
+        const where: any = { vendorId };
+        
+        const [orders, total] = await Promise.all([
+            this.prisma.vendorOrder.findMany({
+                where,
+                skip: (page - 1) * limit,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    Order: {
+                        select: {
+                            id: true,
+                            orderNumber: true,
+                            status: true,
+                            totalAmount: true,
+                            createdAt: true,
+                            user: {
+                                select: { name: true, mobile: true }
+                            }
+                        }
+                    }
+                },
+            }),
+            this.prisma.vendorOrder.count({ where }),
+        ]);
+
+        return { orders, total, page, limit };
     }
 
     async verifyVendorKyc(adminId: string, vendorId: string, status: string, notes?: string) {
@@ -1771,13 +1996,39 @@ export class AdminService {
                 : `Your KYC status was updated to ${status}.`;
         const message = notes ? `${messageBase} Notes: ${notes}` : messageBase;
 
-        await this.notificationsService.createNotification(
-            vendor.id,
-            title,
-            message,
-            'KYC_STATUS_UPDATE',
-            'INDIVIDUAL',
-        );
+        // Resolve userId from User table since Vendor ID might not match User ID
+        // and notification_userId_fkey requires a valid User ID
+        let userId: string | null = null;
+        try {
+            const user = await this.prisma.user.findFirst({
+                where: {
+                    OR: [
+                        { mobile: vendor.mobile },
+                        { email: vendor.email || undefined }
+                    ]
+                },
+                select: { id: true }
+            });
+            if (user) {
+                userId = user.id;
+            } else {
+                this.logger.warn(`Could not find User for Vendor ${vendor.id} (${vendor.mobile}) to send notification`);
+            }
+        } catch (err) {
+            this.logger.error(`Error looking up User for Vendor ${vendor.id}: ${err.message}`);
+        }
+
+        if (userId) {
+            await this.notificationsService.createNotification(
+                userId,
+                title,
+                message,
+                'KYC_STATUS_UPDATE',
+                'INDIVIDUAL',
+            );
+        } else {
+            this.logger.warn(`Skipping in-app notification for vendor ${vendor.id} - no linked user found`);
+        }
 
         const vendorEmail = vendor.email?.trim();
         if (vendorEmail) {
@@ -1863,12 +2114,19 @@ export class AdminService {
         };
     }
 
-    async getVendorDocuments(vendorId: string) {
+    async getVendorDocuments(vendorId: string, status?: string, excludeApproved: boolean = false) {
         const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
         if (!vendor) throw new NotFoundException('Vendor not found');
 
+        const where: any = { vendorId };
+        if (status) {
+            where.status = status;
+        } else if (excludeApproved) {
+            where.status = { not: 'APPROVED' };
+        }
+
         const documents = await this.prisma.vendorDocument.findMany({
-            where: { vendorId },
+            where,
             orderBy: { uploadedAt: 'desc' },
         });
 

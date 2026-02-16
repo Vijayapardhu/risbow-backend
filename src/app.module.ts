@@ -46,7 +46,6 @@ import { ReelsModule } from './reels/reels.module';
 import { CreatorsModule } from './creators/creators.module';
 import { ClearanceModule } from './clearance/clearance.module';
 import { VendorDocumentsModule } from './vendor-documents/vendor-documents.module';
-import { VendorReturnsModule } from './vendor-returns/vendor-returns.module';
 import { ContentModerationModule } from './moderation/content-moderation.module';
 import { BannerCampaignsModule } from './banner-campaigns/banner-campaigns.module';
 import { InvoicesModule } from './invoices/invoices.module';
@@ -60,7 +59,6 @@ import { DriversModule } from './drivers/drivers.module';
 import { CmsModule } from './cms/cms.module';
 import { BlogModule } from './blog/blog.module';
 import { NotificationsAdminModule } from './notifications-admin/notifications-admin.module';
-import { SeedModule } from './seed/seed.module';
 
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { SharedModule } from './shared/shared.module';
@@ -72,8 +70,8 @@ import { HealthController } from './common/health.controller';
         ConfigModule.forRoot({ isGlobal: true }),
         ScheduleModule.forRoot(),
         ThrottlerModule.forRoot([{
-            ttl: parseInt(process.env.THROTTLE_TTL || '60000'),
-            limit: parseInt(process.env.THROTTLE_LIMIT || '100'),
+            ttl: parseInt(process.env.THROTTLE_TTL) || 60000,
+            limit: parseInt(process.env.THROTTLE_LIMIT) || 100,
         }]),
         // Redis & Queues - Bull when Redis enabled; QueuesProviderModule always (stub or real)
         ...(process.env.NODE_ENV === 'test' || !process.env.REDIS_HOST || process.env.DISABLE_REDIS === 'true' || process.env.DISABLE_REDIS === '1'
@@ -82,7 +80,7 @@ import { HealthController } from './common/health.controller';
                 BullModule.forRoot({
                     connection: {
                         host: process.env.REDIS_HOST || 'localhost',
-                        port: parseInt(process.env.REDIS_PORT || '6379'),
+                        port: parseInt(process.env.REDIS_PORT) || 6379,
                         username: process.env.REDIS_USERNAME,
                         password: process.env.REDIS_PASSWORD,
                         tls: (process.env.REDIS_TLS === 'true' || process.env.REDIS_TLS === '1') ? {} : undefined,
@@ -132,7 +130,6 @@ import { HealthController } from './common/health.controller';
         CreatorsModule,
         ClearanceModule,
         VendorDocumentsModule,
-        VendorReturnsModule,
         ContentModerationModule,
         BannerCampaignsModule,
         CampaignsModule,
@@ -145,7 +142,6 @@ import { HealthController } from './common/health.controller';
         CmsModule,
         BlogModule,
         NotificationsAdminModule,
-        SeedModule,
         InvoicesModule,
     ],
     controllers: [HealthController], // RootHealthController registered manually in main.ts

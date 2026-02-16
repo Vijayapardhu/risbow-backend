@@ -40,7 +40,7 @@ export class VendorProductVariantsController {
   @ApiParam({ name: 'productId', description: 'Product ID' })
   @ApiResponse({ status: 200, description: 'Variants retrieved successfully' })
   async findAll(
-    @Request() req: any,
+    @Request() req,
     @Param('productId') productId: string,
     @Query() query: ProductVariantQueryDto,
   ) {
@@ -54,7 +54,7 @@ export class VendorProductVariantsController {
   @ApiResponse({ status: 200, description: 'Variant retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Variant not found' })
   async findOne(
-    @Request() req: any,
+    @Request() req,
     @Param('productId') productId: string,
     @Param('variantId') variantId: string,
   ) {
@@ -71,7 +71,7 @@ export class VendorProductVariantsController {
   })
   @ApiResponse({ status: 403, description: 'Not product owner' })
   async create(
-    @Request() req: any,
+    @Request() req,
     @Param('productId') productId: string,
     @Body() dto: CreateProductVariantDto,
   ) {
@@ -90,7 +90,7 @@ export class VendorProductVariantsController {
     description: 'Invalid data or SKU conflicts',
   })
   async bulkCreate(
-    @Request() req: any,
+    @Request() req,
     @Param('productId') productId: string,
     @Body() dto: BulkCreateVariantsDto,
   ) {
@@ -104,7 +104,7 @@ export class VendorProductVariantsController {
   @ApiResponse({ status: 200, description: 'Variant updated successfully' })
   @ApiResponse({ status: 404, description: 'Variant not found' })
   async update(
-    @Request() req: any,
+    @Request() req,
     @Param('productId') productId: string,
     @Param('variantId') variantId: string,
     @Body() dto: UpdateProductVariantDto,
@@ -124,7 +124,7 @@ export class VendorProductVariantsController {
   @ApiResponse({ status: 200, description: 'Variant deleted successfully' })
   @ApiResponse({ status: 404, description: 'Variant not found' })
   async delete(
-    @Request() req: any,
+    @Request() req,
     @Param('productId') productId: string,
     @Param('variantId') variantId: string,
   ) {

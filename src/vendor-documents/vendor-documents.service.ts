@@ -14,7 +14,7 @@ export class VendorDocumentsService {
     private prisma: PrismaService,
     private supabaseStorage: SupabaseStorageService,
     private notificationsService: NotificationsService,
-  ) {}
+  ) { }
 
   async uploadDocument(
     vendorId: string,
@@ -213,10 +213,45 @@ export class VendorDocumentsService {
     return updated;
   }
 
+  async deleteDocument(documentId: string, vendorId: string) {
+    const document = await this.prisma.vendorDocument.findUnique({
+      where: { id: documentId },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found.');
+    }
+
+    // Verify ownership
+    if (document.vendorId !== vendorId) {
+      throw new BadRequestException('You do not have permission to delete this document.');
+    }
+
+    // Optional: Only allow deleting if it's NOT approved?
+    // But user said: "if once the kyc details are excepted then vendor can delete them"
+    // So we allow it.
+
+    // Delete from Storage
+    const { bucket, path } = this.parseStorageReference(document.documentUrl);
+    if (path) {
+      await this.supabaseStorage.deleteFile(bucket, path);
+    }
+
+    // Delete from DB
+    await this.prisma.vendorDocument.delete({
+      where: { id: documentId },
+    });
+
+    // Re-check KYC status (might downgrade if a required doc was deleted)
+    await this.checkVendorKYCStatus(vendorId);
+
+    return { message: 'Document deleted successfully' };
+  }
+
   private async checkVendorKYCStatus(vendorId: string) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: vendorId },
-      select: { id: true, gstNumber: true, kycDocuments: true },
+      select: { id: true, gstNumber: true, kycDocuments: true, kycStatus: true },
     });
 
     if (!vendor) {
@@ -244,6 +279,12 @@ export class VendorDocumentsService {
     const allApproved = requiredTypes.every(type => approvedTypes.includes(type));
 
     if (!allApproved) {
+      if (vendor.kycStatus === 'VERIFIED') {
+        await this.prisma.vendor.update({
+          where: { id: vendorId },
+          data: { kycStatus: 'PENDING' },
+        });
+      }
       return;
     }
 

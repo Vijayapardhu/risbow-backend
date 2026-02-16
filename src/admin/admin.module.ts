@@ -89,7 +89,6 @@ import { SupportTicketModule } from './support-tickets/support-ticket.module';
         SupportTicketModule,
     ],
     controllers: [
-        AdminController,
         AdminDashboardController,
         AdminProductController,
         MetricsController,
@@ -107,6 +106,7 @@ import { SupportTicketModule } from './support-tickets/support-ticket.module';
         AdminUploadsController,
         AdminOrdersController,
         AdminOrdersAliasController,
+        AdminController,
     ],
     providers: [
         AdminService,

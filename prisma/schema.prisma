@@ -103,6 +103,7 @@ model AdminUser {
   updatedAt      DateTime       @updatedAt
   AdminSession   AdminSession[]
   AdminAction    AdminAction[]
+  AuditLog       AuditLog[]
 
   @@index([email])
   @@index([role])
@@ -260,16 +261,16 @@ model AdminNote {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model AuditLog {
-  id        String   @id
+  id        String    @id
   adminId   String
   entity    String
   action    String
   details   Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   entityId  String
   ipAddress String?
   userAgent String?
-  User      User     @relation(fields: [adminId], references: [id])
+  AdminUser AdminUser @relation(fields: [adminId], references: [id])
 
   @@index([action])
   @@index([adminId])
@@ -2139,7 +2140,6 @@ model User {
   Address                                                     Address[]
   AdminNote_AdminNote_adminIdToUser                           AdminNote[]              @relation("AdminNote_adminIdToUser")
   AdminNote_AdminNote_userIdToUser                            AdminNote[]              @relation("AdminNote_userIdToUser")
-  AuditLog                                                    AuditLog[]
   BannerImpressionLedger                                      BannerImpressionLedger[]
   Bet                                                         Bet[]
   BowActionLog                                                BowActionLog[]
@@ -2291,6 +2291,10 @@ model Vendor {
   autoClearanceThresholdDays      Int?                        @default(7)
   defaultClearanceDiscountPercent Int?                        @default(20)
   storeStatus                     VendorStatus?               @default(ACTIVE)
+  address                         String?
+  city                            String?
+  state                           String?
+  storeDescription                String?
   ClearanceProduct                ClearanceProduct[]
   Coupon                          Coupon[]
   LocalPromotion                  LocalPromotion[]

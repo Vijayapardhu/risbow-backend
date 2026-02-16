@@ -14,6 +14,17 @@ export class NotificationsService {
 
     async createNotification(userId: string, title: string, body: string, type: string, targetAudience: string = 'INDIVIDUAL') {
         try {
+            // Check if user exists before creating notification
+            const userExists = await this.prisma.user.findUnique({
+                where: { id: userId },
+                select: { id: true }
+            });
+
+            if (!userExists) {
+                this.logger.warn(`[DB NOTIFICATION] User ${userId} not found, skipping notification creation`);
+                return null;
+            }
+
             const notification = await this.prisma.notification.create({
                 data: {
                     id: randomUUID(),

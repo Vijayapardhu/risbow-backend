@@ -40,7 +40,7 @@ export class InvoicesController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get all invoice templates for vendor' })
     @ApiResponse({ status: 200, description: 'Returns list of templates' })
-    async getVendorTemplates(@Request() req: any) {
+    async getVendorTemplates(@Request() req) {
         return this.templateService.getTemplates(req.user.userId);
     }
 
@@ -50,7 +50,7 @@ export class InvoicesController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Create invoice template' })
     @ApiResponse({ status: 201, description: 'Template created successfully' })
-    async createTemplate(@Request() req: any, @Body() dto: CreateInvoiceTemplateDto) {
+    async createTemplate(@Request() req, @Body() dto: CreateInvoiceTemplateDto) {
         return this.templateService.createTemplate(req.user.userId, dto);
     }
 
@@ -72,7 +72,7 @@ export class InvoicesController {
     @ApiResponse({ status: 200, description: 'Template updated successfully' })
     async updateTemplate(
         @Param('id') id: string,
-        @Request() req: any,
+        @Request() req,
         @Body() dto: UpdateInvoiceTemplateDto
     ) {
         return this.templateService.updateTemplate(id, req.user.userId, dto);
@@ -84,7 +84,7 @@ export class InvoicesController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Delete invoice template' })
     @ApiResponse({ status: 200, description: 'Template deleted successfully' })
-    async deleteTemplate(@Param('id') id: string, @Request() req: any) {
+    async deleteTemplate(@Param('id') id: string, @Request() req) {
         return this.templateService.deleteTemplate(id, req.user.userId);
     }
 
@@ -94,7 +94,7 @@ export class InvoicesController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Set template as default' })
     @ApiResponse({ status: 200, description: 'Default template set successfully' })
-    async setDefaultTemplate(@Param('id') id: string, @Request() req: any) {
+    async setDefaultTemplate(@Param('id') id: string, @Request() req) {
         return this.templateService.setDefaultTemplate(id, req.user.userId);
     }
 
@@ -104,7 +104,7 @@ export class InvoicesController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Duplicate invoice template' })
     @ApiResponse({ status: 201, description: 'Template duplicated successfully' })
-    async duplicateTemplate(@Param('id') id: string, @Request() req: any) {
+    async duplicateTemplate(@Param('id') id: string, @Request() req) {
         return this.templateService.duplicateTemplate(id, req.user.userId);
     }
 
@@ -152,70 +152,11 @@ export class InvoicesController {
             'Content-Disposition': `attachment; filename="invoice-${orderId.substring(0, 8)}.pdf"`,
             'Content-Length': pdfBuffer.length
         });
-         
+        
         res.send(pdfBuffer);
     }
 
     // ============= ADMIN ENDPOINTS =============
-
-    @Get('admin/invoices/:orderId/download')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles('ADMIN', 'SUPER_ADMIN')
-    @ApiBearerAuth()
-    @ApiOperation({ summary: 'Download invoice PDF for admin' })
-    @ApiResponse({ status: 200, description: 'Returns PDF invoice for download' })
-    async downloadAdminInvoice(
-        @Param('orderId') orderId: string,
-        @Request() req: any,
-        @Res() res: Response
-    ) {
-        // Additional security: verify the admin has permission
-        const adminId = req.user?.id;
-        const adminRole = req.user?.role;
-        
-        if (!adminId || (adminRole !== 'ADMIN' && adminRole !== 'SUPER_ADMIN')) {
-            res.status(403).json({ error: 'Unauthorized access' });
-            return;
-        }
-
-        // Validate orderId format to prevent injection
-        if (!orderId || orderId.includes(' ') || orderId.length < 3) {
-            res.status(400).json({ error: 'Invalid order ID' });
-            return;
-        }
-
-        // Generate secure filename with invoice number
-        let filename = `Invoice-${orderId.substring(0, 8)}`;
-        
-        try {
-            const { pdfBuffer, invoiceNumber } = await this.invoicesService.generateInvoiceSecure(orderId);
-            
-            if (invoiceNumber) {
-                filename = `Invoice-${invoiceNumber}`;
-            }
-            
-            res.set({
-                'Content-Type': 'application/pdf',
-                'Content-Disposition': `attachment; filename="${filename}.pdf"`,
-                'Content-Length': pdfBuffer.length,
-                'X-Content-Type-Options': 'nosniff',
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0'
-            });
-            
-            res.send(pdfBuffer);
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            if (errorMessage.includes('not found')) {
-                res.status(404).json({ error: 'Order not found' });
-            } else if (errorMessage.includes('only be generated')) {
-                res.status(400).json({ error: errorMessage });
-            } else {
-                res.status(500).json({ error: 'Failed to generate invoice' });
-            }
-        }
-    }
 
     @Get('admin/templates')
     @UseGuards(JwtAuthGuard, RolesGuard)

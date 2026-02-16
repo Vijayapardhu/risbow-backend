@@ -1,13 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { CreateCampaignDto, UpdateCampaignDto, CampaignFilterDto, MarketingCampaignStatus, CampaignDiscountType } from './dto/campaign.dto';
+import { MarketingCampaignStatus, CampaignOfferType, CampaignDiscountType } from '@prisma/client';
+import { CreateCampaignDto, UpdateCampaignDto, CampaignFilterDto, CampaignStatus, DiscountType } from './dto/campaign.dto';
 
 @Injectable()
 export class CampaignsService {
   private readonly logger = new Logger(CampaignsService.name);
 
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Create a new campaign
@@ -33,7 +34,7 @@ export class CampaignsService {
 
     // Determine initial status
     const now = new Date();
-    let status = MarketingCampaignStatus.SCHEDULED;
+    let status: MarketingCampaignStatus = MarketingCampaignStatus.SCHEDULED;
     if (startDate <= now && endDate > now) {
       status = MarketingCampaignStatus.ACTIVE;
     } else if (endDate <= now) {
@@ -197,11 +198,11 @@ export class CampaignsService {
     const campaign = await this.getCampaignById(id);
 
     // Prevent updating active or ended campaigns
-    if (campaign.status === MarketingCampaignStatus.ACTIVE) {
+    if (campaign.status === CampaignStatus.ACTIVE) {
       throw new BadRequestException('Cannot update active campaign. Pause it first.');
     }
 
-    if (campaign.status === MarketingCampaignStatus.ENDED) {
+    if (campaign.status === CampaignStatus.ENDED) {
       throw new BadRequestException('Cannot update ended campaign');
     }
 
@@ -216,7 +217,7 @@ export class CampaignsService {
     }
 
     // Validate discount value for percentage type
-    if (dto.discountType === CampaignDiscountType.PERCENTAGE && dto.discountValue && dto.discountValue > 100) {
+    if (dto.discountType === DiscountType.PERCENTAGE && dto.discountValue > 100) {
       throw new BadRequestException('Percentage discount cannot exceed 100');
     }
 
@@ -298,7 +299,7 @@ export class CampaignsService {
   async deleteCampaign(id: string) {
     const campaign = await this.getCampaignById(id);
 
-    if (campaign.status === MarketingCampaignStatus.ACTIVE) {
+    if (campaign.status === CampaignStatus.ACTIVE) {
       throw new BadRequestException('Cannot delete active campaign. End it first.');
     }
 
@@ -317,11 +318,11 @@ export class CampaignsService {
   async activateCampaign(id: string) {
     const campaign = await this.getCampaignById(id);
 
-    if (campaign.status === MarketingCampaignStatus.ACTIVE) {
+    if (campaign.status === CampaignStatus.ACTIVE) {
       throw new BadRequestException('Campaign is already active');
     }
 
-    if (campaign.status === MarketingCampaignStatus.ENDED) {
+    if (campaign.status === CampaignStatus.ENDED) {
       throw new BadRequestException('Cannot activate ended campaign');
     }
 
@@ -332,7 +333,7 @@ export class CampaignsService {
 
     const updated = await this.prisma.campaign.update({
       where: { id },
-      data: { status: MarketingCampaignStatus.ACTIVE },
+      data: { status: CampaignStatus.ACTIVE },
       include: {
         CampaignProduct: {
           include: {
@@ -353,13 +354,13 @@ export class CampaignsService {
   async pauseCampaign(id: string) {
     const campaign = await this.getCampaignById(id);
 
-    if (campaign.status !== MarketingCampaignStatus.ACTIVE) {
+    if (campaign.status !== CampaignStatus.ACTIVE) {
       throw new BadRequestException('Only active campaigns can be paused');
     }
 
     const updated = await this.prisma.campaign.update({
       where: { id },
-      data: { status: MarketingCampaignStatus.PAUSED },
+      data: { status: CampaignStatus.PAUSED },
     });
 
     this.logger.log(`Campaign paused: ${id}`);
@@ -373,13 +374,13 @@ export class CampaignsService {
   async endCampaign(id: string) {
     const campaign = await this.getCampaignById(id);
 
-    if (campaign.status === MarketingCampaignStatus.ENDED) {
+    if (campaign.status === CampaignStatus.ENDED) {
       throw new BadRequestException('Campaign is already ended');
     }
 
     const updated = await this.prisma.campaign.update({
       where: { id },
-      data: { status: MarketingCampaignStatus.ENDED },
+      data: { status: CampaignStatus.ENDED },
     });
 
     this.logger.log(`Campaign ended: ${id}`);
@@ -409,13 +410,13 @@ export class CampaignsService {
     // Get stock status
     const stockStatus = campaign.limitedStock
       ? {
-        total: campaign.totalStock,
-        used: campaign.usedStock,
-        remaining: (campaign.totalStock || 0) - campaign.usedStock,
-        percentageUsed: campaign.totalStock
-          ? ((campaign.usedStock / campaign.totalStock) * 100).toFixed(2)
-          : 0,
-      }
+          total: campaign.totalStock,
+          used: campaign.usedStock,
+          remaining: (campaign.totalStock || 0) - campaign.usedStock,
+          percentageUsed: campaign.totalStock
+            ? ((campaign.usedStock / campaign.totalStock) * 100).toFixed(2)
+            : 0,
+        }
       : null;
 
     // Time remaining
@@ -467,7 +468,7 @@ export class CampaignsService {
 
     const campaigns = await this.prisma.campaign.findMany({
       where: {
-        status: MarketingCampaignStatus.ACTIVE,
+        status: CampaignStatus.ACTIVE,
         isActive: true,
         startDate: { lte: now },
         endDate: { gt: now },
@@ -509,7 +510,7 @@ export class CampaignsService {
     discountValue: number,
     maxDiscount?: number,
   ): number {
-    if (discountType === CampaignDiscountType.PERCENTAGE) {
+    if (discountType === DiscountType.PERCENTAGE) {
       const discountAmount = (originalPrice * discountValue) / 100;
       const actualDiscount = maxDiscount ? Math.min(discountAmount, maxDiscount) : discountAmount;
       return Math.max(0, originalPrice - actualDiscount);
@@ -530,7 +531,7 @@ export class CampaignsService {
         productId,
         isActive: true,
         Campaign: {
-          status: MarketingCampaignStatus.ACTIVE,
+          status: CampaignStatus.ACTIVE,
           isActive: true,
           startDate: { lte: now },
           endDate: { gt: now },
@@ -606,15 +607,15 @@ export class CampaignsService {
 
   /**
    * Cron job to auto-activate scheduled campaigns
-   * Runs every minute at 5 seconds past the minute to stagger DB load
-    */
-  @Cron('5 * * * * *')
+   * Runs every minute
+   */
+  @Cron(CronExpression.EVERY_MINUTE)
   async autoActivateCampaigns() {
     const now = new Date();
 
     const campaignsToActivate = await this.prisma.campaign.findMany({
       where: {
-        status: MarketingCampaignStatus.SCHEDULED,
+        status: CampaignStatus.SCHEDULED,
         isActive: true,
         startDate: { lte: now },
         endDate: { gt: now },
@@ -627,7 +628,7 @@ export class CampaignsService {
           id: { in: campaignsToActivate.map((c) => c.id) },
         },
         data: {
-          status: MarketingCampaignStatus.ACTIVE,
+          status: CampaignStatus.ACTIVE,
         },
       });
 
@@ -637,15 +638,15 @@ export class CampaignsService {
 
   /**
    * Cron job to auto-end expired campaigns
-   * Runs every minute at 15 seconds past the minute to stagger DB load
+   * Runs every minute
    */
-  @Cron('15 * * * * *')
+  @Cron(CronExpression.EVERY_MINUTE)
   async autoEndCampaigns() {
     const now = new Date();
 
     const campaignsToEnd = await this.prisma.campaign.findMany({
       where: {
-        status: { in: [MarketingCampaignStatus.ACTIVE, MarketingCampaignStatus.SCHEDULED] },
+        status: { in: [CampaignStatus.ACTIVE, CampaignStatus.SCHEDULED] },
         endDate: { lte: now },
       },
     });
@@ -656,7 +657,7 @@ export class CampaignsService {
           id: { in: campaignsToEnd.map((c) => c.id) },
         },
         data: {
-          status: MarketingCampaignStatus.ENDED,
+          status: CampaignStatus.ENDED,
         },
       });
 

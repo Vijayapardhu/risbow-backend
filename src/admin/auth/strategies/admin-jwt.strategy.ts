@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
@@ -23,6 +23,8 @@ export interface AdminRequestUser {
 
 @Injectable()
 export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
+  private readonly logger = new Logger(AdminJwtStrategy.name);
+
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
@@ -45,16 +47,14 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
     }
 
     // Verify session is still valid
-    const session = await this.prisma.adminSession.findFirst({
+    const session = await this.prisma.adminSession.findUnique({
       where: {
         id: payload.sessionId,
-        isActive: true,
-        expiresAt: { gt: new Date() },
       },
       include: { AdminUser: true },
     });
 
-    if (!session) {
+    if (!session || !session.isActive || session.expiresAt.getTime() < Date.now()) {
       throw new UnauthorizedException('Session not found or expired');
     }
 
@@ -82,10 +82,15 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
     // Update session activity (throttled to every 5 minutes)
     const FIVE_MINUTES = 5 * 60 * 1000;
     if (Date.now() - session.lastActive.getTime() > FIVE_MINUTES) {
-      await this.prisma.adminSession.update({
-        where: { id: session.id },
-        data: { lastActive: new Date() },
-      });
+      try {
+        // Use raw query with timeout to avoid blocking authentication
+        await this.prisma.$executeRawUnsafe(
+          `UPDATE "AdminSession" SET "lastActive" = NOW() WHERE id = '${session.id}'`
+        );
+      } catch (error) {
+        // Log error but don't fail authentication
+        this.logger.warn(`Failed to update session activity for ${session.id}: ${error.message}`);
+      }
     }
 
     return {

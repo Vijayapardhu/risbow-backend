@@ -197,25 +197,20 @@ export class ReferralRewardsService {
           } as any,
         });
 
-        const inviterId = invitee.referredBy;
-        if (!inviterId) {
-          throw new Error('Inviter ID not found');
-        }
-
         // Credit invitee + inviter atomically
         await this.coins.credit(invitee.id, rule.coinsInvitee, CoinSource.REFERRAL, referenceId, tx);
-        await this.coins.credit(inviterId, rule.coinsInviter, CoinSource.REFERRAL, referenceId, tx);
+        await this.coins.credit(invitee.referredBy, rule.coinsInviter, CoinSource.REFERRAL, referenceId, tx);
 
         await tx.auditLog
           .create({
             data: {
-              adminId: inviterId,
+              adminId: invitee.referredBy,
               entity: 'Order',
               entityId: orderId,
               action: 'REFERRAL_REWARD_GRANTED',
               details: {
                 inviteeUserId: invitee.id,
-                inviterUserId: inviterId,
+                inviterUserId: invitee.referredBy,
                 ruleId: rule.id,
                 orderValuePaise,
                 coinsInvitee: rule.coinsInvitee,

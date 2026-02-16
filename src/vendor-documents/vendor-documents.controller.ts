@@ -9,6 +9,7 @@ import {
   UseInterceptors,
   UploadedFile,
   Request,
+  Delete,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -21,7 +22,7 @@ import { UserRole } from '@prisma/client';
 
 @Controller('vendor-documents')
 export class VendorDocumentsController {
-  constructor(private readonly vendorDocumentsService: VendorDocumentsService) {}
+  constructor(private readonly vendorDocumentsService: VendorDocumentsService) { }
 
   @Post()
   @Roles(UserRole.VENDOR)
@@ -69,5 +70,21 @@ export class VendorDocumentsController {
     @Body() body: RejectDocumentDto,
   ) {
     return this.vendorDocumentsService.rejectDocument(id, req.user.id, body.reason);
+  }
+
+  @Post(':id/delete') // Backward compatibility or simple POST
+  @Roles(UserRole.VENDOR)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async deleteDocumentPost(@Param('id') id: string, @Request() req: any) {
+    return this.vendorDocumentsService.deleteDocument(id, req.user.id);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.VENDOR)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async deleteDocument(@Param('id') id: string, @Request() req: any) {
+    return this.vendorDocumentsService.deleteDocument(id, req.user.id);
   }
 }
