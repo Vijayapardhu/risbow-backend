@@ -34,7 +34,7 @@ export class SettlementService {
             const eligibleResult = await (this.prisma as any).orderSettlement.updateMany({
                 where: {
                     status: 'PENDING',
-                    order: {
+                    Order: { // 🔐 Fix: Use 'Order' (capitalized) to match Prisma schema relation
                         status: 'DELIVERED',
                         deliveredAt: { lte: sevenDaysAgo }
                     }
@@ -50,7 +50,7 @@ export class SettlementService {
             // 2. Process ELIGIBLE settlements to SETTLED 
             const eligibleSettlements = await (this.prisma as any).orderSettlement.findMany({
                 where: { status: 'ELIGIBLE' },
-                include: { order: { include: { financialSnapshot: true } } }
+                include: { Order: { include: { OrderFinancialSnapshot: true } } } // 🔐 Fix: Use 'Order' and 'OrderFinancialSnapshot'
             });
 
             for (const settlement of eligibleSettlements) {

@@ -9,6 +9,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { TrendingService } from './trending.service';
 import { OpenRouterService } from '../shared/openrouter.service';
+import { CatalogGroupingService } from '../catalog/catalog-grouping.service';
 import { randomUUID } from 'crypto';
 
 /**
@@ -48,6 +49,7 @@ export class SearchService {
     @Optional() @Inject(getQueueToken('search-sync')) private searchSyncQueue: Queue | null,
     private trendingService: TrendingService,
     private openRouterService: OpenRouterService,
+    private groupingService: CatalogGroupingService,
   ) { }
 
   /**
@@ -201,7 +203,7 @@ export class SearchService {
   // 2️⃣ Main Search Logic
   async searchProducts(dto: SearchQueryDto, userId?: string, region: string = 'global') {
     const normalized = this.normalizeQuery(dto.q || '');
-    const cacheKey = `search:v1:${normalized}:${JSON.stringify(dto)}`;
+    const cacheKey = `search:v2:${normalized}:${JSON.stringify({ ...dto, grouped: !!dto.grouped })}`;
 
     // A. Cache Check
     const cached = await this.redis.get(cacheKey);
@@ -296,7 +298,7 @@ export class SearchService {
         this.trendingService.incrementSearch(normalized, region).catch(() => { });
       }
 
-      return this.buildResult(products, total, page, limit, cacheKey, intentResult);
+      return this.buildResult(products, total, page, limit, cacheKey, intentResult, dto.grouped);
     }
 
     // --- CASE 2: Relevance Sort (In-Memory Weighted Scoring) ---
@@ -357,7 +359,7 @@ export class SearchService {
     const limit = dto.limit || 20;
     const paginated = scoredProducts.slice((page - 1) * limit, page * limit);
 
-    return this.buildResult(paginated, total, page, limit, cacheKey, intentResult);
+    return this.buildResult(paginated, total, page, limit, cacheKey, intentResult, dto.grouped);
   }
 
   /**
@@ -475,15 +477,28 @@ export class SearchService {
     limit: number,
     cacheKey: string,
     intentResult?: { intent: SearchIntent; confidence: number } | null,
+    grouped?: boolean,
   ) {
+    let resultData = data;
+    let resultTotal = total;
+    let isGrouped = false;
+
+    if (grouped && data.length > 0) {
+      const groupedResult = this.groupingService.groupProducts(data);
+      resultData = groupedResult.items;
+      resultTotal = groupedResult.meta.total;
+      isGrouped = true;
+    }
+
     const result = {
-      data,
+      data: resultData,
       meta: {
-        total,
+        total: resultTotal,
         page,
-        lastPage: Math.ceil(total / limit),
+        lastPage: Math.ceil(resultTotal / limit),
         cached: false,
         intent: intentResult,
+        grouped: isGrouped,
       }
     };
 

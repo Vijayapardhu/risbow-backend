@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, InternalServerErrorException, NotFoundException, NotImplementedException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, InternalServerErrorException, NotFoundException, NotImplementedException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePaymentOrderDto } from './dto/create-payment-order.dto';
@@ -7,6 +7,7 @@ import Razorpay from 'razorpay';
 import * as crypto from 'crypto';
 import { randomUUID } from 'crypto';
 import { BowService } from '../bow/bow.service';
+import { BowFraudDetectionService } from '../bow/bow-fraud-detection.service';
 import { PaymentIntentPurpose, VendorDocumentType, KycStatus } from '@prisma/client';
 
 @Injectable()
@@ -17,7 +18,9 @@ export class PaymentsService {
     constructor(
         private readonly configService: ConfigService,
         private readonly prisma: PrismaService,
+        @Inject(forwardRef(() => BowService))
         private readonly bowService: BowService,
+        private readonly fraudService: BowFraudDetectionService,
     ) {
         const keyId = this.configService.get<string>('RAZORPAY_KEY_ID');
         const keySecret = this.configService.get<string>('RAZORPAY_KEY_SECRET');
@@ -33,7 +36,7 @@ export class PaymentsService {
         });
     }
 
-    async createOrder(userId: string, dto: CreatePaymentOrderDto) {
+    async createOrder(userId: string, dto: CreatePaymentOrderDto, metadata?: { ip?: string; userAgent?: string }) {
         const { currency = 'INR', orderId } = dto;
 
         // 1. Validate internal order existence
@@ -58,6 +61,19 @@ export class PaymentsService {
         // Do NOT trust client-provided amount. Always charge the server-side order total.
         // NOTE: order.totalAmount is already stored in paise in this codebase.
         const expectedAmount = order.totalAmount;
+
+        // 🔐 SECURITY: Perform Fraud Check
+        const riskScore = await this.fraudService.analyzeTransaction(userId, {
+            amount: expectedAmount,
+            ipAddress: metadata?.ip,
+            device: metadata?.userAgent,
+            timestamp: new Date(),
+        });
+
+        if (riskScore.level === 'CRITICAL') {
+            this.logger.warn(`Blocked payment initiation for user ${userId} due to CRITICAL fraud risk (Score: ${riskScore.score})`);
+            throw new ForbiddenException('Payment initiation blocked due to security risk. Please contact support.');
+        }
 
         // 2. Create Razorpay Order
         let razorpayOrder;

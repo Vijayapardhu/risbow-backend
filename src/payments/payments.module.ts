@@ -5,9 +5,10 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 
 import { BowModule } from '../bow/bow.module';
+import { CheckoutModule } from '../checkout/checkout.module';
 
 @Module({
-    imports: [PrismaModule, ConfigModule, forwardRef(() => BowModule)],
+    imports: [PrismaModule, ConfigModule, forwardRef(() => BowModule), forwardRef(() => CheckoutModule)],
     controllers: [PaymentsController],
     providers: [PaymentsService],
     exports: [PaymentsService],

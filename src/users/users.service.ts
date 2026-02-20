@@ -398,7 +398,8 @@ export class UsersService {
                     mobile: true,
                     role: true,
                     status: true,
-                    createdAt: true
+                    createdAt: true,
+                    coinsBalance: true
                 }
             }),
             this.prisma.user.count({ where })

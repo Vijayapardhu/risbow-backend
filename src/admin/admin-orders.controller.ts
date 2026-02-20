@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Query, Param, Body, UseGuards, Request, Post } from '@nestjs/common';
+import { Controller, Get, Patch, Query, Param, Body, UseGuards, Request, Post, NotFoundException, BadRequestException } from '@nestjs/common';
 import { OrdersService } from '../orders/orders.service';
 import { DriversService } from '../drivers/drivers.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -8,6 +8,7 @@ import { AdminPermissionsGuard } from './auth/guards/admin-permissions.guard';
 import { AdminRoles } from './auth/decorators/admin-roles.decorator';
 import { AdminRole, OrderStatus, DriverStatus } from '@prisma/client';
 import { ArrivalProofService } from '../vendor-orders/arrival-proof.service';
+import { PackingProofService } from '../vendor-orders/packing-proof.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UseInterceptors, UploadedFile } from '@nestjs/common';
 
@@ -20,6 +21,7 @@ export class AdminOrdersController {
         private readonly driversService: DriversService,
         private readonly prisma: PrismaService,
         private readonly arrivalProof: ArrivalProofService,
+        private readonly packingProof: PackingProofService,
     ) { }
 
     @Get()
@@ -89,7 +91,7 @@ export class AdminOrdersController {
         });
 
         if (!order) {
-            return { error: 'Order not found' };
+            throw new NotFoundException('Order not found');
         }
 
         // Get all active and available drivers
@@ -131,7 +133,7 @@ export class AdminOrdersController {
         });
 
         if (!order) {
-            return { error: 'Order not found' };
+            throw new NotFoundException('Order not found');
         }
 
         // Check if driver exists and is available
@@ -140,7 +142,7 @@ export class AdminOrdersController {
         });
 
         if (!driver) {
-            return { error: 'Driver not found' };
+            throw new NotFoundException('Driver not found');
         }
 
         // Update order with driver assignment
@@ -191,7 +193,7 @@ export class AdminOrdersController {
         @Body('trackingId') trackingId: string,
     ) {
         if (!courierPartner || !trackingId) {
-            return { error: 'Courier partner name and tracking ID are required' };
+            throw new BadRequestException('Courier partner name and tracking ID are required');
         }
 
         const order = await this.prisma.order.findUnique({
@@ -199,7 +201,7 @@ export class AdminOrdersController {
         });
 
         if (!order) {
-            return { error: 'Order not found' };
+            throw new NotFoundException('Order not found');
         }
 
         // Update order with third-party delivery info
@@ -245,7 +247,7 @@ export class AdminOrdersController {
         });
 
         if (!order) {
-            return { error: 'Order not found' };
+            throw new NotFoundException('Order not found');
         }
 
         const latestDelivery = order.Delivery && order.Delivery.length > 0 ? order.Delivery[0] : null;
@@ -261,6 +263,39 @@ export class AdminOrdersController {
         };
     }
 
+    @Post(':id/mark-shipped')
+    @UseInterceptors(FileInterceptor('video'))
+    async markShipped(
+        @Param('id') id: string,
+        @UploadedFile() file: Express.Multer.File,
+        @Request() req: any
+    ) {
+        // 1. Identify vendor (just picking first as simplified)
+        const order = await this.prisma.order.findUnique({ where: { id } });
+        if (!order) throw new NotFoundException('Order not found');
+
+        const items = (order.itemsSnapshot as any[]) || [];
+        const vendorId = items[0]?.vendorId;
+        if (!vendorId) throw new BadRequestException('Vendor not found for order');
+
+        // 2. Upload video proof if not already exists
+        const hasProof = await this.packingProof.hasProof(id);
+        if (!hasProof) {
+            if (!file) {
+                throw new BadRequestException('Packing video proof is mandatory. Please upload packing video.');
+            }
+            await this.packingProof.uploadPackingVideo({
+                orderId: id,
+                vendorId,
+                userId: req.user.id,
+                file
+            });
+        }
+
+        // 3. Update status to SHIPPED
+        return this.ordersService.updateOrderStatus(id, 'SHIPPED' as OrderStatus, req.user.id, req.user.role, 'Marked shipped via admin panel');
+    }
+
     @Post(':id/mark-arrived')
     @UseInterceptors(FileInterceptor('video'))
     async markArrived(
@@ -270,11 +305,11 @@ export class AdminOrdersController {
     ) {
         // 1. Identify vendor (just picking first as simplified)
         const order = await this.prisma.order.findUnique({ where: { id } });
-        if (!order) return { error: 'Order not found' };
+        if (!order) throw new NotFoundException('Order not found');
 
         const items = (order.itemsSnapshot as any[]) || [];
         const vendorId = items[0]?.vendorId;
-        if (!vendorId) return { error: 'Vendor not found for order' };
+        if (!vendorId) throw new BadRequestException('Vendor not found for order');
 
         // 2. Upload video proof
         await this.arrivalProof.uploadArrivalVideo({

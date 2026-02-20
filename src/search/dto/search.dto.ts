@@ -82,6 +82,12 @@ export class SearchQueryDto {
   @IsString()
   @IsOptional()
   pincode?: string;
+
+  @ApiPropertyOptional({ description: 'Group results by product (deduplication)' })
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  grouped?: boolean;
 }
 
 export class AutocompleteDto {

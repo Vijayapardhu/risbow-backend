@@ -10,8 +10,8 @@ import { generateShortInvoiceNumber } from '../common/invoice-number.utils';
 export class InvoicesService {
     constructor(private prisma: PrismaService) {}
 
-    async generateInvoice(orderId: string): Promise<Buffer> {
-        console.log(`[Invoice] Starting generation for order: ${orderId}`);
+    async generateInvoice(orderId: string, vendorId?: string): Promise<Buffer> {
+        console.log(`[Invoice] Starting generation for order: ${orderId}, vendorId: ${vendorId}`);
 
         try {
             if (!orderId || orderId.trim() === '') {
@@ -19,6 +19,7 @@ export class InvoicesService {
             }
 
             // Fetch order with all details
+            // Try finding by ID first, then by orderNumber
             let order = await this.prisma.order.findUnique({
                 where: { id: orderId },
                 include: {
@@ -27,8 +28,61 @@ export class InvoicesService {
                     },
                     address: true,
                     payment: true,
+                    OrderItem: {
+                        include: {
+                            Product: true
+                        }
+                    }
                 }
             });
+
+            // If not found by ID, try by orderNumber
+            if (!order && orderId) {
+                order = await this.prisma.order.findFirst({
+                    where: { 
+                        OR: [
+                            { orderNumber: { equals: orderId, mode: 'insensitive' } },
+                            { orderNumber: { contains: orderId, mode: 'insensitive' } }
+                        ]
+                    },
+                    include: {
+                        user: {
+                            select: { id: true, name: true, email: true, mobile: true }
+                        },
+                        address: true,
+                        payment: true,
+                        OrderItem: {
+                            include: {
+                                Product: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            // If vendorId is provided, verify the order belongs to that vendor
+            if (!order && vendorId) {
+                order = await this.prisma.order.findFirst({
+                    where: { 
+                        OR: [
+                            { id: orderId },
+                            { orderNumber: { equals: orderId, mode: 'insensitive' } }
+                        ]
+                    },
+                    include: {
+                        user: {
+                            select: { id: true, name: true, email: true, mobile: true }
+                        },
+                        address: true,
+                        payment: true,
+                        OrderItem: {
+                            include: {
+                                Product: true
+                            }
+                        }
+                    }
+                });
+            }
 
             if (!order) {
                 throw new NotFoundException(`Order not found: ${orderId}`);
@@ -65,7 +119,18 @@ export class InvoicesService {
         order = { ...order, invoiceNumber };
 
         // Get vendor info from order items
-        const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot : [];
+        let items: any[] = [];
+        if (order.OrderItem && order.OrderItem.length > 0) {
+            items = order.OrderItem.map(item => ({
+                ...item,
+                productTitle: item.Product?.title,
+                vendorId: item.Product?.vendorId,
+                price: item.price || item.Product?.price
+            }));
+        } else if (Array.isArray(order.itemsSnapshot)) {
+             items = order.itemsSnapshot;
+        }
+
         let vendorName = 'Risbow Store';
         let vendorAddress = 'Risbow HQ, Bangalore, Karnataka - 560001';
         let vendorGST = '29AABCU9603R1ZM';
@@ -166,7 +231,12 @@ export class InvoicesService {
             try {
                 console.log('[Invoice] Creating PDF with PDFKit...');
                 
-                const doc = new PDFDocument({ margin: 50 });
+                const doc = new PDFDocument({ 
+                    size: 'A4', 
+                    margin: 40,
+                    bufferPages: true,
+                    info: { Title: 'Tax Invoice' } 
+                });
                 const chunks: Buffer[] = [];
                 
                 doc.on('data', chunk => chunks.push(chunk));
@@ -177,221 +247,237 @@ export class InvoicesService {
                 });
                 doc.on('error', reject);
 
-                const invoiceNumber = order.invoiceNumber || `INV-${order.orderNumber || order.id.substring(0, 8).toUpperCase()}`;
-                const orderNumber = order.orderNumber || `ORD-${order.id.substring(0, 8).toUpperCase()}`;
-                // Use confirmedAt date for invoice, fallback to updatedAt or createdAt
-                const invoiceDate = order.confirmedAt || order.updatedAt || order.createdAt;
-                const orderDate = new Date(invoiceDate).toLocaleDateString('en-IN');
-                const customerName = order.user?.name || 'Customer';
-                const customerMobile = order.user?.mobile || '-';
-                const customerEmail = order.user?.email || '-';
-                
-                const address = order.address || {};
-                const shippingAddress = [
-                    address.addressLine1 || address.street || '',
-                    address.addressLine2 || '',
-                    address.city || '',
-                    address.state || '',
-                    address.country || 'India',
-                    address.pincode || address.postalCode || ''
-                ].filter(Boolean).join(', ');
+                // Colors & Config
+                const PRIMARY_COLOR = '#E65100'; // Risbow Orange
+                const SECONDARY_COLOR = '#1565C0'; // Risbow Blue
+                const TEXT_COLOR = '#333333';
+                const LIGHT_TEXT = '#666666';
+                const BORDER_COLOR = '#E0E0E0';
+                const currency = 'INR';
+                const locale = 'en-IN';
 
-                // Add Logo
-                const logoPath = path.join(process.cwd(), 'public', 'logo.png');
+                const invoiceNumber = order.invoiceNumber || `INV-${order.orderNumber || order.id.slice(0, 8)}`;
+                const orderNumber = order.orderNumber || order.id.slice(0, 8);
+                const invoiceDate = new Date(order.confirmedAt || order.createdAt).toLocaleDateString(locale);
+
+                // --- HEADER ---
+                // Logo
+                const logoPath = 'c:\\office\\risbow-frontend\\assets\\images\\logo.png';
                 if (fs.existsSync(logoPath)) {
-                    doc.image(logoPath, 50, 30, { width: 80 });
-                    console.log('[Invoice] Logo added to PDF');
+                    doc.image(logoPath, 40, 40, { width: 120 });
                 } else {
-                    console.warn('[Invoice] Logo not found at:', logoPath);
-                    // Fallback to text logo
-                    doc.fontSize(24).font('Helvetica-Bold').fillColor('#1a1a2e').text('R', 50, 40);
-                    doc.fontSize(18).font('Helvetica-Bold').text('RISBOW', 80, 45);
+                    doc.fontSize(20).fillColor(SECONDARY_COLOR).font('Helvetica-Bold').text('Risbow', 40, 50);
                 }
 
-                // Header - TAX INVOICE
-                doc.fontSize(20).font('Helvetica-Bold').fillColor('#333').text('TAX INVOICE', 300, 40, { align: 'right' });
-                doc.fontSize(10).font('Helvetica').fillColor('#666').text('Original for Recipient', 300, 65, { align: 'right' });
+                // Tax Invoice Title
+                doc.fontSize(20).fillColor('#EF5350').font('Helvetica-Bold').text('TAX INVOICE', 350, 45, { align: 'right' });
+                doc.fontSize(9).fillColor(LIGHT_TEXT).font('Helvetica').text('Original for Recipient', 350, 70, { align: 'right' });
+
+                // Separator
+                doc.moveTo(40, 90).lineTo(555, 90).strokeColor(SECONDARY_COLOR).lineWidth(2).stroke();
+
+                let y = 110;
+
+                // --- TOP SECTION: FROM & INVOICE DETAILS ---
+                // Left Column: FROM (Risbow/Vendor)
+                doc.fontSize(10).fillColor(LIGHT_TEXT).font('Helvetica').text('From:', 40, y);
+                doc.fontSize(11).fillColor('#000000').font('Helvetica-Bold').text('RISBOW Private Limited', 40, y + 15);
+                doc.fontSize(9).fillColor(TEXT_COLOR).font('Helvetica');
+                doc.text('Bangalore, Karnataka - 560001', 40, y + 30);
+                doc.text('GSTIN: 29AABCU9603R1ZM', 40, y + 42);
+                doc.text('Email: support@risbow.com', 40, y + 54);
+
+                // Right Column: INVOICE DETAILS
+                const detailsX = 350;
+                doc.fontSize(10).fillColor(LIGHT_TEXT).text('Invoice Details:', detailsX, y);
+                doc.fontSize(9).fillColor(TEXT_COLOR);
+                doc.font('Helvetica-Bold').text(`Invoice No: ${invoiceNumber}`, detailsX, y + 15);
+                doc.font('Helvetica').text(`Order No: ${orderNumber}`, detailsX, y + 27);
+                doc.text(`Invoice Date: ${invoiceDate}`, detailsX, y + 39);
+                doc.text(`Payment Mode: ${order.payment?.provider || 'Prepaid'}`, detailsX, y + 51);
                 
-                // Separator line
-                doc.moveTo(50, 100).lineTo(550, 100).stroke('#1a1a2e');
-                
-                // Three Column Layout: Sold By | Invoice Details | Bill To
-                let leftColY = 120;
-                let midColY = 120;
-                let rightColY = 120;
-                
-                // Left Column - Sold By
-                doc.fontSize(9).font('Helvetica-Bold').fillColor('#666').text('SOLD BY:', 50, leftColY);
-                leftColY += 15;
-                doc.fontSize(11).font('Helvetica-Bold').fillColor('#333').text(vendorName, 50, leftColY);
-                leftColY += 15;
-                doc.fontSize(9).font('Helvetica').fillColor('#333').text(vendorAddress, 50, leftColY, { width: 150 });
-                leftColY += 25;
-                doc.fontSize(9).font('Helvetica').text(`GSTIN: ${vendorGST}`, 50, leftColY);
-                
-                // Middle Column - Invoice Details
-                doc.fontSize(9).font('Helvetica-Bold').fillColor('#666').text('INVOICE DETAILS:', 220, midColY);
-                midColY += 15;
-                doc.fontSize(9).font('Helvetica').fillColor('#333').text(`Invoice #: ${invoiceNumber}`, 220, midColY);
-                midColY += 13;
-                doc.fontSize(9).font('Helvetica').text(`Order #: ${orderNumber}`, 220, midColY);
-                midColY += 13;
-                doc.fontSize(9).font('Helvetica').text(`Date: ${orderDate}`, 220, midColY);
-                midColY += 13;
-                doc.fontSize(9).font('Helvetica').text(`Payment: ${order.payment?.provider || 'COD'}`, 220, midColY);
-                midColY += 15;
-                
-                // Add barcode if generated
+                // Barcode under payment info if available
                 if (barcodeBuffer) {
-                    doc.image(barcodeBuffer, 220, midColY, { width: 120, height: 40 });
-                    doc.fontSize(7).font('Helvetica').fillColor('#666').text(orderNumber, 220, midColY + 42, { width: 120, align: 'center' });
+                    doc.image(barcodeBuffer, detailsX, y + 65, { width: 100, height: 25 });
                 }
+
+                y += 100;
+
+                // --- MIDDLE SECTION: BILL TO & SOLD BY ---
+                // Left: BILL TO (Customer)
+                doc.fillColor('#000000').font('Helvetica-Bold').fontSize(10).text('Bill To:', 40, y + 10);
+                doc.fontSize(10).font('Helvetica-Bold').text(order.user?.name || 'Customer', 40, y + 25);
+                doc.fontSize(9).font('Helvetica').fillColor(TEXT_COLOR);
                 
-                // Right Column - Bill To
-                doc.fontSize(9).font('Helvetica-Bold').fillColor('#666').text('BILL TO:', 400, rightColY);
-                rightColY += 15;
-                doc.fontSize(11).font('Helvetica-Bold').fillColor('#333').text(customerName, 400, rightColY);
-                rightColY += 15;
-                doc.fontSize(9).font('Helvetica').fillColor('#333').text(shippingAddress || 'Address not available', 400, rightColY, { width: 150 });
-                rightColY += 35;
-                doc.fontSize(9).font('Helvetica').text(`Phone: ${customerMobile}`, 400, rightColY);
-                rightColY += 13;
-                doc.fontSize(9).font('Helvetica').text(`Email: ${customerEmail}`, 400, rightColY);
-                
-                // Find max Y to continue from
-                let y = Math.max(leftColY, midColY + 50, rightColY) + 20;
-                
-                // Separator line
-                doc.moveTo(50, y).lineTo(550, y).stroke('#1a1a2e');
-                y += 15;
-                
+                if (order.address) {
+                    const addr = order.address;
+                    const addressLines = [
+                        addr.addressLine1 || addr.street,
+                        addr.addressLine2,
+                        `${addr.city}, ${addr.state} - ${addr.pincode || addr.postalCode}`
+                    ].filter(Boolean);
+                    
+                    let addrY = y + 38;
+                    addressLines.forEach(line => {
+                        doc.text(line, 40, addrY);
+                        addrY += 12;
+                    });
+                    doc.text(`Phone: ${order.user?.mobile || '-'}`, 40, addrY);
+                } else {
+                    doc.text('Address not available', 40, y + 38);
+                    doc.text(`Phone: ${order.user?.mobile || '-'}`, 40, y + 50);
+                }
+
+                // Right: SOLD BY (Vendor)
+                const soldByX = 350;
+                doc.fillColor('#000000').font('Helvetica-Bold').fontSize(10).text('Sold By:', soldByX, y + 10);
+                doc.fontSize(10).font('Helvetica-Bold').text(vendorName, soldByX, y + 25);
+                doc.fontSize(9).font('Helvetica').fillColor(TEXT_COLOR);
+                doc.text(vendorAddress, soldByX, y + 38, { width: 200 });
+                if (vendorGST) doc.text(`GSTIN: ${vendorGST}`, soldByX, y + 55);
+
+                y += 100;
+
+                // --- ITEMS TABLE ---
+                const colX = {
+                    sn: 40,
+                    desc: 70,
+                    hsn: 250,
+                    qty: 300,
+                    rate: 340,
+                    taxable: 400,
+                    total: 510
+                };
+
                 // Table Header
-                doc.fontSize(9).font('Helvetica-Bold').fillColor('#333');
-                doc.text('#', 50, y, { width: 30, align: 'center' });
-                doc.text('Item Description', 85, y, { width: 200 });
-                doc.text('Qty', 290, y, { width: 40, align: 'center' });
-                doc.text('Unit Price', 335, y, { width: 70, align: 'right' });
-                doc.text('Amount', 410, y, { width: 70, align: 'right' });
-                doc.text('CGST', 485, y, { width: 35, align: 'right' });
-                doc.text('SGST', 525, y, { width: 35, align: 'right' });
-                
-                y += 18;
-                doc.moveTo(50, y).lineTo(550, y).stroke('#ccc');
-                y += 10;
-                
-                // Table Items
-                let totalTaxable = 0;
-                let totalCGST = 0;
-                let totalSGST = 0;
-                
-                doc.fontSize(8).font('Helvetica').fillColor('#333');
+                doc.rect(40, y, 515, 25).fillColor('#F5F5F5').fill();
+                doc.fillColor('#000000').font('Helvetica-Bold').fontSize(9);
+                doc.text('#', colX.sn + 5, y + 8);
+                doc.text('Item Description', colX.desc, y + 8);
+                doc.text('HSN', colX.hsn, y + 8);
+                doc.text('Qty', colX.qty, y + 8, { width: 30, align: 'center' });
+                doc.text('Rate', colX.rate, y + 8, { width: 50, align: 'right' });
+                doc.text('Taxable', colX.taxable, y + 8, { width: 50, align: 'right' });
+                doc.text('Total', colX.total, y + 8, { width: 45, align: 'right' });
+
+                y += 25;
+
+                // Table Rows
+                let subtotal = 0;
+                let totalTax = 0;
+
                 items.forEach((item: any, index: number) => {
-                    const unitPrice = item.price || item.unitPrice || 0;
-                    const quantity = item.quantity || 1;
-                    const taxableValue = unitPrice * quantity;
-                    const cgst = Math.round((taxableValue * 9) / 100);
-                    const sgst = Math.round((taxableValue * 9) / 100);
-                    
-                    totalTaxable += taxableValue;
-                    totalCGST += cgst;
-                    totalSGST += sgst;
-                    
-                    // Try multiple possible field names for product name
-                    const productName = item.productName || item.productTitle || item.title || item.name || item.product?.title || 'Product';
-                    
-                    // Calculate row height based on product name length
-                    const productNameText = productName.length > 35 ? productName.substring(0, 35) + '...' : productName;
-                    const textHeight = doc.heightOfString(productNameText, { width: 200 });
-                    const rowHeight = Math.max(18, textHeight + 4);
-                    
-                    doc.text((index + 1).toString(), 50, y, { width: 30, align: 'center' });
-                    doc.text(productNameText, 85, y, { width: 200, height: rowHeight });
-                    doc.text(quantity.toString(), 290, y, { width: 40, align: 'center' });
-                    doc.text(this.formatCurrency(unitPrice), 335, y, { width: 70, align: 'right' });
-                    doc.text(this.formatCurrency(taxableValue), 410, y, { width: 70, align: 'right' });
-                    doc.text(this.formatCurrency(cgst), 485, y, { width: 35, align: 'right' });
-                    doc.text(this.formatCurrency(sgst), 525, y, { width: 35, align: 'right' });
-                    
-                    y += rowHeight;
-                    
-                    // Add new page if needed
-                    if (y > 680) {
+                    if (y > 700) {
                         doc.addPage();
                         y = 50;
-                        // Redraw header on new page
-                        doc.fontSize(9).font('Helvetica-Bold');
-                        doc.text('#', 50, y, { width: 30, align: 'center' });
-                        doc.text('Item Description', 85, y, { width: 200 });
-                        doc.text('Qty', 290, y, { width: 40, align: 'center' });
-                        doc.text('Unit Price', 335, y, { width: 70, align: 'right' });
-                        doc.text('Amount', 410, y, { width: 70, align: 'right' });
-                        doc.text('CGST', 485, y, { width: 35, align: 'right' });
-                        doc.text('SGST', 525, y, { width: 35, align: 'right' });
-                        y += 25;
                     }
+
+                    const quantity = Number(item.quantity) || 1;
+                    
+                    // Use database values directly to match Admin Panel
+                    // Admin Panel "Item Total" = Taxable Amount (Subtotal)
+                    const itemSubtotal = Number(item.subtotal) || 0;
+                    const itemTax = Number(item.tax) || 0;
+                    
+                    // If subtotal is missing (legacy data), fallback to simple calc
+                    // But for new orders, item.subtotal is reliable
+                    const taxableVal = itemSubtotal > 0 ? itemSubtotal : ((Number(item.price) || 0) * quantity);
+                    
+                    // Effective Unit Rate (Taxable)
+                    const unitRate = taxableVal / quantity;
+
+                    subtotal += taxableVal;
+                    totalTax += itemTax;
+
+                    doc.fillColor(TEXT_COLOR).font('Helvetica').fontSize(9);
+                    
+                    // Row Background (Alternating)
+                    const rowHeight = 30;
+                    if (index % 2 === 1) doc.rect(40, y, 515, rowHeight).fillColor('#FAFAFA').fill();
+                    
+                    doc.fillColor(TEXT_COLOR);
+                    const textY = y + 10;
+
+                    doc.text((index + 1).toString(), colX.sn + 5, textY);
+                    
+                    const productName = item.productName || item.productTitle || item.title || item.name || item.product?.title || 'Product';
+                    doc.text(productName, colX.desc, textY, { width: 170, ellipsis: true });
+                    
+                    doc.text('-', colX.hsn, textY); // HSN placeholder
+                    doc.text(quantity.toString(), colX.qty, textY, { width: 30, align: 'center' });
+                    
+                    // Rate (Taxable Unit Price)
+                    doc.text(this.formatCurrency(unitRate), colX.rate, textY, { width: 50, align: 'right' });
+                    
+                    // Taxable Value
+                    doc.text(this.formatCurrency(taxableVal), colX.taxable, textY, { width: 50, align: 'right' });
+                    
+                    // Total (Displaying Taxable Amount to match Admin UI Subtotal logic)
+                    doc.font('Helvetica-Bold').text(this.formatCurrency(taxableVal), colX.total, textY, { width: 45, align: 'right' });
+
+                    y += rowHeight;
                 });
+
+                // Line after items
+                doc.moveTo(40, y).lineTo(555, y).strokeColor(BORDER_COLOR).stroke();
+                y += 10;
+
+                // --- FOOTER SECTION ---
+                const footerY = y;
                 
-                // Separator line
-                doc.moveTo(50, y).lineTo(550, y).stroke('#1a1a2e');
-                y += 15;
+                // Calculate Grand Total from components to ensure exact match with displayed values
+                const shippingCharges = Number(order.shippingCharges) || 0;
+                const calculatedGrandTotal = subtotal + totalTax + shippingCharges;
+
+                // Left Side: Amount in Words & Terms
+                doc.fontSize(9).font('Helvetica-Bold').fillColor(TEXT_COLOR).text('Amount in Words:', 40, footerY);
+                doc.font('Helvetica-Oblique').text(`${this.numberToWords(Math.round(calculatedGrandTotal))} Rupees Only`, 40, footerY + 12);
+
+                const termsY = footerY + 40;
+                doc.fontSize(9).font('Helvetica-Bold').fillColor(TEXT_COLOR).text('Terms & Conditions:', 40, termsY);
+                doc.fontSize(8).font('Helvetica').fillColor(LIGHT_TEXT);
+                doc.text('1. Goods once sold cannot be returned or exchanged.', 40, termsY + 12);
+                doc.text('2. Warranty is as per manufacturer terms.', 40, termsY + 24);
+                doc.text('3. This is a computer generated invoice and does not require signature.', 40, termsY + 36);
+
+                // Right Side: Totals
+                let totalsY = footerY;
+                const labelX = 340;
+                const valX = 450;
                 
-                // Totals Section
-                const shipping = order.shippingCharges || 0;
-                const discount = order.coinsUsed || 0;
-                const grandTotal = totalTaxable + totalCGST + totalSGST + shipping - discount;
-                
-                // Right-aligned totals
-                const totalsX = 350;
-                const valueX = 480;
-                
-                doc.fontSize(10).font('Helvetica').fillColor('#333');
-                doc.text('Subtotal:', totalsX, y, { width: 120, align: 'right' });
-                doc.text(this.formatCurrency(totalTaxable), valueX, y, { width: 70, align: 'right' });
-                y += 18;
-                
-                doc.text('CGST (9%):', totalsX, y, { width: 120, align: 'right' });
-                doc.text(this.formatCurrency(totalCGST), valueX, y, { width: 70, align: 'right' });
-                y += 18;
-                
-                doc.text('SGST (9%):', totalsX, y, { width: 120, align: 'right' });
-                doc.text(this.formatCurrency(totalSGST), valueX, y, { width: 70, align: 'right' });
-                y += 18;
-                
-                if (shipping > 0) {
-                    doc.text('Shipping:', totalsX, y, { width: 120, align: 'right' });
-                    doc.text(this.formatCurrency(shipping), valueX, y, { width: 70, align: 'right' });
-                    y += 18;
-                }
-                
-                if (discount > 0) {
-                    doc.text('Discount:', totalsX, y, { width: 120, align: 'right' });
-                    doc.fillColor('#059669').text(`- Rs. ${Math.round(discount)}/-`, valueX, y, { width: 70, align: 'right' });
-                    doc.fillColor('#333');
-                    y += 18;
-                }
-                
-                // Grand Total with highlight
-                y += 5;
-                doc.rect(totalsX - 10, y - 5, 210, 25).fill('#f5f5f5').stroke('#1a1a2e');
-                doc.fontSize(12).font('Helvetica-Bold').fillColor('#1a1a2e');
-                doc.text('Grand Total:', totalsX, y, { width: 120, align: 'right' });
-                doc.text(this.formatCurrency(grandTotal), valueX, y, { width: 70, align: 'right' });
-                y += 35;
-                
-                // Amount in words
-                doc.fontSize(9).font('Helvetica-Oblique').fillColor('#666');
-                doc.text(`Amount in words: ${this.numberToWords(grandTotal)} Rupees Only`, 50, y, { width: 500 });
-                y += 30;
-                
-                // Footer
-                doc.fontSize(8).font('Helvetica').fillColor('#666');
-                doc.text('Declaration: We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.', 50, y, { width: 400 });
-                y += 20;
-                doc.text('This is a computer generated invoice and does not require signature.', 50, y, { width: 400 });
-                y += 25;
-                
-                doc.fontSize(11).font('Helvetica-Bold').fillColor('#1a1a2e');
-                doc.text('Thank you for shopping with Risbow!', 50, y, { width: 500, align: 'center' });
+                // Subtotal (Taxable)
+                doc.fontSize(9).font('Helvetica').fillColor(TEXT_COLOR);
+                doc.text('Taxable Amount:', labelX, totalsY, { width: 100, align: 'right' });
+                doc.text(this.formatCurrency(subtotal), valX, totalsY, { width: 105, align: 'right' });
+                totalsY += 15;
+
+                // CGST (9%) - Split total tax
+                doc.text('CGST (9%):', labelX, totalsY, { width: 100, align: 'right' });
+                doc.text(this.formatCurrency(totalTax / 2), valX, totalsY, { width: 105, align: 'right' });
+                totalsY += 15;
+
+                // SGST (9%)
+                doc.text('SGST (9%):', labelX, totalsY, { width: 100, align: 'right' });
+                doc.text(this.formatCurrency(totalTax / 2), valX, totalsY, { width: 105, align: 'right' });
+                totalsY += 15;
+
+                // Shipping
+                doc.text('Shipping:', labelX, totalsY, { width: 100, align: 'right' });
+                doc.text(this.formatCurrency(shippingCharges), valX, totalsY, { width: 105, align: 'right' });
+                totalsY += 15;
+
+                // Grand Total Box
+                totalsY += 5;
+                doc.rect(labelX - 10, totalsY - 5, 225, 25).fillColor('#212121').fill();
+                doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(10);
+                doc.text('Grand Total:', labelX, totalsY + 2, { width: 100, align: 'right' });
+                doc.fontSize(11).text(this.formatCurrency(calculatedGrandTotal), valX, totalsY + 1, { width: 105, align: 'right' });
+
+                // Computer Generated Message (Replaces Signature)
+                const sigY = termsY + 60;
+                doc.fillColor(TEXT_COLOR).fontSize(9).font('Helvetica-Oblique');
+                doc.text('This is a computer generated invoice.', 350, sigY, { width: 200, align: 'center' });
+                doc.text('No signature required.', 350, sigY + 12, { width: 200, align: 'center' });
                 
                 doc.end();
             } catch (error) {

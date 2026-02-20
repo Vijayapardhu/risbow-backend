@@ -1,6 +1,7 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaymentsService } from '../payments/payments.service';
 import { BowIntentService } from './bow-intent.service';
 import { BowContextService } from './bow-context.service';
 import { BowPolicyService } from './bow-policy.service';
@@ -19,7 +20,7 @@ import { BowAutoActionService } from './bow-auto-action.service';
 import { RecommendationStrategyService } from './recommendation-strategy.service';
 import { BowRevenueService } from './bow-revenue.service';
 import { BowMessageDto, BowResponse, BowActionExecuteDto } from './dto/bow.dto';
-import { BowActionType } from '@prisma/client';
+import { InteractionType, BowActionType } from '@prisma/client';
 import { PlatformConfigHelper } from '../common/platform-config.helper';
 
 // Inline types for missing BowProduct and BowStockCheckResult
@@ -394,23 +395,15 @@ export class BowService {
         return false;
     }
 
-    /**
-     * Handle payment failure by suggesting COD or other recovery options
-     */
-    async handlePaymentFailure(userId: string, orderId: string): Promise<boolean> {
-        try {
-            const result = await this.bowAutoActionService.executeAutoAction({
-                actionType: ('SUGGEST_COD' as any),
-                userId,
-                reason: 'Payment failed for order - suggest COD recovery',
-                strategy: 'RECOVERY'
-            });
-
-            return result.success;
-        } catch (error) {
-            this.logger.error(`Error handling payment failure: ${error.message}`);
-            return false;
-        }
+    async handlePaymentFailure(userId: string, orderId: string) {
+        // Trigger a smart reminder or notification to the user
+        await this.smartRemindersService.scheduleReminder(userId, {
+            type: 'PAYMENT_FAILURE',
+            message: 'Your payment failed. Retry now to secure your items.',
+            actionLink: `/checkout/retry/${orderId}`,
+            priority: 'HIGH'
+        });
+        return true;
     }
 
     /**

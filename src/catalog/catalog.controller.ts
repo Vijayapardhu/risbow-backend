@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Patch, Delete, Put, Body, Query, Param, UseGuards, UseInterceptors, UploadedFile, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { CatalogService } from './catalog.service';
 import { CreateProductDto, ProductFilterDto, UpdateProductDto } from './dto/catalog.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -47,12 +47,15 @@ export class CatalogController {
     constructor(private readonly catalogService: CatalogService) { }
 
     @Get()
+    @ApiOperation({ summary: 'List all products with optional grouping' })
+    @ApiQuery({ name: 'grouped', required: false, type: Boolean, description: 'Group products by deduplication key' })
     async findAll(@Query() filters: ProductFilterDto, @Request() req: any) {
         return this.catalogService.findAll(filters, req?.user?.id);
     }
 
     @Get('nearby')
     @ApiOperation({ summary: 'Get nearby products (hyperlocal discovery)' })
+    @ApiQuery({ name: 'grouped', required: false, type: Boolean, description: 'Group products by deduplication key' })
     async nearbyProducts(
         @Query('lat') lat: string,
         @Query('lng') lng: string,
@@ -60,6 +63,7 @@ export class CatalogController {
         @Query('categoryId') categoryId?: string,
         @Query('inStock') inStock?: string,
         @Query('limit') limit?: string,
+        @Query('grouped') grouped?: string,
     ) {
         return this.catalogService.getNearbyProducts({
             lat: Number(lat),
@@ -68,7 +72,35 @@ export class CatalogController {
             categoryId,
             inStock: inStock === 'true' || inStock === '1',
             limit: Math.min(50, Math.max(1, Number(limit) || 20)),
+            grouped: grouped === 'true' || grouped === '1',
         });
+    }
+
+    @Get('group/:groupKey/offers')
+    @ApiOperation({ summary: 'Get all offers for a product group' })
+    @ApiParam({ name: 'groupKey', description: 'Group key (e.g., barcode:8901234567890 or norm:title:brand:categoryId)' })
+    @ApiQuery({ name: 'lat', required: false, type: Number, description: 'Latitude for distance calculation' })
+    @ApiQuery({ name: 'lng', required: false, type: Number, description: 'Longitude for distance calculation' })
+    @ApiResponse({ status: 200, description: 'Group offers with vendor details and ratings' })
+    @ApiResponse({ status: 404, description: 'Group not found' })
+    async getGroupOffers(
+        @Param('groupKey') groupKey: string,
+        @Query('lat') lat?: string,
+        @Query('lng') lng?: string,
+    ) {
+        return this.catalogService.getGroupOffers(
+            decodeURIComponent(groupKey),
+            {
+                lat: lat ? Number(lat) : undefined,
+                lng: lng ? Number(lng) : undefined,
+            }
+        );
+    }
+
+    @Get('barcode/:code')
+    @ApiOperation({ summary: 'Find product by barcode/SKU' })
+    async findByBarcode(@Param('code') code: string) {
+        return this.catalogService.findByBarcode(code);
     }
 
     @Get(':id')

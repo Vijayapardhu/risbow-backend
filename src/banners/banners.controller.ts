@@ -33,6 +33,11 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { AdminJwtAuthGuard } from '../admin/auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from '../admin/auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from '../admin/auth/guards/admin-permissions.guard';
+import { AdminRoles } from '../admin/auth/decorators/admin-roles.decorator';
+import { AdminRole } from '@prisma/client';
 import { Idempotent } from '../idempotency/idempotency.decorator';
 
 @ApiTags('Banners')
@@ -87,8 +92,8 @@ export class BannersController {
     // ==================== ADMIN ENDPOINTS ====================
 
     @Get('admin/banners')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    @UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN, AdminRole.SUPER_ADMIN)
     @ApiBearerAuth()
     @ApiOperation({
         summary: 'Get all banners (Admin)',
@@ -104,8 +109,8 @@ export class BannersController {
     }
 
     @Get('admin/banners/:id')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    @UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN, AdminRole.SUPER_ADMIN)
     @ApiBearerAuth()
     @ApiOperation({
         summary: 'Get banner by ID (Admin)',
@@ -122,8 +127,8 @@ export class BannersController {
     }
 
     @Post('admin/banners')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    @UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN, AdminRole.SUPER_ADMIN)
     @ApiBearerAuth()
     @ApiOperation({
         summary: 'Create system banner (Admin)',
@@ -139,8 +144,8 @@ export class BannersController {
     }
 
     @Patch('admin/banners/:id')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    @UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN, AdminRole.SUPER_ADMIN)
     @ApiBearerAuth()
     @ApiOperation({
         summary: 'Update banner (Admin)',
@@ -157,8 +162,8 @@ export class BannersController {
     }
 
     @Delete('admin/banners/:id')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    @UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN, AdminRole.SUPER_ADMIN)
     @ApiBearerAuth()
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({
@@ -172,8 +177,8 @@ export class BannersController {
     }
 
     @Post('admin/banners/:id/approve')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    @UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN, AdminRole.SUPER_ADMIN)
     @ApiBearerAuth()
     @ApiOperation({
         summary: 'Approve vendor banner (Admin)',
@@ -190,8 +195,8 @@ export class BannersController {
     }
 
     @Get('admin/banners/:id/analytics')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    @UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN, AdminRole.SUPER_ADMIN)
     @ApiBearerAuth()
     @ApiOperation({
         summary: 'Get banner analytics (Admin)',

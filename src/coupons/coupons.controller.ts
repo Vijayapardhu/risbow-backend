@@ -30,6 +30,11 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { AdminJwtAuthGuard } from '../admin/auth/guards/admin-jwt-auth.guard';
+import { AdminRolesGuard } from '../admin/auth/guards/admin-roles.guard';
+import { AdminPermissionsGuard } from '../admin/auth/guards/admin-permissions.guard';
+import { AdminRoles } from '../admin/auth/decorators/admin-roles.decorator';
+import { AdminRole } from '@prisma/client';
 
 @ApiTags('Coupons')
 @Controller()
@@ -116,8 +121,8 @@ export class CouponsController {
     // ==================== ADMIN ENDPOINTS ====================
 
     @Get('admin/coupons')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    @UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN, AdminRole.SUPER_ADMIN)
     @ApiBearerAuth()
     @ApiOperation({
         summary: 'Get all coupons (Admin)',
@@ -133,8 +138,8 @@ export class CouponsController {
     }
 
     @Get('admin/coupons/:id')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    @UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN, AdminRole.SUPER_ADMIN)
     @ApiBearerAuth()
     @ApiOperation({
         summary: 'Get coupon by ID (Admin)',
@@ -156,8 +161,8 @@ export class CouponsController {
     }
 
     @Post('admin/coupons')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    @UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN, AdminRole.SUPER_ADMIN)
     @ApiBearerAuth()
     @ApiOperation({
         summary: 'Create new coupon (Admin)',
@@ -174,8 +179,8 @@ export class CouponsController {
     }
 
     @Patch('admin/coupons/:id')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    @UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN, AdminRole.SUPER_ADMIN)
     @ApiBearerAuth()
     @ApiOperation({
         summary: 'Update coupon (Admin)',
@@ -192,8 +197,8 @@ export class CouponsController {
     }
 
     @Delete('admin/coupons/:id')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    @UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+    @AdminRoles(AdminRole.OPERATIONS_ADMIN, AdminRole.SUPER_ADMIN)
     @ApiBearerAuth()
     @ApiOperation({
         summary: 'Delete coupon (Admin)',

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto, ProductFilterDto, UpdateProductDto } from './dto/catalog.dto';
 import { CategorySpecService } from './category-spec.service';
+import { CatalogGroupingService, GroupedProductResponse, GroupOffersResponse, VendorOffer } from './catalog-grouping.service';
 import { Prisma } from '@prisma/client';
 import { CacheService } from '../shared/cache.service';
 import { SearchService } from '../search/search.service';
@@ -11,6 +12,14 @@ import { randomUUID } from 'crypto';
 
 @Injectable()
 export class CatalogService {
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly cache: CacheService,
+        private readonly searchService: SearchService,
+        private readonly inventoryService: InventoryService,
+        private readonly groupingService: CatalogGroupingService,
+        private readonly categorySpecService: CategorySpecService,
+    ) {}
     async getSearchMissAnalytics(days: number) {
         const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
         const misses = await this.prisma.productSearchMiss.findMany({
@@ -45,14 +54,6 @@ export class CatalogService {
         await this.inventoryService.releaseStock(productId, quantity, variantId);
         return { released: true };
     }
-    constructor(
-        private prisma: PrismaService,
-        private categorySpecService: CategorySpecService,
-        private cache: CacheService,
-        private searchService: SearchService,
-        private inventoryService: InventoryService,
-    ) { }
-
     private distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
         const toRad = (x: number) => (x * Math.PI) / 180;
         const R = 6371;
@@ -71,6 +72,7 @@ export class CatalogService {
         categoryId?: string;
         inStock?: boolean;
         limit?: number;
+        grouped?: boolean;
     }) {
         const { lat, lng } = params;
         const radiusKm = Math.max(0.5, Math.min(params.radiusKm || 10, 50));
@@ -80,13 +82,14 @@ export class CatalogService {
             throw new BadRequestException('lat/lng are required');
         }
 
-        const cacheKey = this.cache.generateKey('nearby:products:v1', {
+        const cacheKey = this.cache.generateKey('nearby:products:v2', {
             lat: Number(lat.toFixed(2)),
             lng: Number(lng.toFixed(2)),
             radiusKm,
             categoryId: params.categoryId || null,
             inStock: !!params.inStock,
             limit,
+            grouped: !!params.grouped,
         });
 
         return this.cache.getOrSet(cacheKey, 60, async () => {
@@ -118,7 +121,7 @@ export class CatalogService {
             }
 
             const vendorIds = Array.from(vendorDistance.keys());
-            if (vendorIds.length === 0) return { data: [], meta: { radiusKm, count: 0 } };
+            if (vendorIds.length === 0) return { data: [], meta: { radiusKm, count: 0, grouped: false } };
 
             const products = await this.prisma.product.findMany({
                 where: {
@@ -131,6 +134,9 @@ export class CatalogService {
                 include: {
                     Vendor: {
                         select: { id: true, name: true, storeName: true, vendorCode: true }
+                    },
+                    Category: {
+                        select: { id: true, name: true }
                     }
                 },
                 take: limit,
@@ -147,7 +153,12 @@ export class CatalogService {
                 })
                 .sort((a: any, b: any) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
 
-            return { data: out, meta: { radiusKm, count: out.length } };
+            if (params.grouped) {
+                const grouped = this.groupingService.groupProducts(out);
+                return { data: grouped.items, meta: { radiusKm, count: grouped.meta.total, grouped: true } };
+            }
+
+            return { data: out, meta: { radiusKm, count: out.length, grouped: false } };
         });
     }
 
@@ -359,7 +370,7 @@ export class CatalogService {
         return deleted;
     }
 
-    async findAll(filters: ProductFilterDto, userId?: string) {
+    async findAll(filters: ProductFilterDto & { grouped?: boolean }, userId?: string) {
         // Cache key must include user-specific logic if personalization exists, but misses are separate.
         // However, if we cache the RESULTS of "Search X", we must be careful not to trigger miss logic repeatedly if cached.
         // BUT: this.cache.getOrSet executes the callback ONLY if cache miss. 
@@ -374,7 +385,7 @@ export class CatalogService {
         // Wait, if content is cached, it means we found something? Or we cached empty?
         // We cache empty lists too.
 
-        const cacheKey = this.cache.generateKey('products:list', filters);
+        const cacheKey = this.cache.generateKey('products:list', { ...filters, grouped: !!filters.grouped });
 
         const results = await this.cache.getOrSet(
             cacheKey,
@@ -389,6 +400,10 @@ export class CatalogService {
 
                 if (filters.category && filters.category !== 'All') {
                     where.categoryId = filters.category;
+                }
+
+                if (filters.vendorId && filters.vendorId !== 'All') {
+                    where.vendorId = filters.vendorId;
                 }
 
                 if (filters.isWholesale !== undefined) {
@@ -410,7 +425,9 @@ export class CatalogService {
                 if (filters.search) {
                     where.OR = [
                         { title: { contains: filters.search, mode: 'insensitive' } },
-                        { brandName: { contains: filters.search, mode: 'insensitive' } }
+                        { brandName: { contains: filters.search, mode: 'insensitive' } },
+                        { sku: { contains: filters.search, mode: 'insensitive' } },
+                        { barcode: { contains: filters.search, mode: 'insensitive' } }
                     ];
                 }
 
@@ -425,10 +442,15 @@ export class CatalogService {
                     }
                 }
 
+                const page = filters.page || 1;
+                const limit = filters.limit || 50;
+                const skip = (page - 1) * limit;
+
                 const results = await this.prisma.product.findMany({
                     where,
                     orderBy,
-                    take: 50,
+                    take: limit,
+                    skip,
                     include: {
                         Vendor: {
                             select: {
@@ -445,6 +467,10 @@ export class CatalogService {
                         }
                     }
                 });
+
+                if (filters.grouped) {
+                    return this.groupingService.groupProducts(results);
+                }
 
                 return results;
             }
@@ -531,6 +557,12 @@ export class CatalogService {
                     this.prisma.product.findFirst({
                         where: {
                             id,
+                            // Remove strict visibility checks for Admin/POS usage or handle via separate method
+                            // For public catalog, these checks are good. 
+                            // But for POS, we might need to find products even if draft/inactive? 
+                            // The user said "admin pos show all products".
+                            // I'll keep strict checks here for public catalog and create a separate findForAdmin/POS if needed.
+                            // However, findOne is likely used by public.
                             isActive: true,
                             visibility: 'PUBLISHED',
                             Vendor: { isActive: true, kycStatus: 'VERIFIED' },
@@ -615,7 +647,221 @@ export class CatalogService {
         );
     }
 
+    async findByBarcode(barcode: string) {
+        // Search by Barcode, SKU or ID
+        // Optimized with specific select to reduce latency
+        const product = await this.prisma.product.findFirst({
+            where: {
+                OR: [
+                    { barcode: barcode },
+                    { sku: barcode },
+                    { id: barcode }
+                ]
+            },
+            select: {
+                id: true,
+                title: true,
+                name: true,
+                sku: true,
+                barcode: true,
+                price: true,
+                offerPrice: true,
+                stock: true,
+                images: true,
+                description: true,
+                vendorId: true,
+                categoryId: true,
+                Vendor: {
+                    select: { id: true, name: true, storeName: true }
+                },
+                Category: {
+                    select: { id: true, name: true }
+                }
+            }
+        });
 
+        if (!product) {
+            throw new NotFoundException(`Product with barcode/SKU '${barcode}' not found`);
+        }
+
+        return product;
+    }
+
+    async getGroupOffers(
+        groupKey: string,
+        options?: { lat?: number; lng?: number }
+    ): Promise<GroupOffersResponse> {
+        const { type, value } = this.groupingService.parseGroupKey(groupKey);
+
+        let products: any[] = [];
+
+        if (type === 'barcode') {
+            products = await this.prisma.product.findMany({
+                where: {
+                    barcode: value,
+                    isActive: true,
+                    visibility: 'PUBLISHED',
+                },
+                include: {
+                    Vendor: {
+                        select: {
+                            id: true,
+                            name: true,
+                            storeName: true,
+                            latitude: true,
+                            longitude: true,
+                        }
+                    },
+                    Category: {
+                        select: { id: true, name: true }
+                    }
+                }
+            });
+        } else if (type === 'norm') {
+            const parts = value.split(':');
+            const normalizedTitle = parts[0] || '';
+            const normalizedBrand = parts[1] || '';
+            const categoryId = parts[2] || '';
+
+            const where: any = {
+                isActive: true,
+                visibility: 'PUBLISHED',
+            };
+
+            if (categoryId) {
+                where.categoryId = categoryId;
+            }
+
+            const orConditions: any[] = [];
+            if (normalizedTitle) {
+                orConditions.push({ title: { contains: normalizedTitle, mode: 'insensitive' } });
+            }
+            if (normalizedBrand) {
+                orConditions.push({ brandName: { contains: normalizedBrand, mode: 'insensitive' } });
+            }
+            if (orConditions.length > 0) {
+                where.OR = orConditions;
+            }
+
+            products = await this.prisma.product.findMany({
+                where,
+                include: {
+                    Vendor: {
+                        select: {
+                            id: true,
+                            name: true,
+                            storeName: true,
+                            latitude: true,
+                            longitude: true,
+                        }
+                    },
+                    Category: {
+                        select: { id: true, name: true }
+                    }
+                }
+            });
+        }
+
+        if (products.length === 0) {
+            throw new NotFoundException(`No products found for group key: ${groupKey}`);
+        }
+
+        const vendorIds = [...new Set(products.map(p => p.vendorId))];
+        
+        const vendorRatings = await this.prisma.review.groupBy({
+            by: ['vendorId'],
+            where: {
+                vendorId: { in: vendorIds },
+                status: 'ACTIVE',
+            },
+            _avg: { rating: true },
+            _count: true,
+        });
+
+        const vendorRatingMap = new Map(
+            vendorRatings.map(r => [r.vendorId, { avg: r._avg.rating, count: r._count }])
+        );
+
+        const productIds = products.map(p => p.id);
+        const productRatings = await this.prisma.review.groupBy({
+            by: ['productId'],
+            where: {
+                productId: { in: productIds },
+                status: 'ACTIVE',
+            },
+            _avg: { rating: true },
+            _count: true,
+        });
+
+        const productRatingMap = new Map(
+            productRatings.map(r => [r.productId, { avg: r._avg.rating, count: r._count }])
+        );
+
+        const firstProduct = products[0];
+        const bestImage = this.groupingService.selectBestImage(
+            firstProduct.images,
+            firstProduct.images?.[0]
+        );
+
+        const offers: VendorOffer[] = products.map(p => {
+            const effectivePrice = p.offerPrice ?? p.price;
+            const vendorRating = vendorRatingMap.get(p.vendorId);
+            const productRating = productRatingMap.get(p.id);
+
+            let distanceKm: number | undefined;
+            if (options?.lat !== undefined && options?.lng !== undefined) {
+                const vLat = p.Vendor?.latitude;
+                const vLng = p.Vendor?.longitude;
+                if (vLat !== null && vLng !== null) {
+                    distanceKm = this.distanceKm(
+                        { lat: options.lat, lng: options.lng },
+                        { lat: Number(vLat), lng: Number(vLng) }
+                    );
+                }
+            }
+
+            return {
+                productId: p.id,
+                vendorId: p.vendorId,
+                vendorName: p.Vendor?.storeName || p.Vendor?.name || 'Unknown',
+                storeName: p.Vendor?.storeName,
+                price: p.price,
+                offerPrice: p.offerPrice,
+                effectivePrice,
+                stock: p.stock,
+                isActive: p.isActive,
+                distanceKm: distanceKm ? Number(distanceKm.toFixed(2)) : undefined,
+                vendorRatingAvg: vendorRating?.avg ? Number(vendorRating.avg.toFixed(1)) : undefined,
+                vendorRatingCount: vendorRating?.count,
+                productRatingAvg: productRating?.avg ? Number(productRating.avg.toFixed(1)) : undefined,
+                productRatingCount: productRating?.count,
+            };
+        });
+
+        offers.sort((a, b) => {
+            if (a.effectivePrice !== b.effectivePrice) {
+                return a.effectivePrice - b.effectivePrice;
+            }
+            if (a.distanceKm !== undefined && b.distanceKm !== undefined) {
+                return a.distanceKm - b.distanceKm;
+            }
+            const aRating = a.vendorRatingAvg ?? 0;
+            const bRating = b.vendorRatingAvg ?? 0;
+            return bRating - aRating;
+        });
+
+        return {
+            group: {
+                groupKey,
+                title: firstProduct.title,
+                image: bestImage,
+            },
+            offers,
+            meta: {
+                total: offers.length,
+            },
+        };
+    }
 
     async processBulkUpload(vendorId: string, csvContent: string) {
         let records: any[];

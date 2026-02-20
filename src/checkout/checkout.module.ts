@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { CheckoutService } from './checkout.service';
 import { CheckoutController } from './checkout.controller';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -10,9 +10,10 @@ import { InventoryModule } from '../inventory/inventory.module';
 import { CommonModule } from '../common/common.module';
 import { DeliveryModule } from '../delivery/delivery.module';
 import { VendorsModule } from '../vendors/vendors.module';
+import { BowModule } from '../bow/bow.module';
 
 @Module({
-    imports: [PrismaModule, CartModule, PaymentsModule, GiftsModule, CouponsModule, InventoryModule, CommonModule, DeliveryModule, VendorsModule],
+    imports: [PrismaModule, CartModule, forwardRef(() => PaymentsModule), GiftsModule, CouponsModule, InventoryModule, CommonModule, DeliveryModule, VendorsModule, forwardRef(() => BowModule)],
     controllers: [CheckoutController],
     providers: [CheckoutService],
     exports: [CheckoutService],

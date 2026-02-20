@@ -1,0 +1,178 @@
+// Live Shopping Rooms - Database Schema Extensions
+// Add these models to your prisma/schema.prisma file
+
+model LiveShoppingRoom {
+  id              String                    @id @default(uuid())
+  name            String
+  description     String?
+  status          LiveRoomStatus            @default(SCHEDULED)
+  type            LiveRoomType              @default(VENDOR_MANAGED)
+  
+  // Scheduling
+  scheduledStart  DateTime
+  scheduledEnd    DateTime
+  actualStart     DateTime?
+  actualEnd       DateTime?
+  
+  // Creator info
+  createdById     String
+  createdByType   RoomCreatorType           @default(VENDOR)
+  Vendor          Vendor?                   @relation(fields: [vendorId], references: [id])
+  vendorId        String?
+  
+  // Product info
+  productId       String
+  Product         Product                   @relation(fields: [productId], references: [id])
+  variantId       String?                   // Optional: specific variant
+  
+  // Pricing
+  basePrice       Int                       // Original price in paise
+  costPrice       Int                       // Vendor's cost price
+  minDiscount     Int                       @default(0)  // Minimum discount %
+  maxDiscount     Int                       @default(20) // Maximum discount %
+  currentDiscount Int                       @default(0)  // Current applied discount %
+  
+  // Participant limits
+  maxParticipants Int                       @default(100)
+  minParticipants Int                       @default(1)
+  
+  // Counters
+  participantCount Int                      @default(0)
+  orderCount       Int                      @default(0)
+  totalRevenue     Int                      @default(0)
+  
+  // Tiered discount configuration
+  discountTiers   LiveRoomDiscountTier[]
+  
+  // Relationships
+  Participants    LiveRoomParticipant[]
+  Messages        LiveRoomMessage[]
+  Orders          LiveRoomOrder[]
+  
+  // Timestamps
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  
+  @@index([status])
+  @@index([scheduledStart])
+  @@index([scheduledEnd])
+  @@index([productId])
+  @@index([vendorId])
+  @@index([createdById])
+  @@index([status, scheduledStart])
+  @@map("live_shopping_rooms")
+}
+
+model LiveRoomDiscountTier {
+  id          String          @id @default(uuid())
+  roomId      String
+  Room        LiveShoppingRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  
+  minParticipants   Int       // Minimum participants for this tier
+  maxParticipants   Int?      // Maximum participants (null = no limit)
+  discountPercent   Int       // Discount percentage for this tier
+  
+  @@index([roomId])
+  @@index([roomId, minParticipants])
+  @@map("live_room_discount_tiers")
+}
+
+model LiveRoomParticipant {
+  id          String          @id @default(uuid())
+  roomId      String
+  Room        LiveShoppingRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId      String
+  User        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  joinedAt    DateTime        @default(now())
+  leftAt      DateTime?
+  isActive    Boolean         @default(true)
+  
+  // Cart items in this room
+  cartItems   Json?           // Array of {productId, quantity, variantId}
+  
+  @@unique([roomId, userId])
+  @@index([roomId])
+  @@index([userId])
+  @@index([roomId, isActive])
+  @@map("live_room_participants")
+}
+
+model LiveRoomMessage {
+  id          String          @id @default(uuid())
+  roomId      String
+  Room        LiveShoppingRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId      String
+  User        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  content     String
+  type        MessageType     @default(TEXT)
+  metadata    Json?           // For system messages, images, etc.
+  
+  createdAt   DateTime        @default(now())
+  
+  @@index([roomId])
+  @@index([roomId, createdAt])
+  @@index([userId])
+  @@map("live_room_messages")
+}
+
+model LiveRoomOrder {
+  id          String          @id @default(uuid())
+  roomId      String
+  Room        LiveShoppingRoom @relation(fields: [roomId], references: [id])
+  orderId     String          @unique
+  Order       Order           @relation(fields: [orderId], references: [id])
+  
+  userId      String
+  User        User            @relation(fields: [userId], references: [id])
+  
+  discountApplied   Int       // Discount % applied at time of purchase
+  finalPrice        Int       // Final price paid
+  
+  createdAt   DateTime        @default(now())
+  
+  @@index([roomId])
+  @@index([userId])
+  @@index([roomId, createdAt])
+  @@map("live_room_orders")
+}
+
+// Enums
+enum LiveRoomStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+  CANCELLED
+}
+
+enum LiveRoomType {
+  VENDOR_MANAGED    // Vendor creates and manages
+  ADMIN_MANAGED     // Admin creates for platform-wide promos
+  FLASH_SALE        // Time-limited high discount
+}
+
+enum RoomCreatorType {
+  VENDOR
+  ADMIN
+  SYSTEM
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  SYSTEM
+  PRODUCT
+  DISCOUNT_UPDATE
+  USER_JOIN
+  USER_LEAVE
+  PURCHASE
+}
+
+// Update existing Product model to add relation
+// Add this to your existing Product model:
+// LiveShoppingRooms LiveShoppingRoom[]
+
+// Update existing Vendor model to add relation  
+// Add this to your existing Vendor model:
+// LiveShoppingRooms LiveShoppingRoom[]

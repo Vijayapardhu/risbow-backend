@@ -26,7 +26,11 @@ export class CheckoutController {
     @ApiResponse({ status: 400, description: 'Bad Request (Empty Cart, Stock Issue)' })
     @Throttle({ default: { limit: 2, ttl: 60000 } }) // Limit to 2 checkout attempts per minute
     checkout(@Request() req: any, @Body() dto: CheckoutDto) {
-        return this.checkoutService.checkout(req.user.id, dto);
+        const metadata = {
+            ip: req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress,
+            userAgent: req.headers['user-agent'],
+        };
+        return this.checkoutService.checkout(req.user.id, dto, metadata);
     }
 
     @Get('delivery-options')

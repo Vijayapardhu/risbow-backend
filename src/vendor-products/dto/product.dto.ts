@@ -41,6 +41,11 @@ export class CreateProductDto {
     @IsOptional()
     sku?: string;
 
+    @ApiPropertyOptional()
+    @IsString()
+    @IsOptional()
+    barcode?: string;
+
     @ApiProperty()
     @IsNumber()
     @Min(0)
@@ -126,6 +131,11 @@ export class UpdateProductDto {
     @IsString()
     @IsOptional()
     sku?: string;
+
+    @ApiPropertyOptional()
+    @IsString()
+    @IsOptional()
+    barcode?: string;
 
     @ApiPropertyOptional()
     @IsNumber()

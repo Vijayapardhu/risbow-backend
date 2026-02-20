@@ -31,6 +31,8 @@ import { AdminCampaignsController } from './admin-campaigns.controller';
 import { CampaignsService } from './campaigns.service';
 import { AdminOrdersController } from './admin-orders.controller';
 import { AdminOrdersAliasController } from './admin-orders-alias.controller';
+import { AdminPayoutsController } from './admin-payouts.controller';
+import { AdminPayoutsService } from './admin-payouts.service';
 import { DriversModule } from '../drivers/drivers.module';
 import { VendorOrdersModule } from '../vendor-orders/vendor-orders.module';
 
@@ -106,6 +108,7 @@ import { SupportTicketModule } from './support-tickets/support-ticket.module';
         AdminUploadsController,
         AdminOrdersController,
         AdminOrdersAliasController,
+        AdminPayoutsController,
         AdminController,
     ],
     providers: [
@@ -116,6 +119,7 @@ import { SupportTicketModule } from './support-tickets/support-ticket.module';
         BowAdminService,
         CampaignsService,
         AdminUploadsService,
+        AdminPayoutsService,
     ],
     exports: [
         // Export new modules for use in other parts of the application

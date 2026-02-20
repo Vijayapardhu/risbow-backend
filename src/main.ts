@@ -21,13 +21,20 @@ async function bootstrap() {
     }));
 
     // Serve static files from public directory
-    app.useStaticAssets(join(__dirname, '..', 'public'));
+    app.useStaticAssets(join(__dirname, '..', 'public'), { prefix: '/public' });
+    
+    // Serve favicon redirect
+    const expressApp = app.getHttpAdapter().getInstance();
+    expressApp.get('/favicon.ico', (req, res) => {
+        res.redirect(301, '/public/favicon.svg');
+    });
 
     // Global Config
     app.setGlobalPrefix('api/v1');
 
     // CORS configuration - allow localhost for development and production URLs
     const isDevelopment = process.env.NODE_ENV !== 'production';
+    const tunnelUrl = process.env.TUNNEL_URL; // Set this to your tunnel URL (e.g., https://xxx.ngrok.io)
     app.enableCors({
         origin: (origin, callback) => {
             const allowedOrigins = [
@@ -38,6 +45,7 @@ async function bootstrap() {
                 process.env.FRONTEND_URL,
                 process.env.ADMIN_URL,
                 process.env.VENDOR_URL,
+                tunnelUrl,
             ].filter(Boolean);
 
             // Allow requests with no origin (mobile apps, Postman, etc.)
@@ -47,6 +55,9 @@ async function bootstrap() {
                 callback(null, true);
             } else if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
                 // Allow all localhost ports for development
+                callback(null, true);
+            } else if (origin.startsWith('https://') && isDevelopment) {
+                // Allow all HTTPS origins in development (supports tunnels)
                 callback(null, true);
             } else if (isDevelopment) {
                 // In development mode, allow all origins

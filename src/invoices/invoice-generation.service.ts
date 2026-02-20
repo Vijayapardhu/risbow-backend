@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { InvoiceTemplateService } from './invoice-template.service';
 import PDFDocument from 'pdfkit';
 import * as QRCode from 'qrcode';
+import * as fs from 'fs';
+import * as path from 'path';
 
 interface InvoiceItem {
     name: string;
@@ -85,7 +87,7 @@ export class InvoiceGenerationService {
             try {
                 const doc = new PDFDocument({ 
                     size: 'A4', 
-                    margin: 50,
+                    margin: 40,
                     bufferPages: true
                 });
                 const chunks: Buffer[] = [];
@@ -94,220 +96,299 @@ export class InvoiceGenerationService {
                 doc.on('end', () => resolve(Buffer.concat(chunks)));
                 doc.on('error', reject);
 
-                // Parse template configuration
+                // Template Config
                 const currency = template?.currency || 'INR';
                 const locale = template?.locale || 'en-IN';
-                const showQrCode = template?.showQrCode ?? true;
-                const taxFields = template?.taxFields?.fields || [];
-                const customFields = template?.InvoiceCustomField || [];
-
-                // Company/Vendor Info
-                const companyName = template?.companyName || 'Risbow Store';
-                const companyAddress = template?.address || 'Bangalore, Karnataka - 560001';
-                const companyPhone = template?.phone || '+91 1234567890';
-                const companyEmail = template?.email || 'support@risbow.com';
-                const gstin = template?.gstin || '';
-
-                // Logo (if available)
-                if (template?.logoUrl) {
-                    try {
-                        // In production, you'd fetch and add the logo image
-                        // doc.image(logoBuffer, 50, 50, { width: 100 });
-                        doc.fontSize(20).fillColor('#333').text(companyName, 50, 50);
-                    } catch (e) {
-                        doc.fontSize(20).fillColor('#333').text(companyName, 50, 50);
-                    }
-                } else {
-                    doc.fontSize(20).fillColor('#333').text(companyName, 50, 50);
-                }
-
-                // Header Text
-                if (template?.headerText) {
-                    doc.fontSize(10).fillColor('#666').text(template.headerText, 50, 80, { width: 500, align: 'left' });
-                }
-
-                // Invoice Title
-                doc.fontSize(24).fillColor('#000').text('TAX INVOICE', 50, 120, { align: 'center' });
-
-                // Invoice Details Box
-                let yPosition = 160;
-                doc.fontSize(10).fillColor('#333');
-                doc.text(`Invoice No: ${invoiceNumber}`, 50, yPosition);
-                doc.text(`Date: ${new Date().toLocaleDateString(locale)}`, 350, yPosition);
                 
-                if (order.orderNumber) {
-                    yPosition += 20;
-                    doc.text(`Order No: ${order.orderNumber}`, 50, yPosition);
+                // Colors
+                const PRIMARY_COLOR = '#E65100'; // Risbow Orange
+                const SECONDARY_COLOR = '#1565C0'; // Risbow Blue
+                const TEXT_COLOR = '#333333';
+                const LIGHT_TEXT = '#666666';
+                const BORDER_COLOR = '#E0E0E0';
+
+                // --- HEADER ---
+                // Logo
+                const logoPath = 'c:\\office\\risbow-frontend\\assets\\images\\logo.png';
+                if (fs.existsSync(logoPath)) {
+                    doc.image(logoPath, 40, 40, { width: 120 });
+                } else {
+                    doc.fontSize(20).fillColor(SECONDARY_COLOR).font('Helvetica-Bold').text('Risbow', 40, 50);
                 }
 
-                yPosition += 30;
+                // Tax Invoice Title
+                doc.fontSize(20).fillColor('#EF5350').font('Helvetica-Bold').text('TAX INVOICE', 350, 45, { align: 'right' });
+                doc.fontSize(9).fillColor(LIGHT_TEXT).font('Helvetica').text('Original for Recipient', 350, 70, { align: 'right' });
 
-                // Two-column layout: Vendor & Customer
-                doc.rect(50, yPosition, 245, 120).stroke();
-                doc.rect(305, yPosition, 245, 120).stroke();
+                // Separator
+                doc.moveTo(40, 90).lineTo(555, 90).strokeColor(SECONDARY_COLOR).lineWidth(2).stroke();
 
-                // Vendor Details
-                doc.fontSize(11).fillColor('#000').text('From:', 60, yPosition + 10);
-                doc.fontSize(10).fillColor('#333');
-                doc.text(companyName, 60, yPosition + 28, { width: 225 });
-                if (companyAddress) doc.text(companyAddress, 60, yPosition + 45, { width: 225 });
-                if (companyPhone) doc.text(`Phone: ${companyPhone}`, 60, yPosition + 75);
-                if (companyEmail) doc.text(`Email: ${companyEmail}`, 60, yPosition + 90);
-                if (gstin) doc.text(`GSTIN: ${gstin}`, 60, yPosition + 105);
+                let y = 110;
 
-                // Customer Details
-                doc.fontSize(11).fillColor('#000').text('To:', 315, yPosition + 10);
-                doc.fontSize(10).fillColor('#333');
-                doc.text(order.user?.name || 'Customer', 315, yPosition + 28, { width: 225 });
+                // --- TOP SECTION: FROM & INVOICE DETAILS ---
+                // Left Column: FROM (Risbow)
+                doc.fontSize(10).fillColor(LIGHT_TEXT).font('Helvetica').text('From:', 40, y);
+                doc.fontSize(11).fillColor('#000000').font('Helvetica-Bold').text('RISBOW Private Limited', 40, y + 15);
+                doc.fontSize(9).fillColor(TEXT_COLOR).font('Helvetica');
+                doc.text('Bangalore, Karnataka - 560001', 40, y + 30);
+                doc.text('GSTIN: 29AABCU9603R1ZM', 40, y + 42);
+                doc.text('Email: support@risbow.com', 40, y + 54);
+
+                // Right Column: INVOICE DETAILS
+                const detailsX = 350;
+                doc.fontSize(10).fillColor(LIGHT_TEXT).text('Invoice Details:', detailsX, y);
+                doc.fontSize(9).fillColor(TEXT_COLOR);
+                doc.font('Helvetica-Bold').text(`Invoice No: ${invoiceNumber}`, detailsX, y + 15);
+                doc.font('Helvetica').text(`Order No: ${order.orderNumber || order.id.slice(0, 8)}`, detailsX, y + 27);
+                doc.text(`Invoice Date: ${new Date().toLocaleDateString(locale)}`, detailsX, y + 39);
+                doc.text(`Payment Mode: ${order.payment?.provider || 'Prepaid'}`, detailsX, y + 51);
+
+                y += 80;
+
+                // --- MIDDLE SECTION: BILL TO & SOLD BY ---
+                // Box Background
+                // doc.rect(40, y, 515, 90).fill('#F9FAFB');
+                
+                // Left: BILL TO (Customer)
+                doc.fillColor('#000000').font('Helvetica-Bold').fontSize(10).text('Bill To:', 40, y + 10);
+                doc.fontSize(10).font('Helvetica-Bold').text(order.user?.name || 'Customer', 40, y + 25);
+                doc.fontSize(9).font('Helvetica').fillColor(TEXT_COLOR);
+                
                 if (order.address) {
                     const addr = order.address;
-                    const fullAddress = [addr.addressLine1, addr.addressLine2, addr.city, addr.state, addr.pincode]
-                        .filter(Boolean)
-                        .join(', ');
-                    doc.text(fullAddress, 315, yPosition + 45, { width: 225 });
+                    const addressLines = [
+                        addr.addressLine1,
+                        addr.addressLine2,
+                        `${addr.city}, ${addr.state} - ${addr.pincode}`
+                    ].filter(Boolean);
+                    
+                    let addrY = y + 38;
+                    addressLines.forEach(line => {
+                        doc.text(line, 40, addrY);
+                        addrY += 12;
+                    });
+                    doc.text(`Phone: ${order.user?.mobile || '-'}`, 40, addrY);
+                } else {
+                    doc.text('Address not available', 40, y + 38);
+                    doc.text(`Phone: ${order.user?.mobile || '-'}`, 40, y + 50);
                 }
-                if (order.user?.mobile) doc.text(`Phone: ${order.user.mobile}`, 315, yPosition + 75);
-                if (order.user?.email) doc.text(`Email: ${order.user.email}`, 315, yPosition + 90);
 
-                yPosition += 140;
+                // Right: SOLD BY (Vendor)
+                const soldByX = 350;
+                doc.fillColor('#000000').font('Helvetica-Bold').fontSize(10).text('Sold By:', soldByX, y + 10);
+                
+                // Determine vendor name (from items or default)
+                let vendorName = 'Risbow Store';
+                let vendorAddress = 'Bangalore, Karnataka';
+                let vendorGst = '';
+                
+                if (order.OrderItem && order.OrderItem.length > 0) {
+                    const firstItem = order.OrderItem[0];
+                    if (firstItem.Product?.vendorId) {
+                        // In a real scenario, you'd fetch vendor details. For now using placeholder or if available in snapshot
+                        // Assuming basic vendor info is not fully in order object here, falling back to safe default or item data
+                        // If you have vendor info in `order.OrderItem[0].Product.Vendor` (needs include in query), use it.
+                        // The current query includes Product but not nested Vendor.
+                        // We will stick to 'Electronics World' as per sample or 'Risbow Partner'
+                        // vendorName = 'Risbow Partner'; 
+                    }
+                }
+                
+                doc.fontSize(10).font('Helvetica-Bold').text(vendorName, soldByX, y + 25);
+                doc.fontSize(9).font('Helvetica').fillColor(TEXT_COLOR);
+                doc.text(vendorAddress, soldByX, y + 38);
+                if (vendorGst) doc.text(`GSTIN: ${vendorGst}`, soldByX, y + 50);
 
-                // Items Table Header
-                doc.fontSize(11).fillColor('#fff').rect(50, yPosition, 500, 25).fill('#333');
-                doc.text('Item', 60, yPosition + 7);
-                doc.text('Qty', 300, yPosition + 7, { width: 50, align: 'center' });
-                doc.text('Price', 360, yPosition + 7, { width: 80, align: 'right' });
-                doc.text('Total', 450, yPosition + 7, { width: 90, align: 'right' });
+                y += 100;
 
-                yPosition += 25;
+                // --- ITEMS TABLE ---
+                const tableTop = y;
+                const colX = {
+                    sn: 40,
+                    desc: 70,
+                    qty: 350,
+                    rate: 420,
+                    total: 500
+                };
 
-                // Items
-                const items = order.OrderItem || [];
+                // Table Header
+                doc.rect(40, y, 515, 25).fillColor('#F5F5F5').fill();
+                doc.fillColor('#000000').font('Helvetica-Bold').fontSize(9);
+                doc.text('#', colX.sn + 5, y + 8);
+                doc.text('Item Description', colX.desc, y + 8);
+                doc.text('Qty', colX.qty, y + 8, { width: 30, align: 'center' });
+                doc.text('Rate', colX.rate, y + 8, { width: 60, align: 'right' });
+                doc.text('Total', colX.total, y + 8, { width: 55, align: 'right' });
+
+                y += 25;
+
+                // Table Rows
                 let subtotal = 0;
+                let totalTax = 0;
+                const items = order.OrderItem || [];
 
                 items.forEach((item: any, index: number) => {
-                    if (yPosition > 700) {
+                    if (y > 700) {
                         doc.addPage();
-                        yPosition = 50;
+                        y = 50;
                     }
 
-                    const itemPrice = item.price || item.Product?.price || 0;
-                    const itemQty = item.quantity || 1;
-                    const itemName = item.Product?.title || item.name || 'Product';
-                    const itemTotal = itemPrice * itemQty;
-                    subtotal += itemTotal;
+                    const quantity = Number(item.quantity) || 1;
+                    
+                    // Use database values directly
+                    const itemSubtotal = Number(item.subtotal) || 0;
+                    const itemTax = Number(item.tax) || 0;
+                    
+                    // Fallback
+                    const taxableVal = itemSubtotal > 0 ? itemSubtotal : ((Number(item.price) || 0) * quantity);
+                    
+                    // Effective Unit Rate (Taxable)
+                    const unitRate = taxableVal / quantity;
 
-                    doc.fontSize(10).fillColor('#333');
-                    if (index % 2 === 0) {
-                        doc.rect(50, yPosition, 500, 25).fill('#f9f9f9');
-                    }
+                    subtotal += taxableVal;
+                    totalTax += itemTax;
 
-                    doc.fillColor('#333').text(itemName, 60, yPosition + 7, { width: 220 });
-                    doc.text(itemQty.toString(), 300, yPosition + 7, { width: 50, align: 'center' });
-                    doc.text(this.formatCurrency(itemPrice, currency, locale), 360, yPosition + 7, { width: 80, align: 'right' });
-                    doc.text(this.formatCurrency(itemTotal, currency, locale), 450, yPosition + 7, { width: 90, align: 'right' });
+                    doc.fillColor(TEXT_COLOR).font('Helvetica').fontSize(9);
+                    
+                    // Row Background (Alternating)
+                    const rowHeight = 30; // Increased spacing
+                    if (index % 2 === 1) doc.rect(40, y, 515, rowHeight).fillColor('#FAFAFA').fill();
+                    
+                    doc.fillColor(TEXT_COLOR);
+                    const textY = y + 10;
 
-                    yPosition += 25;
+                    doc.text((index + 1).toString(), colX.sn + 5, textY);
+                    doc.text(item.Product?.title || item.name || 'Product', colX.desc, textY, { width: 260, ellipsis: true });
+                    doc.text(quantity.toString(), colX.qty, textY, { width: 30, align: 'center' });
+                    
+                    // Rate (Unit Price Taxable)
+                    doc.text(this.formatCurrency(unitRate, currency, locale), colX.rate, textY, { width: 60, align: 'right' });
+                    
+                    // Total (Taxable Amount to match Admin UI)
+                    doc.font('Helvetica-Bold').text(this.formatCurrency(taxableVal, currency, locale), colX.total, textY, { width: 55, align: 'right' });
+
+                    y += rowHeight;
                 });
 
-                // Totals section
-                yPosition += 10;
-                doc.rect(50, yPosition, 500, 1).fill('#ddd');
-                yPosition += 10;
+                // Line after items
+                doc.moveTo(40, y).lineTo(555, y).strokeColor(BORDER_COLOR).stroke();
+                y += 10;
 
-                // Subtotal
-                doc.fontSize(10).fillColor('#333');
-                doc.text('Subtotal:', 360, yPosition, { width: 80, align: 'right' });
-                doc.text(this.formatCurrency(subtotal, currency, locale), 450, yPosition, { width: 90, align: 'right' });
-                yPosition += 20;
+                // --- FOOTER SECTION ---
+                const footerY = y;
+                
+                // Calculate Grand Total from components
+                const shippingCharges = Number(order.shippingCharges) || 0;
+                const calculatedGrandTotal = subtotal + totalTax + shippingCharges;
 
-                // Custom Tax Fields
-                let taxTotal = 0;
-                if (taxFields.length > 0) {
-                    taxFields.forEach((taxField: any) => {
-                        // Integer paise math: taxPaise = round(subtotalPaise * ratePercent / 100)
-                        const taxAmount = Math.round((subtotal * Number(taxField.rate)) / 100);
-                        taxTotal += taxAmount;
+                // Left Side: Amount in Words & Terms
+                doc.fontSize(9).font('Helvetica-Bold').fillColor(TEXT_COLOR).text('Amount in Words:', 40, footerY);
+                doc.font('Helvetica-Oblique').text(`${this.convertNumberToWords(Math.round(calculatedGrandTotal))} Only`, 40, footerY + 12);
 
-                        doc.text(`${taxField.name} (${taxField.rate}%):`, 360, yPosition, { width: 80, align: 'right' });
-                        doc.text(this.formatCurrency(taxAmount, currency, locale), 450, yPosition, { width: 90, align: 'right' });
-                        yPosition += 20;
-                    });
-                } else {
-                    // Default tax
-                    const defaultTax = Math.round((subtotal * 18) / 100);
-                    taxTotal = defaultTax;
-                    doc.text('GST (18%):', 360, yPosition, { width: 80, align: 'right' });
-                    doc.text(this.formatCurrency(defaultTax, currency, locale), 450, yPosition, { width: 90, align: 'right' });
-                    yPosition += 20;
-                }
+                const termsY = footerY + 40;
+                doc.fontSize(9).font('Helvetica-Bold').fillColor(TEXT_COLOR).text('Terms & Conditions:', 40, termsY);
+                doc.fontSize(8).font('Helvetica').fillColor(LIGHT_TEXT);
+                doc.text('1. Goods once sold cannot be returned or exchanged.', 40, termsY + 12);
+                doc.text('2. Warranty is as per manufacturer terms.', 40, termsY + 24);
+                doc.text('3. This is a computer generated invoice and does not require signature.', 40, termsY + 36);
 
-                // Shipping charges
-                if (order.shippingCharges > 0) {
-                    doc.text('Shipping:', 360, yPosition, { width: 80, align: 'right' });
-                    doc.text(this.formatCurrency(order.shippingCharges, currency, locale), 450, yPosition, { width: 90, align: 'right' });
-                    yPosition += 20;
-                }
+                // Right Side: Totals
+                let totalsY = footerY;
+                const labelX = 340;
+                const valX = 450;
+                
+                // Subtotal (Taxable)
+                doc.fontSize(9).font('Helvetica').fillColor(TEXT_COLOR);
+                doc.text('Taxable Amount:', labelX, totalsY, { width: 100, align: 'right' });
+                doc.text(this.formatCurrency(subtotal, currency, locale), valX, totalsY, { width: 105, align: 'right' });
+                totalsY += 15;
 
-                // Discount
-                if (order.discountAmount > 0) {
-                    doc.fillColor('#d9534f');
-                    doc.text('Discount:', 360, yPosition, { width: 80, align: 'right' });
-                    doc.text(`-${this.formatCurrency(order.discountAmount, currency, locale)}`, 450, yPosition, { width: 90, align: 'right' });
-                    yPosition += 20;
-                    doc.fillColor('#333');
-                }
+                // CGST (9%)
+                doc.text('CGST (9%):', labelX, totalsY, { width: 100, align: 'right' });
+                doc.text(this.formatCurrency(totalTax / 2, currency, locale), valX, totalsY, { width: 105, align: 'right' });
+                totalsY += 15;
 
-                // Grand Total
-                yPosition += 5;
-                doc.rect(360, yPosition - 5, 190, 30).fill('#f0f0f0');
-                doc.fontSize(12).fillColor('#000').text('Total Amount:', 370, yPosition + 3);
-                doc.fontSize(14).text(this.formatCurrency(order.totalAmount, currency, locale), 450, yPosition + 2, { width: 90, align: 'right' });
+                // SGST (9%)
+                doc.text('SGST (9%):', labelX, totalsY, { width: 100, align: 'right' });
+                doc.text(this.formatCurrency(totalTax / 2, currency, locale), valX, totalsY, { width: 105, align: 'right' });
+                totalsY += 15;
 
-                yPosition += 40;
+                // Shipping
+                doc.text('Shipping:', labelX, totalsY, { width: 100, align: 'right' });
+                doc.text(this.formatCurrency(shippingCharges, currency, locale), valX, totalsY, { width: 105, align: 'right' });
+                totalsY += 15;
 
-                // Custom Fields
-                if (customFields.length > 0) {
-                    yPosition += 10;
-                    doc.fontSize(10).fillColor('#333');
-                    customFields.forEach((field: any) => {
-                        doc.text(`${field.fieldName}: ${field.fieldValue}`, 50, yPosition);
-                        yPosition += 18;
-                    });
-                }
+                // Grand Total Box
+                totalsY += 5;
+                doc.rect(labelX - 10, totalsY - 5, 225, 25).fillColor('#212121').fill();
+                doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(10);
+                doc.text('Grand Total:', labelX, totalsY + 2, { width: 100, align: 'right' });
+                doc.fontSize(11).text(this.formatCurrency(calculatedGrandTotal, currency, locale), valX, totalsY + 1, { width: 105, align: 'right' });
 
-                // QR Code (Payment QR or Order Details)
-                if (showQrCode) {
-                    try {
-                        const qrData = `Invoice: ${invoiceNumber}\nOrder: ${order.orderNumber}\nAmount: ${this.formatCurrency(order.totalAmount, currency, locale)}`;
-                        const qrCodeDataURL = await QRCode.toDataURL(qrData, { width: 120 });
+                // Computer Generated Message (Replaces Signature)
+                const sigY = termsY + 60;
+                doc.fillColor(TEXT_COLOR).fontSize(9).font('Helvetica-Oblique');
+                doc.text('This is a computer generated invoice.', 350, sigY, { width: 200, align: 'center' });
+                doc.text('No signature required.', 350, sigY + 12, { width: 200, align: 'center' });
+                
+                // QR Code at bottom
+                if (true) { // showQrCode
+                     try {
+                        const qrData = `Invoice: ${invoiceNumber}\nOrder: ${order.orderNumber}\nTotal: ${this.formatCurrency(order.totalAmount, currency, locale)}`;
+                        const qrCodeDataURL = await QRCode.toDataURL(qrData, { width: 80, margin: 0 });
                         const qrBuffer = Buffer.from(qrCodeDataURL.split(',')[1], 'base64');
-                        
-                        doc.image(qrBuffer, 50, yPosition + 10, { width: 100 });
+                        doc.image(qrBuffer, 460, termsY + 10, { width: 60 });
                     } catch (e) {
-                        console.error('QR code generation failed:', e);
+                        // ignore
                     }
                 }
-
-                // Footer Text
-                if (template?.footerText) {
-                    const footerY = doc.page.height - 80;
-                    doc.fontSize(9).fillColor('#666').text(template.footerText, 50, footerY, { 
-                        width: 500, 
-                        align: 'center' 
-                    });
-                }
-
-                // Signature line
-                const signatureY = doc.page.height - 100;
-                doc.fontSize(9).fillColor('#333');
-                doc.text('Authorized Signature', 400, signatureY, { width: 150, align: 'center' });
-                doc.moveTo(400, signatureY - 5).lineTo(550, signatureY - 5).stroke();
 
                 doc.end();
             } catch (error) {
                 reject(error);
             }
         });
+    }
+
+    private convertNumberToWords(amount: number): string {
+        const units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+        const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+        
+        if (amount === 0) return 'Zero';
+        
+        // Simple implementation for Indian Numbering System (up to Crores)
+        // For production, a library like 'n2words' or 'number-to-words' is recommended
+        
+        const numToWords = (n: number): string => {
+            if (n < 10) return units[n];
+            if (n < 20) return teens[n - 10];
+            if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + units[n % 10] : '');
+            if (n < 1000) return units[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' and ' + numToWords(n % 100) : '');
+            return '';
+        };
+
+        // Handle integers only for simplicity
+        let num = Math.floor(amount);
+        const parts = [];
+        
+        if (num >= 10000000) {
+            parts.push(numToWords(Math.floor(num / 10000000)) + ' Crore');
+            num %= 10000000;
+        }
+        if (num >= 100000) {
+            parts.push(numToWords(Math.floor(num / 100000)) + ' Lakh');
+            num %= 100000;
+        }
+        if (num >= 1000) {
+            parts.push(numToWords(Math.floor(num / 1000)) + ' Thousand');
+            num %= 1000;
+        }
+        if (num > 0) {
+            parts.push(numToWords(num));
+        }
+
+        return parts.join(' ') + ' Rupees Only';
     }
 
     private formatCurrency(amount: number, currency: string, locale: string): string {

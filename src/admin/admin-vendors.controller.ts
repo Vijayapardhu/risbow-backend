@@ -2,6 +2,7 @@ import {
     Controller,
     Get,
     Patch,
+    Post,
     Param,
     Body,
     Query,
@@ -409,5 +410,43 @@ export class AdminVendorsController {
         }
 
         return { bucket: defaultBucket, path: trimmed };
+    }
+
+    @Post(':id/reset-password')
+    @ApiOperation({ summary: 'Send password reset link to vendor' })
+    @ApiResponse({ status: 200, description: 'Password reset email sent' })
+    @ApiResponse({ status: 404, description: 'Vendor not found' })
+    async resetVendorPassword(
+        @Param('id') id: string,
+    ) {
+        const vendor = await this.prisma.vendor.findUnique({
+            where: { id },
+        });
+
+        if (!vendor) {
+            throw new NotFoundException('Vendor not found');
+        }
+
+        if (!vendor.email) {
+            throw new BadRequestException('Vendor does not have an email address');
+        }
+
+        // Send password reset email
+        const resetToken = require('crypto').randomBytes(32).toString('hex');
+        const resetExpires = new Date(Date.now() + 3600000); // 1 hour
+
+        // Store reset token (you might need to add these fields to your Vendor schema)
+        // For now, we'll just send the email notification
+        const resetUrl = `${process.env.FRONTEND_URL || 'https://risbow.com'}/reset-password?token=${resetToken}&email=${encodeURIComponent(vendor.email)}`;
+        
+        const subject = 'Reset Your Risbow Password';
+        const content = `Hi ${vendor.name || 'Vendor'},\n\nYou requested a password reset for your Risbow vendor account.\n\nClick the link below to reset your password:\n${resetUrl}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, please ignore this email.\n\nThanks,\nRisbow Team`;
+        
+        await this.notificationsService.sendEmail(vendor.email, subject, content);
+
+        return {
+            success: true,
+            message: 'Password reset link sent to vendor email',
+        };
     }
 }

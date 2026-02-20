@@ -23,6 +23,10 @@ export class BulkUploadProductDto {
     @IsNotEmpty({ message: 'SKU is required' })
     sku: string;
 
+    @IsString()
+    @IsOptional()
+    barcode?: string;
+
     @IsNotEmpty({ message: 'Stock is required' })
     @Transform(({ value }) => parseInt(value))
     stock: number;

@@ -302,6 +302,7 @@ export class AdminProductService {
             // isActive: Removed from DB, mapped to visibility
             visibility: productData.visibility || (productData.isActive ? 'PUBLISHED' : 'DRAFT'),
             sku: productData.sku,
+            barcode: productData.barcode,
             brandName: productData.brandName,
             tags: productData.tags,
             images: productData.images,

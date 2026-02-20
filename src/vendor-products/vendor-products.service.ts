@@ -85,6 +85,7 @@ export class VendorProductsService {
                 categoryId: dto.categoryId,
                 vendorId: vendorId,
                 sku: dto.sku,
+                barcode: dto.barcode || undefined,
                 brandName: dto.brandName || vendor.storeName || 'Generic',
                 isActive: false,
                 images: [],

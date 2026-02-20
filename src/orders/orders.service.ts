@@ -787,6 +787,7 @@ export class OrdersService {
 
             return {
                 id: order.id,
+                agentId: order.agentId,
                 orderNumber: order.orderNumber || `ORD-${order.id.substring(0, 8).toUpperCase()}`,
                 orderDate: order.createdAt.toISOString(),
                 userId: order.userId,

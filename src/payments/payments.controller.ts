@@ -20,8 +20,11 @@ export class PaymentsController {
     @Idempotent({ required: true, ttlSeconds: 300 })
     async createPaymentOrder(@Request() req: any, @Body() dto: CreatePaymentOrderDto) {
         const userId = req.user.id;
-        // ...
-        return this.paymentsService.createOrder(userId, dto);
+        const metadata = {
+            ip: req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress,
+            userAgent: req.headers['user-agent'],
+        };
+        return this.paymentsService.createOrder(userId, dto, metadata);
     }
 
     @Post('verify')

@@ -34,6 +34,9 @@ export async function generateOrderNumber(prisma: PrismaService): Promise<string
                 lte: endOfMonth,
             },
         },
+        select: {
+            orderNumber: true
+        },
         orderBy: {
             orderNumber: 'desc',
         },

@@ -1,16 +1,18 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { RedisService } from '../shared/redis.service';
+import { CacheService } from '../shared/cache.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+    private readonly logger = new Logger(JwtStrategy.name);
+    
     constructor(
         private configService: ConfigService,
         private prisma: PrismaService,
-        private redisService: RedisService,
+        private cacheService: CacheService,
     ) {
         const secret = configService.get<string>('JWT_SECRET');
 
@@ -30,24 +32,38 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         }
 
         // Check if token has been blacklisted (user logged out)
-        const isBlacklisted = await this.redisService.get(`token:blacklist:${payload.sub}:${payload.iat}`);
+        const isBlacklisted = await this.cacheService.get<string>(`token:blacklist:${payload.sub}:${payload.iat}`);
         if (isBlacklisted) {
             throw new UnauthorizedException('Token has been revoked');
         }
 
         // Check force logout timestamp
-        const forceLogoutCheck = await this.redisService.get(`force_logout:${payload.sub}`);
+        const forceLogoutCheck = await this.cacheService.get<string>(`force_logout:${payload.sub}`);
         if (forceLogoutCheck && payload.iat && parseInt(forceLogoutCheck) > payload.iat) {
             throw new UnauthorizedException('Session has been invalidated');
         }
 
-        const user = await this.prisma.user.findUnique({
-            where: { id: payload.sub },
-        });
-
-        if (!user) {
-            throw new UnauthorizedException('User not found');
-        }
+        // Use cache-aside pattern for user lookup
+        const user = await this.cacheService.getUserAuth(payload.sub, async () => {
+            const dbUser = await this.prisma.user.findUnique({
+                where: { id: payload.sub },
+                select: {
+                    id: true,
+                    email: true,
+                    mobile: true,
+                    role: true,
+                    status: true,
+                    name: true,
+                    forceLogoutAt: true,
+                }
+            });
+            
+            if (!dbUser) {
+                throw new UnauthorizedException('User not found');
+            }
+            
+            return dbUser;
+        }, 300);
 
         // Validate user account status
         if (user.status === 'BANNED') {

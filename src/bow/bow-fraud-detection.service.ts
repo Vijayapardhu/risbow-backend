@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { randomUUID } from 'crypto';
 
 export interface FraudRiskScore {
   score: number;
@@ -36,6 +37,7 @@ export interface FraudDetectionConfig {
 @Injectable()
 export class BowFraudDetectionService {
   private readonly logger = new Logger(BowFraudDetectionService.name);
+  private systemAdminId: string | null = null;
   private config: FraudDetectionConfig = {
     velocityThreshold: 5, // 5 transactions per hour
     amountThreshold: 10000, // ₹10,000
@@ -66,6 +68,19 @@ export class BowFraudDetectionService {
     try {
       this.logger.log('Initializing Fraud Detection System');
       
+      // Find a system admin to associate logs with
+      const admin = await this.prisma.adminUser.findFirst({
+        where: { isActive: true },
+        select: { id: true }
+      });
+      
+      if (admin) {
+        this.systemAdminId = admin.id;
+        this.logger.log(`Using Admin ID ${admin.id} for system logs`);
+      } else {
+        this.logger.warn('No active Admin User found for system logs');
+      }
+
       // Load existing fraud patterns
       await this.loadFraudPatterns();
       
@@ -414,14 +429,26 @@ export class BowFraudDetectionService {
     riskScore: FraudRiskScore
   ): Promise<void> {
     try {
+      if (!this.systemAdminId) {
+        // Try to fetch it again if it was missing (e.g. startup race condition)
+        const admin = await this.prisma.adminUser.findFirst({ where: { isActive: true }, select: { id: true } });
+        if (admin) this.systemAdminId = admin.id;
+      }
+
+      if (!this.systemAdminId) {
+        this.logger.warn(`Skipping DB log for fraud analysis (User: ${userId}): No System Admin ID available`);
+        return;
+      }
+
       await this.prisma.auditLog.create({
         data: {
-          adminId: userId,
+          id: randomUUID(),
+          adminId: this.systemAdminId,
           entity: 'FRAUD',
           entityId: String(transactionData?.referenceId || userId),
           action: 'FRAUD_ANALYSIS',
           details: {
-            userId,
+            targetUserId: userId,
             amount: transactionData?.amount,
             score: riskScore.score,
             level: riskScore.level,

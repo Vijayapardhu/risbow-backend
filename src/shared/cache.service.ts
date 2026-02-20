@@ -164,6 +164,69 @@ export class CacheService {
         this.metrics.clear();
     }
 
+    /**
+     * Get cached user auth data with automatic cache-aside pattern
+     */
+    async getUserAuth<T>(userId: string, fetchFn?: () => Promise<T>, ttlSeconds: number = 300): Promise<T | null> {
+        const key = `user:auth:${userId}`;
+        if (fetchFn) {
+            return this.getOrSet(key, ttlSeconds, fetchFn);
+        }
+        return this.get<T>(key);
+    }
+
+    /**
+     * Invalidate user auth cache
+     */
+    async invalidateUserAuth(userId: string): Promise<void> {
+        await this.del(`user:auth:${userId}`);
+        this.logger.debug(`Invalidated auth cache for user: ${userId}`);
+    }
+
+    /**
+     * Invalidate all user auth caches
+     */
+    async invalidateAllUserAuth(): Promise<void> {
+        await this.delPattern('user:auth:*');
+        this.logger.debug('Invalidated all user auth caches');
+    }
+
+    /**
+     * Get cached admin session
+     */
+    async getAdminSession<T>(sessionId: string, fetchFn?: () => Promise<T>, ttlSeconds: number = 3600): Promise<T | null> {
+        const key = `admin:session:${sessionId}`;
+        if (fetchFn) {
+            return this.getOrSet(key, ttlSeconds, fetchFn);
+        }
+        return this.get<T>(key);
+    }
+
+    /**
+     * Invalidate admin session cache
+     */
+    async invalidateAdminSession(sessionId: string): Promise<void> {
+        await this.del(`admin:session:${sessionId}`);
+    }
+
+    /**
+     * Get cached campaigns with automatic cache-aside
+     */
+    async getCampaigns<T>(fetchFn?: () => Promise<T>, ttlSeconds: number = 600): Promise<T | null> {
+        const key = 'campaigns:active';
+        if (fetchFn) {
+            return this.getOrSet(key, ttlSeconds, fetchFn);
+        }
+        return this.get<T>(key);
+    }
+
+    /**
+     * Invalidate campaigns cache
+     */
+    async invalidateCampaigns(): Promise<void> {
+        await this.del('campaigns:active');
+    }
+
     private recordHit(key: string): void {
         const prefix = this.extractPrefix(key);
         const current = this.metrics.get(prefix) || { hits: 0, misses: 0 };

@@ -60,8 +60,8 @@ export class AdminDashboardController {
     }
 
     @Get('revenue')
-    async getRevenue(@Query('period') period: string = 'Last 7 Days') {
-        return this.dashboardService.getRevenueIntelligence(period);
+    async getRevenue(@Query('period') period: string = 'monthly') {
+        return this.dashboardService.getRevenueByPeriod(period);
     }
 
     @Get('trending-shops')

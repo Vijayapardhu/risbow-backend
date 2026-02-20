@@ -143,6 +143,10 @@ export class CreateProductDto {
 
     @IsOptional()
     @IsString()
+    barcode?: string;
+
+    @IsOptional()
+    @IsString()
     brandName?: string;
 
     @IsOptional()
@@ -337,6 +341,10 @@ export class UpdateProductDto {
 
     @IsOptional()
     @IsString()
+    barcode?: string;
+
+    @IsOptional()
+    @IsString()
     brandName?: string;
 
     @IsOptional()
@@ -496,4 +504,25 @@ export class ProductFilterDto {
     @IsBoolean()
     @Type(() => Boolean)
     isRetail?: boolean;
+
+    @IsOptional()
+    @IsString()
+    vendorId?: string;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    page?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    limit?: number;
+
+    @IsOptional()
+    @IsBoolean()
+    @Type(() => Boolean)
+    grouped?: boolean;
 }

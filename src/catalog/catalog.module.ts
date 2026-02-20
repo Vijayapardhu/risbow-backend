@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CatalogController, CategoriesController } from './catalog.controller';
 import { CatalogService } from './catalog.service';
+import { CatalogGroupingService } from './catalog-grouping.service';
 import { CategorySpecService } from './category-spec.service';
 import { BuyLaterService } from './buy-later.service';
 import { BuyLaterController } from './buy-later.controller';
@@ -11,7 +12,7 @@ import { InventoryModule } from '../inventory/inventory.module';
 @Module({
     imports: [SearchModule, InventoryModule],
     controllers: [CatalogController, CategoriesController, BuyLaterController],
-    providers: [CatalogService, CategorySpecService, BuyLaterService, PrismaService],
-    exports: [CatalogService, CategorySpecService, BuyLaterService],
+    providers: [CatalogService, CatalogGroupingService, CategorySpecService, BuyLaterService, PrismaService],
+    exports: [CatalogService, CatalogGroupingService, CategorySpecService, BuyLaterService],
 })
 export class CatalogModule { }

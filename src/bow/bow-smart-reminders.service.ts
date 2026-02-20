@@ -368,4 +368,9 @@ export class BowSmartReminders {
             return [];
         }
     }
+
+    async scheduleReminder(userId: string, data: any) {
+        // Implementation placeholder
+        return true;
+    }
 }

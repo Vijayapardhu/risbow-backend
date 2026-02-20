@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CheckoutDto, PaymentMode } from './dto/checkout.dto';
 import { PaymentsService } from '../payments/payments.service';
@@ -11,6 +11,7 @@ import { CommissionService } from '../common/commission.service';
 import { DeliveryOptionsService } from '../delivery/delivery-options.service';
 import { GeoService } from '../shared/geo.service';
 import { VendorAvailabilityService } from '../vendors/vendor-availability.service';
+import { BowFraudDetectionService } from '../bow/bow-fraud-detection.service';
 import { OrderStatus } from '@prisma/client';
 import { generateOrderNumber } from '../common/order-number.utils';
 import { randomUUID } from 'crypto';
@@ -21,6 +22,7 @@ export class CheckoutService {
 
     constructor(
         private readonly prisma: PrismaService,
+        @Inject(forwardRef(() => PaymentsService))
         private readonly paymentsService: PaymentsService,
         private readonly giftsService: GiftsService,
         private readonly couponsService: CouponsService,
@@ -31,6 +33,7 @@ export class CheckoutService {
         private readonly deliveryOptions: DeliveryOptionsService,
         private readonly geoService: GeoService,
         private readonly vendorAvailability: VendorAvailabilityService,
+        private readonly fraudService: BowFraudDetectionService,
     ) { }
 
     private allocateDiscountProportionally(totalDiscount: number, vendorSubtotals: Array<{ vendorId: string; subtotal: number }>) {
@@ -106,7 +109,7 @@ export class CheckoutService {
         return { shippingAddressId, point: { lat, lng }, vendors: results };
     }
 
-    async checkout(userId: string, dto: CheckoutDto) {
+    async checkout(userId: string, dto: CheckoutDto, metadata?: { ip?: string; userAgent?: string }) {
         const { paymentMode, shippingAddressId, notes, giftId, couponCode } = dto;
 
         // Best-effort: ensure address has geo before entering transaction (no external calls inside tx)
@@ -140,6 +143,30 @@ export class CheckoutService {
 
         if (!cartForReservation || cartForReservation.CartItem.length === 0) {
             throw new BadRequestException('Cart is empty');
+        }
+
+        // 🔐 SECURITY: Perform Fraud Check
+        // Calculate estimated total for fraud check
+        let estimatedTotal = 0;
+        for (const item of cartForReservation.CartItem) {
+            // Use price or some fallback; exact price isn't critical for risk score order-of-magnitude
+            const p = (item.Product as any).offerPrice || (item.Product as any).price || 0;
+            estimatedTotal += p * item.quantity;
+        }
+
+        // Analyze transaction risk
+        const riskScore = await this.fraudService.analyzeTransaction(userId, {
+            amount: estimatedTotal,
+            ipAddress: metadata?.ip,
+            device: metadata?.userAgent,
+            timestamp: new Date(),
+            location: (addr as any).city || undefined, // Use city from address resolution
+            shippingAddress: addr,
+        });
+
+        if (riskScore.level === 'CRITICAL') {
+            this.logger.warn(`Blocked checkout for user ${userId} due to CRITICAL fraud risk (Score: ${riskScore.score})`);
+            throw new ForbiddenException('Transaction blocked due to security risk. Please contact support.');
         }
 
         // 🔐 P0 FIX: Reserve stock BEFORE transaction to prevent overselling

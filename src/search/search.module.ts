@@ -9,6 +9,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { SearchSyncProcessor } from './search-sync.processor';
 import { BowModule } from '../bow/bow.module';
 import { RecommendationsModule } from '../recommendations/recommendations.module';
+import { CatalogGroupingService } from '../catalog/catalog-grouping.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 // Check if Redis is disabled - prioritize DISABLE_REDIS flag
 const isRedisDisabled = () =>
@@ -35,6 +37,8 @@ const isRedisDisabled = () =>
     ...(isRedisDisabled() ? [] : [SearchSyncProcessor]),
     TrendingService,
     AutocompleteService,
+    CatalogGroupingService,
+    PrismaService,
   ],
   exports: [SearchService, TrendingService, AutocompleteService]
 })
