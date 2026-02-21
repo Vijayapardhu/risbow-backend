@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../shared/redis.service';
-import { RoomStatus, RoomType } from '@prisma/client';
+import { LiveRoomStatus, LiveRoomType, RoomCreatorType, MessageType } from '@prisma/client';
 
 export interface CreateRoomDto {
   name: string;
@@ -47,7 +47,7 @@ export interface RoomWithPricing {
 @Injectable()
 export class LiveShoppingRoomsService {
   private readonly logger = new Logger(LiveShoppingRoomsService.name);
-  
+
   // Default discount tiers if not specified
   private readonly defaultTiers = [
     { minParticipants: 1, maxParticipants: 5, discountPercent: 5 },
@@ -59,7 +59,7 @@ export class LiveShoppingRoomsService {
   constructor(
     private prisma: PrismaService,
     private redis: RedisService,
-  ) {}
+  ) { }
 
   /**
    * Calculate current discount based on participant count
@@ -67,14 +67,14 @@ export class LiveShoppingRoomsService {
   calculateDiscount(participantCount: number, tiers: { minParticipants: number; maxParticipants?: number; discountPercent: number }[]): number {
     // Sort tiers by minParticipants ascending
     const sortedTiers = [...tiers].sort((a, b) => a.minParticipants - b.minParticipants);
-    
+
     for (const tier of sortedTiers) {
       const maxParticipants = tier.maxParticipants ?? Infinity;
       if (participantCount >= tier.minParticipants && participantCount <= maxParticipants) {
         return tier.discountPercent;
       }
     }
-    
+
     // If no tier matches, return the first tier's discount or 0
     return sortedTiers[0]?.discountPercent ?? 0;
   }
@@ -105,7 +105,7 @@ export class LiveShoppingRoomsService {
     // Validate tiers don't exceed max discount
     const maxTierDiscount = Math.max(...tiers.map(t => t.discountPercent));
     const maxDiscount = dto.maxDiscount ?? 20;
-    
+
     if (maxTierDiscount > maxDiscount) {
       throw new BadRequestException(`Discount tier ${maxTierDiscount}% exceeds maximum allowed ${maxDiscount}%`);
     }
@@ -209,7 +209,7 @@ export class LiveShoppingRoomsService {
   async getRoomWithPricing(roomId: string): Promise<RoomWithPricing> {
     const cacheKey = `room:pricing:${roomId}`;
     const cached = await this.redis.get(cacheKey);
-    
+
     if (cached) {
       return JSON.parse(cached);
     }
@@ -231,7 +231,7 @@ export class LiveShoppingRoomsService {
       room.participantCount,
       room.discountTiers
     );
-    
+
     const currentPrice = this.calculatePrice(room.basePrice, currentDiscount);
 
     const pricing: RoomWithPricing = {
@@ -249,8 +249,8 @@ export class LiveShoppingRoomsService {
         minParticipants: tier.minParticipants,
         maxParticipants: tier.maxParticipants ?? undefined,
         discountPercent: tier.discountPercent,
-        isActive: room.participantCount >= tier.minParticipants && 
-                  (tier.maxParticipants === null || room.participantCount <= tier.maxParticipants),
+        isActive: room.participantCount >= tier.minParticipants &&
+          (tier.maxParticipants === null || room.participantCount <= tier.maxParticipants),
       })),
       product: room.Product,
       vendor: room.Vendor,
@@ -455,7 +455,7 @@ export class LiveShoppingRoomsService {
    */
   async recordPurchase(roomId: string, userId: string, orderId: string, discountApplied: number): Promise<any> {
     const room = await this.getRoomWithPricing(roomId);
-    
+
     const finalPrice = this.calculatePrice(room.basePrice, discountApplied);
 
     const purchase = await this.prisma.liveRoomOrder.create({
@@ -528,7 +528,7 @@ export class LiveShoppingRoomsService {
    */
   async getActiveRooms(): Promise<any[]> {
     const now = new Date();
-    
+
     return this.prisma.liveShoppingRoom.findMany({
       where: {
         status: {
