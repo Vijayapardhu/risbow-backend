@@ -44,4 +44,11 @@ export class UsersAdminController {
     ) {
         return this.usersService.updateUserStatus(id, status);
     }
+
+    @Get('lookup')
+    async lookup(
+        @Query('q') query: string
+    ) {
+        return this.usersService.lookupUser(query);
+    }
 }

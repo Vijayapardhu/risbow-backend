@@ -45,7 +45,7 @@ export class AdminAuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 attempts per minute
   @ApiOperation({
     summary: 'Admin login',
     description: 'Authenticate admin user with email and password. Returns JWT tokens or requires MFA.',

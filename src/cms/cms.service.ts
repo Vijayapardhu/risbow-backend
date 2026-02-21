@@ -9,7 +9,7 @@ import { randomUUID } from 'crypto';
 export class CmsService {
   private readonly logger = new Logger(CmsService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   // Page Methods
   async createPage(dto: CreatePageDto, createdBy: string) {
@@ -33,6 +33,7 @@ export class CmsService {
         featuredImage: dto.featuredImage,
         template: dto.template || 'default',
         sortOrder: dto.sortOrder || 0,
+        isActive: dto.isActive ?? true,
         createdBy,
         updatedAt: new Date()
       }
@@ -82,7 +83,19 @@ export class CmsService {
       throw new NotFoundException('Page not found');
     }
 
+    await this.prisma.cMSPage.update({
+      where: { slug },
+      data: { views: { increment: 1 } }
+    });
+
     return page;
+  }
+
+  async incrementPageViews(slug: string) {
+    return this.prisma.cMSPage.update({
+      where: { slug },
+      data: { views: { increment: 1 } }
+    });
   }
 
   async findPageById(id: string) {
@@ -149,7 +162,7 @@ export class CmsService {
     if (query.location) where.location = query.location;
     if (query.isActive !== undefined) where.isActive = query.isActive;
 
-    return this.prisma.cMSMenu.findMany({
+    const menus = await this.prisma.cMSMenu.findMany({
       where,
       include: {
         CMSMenuItem: {
@@ -159,6 +172,11 @@ export class CmsService {
       },
       orderBy: { createdAt: 'desc' }
     });
+
+    return menus.map(menu => ({
+      ...menu,
+      items: menu.CMSMenuItem
+    }));
   }
 
   async findMenuByLocation(location: MenuLocation) {
@@ -229,5 +247,21 @@ export class CmsService {
 
     await this.prisma.cMSMenuItem.delete({ where: { id } });
     return { message: 'Menu item deleted successfully' };
+  }
+
+  async getDashboardStats() {
+    const [totalPages, publishedPages, activeMenus, totalMenuItems] = await Promise.all([
+      this.prisma.cMSPage.count(),
+      this.prisma.cMSPage.count({ where: { isActive: true } }),
+      this.prisma.cMSMenu.count({ where: { isActive: true } }),
+      this.prisma.cMSMenuItem.count({ where: { isActive: true } }),
+    ]);
+
+    return {
+      totalPages,
+      publishedPages,
+      activeMenus,
+      totalMenuItems,
+    };
   }
 }

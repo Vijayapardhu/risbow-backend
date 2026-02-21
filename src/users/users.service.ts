@@ -416,6 +416,28 @@ export class UsersService {
         };
     }
 
+    async lookupUser(query: string) {
+        if (!query || query.trim().length < 2) {
+            return [];
+        }
+        return this.prisma.user.findMany({
+            where: {
+                OR: [
+                    { name: { contains: query, mode: 'insensitive' } },
+                    { email: { contains: query, mode: 'insensitive' } },
+                    { mobile: { contains: query, mode: 'insensitive' } },
+                ],
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                mobile: true,
+            },
+            take: 10,
+        });
+    }
+
     async updateUserStatus(userId: string, status: string) {
         // Validate status enum
         // For brevity we trust the controller or prisma validation
@@ -454,5 +476,29 @@ export class UsersService {
             data: { password: hashedPassword },
             select: { id: true, email: true, name: true },
         });
+    }
+
+    async findUserByEmailOrMobile(emailOrMobile: string) {
+        const trimmedQuery = emailOrMobile.trim();
+        
+        const user = await this.prisma.user.findFirst({
+            where: {
+                OR: [
+                    { id: trimmedQuery },
+                    { email: { equals: trimmedQuery, mode: 'insensitive' } },
+                    { mobile: { equals: trimmedQuery } },
+                ]
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                mobile: true,
+                coinsBalance: true,
+                status: true,
+            }
+        });
+
+        return user;
     }
 }

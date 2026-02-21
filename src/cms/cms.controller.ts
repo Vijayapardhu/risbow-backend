@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus, Put, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { CmsService } from './cms.service';
+import { CmsSettingsService } from './cms-settings.service';
 import { CreatePageDto, UpdatePageDto } from './dto/create-page.dto';
 import { CreateMenuDto, UpdateMenuDto, CreateMenuItemDto } from './dto/create-menu.dto';
 import { AdminJwtAuthGuard } from '../admin/auth/guards/admin-jwt-auth.guard';
@@ -8,12 +9,18 @@ import { AdminPermissionsGuard } from '../admin/auth/guards/admin-permissions.gu
 import { AdminRoles } from '../admin/auth/decorators/admin-roles.decorator';
 import { AdminRole, MenuLocation } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('admin/cms')
 @UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
 @AdminRoles(AdminRole.SUPER_ADMIN, AdminRole.OPERATIONS_ADMIN)
 export class AdminCmsController {
-  constructor(private readonly cmsService: CmsService) {}
+  constructor(private readonly cmsService: CmsService) { }
+
+  @Get('stats')
+  async getDashboardStats() {
+    return this.cmsService.getDashboardStats();
+  }
 
   // Pages
   @Post('pages')
@@ -91,18 +98,57 @@ export class AdminCmsController {
   }
 }
 
-// Public CMS Controller
+// Public CMS Controller - route will be /api/v1/pages/:slug
+@Controller('pages')
+export class PublicPagesController {
+  constructor(private readonly cmsService: CmsService) { }
+
+  @Get(':slug')
+  async findPageBySlug(@Param('slug') slug: string) {
+    const page = await this.cmsService.findPageBySlug(slug);
+    return {
+      title: page.metaTitle || page.title,
+      content: page.content,
+      metaTitle: page.metaTitle,
+      metaDesc: page.metaDesc,
+      ogImage: page.ogImage,
+      favicon: page.favicon,
+    };
+  }
+}
+
 @Controller('cms')
 export class CmsController {
-  constructor(private readonly cmsService: CmsService) {}
-
-  @Get('pages/:slug')
-  findPageBySlug(@Param('slug') slug: string) {
-    return this.cmsService.findPageBySlug(slug);
-  }
+  constructor(private readonly cmsService: CmsService) { }
 
   @Get('menus/:location')
   findMenuByLocation(@Param('location') location: MenuLocation) {
     return this.cmsService.findMenuByLocation(location);
+  }
+}
+
+// Settings Controller - Public
+@Controller('cms/settings')
+export class CmsSettingsController {
+  constructor(private readonly cmsSettingsService: CmsSettingsService) { }
+
+  @Get()
+  getSettings() {
+    return this.cmsSettingsService.getSettings();
+  }
+
+  @Put()
+  @UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+  @AdminRoles(AdminRole.SUPER_ADMIN, AdminRole.OPERATIONS_ADMIN)
+  updateSettings(@Body() data: any) {
+    return this.cmsSettingsService.updateSettings(data);
+  }
+
+  @Post('upload')
+  @UseGuards(AdminJwtAuthGuard, AdminRolesGuard, AdminPermissionsGuard)
+  @AdminRoles(AdminRole.SUPER_ADMIN, AdminRole.OPERATIONS_ADMIN)
+  @UseInterceptors(FileInterceptor('file'))
+  uploadImage(@UploadedFile() file: Express.Multer.File, @Body('type') type: 'logo' | 'favicon' | 'ogImage') {
+    return this.cmsSettingsService.uploadImage(file, type);
   }
 }

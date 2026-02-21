@@ -71,7 +71,7 @@ import { HealthController } from './common/health.controller';
         ScheduleModule.forRoot(),
         ThrottlerModule.forRoot([{
             ttl: parseInt(process.env.THROTTLE_TTL) || 60000,
-            limit: parseInt(process.env.THROTTLE_LIMIT) || 100,
+            limit: parseInt(process.env.THROTTLE_LIMIT) || 500,
         }]),
         // Redis & Queues - Bull when Redis enabled; QueuesProviderModule always (stub or real)
         ...(process.env.NODE_ENV === 'test' || !process.env.REDIS_HOST || process.env.DISABLE_REDIS === 'true' || process.env.DISABLE_REDIS === '1'

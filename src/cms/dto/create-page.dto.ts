@@ -31,11 +31,31 @@ export class CreatePageDto {
 
   @IsString()
   @IsOptional()
+  favicon?: string;
+
+  @IsString()
+  @IsOptional()
+  ogImage?: string;
+
+  @IsString()
+  @IsOptional()
+  canonicalUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  schema?: string;
+
+  @IsString()
+  @IsOptional()
   template?: string = 'default';
 
   @IsNumber()
   @IsOptional()
   sortOrder?: number = 0;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean = true;
 }
 
 export class UpdatePageDto {
@@ -62,6 +82,22 @@ export class UpdatePageDto {
   @IsString()
   @IsOptional()
   featuredImage?: string;
+
+  @IsString()
+  @IsOptional()
+  favicon?: string;
+
+  @IsString()
+  @IsOptional()
+  ogImage?: string;
+
+  @IsString()
+  @IsOptional()
+  canonicalUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  schema?: string;
 
   @IsString()
   @IsOptional()
