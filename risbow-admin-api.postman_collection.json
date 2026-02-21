@@ -1,0 +1,2971 @@
+{
+    "info": {
+        "name": "Risbow Admin API — Full",
+        "_postman_id": "risbow-admin-full-2026",
+        "description": "Every admin API endpoint in Risbow.\n\nSetup:\n1. Set collection variable `adminToken` to your JWT after running the Login request\n2. Set `baseUrl` to your backend URL\n3. Replace placeholder IDs (ORDER_ID, PRODUCT_ID etc.) with real values from list responses",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "https://risbow-backend.onrender.com/api/v1",
+            "type": "string"
+        },
+        {
+            "key": "adminToken",
+            "value": "PASTE_JWT_HERE",
+            "type": "string"
+        },
+        {
+            "key": "ORDER_ID",
+            "value": "replace-with-real-id",
+            "type": "string"
+        },
+        {
+            "key": "PRODUCT_ID",
+            "value": "replace-with-real-id",
+            "type": "string"
+        },
+        {
+            "key": "VENDOR_ID",
+            "value": "replace-with-real-id",
+            "type": "string"
+        },
+        {
+            "key": "USER_ID",
+            "value": "replace-with-real-id",
+            "type": "string"
+        },
+        {
+            "key": "PAYOUT_ID",
+            "value": "replace-with-real-id",
+            "type": "string"
+        },
+        {
+            "key": "TICKET_ID",
+            "value": "replace-with-real-id",
+            "type": "string"
+        },
+        {
+            "key": "BANNER_ID",
+            "value": "replace-with-real-id",
+            "type": "string"
+        },
+        {
+            "key": "CATEGORY_ID",
+            "value": "replace-with-real-id",
+            "type": "string"
+        }
+    ],
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{adminToken}}",
+                "type": "string"
+            }
+        ]
+    },
+    "item": [
+        {
+            "name": "01 · Auth",
+            "item": [
+                {
+                    "name": "Login",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "const r = pm.response.json();",
+                                    "if (r.accessToken) pm.collectionVariables.set('adminToken', r.accessToken);",
+                                    "pm.test('Login OK', () => pm.response.to.have.status(200));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/auth/login",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"admin@risbow.com\",\n  \"password\": \"YOUR_PASSWORD\"\n}"
+                        }
+                    }
+                },
+                {
+                    "name": "Me — Current Session",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/auth/me"
+                    }
+                },
+                {
+                    "name": "Refresh Token",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/auth/refresh",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"refreshToken\": \"YOUR_REFRESH_TOKEN\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Logout",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{baseUrl}}/admin/auth/logout"
+                    }
+                },
+                {
+                    "name": "Change Password",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/auth/change-password",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"currentPassword\": \"old_password\",\n  \"newPassword\": \"new_password\"\n}"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "02 · Dashboard",
+            "item": [
+                {
+                    "name": "Overview (All KPIs merged)",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/dashboard"
+                    }
+                },
+                {
+                    "name": "KPIs · GMV, Revenue, AOV",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/dashboard/kpis?period=Last 7 Days",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "dashboard",
+                                "kpis"
+                            ],
+                            "query": [
+                                {
+                                    "key": "period",
+                                    "value": "Last 7 Days"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Order Funnel",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/dashboard/order-funnel"
+                    }
+                },
+                {
+                    "name": "Revenue Intelligence",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/dashboard/revenue-intelligence?period=Last 7 Days",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "dashboard",
+                                "revenue-intelligence"
+                            ],
+                            "query": [
+                                {
+                                    "key": "period",
+                                    "value": "Last 7 Days"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Action Items (SLA alerts)",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/dashboard/action-items"
+                    }
+                },
+                {
+                    "name": "Customer Signals",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/dashboard/customer-signals?period=Last 7 Days",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "dashboard",
+                                "customer-signals"
+                            ],
+                            "query": [
+                                {
+                                    "key": "period",
+                                    "value": "Last 7 Days"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "System Health",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/dashboard/system-health"
+                    }
+                },
+                {
+                    "name": "Stats (quick counts)",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/dashboard/stats"
+                    }
+                },
+                {
+                    "name": "Top Products",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/dashboard/top-products?limit=10&sortBy=revenue&sortOrder=desc&period=this_month",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "dashboard",
+                                "top-products"
+                            ],
+                            "query": [
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "sortBy",
+                                    "value": "revenue"
+                                },
+                                {
+                                    "key": "sortOrder",
+                                    "value": "desc"
+                                },
+                                {
+                                    "key": "period",
+                                    "value": "this_month"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Revenue by Period",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/dashboard/revenue?period=monthly",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "dashboard",
+                                "revenue"
+                            ],
+                            "query": [
+                                {
+                                    "key": "period",
+                                    "value": "monthly"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Trending Shops",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/dashboard/trending-shops"
+                    }
+                },
+                {
+                    "name": "Recent Orders",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/dashboard/recent-orders"
+                    }
+                },
+                {
+                    "name": "User Distribution",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/dashboard/user-distribution"
+                    }
+                },
+                {
+                    "name": "Wallet Stats",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/dashboard/wallet-stats"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "03 · Orders",
+            "item": [
+                {
+                    "name": "List Orders",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/orders?page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "orders"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Orders · Filter by status",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/orders?page=1&limit=10&status=PENDING",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "orders"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "status",
+                                    "value": "PENDING"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Orders · Filter by vendor",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/orders?page=1&limit=10&vendorId={{VENDOR_ID}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "orders"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "vendorId",
+                                    "value": "{{VENDOR_ID}}"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Orders · Date range",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/orders?page=1&limit=10&startDate=2026-01-01&endDate=2026-01-31",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "orders"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "startDate",
+                                    "value": "2026-01-01"
+                                },
+                                {
+                                    "key": "endDate",
+                                    "value": "2026-01-31"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Export Orders (JSON)",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/orders/export?page=1&limit=200",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "orders",
+                                "export"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "200"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Export Orders (CSV)",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/orders/export/csv"
+                    }
+                },
+                {
+                    "name": "Get Order Detail",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/orders/{{ORDER_ID}}"
+                    }
+                },
+                {
+                    "name": "Get Order Group",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/orders/{{ORDER_ID}}/group"
+                    }
+                },
+                {
+                    "name": "Get Tracking Info",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/orders/{{ORDER_ID}}/tracking-info"
+                    }
+                },
+                {
+                    "name": "Get Available Drivers for Order",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/orders/{{ORDER_ID}}/available-drivers"
+                    }
+                },
+                {
+                    "name": "Update Order Status",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/orders/{{ORDER_ID}}/status",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"status\": \"CONFIRMED\", \"notes\": \"Confirmed by admin\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Update Payment Status",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/orders/{{ORDER_ID}}/payment-status",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"paymentStatus\": \"PAID\", \"notes\": \"Payment verified\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Assign Driver to Order",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/orders/{{ORDER_ID}}/assign-driver",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"driverId\": \"DRIVER_ID\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Assign Third-Party Delivery",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/orders/{{ORDER_ID}}/assign-third-party",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"courierPartner\": \"Delhivery\", \"trackingId\": \"DL123456789\" }"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "04 · Products",
+            "item": [
+                {
+                    "name": "List Products",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/products?page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "products"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Products · Search",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/products?page=1&limit=10&search=saree",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "products"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "search",
+                                    "value": "saree"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Products · Status filter (ACTIVE)",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/products?page=1&limit=10&status=ACTIVE",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "products"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "status",
+                                    "value": "ACTIVE"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Products · By Vendor",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/products?page=1&limit=10&vendorId={{VENDOR_ID}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "products"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "vendorId",
+                                    "value": "{{VENDOR_ID}}"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Pending Products (DRAFT visibility)",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/products/pending?page=1&limit=50",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "products",
+                                "pending"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "50"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Low Stock Products (threshold=10)",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/products/low-stock?page=1&limit=50&threshold=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "products",
+                                "low-stock"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "50"
+                                },
+                                {
+                                    "key": "threshold",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Product Detail",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/products/{{PRODUCT_ID}}"
+                    }
+                },
+                {
+                    "name": "Get Product Vendor Offers",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/products/{{PRODUCT_ID}}/vendor-offers"
+                    }
+                },
+                {
+                    "name": "Get Product Analytics",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/products/{{PRODUCT_ID}}/analytics?period=Last 30 Days",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "products",
+                                "{{PRODUCT_ID}}",
+                                "analytics"
+                            ],
+                            "query": [
+                                {
+                                    "key": "period",
+                                    "value": "Last 30 Days"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Approve Product",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{baseUrl}}/admin/products/{{PRODUCT_ID}}/approve"
+                    }
+                },
+                {
+                    "name": "Block Product",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{baseUrl}}/admin/products/{{PRODUCT_ID}}/block"
+                    }
+                },
+                {
+                    "name": "Toggle Product Active",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/products/{{PRODUCT_ID}}/toggle",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"isActive\": true }"
+                        }
+                    }
+                },
+                {
+                    "name": "Update Product Status",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/products/{{PRODUCT_ID}}/status",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"isActive\": false }"
+                        }
+                    }
+                },
+                {
+                    "name": "Update Product",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/products/{{PRODUCT_ID}}",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"title\": \"Updated Title\", \"price\": 99900 }"
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Product (soft)",
+                    "request": {
+                        "method": "DELETE",
+                        "url": "{{baseUrl}}/admin/products/{{PRODUCT_ID}}"
+                    }
+                },
+                {
+                    "name": "Export Products (CSV)",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/products/export/csv"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "05 · Vendors",
+            "item": [
+                {
+                    "name": "List Vendors",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/vendors?page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "vendors"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Vendors · Search",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/vendors?page=1&limit=10&search=shop",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "vendors"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "search",
+                                    "value": "shop"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Pending KYC Vendors",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/vendors/pending?page=1&limit=20",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "vendors",
+                                "pending"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Vendor Stats Overview",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/vendors/stats/overview"
+                    }
+                },
+                {
+                    "name": "Export Vendors (CSV)",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/vendors/export/csv"
+                    }
+                },
+                {
+                    "name": "Get Vendor Detail",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/vendors/{{VENDOR_ID}}"
+                    }
+                },
+                {
+                    "name": "Get Vendor Analytics",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/vendors/{{VENDOR_ID}}/analytics"
+                    }
+                },
+                {
+                    "name": "Get Vendor Documents",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/vendors/{{VENDOR_ID}}/documents"
+                    }
+                },
+                {
+                    "name": "Get Vendor Payouts",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/vendors/{{VENDOR_ID}}/payouts?page=1&limit=20",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "vendors",
+                                "{{VENDOR_ID}}",
+                                "payouts"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Vendor Products",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/vendors/{{VENDOR_ID}}/products?page=1&limit=20",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "vendors",
+                                "{{VENDOR_ID}}",
+                                "products"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Vendor Orders",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/vendors/{{VENDOR_ID}}/orders?page=1&limit=20",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "vendors",
+                                "{{VENDOR_ID}}",
+                                "orders"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Verify Vendor KYC",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/vendors/{{VENDOR_ID}}/verify",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"notes\": \"All documents verified\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Reject Vendor KYC",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/vendors/{{VENDOR_ID}}/reject",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"reason\": \"GST certificate invalid\", \"notes\": \"Please resubmit\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Update Vendor",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/vendors/{{VENDOR_ID}}",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"storeName\": \"Updated Store\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Approve Vendor",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/vendors/{{VENDOR_ID}}/approve",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"approved\": true }"
+                        }
+                    }
+                },
+                {
+                    "name": "Suspend Vendor",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/vendors/{{VENDOR_ID}}/suspend",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"reason\": \"Policy violation\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Activate Vendor",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{baseUrl}}/admin/vendors/{{VENDOR_ID}}/activate"
+                    }
+                },
+                {
+                    "name": "Reset Vendor Password",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{baseUrl}}/admin/vendors/{{VENDOR_ID}}/reset-password"
+                    }
+                },
+                {
+                    "name": "Update Vendor Commission",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/vendors/{{VENDOR_ID}}/commission",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"rate\": 0.12 }"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "06 · Users",
+            "item": [
+                {
+                    "name": "List All Users",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/users?page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "users"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Customers Only",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/users?role=CUSTOMER&page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "users"
+                            ],
+                            "query": [
+                                {
+                                    "key": "role",
+                                    "value": "CUSTOMER"
+                                },
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Search Users",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/users?search=rahul&page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "users"
+                            ],
+                            "query": [
+                                {
+                                    "key": "search",
+                                    "value": "rahul"
+                                },
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Export Users (CSV)",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/users/export/csv"
+                    }
+                },
+                {
+                    "name": "Get User Detail",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}"
+                    }
+                },
+                {
+                    "name": "Get User Orders",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/users/{{USER_ID}}/orders?limit=20",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "users",
+                                "{{USER_ID}}",
+                                "orders"
+                            ],
+                            "query": [
+                                {
+                                    "key": "limit",
+                                    "value": "20"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get User Cart",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/cart"
+                    }
+                },
+                {
+                    "name": "Get User Wishlist",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/wishlist"
+                    }
+                },
+                {
+                    "name": "Get User Addresses",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/addresses"
+                    }
+                },
+                {
+                    "name": "Get User Activity",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/activity"
+                    }
+                },
+                {
+                    "name": "Update User",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"name\": \"Updated Name\", \"riskTag\": \"LOW\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Update User Status",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/status",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"status\": \"ACTIVE\", \"reason\": \"Reactivated after review\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Suspend User",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/suspend",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"reason\": \"Abuse reports\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Activate User",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/activate"
+                    }
+                },
+                {
+                    "name": "Ban User",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/ban",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"reason\": \"Fraud detected\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Force Logout",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/force-logout"
+                    }
+                },
+                {
+                    "name": "Send Notification to User",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/notify",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"title\": \"Hello!\", \"message\": \"Test notification from admin\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Update Risk Tag",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/risk-tag",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"tag\": \"LOW\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Update Value Tag",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/value-tag",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"tag\": \"VIP\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Add Admin Note",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/notes",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"note\": \"Customer requested refund on multiple occasions\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Update Coins Balance",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/coins",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"amount\": 100, \"reason\": \"Goodwill credit\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Toggle Refunds",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/toggle-refunds",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"disabled\": false }"
+                        }
+                    }
+                },
+                {
+                    "name": "Toggle COD",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/toggle-cod",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"disabled\": false }"
+                        }
+                    }
+                },
+                {
+                    "name": "Reset User Password",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/reset-password"
+                    }
+                },
+                {
+                    "name": "Analyze User Risk",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/analyze"
+                    }
+                },
+                {
+                    "name": "Update KYC Status",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/users/{{USER_ID}}/kyc",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"status\": \"VERIFIED\", \"notes\": \"Documents checked\" }"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "07 · Support Tickets",
+            "item": [
+                {
+                    "name": "List All Tickets (canonical)",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/support-tickets?page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "support-tickets"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List All Tickets (alias /support/tickets)",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/support/tickets?page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "support",
+                                "tickets"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Tickets · Filter OPEN",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/support-tickets?page=1&limit=10&status=OPEN",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "support-tickets"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "status",
+                                    "value": "OPEN"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Tickets · Filter URGENT priority",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/support-tickets?page=1&limit=10&priority=URGENT",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "support-tickets"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "priority",
+                                    "value": "URGENT"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Ticket Detail",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/support-tickets/{{TICKET_ID}}"
+                    }
+                },
+                {
+                    "name": "Get Ticket Messages",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/support-tickets/{{TICKET_ID}}/messages"
+                    }
+                },
+                {
+                    "name": "Create Ticket",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/support-tickets",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"subject\": \"Refund not processed\",\n  \"description\": \"Customer claims refund was approved but not credited\",\n  \"priority\": \"HIGH\",\n  \"category\": \"REFUND\",\n  \"userId\": \"{{USER_ID}}\"\n}"
+                        }
+                    }
+                },
+                {
+                    "name": "Update Ticket",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/support-tickets/{{TICKET_ID}}",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"status\": \"IN_PROGRESS\", \"priority\": \"HIGH\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Assign Ticket to Agent",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/support-tickets/{{TICKET_ID}}/assign",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"agentId\": \"ADMIN_ID\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Update Ticket Status",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/support-tickets/{{TICKET_ID}}/status",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"status\": \"IN_PROGRESS\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Resolve Ticket",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/support-tickets/{{TICKET_ID}}/resolve",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"resolution\": \"Refund processed successfully\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Add Message to Ticket",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/support-tickets/{{TICKET_ID}}/messages",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"message\": \"We are processing your refund\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Ticket",
+                    "request": {
+                        "method": "DELETE",
+                        "url": "{{baseUrl}}/admin/support-tickets/{{TICKET_ID}}"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "08 · Returns & Refunds",
+            "item": [
+                {
+                    "name": "List Returns",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/returns?page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "returns"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Refunds",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/refunds"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "09 · Payouts",
+            "item": [
+                {
+                    "name": "List Payouts (canonical)",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/payouts?page=1&limit=20",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "payouts"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Payouts (alias /vendor-payouts)",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/vendor-payouts?page=1&limit=20",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "vendor-payouts"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Payouts · Filter PENDING",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/payouts?page=1&limit=20&status=PENDING",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "payouts"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20"
+                                },
+                                {
+                                    "key": "status",
+                                    "value": "PENDING"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Payout Stats",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/payouts/stats"
+                    }
+                },
+                {
+                    "name": "Pending Payouts Summary",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/payouts/pending-summary"
+                    }
+                },
+                {
+                    "name": "Payout Trends (30 days)",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/payouts/trends?days=30",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "payouts",
+                                "trends"
+                            ],
+                            "query": [
+                                {
+                                    "key": "days",
+                                    "value": "30"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Payout by ID",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/payouts/{{PAYOUT_ID}}"
+                    }
+                },
+                {
+                    "name": "Mark Payout as Processing",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{baseUrl}}/admin/payouts/{{PAYOUT_ID}}/processing"
+                    }
+                },
+                {
+                    "name": "Process Payout (complete)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/payouts/{{PAYOUT_ID}}/process",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"transactionId\": \"TXN123456\", \"notes\": \"NEFT transferred\" }"
+                        }
+                    }
+                },
+                {
+                    "name": "Fail Payout",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/payouts/{{PAYOUT_ID}}/fail",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"reason\": \"Bank account invalid\" }"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "10 · Analytics",
+            "item": [
+                {
+                    "name": "Chart Data (overview snapshot)",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/analytics/chart-data"
+                    }
+                },
+                {
+                    "name": "Sales Analytics · Monthly",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/analytics/sales?period=monthly",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "analytics",
+                                "sales"
+                            ],
+                            "query": [
+                                {
+                                    "key": "period",
+                                    "value": "monthly"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Sales Analytics · Date Range",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/analytics/sales?startDate=2026-01-01&endDate=2026-01-31",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "analytics",
+                                "sales"
+                            ],
+                            "query": [
+                                {
+                                    "key": "startDate",
+                                    "value": "2026-01-01"
+                                },
+                                {
+                                    "key": "endDate",
+                                    "value": "2026-01-31"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Vendor Performance Analytics",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/analytics/vendors?limit=10&period=monthly",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "analytics",
+                                "vendors"
+                            ],
+                            "query": [
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "period",
+                                    "value": "monthly"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Admin Stats",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/stats"
+                    }
+                },
+                {
+                    "name": "Health Check",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/health"
+                    }
+                },
+                {
+                    "name": "Audit Logs",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/audit-logs?limit=50",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "audit-logs"
+                            ],
+                            "query": [
+                                {
+                                    "key": "limit",
+                                    "value": "50"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Audit Logs (dedicated controller)",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/audit?page=1&limit=20",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "audit"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Audit Logs · Recent",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/audit/recent"
+                    }
+                },
+                {
+                    "name": "Audit Logs · Stats",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/audit/stats"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "11 · Reports",
+            "item": [
+                {
+                    "name": "Available Report Types",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/reports/types"
+                    }
+                },
+                {
+                    "name": "Dashboard Report",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/reports/dashboard"
+                    }
+                },
+                {
+                    "name": "Sales Summary",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/reports/sales-summary?startDate=2026-01-01&endDate=2026-01-31",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "reports",
+                                "sales-summary"
+                            ],
+                            "query": [
+                                {
+                                    "key": "startDate",
+                                    "value": "2026-01-01"
+                                },
+                                {
+                                    "key": "endDate",
+                                    "value": "2026-01-31"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Top Vendors",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/reports/top-vendors?startDate=2026-01-01&endDate=2026-01-31&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "reports",
+                                "top-vendors"
+                            ],
+                            "query": [
+                                {
+                                    "key": "startDate",
+                                    "value": "2026-01-01"
+                                },
+                                {
+                                    "key": "endDate",
+                                    "value": "2026-01-31"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Top Products",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/reports/top-products?startDate=2026-01-01&endDate=2026-01-31&limit=20",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "reports",
+                                "top-products"
+                            ],
+                            "query": [
+                                {
+                                    "key": "startDate",
+                                    "value": "2026-01-01"
+                                },
+                                {
+                                    "key": "endDate",
+                                    "value": "2026-01-31"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Low Stock Report",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/reports/low-stock?threshold=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "reports",
+                                "low-stock"
+                            ],
+                            "query": [
+                                {
+                                    "key": "threshold",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "User Growth",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/reports/user-growth?startDate=2026-01-01&endDate=2026-01-31&groupBy=day",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "reports",
+                                "user-growth"
+                            ],
+                            "query": [
+                                {
+                                    "key": "startDate",
+                                    "value": "2026-01-01"
+                                },
+                                {
+                                    "key": "endDate",
+                                    "value": "2026-01-31"
+                                },
+                                {
+                                    "key": "groupBy",
+                                    "value": "day"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Revenue Summary",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/reports/revenue?startDate=2026-01-01&endDate=2026-01-31",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "reports",
+                                "revenue"
+                            ],
+                            "query": [
+                                {
+                                    "key": "startDate",
+                                    "value": "2026-01-01"
+                                },
+                                {
+                                    "key": "endDate",
+                                    "value": "2026-01-31"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "12 · Inventory",
+            "item": [
+                {
+                    "name": "List Inventory",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/inventory?page=1&limit=20",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "inventory"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Inventory Stats",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/inventory/stats"
+                    }
+                },
+                {
+                    "name": "Low Stock",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/inventory/low-stock?threshold=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "inventory",
+                                "low-stock"
+                            ],
+                            "query": [
+                                {
+                                    "key": "threshold",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Out of Stock",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/inventory/out-of-stock"
+                    }
+                },
+                {
+                    "name": "Inventory Movements",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/inventory/movements"
+                    }
+                },
+                {
+                    "name": "Inventory Alerts",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/inventory/alerts"
+                    }
+                },
+                {
+                    "name": "Inventory Vendors",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/inventory/vendors"
+                    }
+                },
+                {
+                    "name": "Purchase Orders",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/inventory/purchase-orders"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "13 · Coins (Bow Economy)",
+            "item": [
+                {
+                    "name": "Coin Config",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/coins/config"
+                    }
+                },
+                {
+                    "name": "Coin Transactions Ledger",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/coins/transactions"
+                    }
+                },
+                {
+                    "name": "Coin Stats",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/coins/stats"
+                    }
+                },
+                {
+                    "name": "Coin Analytics",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/coins/analytics?startDate=2026-01-01&endDate=2026-01-31",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "coins",
+                                "analytics"
+                            ],
+                            "query": [
+                                {
+                                    "key": "startDate",
+                                    "value": "2026-01-01"
+                                },
+                                {
+                                    "key": "endDate",
+                                    "value": "2026-01-31"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Grant Coins to User",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/coins/grant",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"userId\": \"{{USER_ID}}\",\n  \"amount\": 100,\n  \"reason\": \"Goodwill gesture\"\n}"
+                        }
+                    }
+                },
+                {
+                    "name": "Revoke Coins from User",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/coins/revoke",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"userId\": \"{{USER_ID}}\",\n  \"amount\": 50,\n  \"reason\": \"Fraudulent claim\"\n}"
+                        }
+                    }
+                },
+                {
+                    "name": "Get User Coin Balance",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/coins/user/{{USER_ID}}/balance"
+                    }
+                },
+                {
+                    "name": "Get User Coin Transactions",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/coins/user/{{USER_ID}}/transactions?page=1&limit=20",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "coins",
+                                "user",
+                                "{{USER_ID}}",
+                                "transactions"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "20"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "14 · CMS & Banners",
+            "item": [
+                {
+                    "name": "List Banners",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/banners"
+                    }
+                },
+                {
+                    "name": "Get Banner by ID",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/banners/{{BANNER_ID}}"
+                    }
+                },
+                {
+                    "name": "Create Banner",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/banners",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"title\": \"Summer Sale\",\n  \"imageUrl\": \"https://cdn.risbow.com/banners/summer.jpg\",\n  \"linkUrl\": \"/sale\",\n  \"position\": \"HOME_TOP\",\n  \"isActive\": true\n}"
+                        }
+                    }
+                },
+                {
+                    "name": "Update Banner",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/banners/{{BANNER_ID}}",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"isActive\": false }"
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Banner",
+                    "request": {
+                        "method": "DELETE",
+                        "url": "{{baseUrl}}/admin/banners/{{BANNER_ID}}"
+                    }
+                },
+                {
+                    "name": "List Categories",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/categories"
+                    }
+                },
+                {
+                    "name": "List CMS Pages",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/cms/pages"
+                    }
+                },
+                {
+                    "name": "List CMS Menus",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/cms/menus"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "15 · Campaigns & Promotions",
+            "item": [
+                {
+                    "name": "List Campaigns",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/campaigns?page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "campaigns"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Coupons",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/coupons"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "16 · Bow AI",
+            "item": [
+                {
+                    "name": "Bow Analytics Overview",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/bow/analytics/overview"
+                    }
+                },
+                {
+                    "name": "Bow AI Actions Log",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/bow/analytics/actions"
+                    }
+                },
+                {
+                    "name": "Bow Strategy Analytics",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/bow/analytics/strategies"
+                    }
+                },
+                {
+                    "name": "Bow Revenue Attribution",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/bow/analytics/revenue"
+                    }
+                },
+                {
+                    "name": "Bow Settings",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/bow/settings"
+                    }
+                },
+                {
+                    "name": "Bow Queue Status",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/bow/queue-status"
+                    }
+                },
+                {
+                    "name": "Bow Health",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/bow/health"
+                    }
+                },
+                {
+                    "name": "Bow Experiments",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/bow/experiments"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "17 · Settings",
+            "item": [
+                {
+                    "name": "Get All Settings",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/settings"
+                    }
+                },
+                {
+                    "name": "Get General Settings",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/settings/general"
+                    }
+                },
+                {
+                    "name": "Get Verification Settings",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/settings/verification"
+                    }
+                },
+                {
+                    "name": "Get AI Settings",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/settings/ai"
+                    }
+                },
+                {
+                    "name": "Get Theme Settings",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/settings/theme"
+                    }
+                },
+                {
+                    "name": "Get Social Settings",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/settings/social"
+                    }
+                },
+                {
+                    "name": "Get Ticket Settings",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/settings/tickets"
+                    }
+                },
+                {
+                    "name": "Update General Settings",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/admin/settings/general",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{ \"platformName\": \"Risbow\", \"supportEmail\": \"support@risbow.com\" }"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "18 · Moderation",
+            "item": [
+                {
+                    "name": "Moderation Queue",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/moderation/queue"
+                    }
+                },
+                {
+                    "name": "Moderation Stats",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/moderation/stats"
+                    }
+                },
+                {
+                    "name": "My Queue",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/moderation/my-queue"
+                    }
+                },
+                {
+                    "name": "Pending Reviews",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/reviews"
+                    }
+                },
+                {
+                    "name": "Get Reports",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/admin/reports?status=PENDING",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "admin",
+                                "reports"
+                            ],
+                            "query": [
+                                {
+                                    "key": "status",
+                                    "value": "PENDING"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "19 · Metrics & Health",
+            "item": [
+                {
+                    "name": "Cache Metrics",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/metrics/cache"
+                    }
+                },
+                {
+                    "name": "Queue Metrics",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/metrics/queues"
+                    }
+                },
+                {
+                    "name": "System Health (admin.controller)",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{baseUrl}}/admin/health"
+                    }
+                }
+            ]
+        }
+    ]
+}

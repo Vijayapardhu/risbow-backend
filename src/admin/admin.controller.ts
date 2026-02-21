@@ -539,6 +539,25 @@ export class AdminController {
         return this.adminService.getAnalytics();
     }
 
+    @Get('analytics/sales')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async getAnalyticsSales(
+        @Query('period') period: string = 'monthly',
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
+    ) {
+        return this.adminService.getRevenueAnalytics(period, startDate, endDate);
+    }
+
+    @Get('analytics/vendors')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async getAnalyticsVendors(
+        @Query('limit') limit: string = '10',
+        @Query('period') period: string = 'monthly',
+    ) {
+        return this.adminService.getVendorPerformanceAnalytics(parseInt(limit) || 10, period);
+    }
+
     @Get('categories')
     @AdminRoles(AdminRole.OPERATIONS_ADMIN, AdminRole.SUPER_ADMIN, AdminRole.CONTENT_MODERATOR)
     getCategories() {
@@ -630,6 +649,29 @@ export class AdminController {
     @Get('coins/stats')
     getCoinStats() {
         return this.adminService.getCoinStats();
+    }
+
+    // --- ALIAS ROUTES (legacy URLs used by frontend/validator) ---
+
+    @Get('vendor-payouts')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async getVendorPayoutsAlias(
+        @Query('page') page: string = '1',
+        @Query('limit') limit: string = '20',
+        @Query('status') status?: string,
+        @Query('vendorId') vendorId?: string,
+    ) {
+        return this.adminService.getVendorPayoutsAlias(parseInt(page), parseInt(limit), status, vendorId);
+    }
+
+    @Get('support/tickets')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    async getSupportTicketsAlias(
+        @Query('page') page: string = '1',
+        @Query('limit') limit: string = '10',
+        @Query('status') status?: string,
+    ) {
+        return this.adminService.getSupportTicketsAlias(parseInt(page), parseInt(limit), status);
     }
 
     // --- MODERATION ---

@@ -1831,7 +1831,7 @@ export class AdminService {
         });
 
         const total = await this.prisma.product.count({ where: { vendorId } });
-        
+
         return { products, total, page, limit };
     }
 
@@ -1840,7 +1840,7 @@ export class AdminService {
      */
     async getVendorOrders(vendorId: string, page: number = 1, limit: number = 20, status?: string) {
         const where: any = { vendorId };
-        
+
         const [orders, total] = await Promise.all([
             this.prisma.vendorOrder.findMany({
                 where,
@@ -2610,6 +2610,141 @@ export class AdminService {
                 platform: process.platform,
                 nodeVersion: process.version
             }
+        };
+    }
+
+    // ── New methods powering previously-missing API routes ─────────────────────
+
+    async getRevenueAnalytics(period: string = 'monthly', startDate?: string, endDate?: string) {
+        const end = endDate ? new Date(endDate) : new Date();
+        const start = startDate ? new Date(startDate) : (() => {
+            const d = new Date(end);
+            if (period === 'weekly') d.setDate(d.getDate() - 7);
+            else if (period === 'yearly') d.setFullYear(d.getFullYear() - 1);
+            else d.setMonth(d.getMonth() - 1); // monthly default
+            return d;
+        })();
+
+        const orders = await this.prisma.order.findMany({
+            where: { createdAt: { gte: start, lte: end }, status: { not: 'CANCELLED' as any } },
+            select: { totalAmount: true, createdAt: true, status: true },
+            orderBy: { createdAt: 'asc' },
+        });
+
+        const revenueByDate = new Map<string, { revenue: number; orders: number }>();
+        orders.forEach(o => {
+            const key = o.createdAt.toISOString().split('T')[0];
+            const existing = revenueByDate.get(key) || { revenue: 0, orders: 0 };
+            revenueByDate.set(key, { revenue: existing.revenue + o.totalAmount, orders: existing.orders + 1 });
+        });
+
+        const totalRevenue = orders.reduce((s, o) => s + o.totalAmount, 0);
+        const totalOrders = orders.length;
+
+        return {
+            period,
+            dateRange: { start: start.toISOString(), end: end.toISOString() },
+            totalRevenue,
+            totalOrders,
+            averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
+            chart: Array.from(revenueByDate.entries()).map(([date, v]) => ({ date, ...v })),
+        };
+    }
+
+    async getVendorPerformanceAnalytics(limit: number = 10, period: string = 'monthly') {
+        const since = new Date();
+        if (period === 'weekly') since.setDate(since.getDate() - 7);
+        else if (period === 'yearly') since.setFullYear(since.getFullYear() - 1);
+        else since.setMonth(since.getMonth() - 1);
+
+        const vendors = await this.prisma.vendor.findMany({
+            take: limit,
+            where: { deletedAt: null },
+            select: {
+                id: true,
+                name: true,
+                storeName: true,
+                kycStatus: true,
+                storeStatus: true,
+                createdAt: true,
+                _count: { select: { Product: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        return {
+            period,
+            since: since.toISOString(),
+            vendors: vendors.map(v => ({
+                id: v.id,
+                name: v.storeName || v.name,
+                kycStatus: v.kycStatus,
+                storeStatus: v.storeStatus,
+                productCount: v._count.Product,
+                joinedAt: v.createdAt,
+            })),
+            total: vendors.length,
+        };
+    }
+
+    async getVendorPayoutsAlias(page: number = 1, limit: number = 20, status?: string, vendorId?: string) {
+        const where: any = {};
+        if (status) where.status = status.toUpperCase();
+        if (vendorId) where.vendorId = vendorId;
+
+        const [payouts, total] = await Promise.all([
+            this.prisma.vendorPayout.findMany({
+                where,
+                skip: (page - 1) * limit,
+                take: limit,
+                select: {
+                    id: true,
+                    vendorId: true,
+                    amount: true,
+                    status: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    Vendor: { select: { name: true, storeName: true } },
+                },
+                orderBy: { createdAt: 'desc' },
+            }),
+            this.prisma.vendorPayout.count({ where }),
+        ]);
+
+        return {
+            data: payouts,
+            meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        };
+    }
+
+    async getSupportTicketsAlias(page: number = 1, limit: number = 10, status?: string) {
+        const where: any = {};
+        if (status) where.status = status.toUpperCase();
+
+        const [tickets, total] = await Promise.all([
+            this.prisma.supportTicket.findMany({
+                where,
+                skip: (page - 1) * limit,
+                take: limit,
+                select: {
+                    id: true,
+                    ticketNumber: true,
+                    subject: true,
+                    status: true,
+                    priority: true,
+                    category: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    User: { select: { id: true, name: true, email: true } },
+                },
+                orderBy: { createdAt: 'desc' },
+            }),
+            this.prisma.supportTicket.count({ where }),
+        ]);
+
+        return {
+            data: tickets,
+            meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
         };
     }
 }

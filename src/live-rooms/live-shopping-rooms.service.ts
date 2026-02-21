@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../shared/redis.service';
-import { LiveRoomStatus, LiveRoomType, RoomCreatorType, MessageType } from '@prisma/client';
+import { RoomStatus, RoomType } from '@prisma/client';
 
 export interface CreateRoomDto {
   name: string;

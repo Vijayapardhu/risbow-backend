@@ -1157,4 +1157,216 @@ export class VendorsService {
             return results;
         });
     }
+
+    // Analytics methods for dashboard
+    async getAnalyticsSummary(vendorId: string, range: string = '30d') {
+        const days = parseInt(range.replace('d', '')) || 30;
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+
+        const productIds = await this.getVendorProductIds(vendorId);
+        
+        const orders = await this.prisma.order.findMany({
+            where: {
+                createdAt: { gte: startDate },
+                status: { in: ['CONFIRMED', 'PAID', 'PACKED', 'SHIPPED', 'DELIVERED'] }
+            }
+        });
+
+        let totalRevenue = 0;
+        let totalOrders = 0;
+        for (const order of orders) {
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot as any[] : [];
+            const vendorItems = items.filter(item => productIds.includes(item.productId));
+            if (vendorItems.length > 0) {
+                totalOrders++;
+                totalRevenue += vendorItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+            }
+        }
+
+        return {
+            totalRevenue,
+            totalOrders,
+            averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
+            period: range
+        };
+    }
+
+    async getAnalyticsCharts(vendorId: string, range: string = '30d') {
+        const days = parseInt(range.replace('d', '')) || 30;
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+
+        const productIds = await this.getVendorProductIds(vendorId);
+        
+        const orders = await this.prisma.order.findMany({
+            where: {
+                createdAt: { gte: startDate },
+                status: { in: ['CONFIRMED', 'PAID', 'PACKED', 'SHIPPED', 'DELIVERED'] }
+            },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        const dailyData = new Map();
+        for (let i = 0; i < days; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            dailyData.set(d.toISOString().split('T')[0], { orders: 0, revenue: 0 });
+        }
+
+        for (const order of orders) {
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot as any[] : [];
+            const vendorItems = items.filter(item => productIds.includes(item.productId));
+            if (vendorItems.length > 0) {
+                const dateKey = order.createdAt.toISOString().split('T')[0];
+                const data = dailyData.get(dateKey) || { orders: 0, revenue: 0 };
+                data.orders++;
+                data.revenue += vendorItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+                dailyData.set(dateKey, data);
+            }
+        }
+
+        return {
+            daily: Array.from(dailyData.entries()).map(([date, stats]) => ({ date, ...stats }))
+        };
+    }
+
+    async getTopProducts(vendorId: string) {
+        const productIds = await this.getVendorProductIds(vendorId);
+        if (productIds.length === 0) return [];
+
+        const orders = await this.prisma.order.findMany({
+            where: {
+                status: { in: ['CONFIRMED', 'PAID', 'PACKED', 'SHIPPED', 'DELIVERED'] }
+            }
+        });
+
+        const productStats = new Map();
+        for (const order of orders) {
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot as any[] : [];
+            const vendorItems = items.filter(item => productIds.includes(item.productId));
+            for (const item of vendorItems) {
+                const stats = productStats.get(item.productId) || { sales: 0, revenue: 0 };
+                stats.sales += item.quantity;
+                stats.revenue += item.price * item.quantity;
+                productStats.set(item.productId, stats);
+            }
+        }
+
+        const products = await this.prisma.product.findMany({
+            where: { id: { in: productIds.slice(0, 10) } },
+            select: { id: true, title: true, images: true }
+        });
+
+        return products.map(p => ({
+            id: p.id,
+            title: p.title,
+            images: p.images,
+            ...(productStats.get(p.id) || { sales: 0, revenue: 0 })
+        }));
+    }
+
+    async getPerformanceMetrics(vendorId: string) {
+        const stats = await this.getVendorStats(vendorId);
+        return {
+            totalOrders: stats.monthOrders,
+            totalRevenue: stats.monthRevenue,
+            activeProducts: stats.activeProducts,
+            lowStockAlerts: stats.lowStockAlerts,
+            pendingOrders: stats.pendingOrders
+        };
+    }
+
+    async getVendorReviews(vendorId: string, limit: number = 10, sort?: string) {
+        const reviews = await this.prisma.review.findMany({
+            where: { vendorId },
+            include: {
+                User: { select: { id: true, name: true } },
+                Product: { select: { id: true, title: true, images: true } }
+            },
+            orderBy: { createdAt: sort === 'createdAt:asc' ? 'asc' : 'desc' },
+            take: limit
+        });
+        return { reviews, total: reviews.length };
+    }
+
+    async getVendorCustomers(vendorId: string, query: any = {}) {
+        const productIds = await this.getVendorProductIds(vendorId);
+        
+        const orders = await this.prisma.order.findMany({
+            where: {
+                status: { in: ['CONFIRMED', 'PAID', 'PACKED', 'SHIPPED', 'DELIVERED'] }
+            },
+            include: { user: { select: { id: true, name: true, mobile: true, email: true } } }
+        });
+
+        const customerMap = new Map();
+        for (const order of orders) {
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot as any[] : [];
+            const vendorItems = items.filter(item => productIds.includes(item.productId));
+            if (vendorItems.length > 0) {
+                const customer = customerMap.get(order.userId) || { 
+                    userId: order.userId, 
+                    name: order.user?.name, 
+                    mobile: order.user?.mobile,
+                    email: order.user?.email,
+                    orders: 0, 
+                    spent: 0 
+                };
+                customer.orders++;
+                customer.spent += vendorItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+                customerMap.set(order.userId, customer);
+            }
+        }
+
+        const customers = Array.from(customerMap.values());
+        return { 
+            data: customers.slice(0, query.limit || 50),
+            total: customers.length,
+            meta: { page: 1, limit: query.limit || 50, totalPages: 1 }
+        };
+    }
+
+    async getVendorCustomerDetails(vendorId: string, customerId: string) {
+        const productIds = await this.getVendorProductIds(vendorId);
+        
+        const orders = await this.prisma.order.findMany({
+            where: {
+                userId: customerId,
+                status: { in: ['CONFIRMED', 'PAID', 'PACKED', 'SHIPPED', 'DELIVERED'] }
+            },
+            include: {
+                user: { select: { id: true, name: true, mobile: true, email: true } }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        const customerOrders = [];
+        let totalSpent = 0;
+        
+        for (const order of orders) {
+            const items = Array.isArray(order.itemsSnapshot) ? order.itemsSnapshot as any[] : [];
+            const vendorItems = items.filter(item => productIds.includes(item.productId));
+            if (vendorItems.length > 0) {
+                customerOrders.push(order);
+                totalSpent += vendorItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+            }
+        }
+
+        return {
+            user: orders[0]?.user,
+            orders: customerOrders,
+            totalSpent,
+            orderCount: customerOrders.length
+        };
+    }
+
+    async getSingleCustomerAnalytics(vendorId: string, customerId: string) {
+        const details = await this.getVendorCustomerDetails(vendorId, customerId);
+        return {
+            totalOrders: details.orderCount,
+            totalSpent: details.totalSpent,
+            averageOrderValue: details.orderCount > 0 ? details.totalSpent / details.orderCount : 0
+        };
+    }
 }

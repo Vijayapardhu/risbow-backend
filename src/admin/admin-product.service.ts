@@ -482,4 +482,76 @@ export class AdminProductService {
             data: { visibility: 'BLOCKED', isActive: false }
         });
     }
+
+    async getLowStockProducts(params: {
+        page?: number;
+        limit?: number;
+        threshold?: number;
+    }) {
+        const { page = 1, limit = 50, threshold = 10 } = params;
+        const pageNum = Number(page) || 1;
+        const limitNum = Number(limit) || 50;
+        const thresholdNum = Number(threshold) || 10;
+        const skip = (pageNum - 1) * limitNum;
+
+        const where = {
+            deletedAt: null,
+            stock: { lte: thresholdNum },
+        };
+
+        const [products, total] = await Promise.all([
+            this.prisma.product.findMany({
+                where,
+                skip,
+                take: limitNum,
+                include: {
+                    Vendor: {
+                        select: { id: true, name: true, storeName: true },
+                    },
+                    Category: {
+                        select: { id: true, name: true },
+                    },
+                },
+                orderBy: { stock: 'asc' },
+            }),
+            this.prisma.product.count({ where }),
+        ]);
+
+        const data = products.map((p: any) => ({
+            id: p.id,
+            title: p.title,
+            name: p.title,
+            sku: p.sku,
+            stock: p.stock ?? 0,
+            isActive: p.isActive ?? false,
+            status: p.visibility === 'PUBLISHED'
+                ? (p.isActive ? 'ACTIVE' : 'INACTIVE')
+                : (p.visibility === 'BLOCKED' ? 'REJECTED' : 'PENDING'),
+            image: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : null,
+            price: Number(p.price) || 0,
+            offerPrice: p.offerPrice ? Number(p.offerPrice) : null,
+            vendor: p.Vendor ? {
+                id: p.Vendor.id,
+                name: p.Vendor.name,
+                storeName: p.Vendor.storeName,
+            } : null,
+            category: p.Category ? {
+                id: p.Category.id,
+                name: p.Category.name,
+            } : { name: 'Uncategorized' },
+            createdAt: p.createdAt,
+            updatedAt: p.updatedAt,
+        }));
+
+        return {
+            data,
+            meta: {
+                page: pageNum,
+                limit: limitNum,
+                total,
+                totalPages: Math.ceil(total / limitNum),
+                threshold: thresholdNum,
+            },
+        };
+    }
 }

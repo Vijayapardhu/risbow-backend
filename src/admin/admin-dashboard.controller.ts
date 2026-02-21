@@ -55,8 +55,24 @@ export class AdminDashboardController {
     }
 
     @Get('top-products')
-    async getTopProducts(@Query('limit') limit: string = '5') {
-        return this.dashboardService.getTopProducts(parseInt(limit, 10));
+    async getTopProducts(
+        @Query('limit') limit: string = '10',
+        @Query('sortBy') sortBy: 'sales' | 'revenue' = 'revenue',
+        @Query('sortOrder') sortOrder: 'asc' | 'desc' = 'desc',
+        @Query('categoryId') categoryId?: string,
+        @Query('period') period: 'this_month' | 'last_month' | 'custom' = 'this_month',
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
+    ) {
+        return this.dashboardService.getTopProducts({
+            limit: parseInt(limit, 10),
+            sortBy,
+            sortOrder,
+            categoryId,
+            period,
+            startDate,
+            endDate,
+        });
     }
 
     @Get('revenue')

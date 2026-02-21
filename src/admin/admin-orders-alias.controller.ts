@@ -315,87 +315,96 @@ export class AdminOrdersAliasController {
 
     const createdOrders = [];
 
-    // 3. Create Order per Vendor
-    for (const [vendorId, vendorItems] of itemsByVendor) {
-      // Calculate totals for this vendor's order
-      let orderSubtotal = 0;
-      let orderTax = 0;
-      let orderTotal = 0;
+    // 3. Create Orders and Update Inventory atomically
+    await this.prisma.$transaction(async (tx) => {
+      // 3a. Verify stock availability before creating orders
+      for (const item of items) {
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+          select: { id: true, stock: true, title: true }
+        });
+        if (!product) {
+          throw new BadRequestException(`Product ${item.productId} not found`);
+        }
+        if (product.stock < item.quantity) {
+          throw new BadRequestException(
+            `Insufficient stock for "${product.title}": requested ${item.quantity}, available ${product.stock}`
+          );
+        }
+      }
 
-      const orderItemsData = vendorItems.map((item: any) => {
-        const quantity = item.quantity;
-        const price = item.unitPrice; // Taxable value per unit
-        const itemSubtotal = price * quantity;
+      // 3b. Create Order per Vendor
+      for (const [vendorId, vendorItems] of itemsByVendor) {
+        let orderSubtotal = 0;
+        let orderTax = 0;
+        let orderTotal = 0;
 
-        // Calculate tax (18% GST)
-        const itemTax = Math.round(itemSubtotal * 0.18);
-        const itemTotal = itemSubtotal + itemTax;
+        const orderItemsData = vendorItems.map((item: any) => {
+          const quantity = item.quantity;
+          const price = item.unitPrice;
+          const itemSubtotal = price * quantity;
+          const itemTax = Math.round(itemSubtotal * 0.18);
+          const itemTotal = itemSubtotal + itemTax;
 
-        orderSubtotal += itemSubtotal;
-        orderTax += itemTax;
-        orderTotal += itemTotal;
+          orderSubtotal += itemSubtotal;
+          orderTax += itemTax;
+          orderTotal += itemTotal;
 
-        return {
-          productId: item.productId,
-          vendorId: vendorId,
-          quantity: quantity,
-          price: price,
-          subtotal: itemSubtotal,
-          tax: itemTax,
-          total: itemTotal,
-          status: 'DELIVERED'
-        };
-      });
+          return {
+            productId: item.productId,
+            vendorId: vendorId,
+            quantity: quantity,
+            price: price,
+            subtotal: itemSubtotal,
+            tax: itemTax,
+            total: itemTotal,
+            status: 'DELIVERED'
+          };
+        });
 
-      // Apply proportional discount if needed (simplified: split by ratio or just 0 for now)
-      // For POS, discounts are usually global. Allocating them is complex.
-      // Assuming no complex discount logic for split POS orders requested yet.
+        const order = await tx.order.create({
+          data: {
+            id: `ord_pos_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+            orderNumber: await generateOrderNumber(tx as any),
+            userId: targetUserId,
+            status: 'DELIVERED',
+            totalAmount: orderTotal,
 
-      const order = await this.prisma.order.create({
-        data: {
-          id: `ord_pos_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-          orderNumber: await generateOrderNumber(this.prisma),
-          userId: targetUserId,
-          status: 'DELIVERED',
-          totalAmount: orderTotal,
-          // subtotal: orderSubtotal, // Removing as per schema, Order model does not have subtotal field.
+            itemsSnapshot: vendorItems,
+            agentId: req.user.id,
 
-          itemsSnapshot: vendorItems,
-          agentId: req.user.id,
-
-          // Create OrderItems
-          OrderItem: {
-            create: orderItemsData
+            OrderItem: {
+              create: orderItemsData
+            },
+            payment: {
+              create: {
+                id: randomUUID(),
+                amount: orderTotal,
+                provider: (paymentMethod || 'CASH').toUpperCase(),
+                currency: 'INR',
+                status: 'SUCCESS',
+                paymentId: `POS-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+              }
+            }
           },
-          // Create Payment record for analytics
-          payment: {
-            create: {
-              id: randomUUID(),
-              amount: orderTotal,
-              provider: (paymentMethod || 'CASH').toUpperCase(),
-              currency: 'INR',
-              status: 'SUCCESS', // POS payments are immediate
-              paymentId: `POS-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+          include: {
+            OrderItem: {
+              include: { Product: true }
             }
           }
-        },
-        include: {
-          OrderItem: {
-            include: { Product: true }
-          }
-        }
-      });
+        });
 
-      createdOrders.push(order);
-    }
+        createdOrders.push(order);
+      }
 
-    // 4. Update Inventory
-    for (const item of items) {
-      await this.prisma.product.update({
-        where: { id: item.productId },
-        data: { stock: { decrement: item.quantity } }
-      });
-    }
+      // 3c. Update Inventory (stock decrement) atomically
+      for (const item of items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { decrement: item.quantity } }
+        });
+      }
+    });
 
     // 5. Map to POSOrder structure expected by frontend
     const mappedOrders = await Promise.all(createdOrders.map(async (order) => {

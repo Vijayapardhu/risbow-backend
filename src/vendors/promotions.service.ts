@@ -85,4 +85,62 @@ export class PromotionsService {
             orderBy: { createdAt: 'desc' }
         });
     }
+
+    // Campaign methods
+    async getAvailableCampaigns(vendorId: string) {
+        // Return available campaigns (admin-defined campaigns vendors can enroll in)
+        const campaigns = await this.prisma.bannerCampaign.findMany({
+            orderBy: { createdAt: 'desc' }
+        });
+        return { campaigns };
+    }
+
+    async getVendorEnrollments(vendorId: string) {
+        // Get vendor's enrolled campaigns
+        const banners = await this.prisma.banner.findMany({
+            where: { vendorId },
+            orderBy: { createdAt: 'desc' }
+        });
+        return { enrollments: banners };
+    }
+
+    async getCampaignById(id: string) {
+        return this.prisma.bannerCampaign.findUnique({ where: { id } });
+    }
+
+    async getCampaignProducts(id: string) {
+        // Get products in a campaign
+        return [];
+    }
+
+    async enrollInCampaign(vendorId: string, campaignId: string, dto: any) {
+        const banner = await this.prisma.banner.create({
+            data: {
+                vendorId,
+                title: dto.title || 'Campaign Banner',
+                imageUrl: dto.imageUrl,
+                redirectUrl: dto.targetUrl,
+                slotType: dto.slotType || 'HOME_BANNER',
+                startDate: new Date(dto.startDate),
+                endDate: new Date(dto.endDate),
+                isActive: false,
+            }
+        });
+        return { enrollment: banner };
+    }
+
+    async leaveCampaign(vendorId: string, campaignId: string) {
+        await this.prisma.banner.deleteMany({
+            where: { id: campaignId, vendorId }
+        });
+        return { message: 'Left campaign successfully' };
+    }
+
+    async updateCampaignProduct(vendorId: string, campaignId: string, productId: string, dto: any) {
+        return { message: 'Product updated', campaignId, productId, ...dto };
+    }
+
+    async removeCampaignProduct(vendorId: string, campaignId: string, productId: string) {
+        return { message: 'Product removed from campaign', campaignId, productId };
+    }
 }

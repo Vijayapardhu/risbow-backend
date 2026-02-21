@@ -5,6 +5,11 @@ import { PrismaService } from '../prisma/prisma.service';
 export class AdminDashboardService {
     constructor(private prisma: PrismaService) { }
 
+    typeSafeTopProductsPeriod(period?: string): 'this_month' | 'last_month' | 'custom' {
+        if (period === 'last_month' || period === 'custom') return period;
+        return 'this_month';
+    }
+
     async getDashboardData(period: string) {
         // Use Promise.allSettled to handle individual failures gracefully
         const results = await Promise.allSettled([
@@ -97,40 +102,148 @@ export class AdminDashboardService {
         };
     }
 
-    async getTopProducts(limit: number = 5) {
+    async getTopProducts(
+        options:
+            | number
+            | {
+                limit?: number;
+                sortBy?: 'sales' | 'revenue';
+                sortOrder?: 'asc' | 'desc';
+                categoryId?: string;
+                period?: 'this_month' | 'last_month' | 'custom';
+                startDate?: string;
+                endDate?: string;
+            } = 5,
+    ) {
         try {
-            // Use raw SQL for faster query - avoid heavy ORM operations
+            const normalized =
+                typeof options === 'number'
+                    ? {
+                        limit: options,
+                        sortBy: 'revenue' as const,
+                        sortOrder: 'desc' as const,
+                        categoryId: undefined,
+                        period: 'this_month' as const,
+                        startDate: undefined,
+                        endDate: undefined,
+                    }
+                    : {
+                        limit: options.limit ?? 10,
+                        sortBy: options.sortBy ?? 'revenue',
+                        sortOrder: options.sortOrder ?? 'desc',
+                        categoryId: options.categoryId,
+                        period: options.period ?? 'this_month',
+                        startDate: options.startDate,
+                        endDate: options.endDate,
+                    };
+
+            const limit = Math.min(Math.max(normalized.limit, 1), 50);
+            const sortField = normalized.sortBy === 'sales' ? 'sales' : 'revenue';
+            const sortDirection = normalized.sortOrder === 'asc' ? 'ASC' : 'DESC';
+
+            const dateRange = this.getTopProductsDateRange(
+                this.typeSafeTopProductsPeriod(normalized.period),
+                normalized.startDate,
+                normalized.endDate,
+            );
+
+            // Aggregate from immutable order and order-item snapshots.
             const products = await this.prisma.$queryRaw`
                 SELECT 
                     p.id,
                     p.title as name,
                     p.images,
-                    COALESCE(p."salesCount", 0) as sales,
-                    COALESCE(p."viewCount", 0) as views,
+                    p."categoryId" as "categoryId",
+                    c.name as "categoryName",
+                    COALESCE(SUM(oi.quantity), 0)::int as sales,
+                    COALESCE(SUM(oi.total), 0)::int as revenue,
                     p.price,
-                    p."offerPrice"
+                    p."offerPrice",
+                    CASE 
+                        WHEN COALESCE(SUM(oi.quantity), 0) > 0 
+                        THEN ROUND(COALESCE(SUM(oi.total), 0)::numeric / COALESCE(SUM(oi.quantity), 1), 0)::int
+                        ELSE 0
+                    END as "averageOrderValue"
                 FROM "Product" p
+                LEFT JOIN "Category" c ON c.id = p."categoryId"
+                LEFT JOIN "OrderItem" oi ON oi."productId" = p.id
+                LEFT JOIN "Order" o ON o.id = oi."orderId"
                 WHERE p."isActive" = true
-                ORDER BY p."salesCount" DESC NULLS LAST, p."createdAt" DESC
+                    AND (
+                        o.id IS NULL OR (
+                            o."createdAt" >= ${dateRange.start}
+                            AND o."createdAt" <= ${dateRange.end}
+                            AND o.status NOT IN ('CANCELLED', 'RETURNED', 'REFUNDED')
+                        )
+                    )
+                    AND (${normalized.categoryId || null}::text IS NULL OR p."categoryId" = ${normalized.categoryId || null}::text)
+                GROUP BY p.id, p.title, p.images, p.price, p."offerPrice", p."categoryId", c.name
+                ORDER BY
+                    CASE
+                        WHEN ${sortField} = 'sales' AND ${sortDirection} = 'ASC' THEN COALESCE(SUM(oi.quantity), 0)
+                    END ASC,
+                    CASE
+                        WHEN ${sortField} = 'sales' AND ${sortDirection} = 'DESC' THEN COALESCE(SUM(oi.quantity), 0)
+                    END DESC,
+                    CASE
+                        WHEN ${sortField} = 'revenue' AND ${sortDirection} = 'ASC' THEN COALESCE(SUM(oi.total), 0)
+                    END ASC,
+                    CASE
+                        WHEN ${sortField} = 'revenue' AND ${sortDirection} = 'DESC' THEN COALESCE(SUM(oi.total), 0)
+                    END DESC,
+                    p."createdAt" DESC
                 LIMIT ${limit}
             `;
 
-            return (products as any[]).map(p => ({
+            return (products as any[]).map((p) => ({
                 id: p.id,
                 name: p.name,
-                image: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : 
-                       typeof p.images === 'string' ? JSON.parse(p.images)[0] : null,
+                image:
+                    Array.isArray(p.images) && p.images.length > 0
+                        ? p.images[0]
+                        : typeof p.images === 'string'
+                            ? JSON.parse(p.images)[0]
+                            : null,
+                categoryId: p.categoryId,
+                categoryName: p.categoryName,
                 price: Number(p.price) || 0,
                 originalPrice: Number(p.offerPrice) || Number(p.price) || 0,
-                rating: 4.5, // Default rating since we don't have review data
-                favorites: Math.floor(Math.random() * 100), // Mock favorites for now
                 sales: Number(p.sales) || 0,
-                revenue: Number(p.price) * (Number(p.sales) || 0)
+                revenue: Number(p.revenue) || 0,
+                averageOrderValue: Number(p.averageOrderValue) || 0,
             }));
         } catch (error) {
             console.error('Error fetching top products:', error);
             return [];
         }
+    }
+
+    private getTopProductsDateRange(
+        period: 'this_month' | 'last_month' | 'custom',
+        startDate?: string,
+        endDate?: string,
+    ): { start: Date; end: Date } {
+        const now = new Date();
+        if (period === 'custom') {
+            const start = startDate ? new Date(startDate) : new Date(now.getFullYear(), now.getMonth(), 1);
+            const end = endDate ? new Date(endDate) : now;
+            return {
+                start,
+                end,
+            };
+        }
+
+        if (period === 'last_month') {
+            return {
+                start: new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0),
+                end: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999),
+            };
+        }
+
+        return {
+            start: new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0),
+            end: now,
+        };
     }
 
     async getKPIs(period: string) {
@@ -295,7 +408,7 @@ export class AdminDashboardService {
 
     async getRevenueByPeriod(period: string) {
         const dateRange = this.getDateRange(period);
-        
+
         // Get orders grouped by date
         const orders = await this.prisma.order.findMany({
             where: {
@@ -311,11 +424,11 @@ export class AdminDashboardService {
 
         // Group by date based on period
         const groupedData = new Map<string, { orders: number; revenue: number }>();
-        
+
         orders.forEach(order => {
             let key: string;
             const date = new Date(order.createdAt);
-            
+
             if (period === 'daily' || period === 'Last 7 Days') {
                 // Group by hour for daily view
                 key = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -326,7 +439,7 @@ export class AdminDashboardService {
                 // Group by month for yearly view
                 key = date.toLocaleDateString('en-US', { month: 'short' });
             }
-            
+
             const existing = groupedData.get(key) || { orders: 0, revenue: 0 };
             existing.orders += 1;
             existing.revenue += order.totalAmount || 0;
@@ -474,8 +587,8 @@ export class AdminDashboardService {
                 amount: Number(order.amount) || 0,
                 status: order.status,
                 date: order.date,
-                items: Array.isArray(order.items) ? order.items.length : 
-                       typeof order.items === 'string' ? JSON.parse(order.items).length : 0
+                items: Array.isArray(order.items) ? order.items.length :
+                    typeof order.items === 'string' ? JSON.parse(order.items).length : 0
             }));
         } catch (error) {
             console.error('Error fetching recent orders:', error);

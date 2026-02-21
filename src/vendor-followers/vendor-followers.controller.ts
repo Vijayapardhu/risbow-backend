@@ -1,4 +1,4 @@
-import { Controller, Post, Delete, Get, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Delete, Get, Param, UseGuards, Request, Query } from '@nestjs/common';
 import { VendorFollowersService } from './vendor-followers.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -8,6 +8,14 @@ import { UserRole } from '@prisma/client';
 @Controller('vendor-followers')
 export class VendorFollowersController {
     constructor(private readonly service: VendorFollowersService) { }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.VENDOR, UserRole.WHOLESALER)
+    @Get('my-followers')
+    async getMyFollowers(@Request() req: any, @Query('limit') limit?: string, @Query('offset') offset?: string) {
+        const vendorId = req.user.vendorId || req.user.id;
+        return this.service.getVendorFollowers(vendorId, limit ? parseInt(limit) : 50, offset ? parseInt(offset) : 0);
+    }
 
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.CUSTOMER, UserRole.VENDOR, UserRole.WHOLESALER)

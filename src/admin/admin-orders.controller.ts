@@ -49,6 +49,47 @@ export class AdminOrdersController {
         });
     }
 
+    // ── Literal routes MUST appear before @Get(':id') to avoid shadowing ──
+    @Get('export')
+    async exportOrdersJson(
+        @Query('status') status?: string,
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
+        @Query('page') page: string = '1',
+        @Query('limit') limit: string = '200',
+    ) {
+        const where: any = {};
+        if (status) where.status = status.toUpperCase();
+        if (startDate || endDate) {
+            where.createdAt = {};
+            if (startDate) where.createdAt.gte = new Date(startDate);
+            if (endDate) where.createdAt.lte = new Date(endDate);
+        }
+        const pageNum = Math.max(1, Number(page) || 1);
+        const limitNum = Math.min(500, Number(limit) || 200);
+        const [orders, total] = await Promise.all([
+            this.prisma.order.findMany({
+                where,
+                skip: (pageNum - 1) * limitNum,
+                take: limitNum,
+                select: {
+                    id: true,
+                    orderNumber: true,
+                    status: true,
+                    totalAmount: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+                orderBy: { createdAt: 'desc' },
+            }),
+            this.prisma.order.count({ where }),
+        ]);
+        return {
+            data: orders,
+            meta: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum), exportedAt: new Date().toISOString() },
+        };
+    }
+
     @Get(':id')
     async findOne(@Param('id') id: string) {
         return this.ordersService.getOrderDetail(id);

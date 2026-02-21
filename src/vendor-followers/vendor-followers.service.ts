@@ -5,6 +5,39 @@ import { PrismaService } from '../prisma/prisma.service';
 export class VendorFollowersService {
     constructor(private prisma: PrismaService) { }
 
+    async getVendorFollowers(vendorId: string, limit = 50, offset = 0) {
+        const [followers, total] = await Promise.all([
+            this.prisma.vendorFollower.findMany({
+                where: { vendorId },
+                include: {
+                    User: {
+                        select: {
+                            id: true,
+                            name: true,
+                            mobile: true,
+                            email: true,
+                        }
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                take: limit,
+                skip: offset,
+            }),
+            this.prisma.vendorFollower.count({ where: { vendorId } })
+        ]);
+
+        return {
+            followers: followers.map(f => ({
+                userId: f.userId,
+                user: f.User,
+                createdAt: f.createdAt,
+            })),
+            total,
+            limit,
+            offset,
+        };
+    }
+
     async followVendor(userId: string, vendorId: string) {
         const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
         if (!vendor) throw new NotFoundException('Vendor not found');

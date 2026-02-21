@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Request, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Request, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { VendorOrdersService } from './vendor-orders.service';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
@@ -62,6 +62,17 @@ export class VendorOrdersController {
     @Roles(UserRole.VENDOR)
     @ApiOperation({ summary: 'Update order status (Packed/Shipped)' })
     async updateStatus(
+        @Request() req: any,
+        @Param('id') orderId: string,
+        @Body('status') status: string
+    ) {
+        return this.vendorOrdersService.updateOrderStatus(req.user.vendorId, orderId, status);
+    }
+
+    @Patch(':id/status')
+    @Roles(UserRole.VENDOR)
+    @ApiOperation({ summary: 'Update order status (PATCH alias)' })
+    async updateStatusPatch(
         @Request() req: any,
         @Param('id') orderId: string,
         @Body('status') status: string

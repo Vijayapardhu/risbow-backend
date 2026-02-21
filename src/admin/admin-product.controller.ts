@@ -62,6 +62,35 @@ export class AdminProductController {
         return this.productService.blockProduct(id);
     }
 
+    // ── Literal sub-routes MUST come before @Get(':id') to avoid shadowing ──
+
+    @Get('pending')
+    async getPendingProducts(
+        @Query('page') page: number = 1,
+        @Query('limit') limit: number = 50,
+        @Query('search') search?: string,
+    ) {
+        return this.productService.getProductList({
+            status: 'PENDING',
+            page: Number(page),
+            limit: Number(limit),
+            search,
+        });
+    }
+
+    @Get('low-stock')
+    async getLowStockProducts(
+        @Query('page') page: number = 1,
+        @Query('limit') limit: number = 50,
+        @Query('threshold') threshold: number = 10,
+    ) {
+        return this.productService.getLowStockProducts({
+            page: Number(page),
+            limit: Number(limit),
+            threshold: Number(threshold),
+        });
+    }
+
     @Get(':id/vendor-offers')
     async getVendorOffers(@Param('id') id: string) {
         return this.productService.getVendorOffers(id);

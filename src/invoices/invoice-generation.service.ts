@@ -401,31 +401,48 @@ export class InvoiceGenerationService {
         }).format(amountInCurrency);
     }
 
-    private async generateUniqueInvoiceNumber(): Promise<string> {
-        const year = new Date().getFullYear();
-        const month = String(new Date().getMonth() + 1).padStart(2, '0');
-        
-        // Find the last invoice number for this month
-        const lastInvoice = await this.prisma.order.findFirst({
-            where: {
-                invoiceNumber: {
-                    startsWith: `INV${year}${month}`
+    private async generateUniqueInvoiceNumber(maxRetries = 5): Promise<string> {
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            const year = new Date().getFullYear();
+            const month = String(new Date().getMonth() + 1).padStart(2, '0');
+            
+            // Find the last invoice number for this month
+            const lastInvoice = await this.prisma.order.findFirst({
+                where: {
+                    invoiceNumber: {
+                        startsWith: `INV${year}${month}`
+                    }
+                },
+                orderBy: {
+                    invoiceNumber: 'desc'
+                },
+                select: {
+                    invoiceNumber: true
                 }
-            },
-            orderBy: {
-                invoiceNumber: 'desc'
-            },
-            select: {
-                invoiceNumber: true
+            });
+
+            let sequence = 1;
+            if (lastInvoice?.invoiceNumber) {
+                const lastSequence = parseInt(lastInvoice.invoiceNumber.slice(-5));
+                sequence = lastSequence + 1;
             }
-        });
 
-        let sequence = 1;
-        if (lastInvoice?.invoiceNumber) {
-            const lastSequence = parseInt(lastInvoice.invoiceNumber.slice(-5));
-            sequence = lastSequence + 1;
+            const invoiceNumber = `INV${year}${month}${sequence.toString().padStart(5, '0')}`;
+            
+            // Check if this invoice number already exists
+            const existing = await this.prisma.order.findFirst({
+                where: { invoiceNumber }
+            });
+            
+            if (!existing) {
+                return invoiceNumber;
+            }
+            
+            // If it exists, retry with a new number
+            console.log(`[Invoice] Collision detected for ${invoiceNumber}, retrying...`);
         }
-
-        return `INV${year}${month}${sequence.toString().padStart(5, '0')}`;
+        
+        // Fallback: generate a timestamp-based unique number
+        return `INV-${Date.now()}`;
     }
 }
