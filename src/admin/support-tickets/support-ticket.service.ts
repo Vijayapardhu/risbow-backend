@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateSupportTicketDto, UpdateSupportTicketDto, AssignTicketDto, ResolveTicketDto } from './dto';
@@ -106,45 +106,62 @@ export class SupportTicketService {
   }
 
   async updateTicket(id: string, dto: UpdateSupportTicketDto) {
-    return this.prisma.supportTicket.update({
-      where: { id },
-      data: dto,
-    });
+    try {
+      return await this.prisma.supportTicket.update({ where: { id }, data: dto });
+    } catch (e: any) {
+      if (e?.code === 'P2025') throw new NotFoundException(`Ticket ${id} not found`);
+      throw e;
+    }
   }
 
   async assignTicket(id: string, assignDto: AssignTicketDto) {
-    return this.prisma.supportTicket.update({
-      where: { id },
-      data: {
-        assignedTo: assignDto.agentId,
-        status: 'IN_PROGRESS', // Automatically set to in-progress when assigned
-      },
-    });
+    try {
+      return await this.prisma.supportTicket.update({
+        where: { id },
+        data: { assignedTo: assignDto.agentId, status: 'IN_PROGRESS' as any },
+      });
+    } catch (e: any) {
+      if (e?.code === 'P2025') throw new NotFoundException(`Ticket ${id} not found`);
+      throw e;
+    }
   }
 
   async updateTicketStatus(id: string, status: string) {
-    return this.prisma.supportTicket.update({
-      where: { id },
-      data: { status: status as any },
-    });
+    try {
+      return await this.prisma.supportTicket.update({
+        where: { id },
+        data: { status: status as any },
+      });
+    } catch (e: any) {
+      if (e?.code === 'P2025') throw new NotFoundException(`Ticket ${id} not found`);
+      throw e;
+    }
   }
 
   async resolveTicket(id: string, resolveDto: ResolveTicketDto) {
-    return this.prisma.supportTicket.update({
-      where: { id },
-      data: {
-        status: 'RESOLVED',
-        resolvedAt: new Date(),
-        closedAt: new Date(),
-        firstResponseAt: new Date(), // Set first response time when resolved
-      },
-    });
+    try {
+      return await this.prisma.supportTicket.update({
+        where: { id },
+        data: {
+          status: 'RESOLVED',
+          resolvedAt: new Date(),
+          closedAt: new Date(),
+          firstResponseAt: new Date(),
+        },
+      });
+    } catch (e: any) {
+      if (e?.code === 'P2025') throw new NotFoundException(`Ticket ${id} not found`);
+      throw e;
+    }
   }
 
   async deleteTicket(id: string) {
-    return this.prisma.supportTicket.delete({
-      where: { id },
-    });
+    try {
+      return await this.prisma.supportTicket.delete({ where: { id } });
+    } catch (e: any) {
+      if (e?.code === 'P2025') throw new NotFoundException(`Ticket ${id} not found`);
+      throw e;
+    }
   }
 
   async getTicketMessages(ticketId: string) {
