@@ -342,6 +342,9 @@ export class AdminService {
     }
 
     async toggleCod(adminId: string, userId: string, disabled: boolean) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
         const updated = await this.prisma.user.update({
             where: { id: userId },
             data: { isCodDisabled: disabled }
@@ -737,7 +740,9 @@ export class AdminService {
     // --- New Enterprise Methods (Cleanup) ---
 
     async forceLogout(adminId: string, userId: string) {
-        // Set forceLogoutAt to now and invalidate all sessions via Redis
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
         const updatedUser = await this.prisma.user.update({
             where: { id: userId },
             data: { forceLogoutAt: new Date() }
@@ -758,7 +763,7 @@ export class AdminService {
                 entityId: userId,
                 action: 'FORCE_LOGOUT',
                 details: {
-                    previousForceLogoutAt: updatedUser.forceLogoutAt,
+                    previousForceLogoutAt: user.forceLogoutAt,
                     newForceLogoutAt: new Date().toISOString()
                 }
             }
@@ -768,6 +773,9 @@ export class AdminService {
     }
 
     async updateKycStatus(adminId: string, userId: string, status: string, notes?: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
         const updatedUser = await this.prisma.user.update({
             where: { id: userId },
             data: { kycStatus: status }
@@ -781,6 +789,9 @@ export class AdminService {
     }
 
     async toggleRefunds(adminId: string, userId: string, disabled: boolean) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
         const updatedUser = await this.prisma.user.update({
             where: { id: userId },
             data: { isRefundsDisabled: disabled }
