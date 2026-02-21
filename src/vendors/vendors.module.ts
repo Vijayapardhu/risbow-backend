@@ -14,7 +14,6 @@ import { VendorReturnsController } from './vendor-returns.controller';
 import { VendorCouponsController } from './vendor-coupons.controller';
 import { VendorCouponsAliasController } from './vendor-coupons-alias.controller';
 import { VendorNotificationsController } from './vendor-notifications.controller';
-import { VendorBannersController } from './vendor-banners.controller';
 import { VendorDashboardController, VendorAnalyticsController, VendorReviewsController, VendorCustomersController } from './vendor-dashboard.controller';
 import { VendorCampaignsController } from './vendor-campaigns.controller';
 import { CoinsModule } from '../coins/coins.module';
@@ -36,7 +35,7 @@ import { VendorCouponsService } from './vendor-coupons.service';
 import { VendorNotificationsService } from './vendor-notifications.service';
 import { VendorReportsController } from './vendor-reports.controller';
 import { VendorReportsService } from './vendor-reports.service';
-import { BannersService } from '../banners/banners.service';
+
 
 @Module({
     imports: [CoinsModule, forwardRef(() => PaymentsModule)],
@@ -57,7 +56,6 @@ import { BannersService } from '../banners/banners.service';
         VendorCouponsAliasController,
         VendorNotificationsController,
         VendorReportsController,
-        VendorBannersController,
         VendorDashboardController,
         VendorAnalyticsController,
         VendorReviewsController,
