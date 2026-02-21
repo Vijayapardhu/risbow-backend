@@ -79,7 +79,11 @@
                             "script": {
                                 "exec": [
                                     "const r = pm.response.json();",
-                                    "if (r.accessToken) pm.collectionVariables.set('adminToken', r.accessToken);",
+                                    "if (r.accessToken) {",
+                                    "    pm.collectionVariables.set('adminToken', r.accessToken);",
+                                    "    console.log('✅ Token saved:', r.accessToken.substring(0,30) + '...');",
+                                    "}",
+                                    "if (r.refreshToken) pm.collectionVariables.set('REFRESH_TOKEN', r.refreshToken);",
                                     "pm.test('Login OK', () => pm.response.to.have.status(200));"
                                 ]
                             }
@@ -99,7 +103,7 @@
                         "url": "{{baseUrl}}/admin/auth/login",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"email\": \"admin@risbow.com\",\n  \"password\": \"YOUR_PASSWORD\"\n}"
+                            "raw": "{\n  \"email\": \"admin@risbow.com\",\n  \"password\": \"Admin@123\"\n}"
                         }
                     }
                 },
@@ -111,7 +115,8 @@
                     }
                 },
                 {
-                    "name": "Refresh Token",
+                    "name": "⚙️ Refresh Token [manual only]",
+                    "disabled": true,
                     "request": {
                         "method": "POST",
                         "header": [
@@ -123,19 +128,21 @@
                         "url": "{{baseUrl}}/admin/auth/refresh",
                         "body": {
                             "mode": "raw",
-                            "raw": "{ \"refreshToken\": \"YOUR_REFRESH_TOKEN\" }"
+                            "raw": "{ \"refreshToken\": \"{{REFRESH_TOKEN}}\" }"
                         }
                     }
                 },
                 {
-                    "name": "Logout",
+                    "name": "⚠️ Logout [manual only — kills session]",
+                    "disabled": true,
                     "request": {
                         "method": "POST",
                         "url": "{{baseUrl}}/admin/auth/logout"
                     }
                 },
                 {
-                    "name": "Change Password",
+                    "name": "⚠️ Change Password [manual only]",
+                    "disabled": true,
                     "request": {
                         "method": "POST",
                         "header": [
@@ -147,7 +154,7 @@
                         "url": "{{baseUrl}}/admin/auth/change-password",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"currentPassword\": \"old_password\",\n  \"newPassword\": \"new_password\"\n}"
+                            "raw": "{\n  \"currentPassword\": \"Admin@123\",\n  \"newPassword\": \"NewPassword@123\"\n}"
                         }
                     }
                 }
